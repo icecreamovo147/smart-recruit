@@ -138,13 +138,22 @@ func (h *AgentSkillHandler) DebugSemanticRetrieval(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
 	jobID, _ := strconv.ParseInt(c.DefaultQuery("job_id", "0"), 10, 64)
 	applicationID, _ := strconv.ParseInt(c.DefaultQuery("application_id", "0"), 10, 64)
+	ownerRole, _ := strconv.Atoi(strings.TrimSpace(c.Query("owner_role")))
+	ownerID, _ := strconv.ParseUint(strings.TrimSpace(c.Query("owner_id")), 10, 64)
+	hrID := currentUserID(c)
+	if ownerRole <= 0 || ownerID == 0 {
+		ownerRole = int(memoryOwnerRoleHR)
+		ownerID = uint64(hrID)
+	}
 	resp, err := h.clients.AgentSkill.DebugSemanticRetrieval(c.Request.Context(), &pb.DebugSemanticRetrievalRequest{
-		HrId:          currentUserID(c),
+		HrId:          hrID,
 		Query:         strings.TrimSpace(c.Query("query")),
 		AgentType:     strings.TrimSpace(c.DefaultQuery("agent_type", "hr_recruiting_agent")),
 		JobId:         jobID,
 		ApplicationId: applicationID,
 		Limit:         int32(limit),
+		OwnerRole:     int32(ownerRole),
+		OwnerId:       ownerID,
 	})
 	if err != nil {
 		logger.L().Error("DebugSemanticRetrieval failed", zap.Error(err))

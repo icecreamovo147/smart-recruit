@@ -16,6 +16,7 @@ import (
 	"smart-recruit-proto/recruitment/pb"
 
 	commonsai "smart-recruit-commons/ai"
+	"smart-recruit-ai-agent-service/internal/application/contextbudget"
 )
 
 func TestSessionMessagesPreservesAgentSkillMetadata(t *testing.T) {
@@ -366,7 +367,7 @@ func TestCandidateContextExcludesPersistedFailureMessages(t *testing.T) {
 	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: 55, SessionID: 901, Role: "user", Content: "current question"})
 	service := newCandidateAITestService(store, &fakeCandidateADKProvider{reply: "reply"})
 
-	messages, err := service.buildCandidateAgentMessages(context.Background(), 55, 901, "current question", "system")
+	messages, candidateContextUsage, err := service.buildCandidateAgentMessages(context.Background(), 55, 901, "current question", "system", "", RuntimeModelInfo{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -377,6 +378,39 @@ func TestCandidateContextExcludesPersistedFailureMessages(t *testing.T) {
 	}
 	if got := countMessageContent(messages, "current question"); got != 1 {
 		t.Fatalf("current question count = %d, want 1", got)
+	}
+	_ = candidateContextUsage
+}
+
+func TestCandidateContextInjectsRollingSummary(t *testing.T) {
+	store := newFakeAIStore()
+	store.seedChatSession(ownerRoleCandidate, 55, 902, "summary session")
+	for i := 1; i <= 25; i++ {
+		store.seedChatMessage(ChatMessageRow{
+			OwnerRole: ownerRoleCandidate, OwnerID: 55, SessionID: 902,
+			Role: "assistant", Content: fmt.Sprintf("history-%02d", i),
+		})
+	}
+	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: 55, SessionID: 902, Role: "user", Content: "current question"})
+	store.sessionSummaryByKey[store.sessionSummaryKey(55, 902)] = fakeSessionSummaryState{summary: "older conversation facts", coveredID: 10}
+	service := newCandidateAITestService(store, &fakeCandidateADKProvider{reply: "reply"})
+
+	messages, usage, err := service.buildCandidateAgentMessages(context.Background(), 55, 902, "current question", "system", "", RuntimeModelInfo{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundSummary := false
+	for _, message := range messages {
+		if strings.HasPrefix(message.Content, contextbudget.SummaryMessagePrefix) &&
+			strings.Contains(message.Content, "older conversation facts") {
+			foundSummary = true
+		}
+	}
+	if !foundSummary {
+		t.Fatalf("rolling summary not injected: %#v", messages)
+	}
+	if usage == nil || !usage.GetSummaryApplied() || usage.GetBreakdown().GetSummaryTokens() <= 0 {
+		t.Fatalf("summary usage missing: %+v", usage)
 	}
 }
 
@@ -2764,6 +2798,12 @@ type fakeAIStore struct {
 	billingCancellation  *pb.CancelAIUsageRequest
 	billingOutboxStatus  string
 	billingSettlementErr error
+	sessionSummaryByKey map[string]fakeSessionSummaryState
+}
+
+type fakeSessionSummaryState struct {
+	summary   string
+	coveredID int64
 }
 
 func (s *fakeAIStore) CreateBillingOutboxReservation(_ context.Context, record BillingOutboxReservation) error {
@@ -2817,7 +2857,40 @@ func (s *fakeAIStore) GetLatestRecruitingCandidateMatchEvaluationSnapshotByAppli
 }
 
 func newFakeAIStore() *fakeAIStore {
-	return &fakeAIStore{nextSessionID: 100, nextMessageID: 200, sessionOwners: make(map[int64]fakeChatSessionOwner), promptByID: make(map[int64]*pb.PromptTemplateInfo)}
+	return &fakeAIStore{
+		nextSessionID: 100, nextMessageID: 200,
+		sessionOwners: make(map[int64]fakeChatSessionOwner),
+		promptByID:    make(map[int64]*pb.PromptTemplateInfo),
+		sessionSummaryByKey: make(map[string]fakeSessionSummaryState),
+	}
+}
+
+func (s *fakeAIStore) sessionSummaryKey(ownerID, sessionID int64) string {
+	return fmt.Sprintf("%d:%d", ownerID, sessionID)
+}
+
+func (s *fakeAIStore) GetSessionSummaryState(_ context.Context, ownerID, sessionID int64) (string, int64, int, bool, error) {
+	if s == nil || s.sessionSummaryByKey == nil {
+		return "", 0, 0, false, nil
+	}
+	state, ok := s.sessionSummaryByKey[s.sessionSummaryKey(ownerID, sessionID)]
+	if !ok || strings.TrimSpace(state.summary) == "" {
+		return "", 0, 0, false, nil
+	}
+	return state.summary, state.coveredID, 0, true, nil
+}
+
+func (s *fakeAIStore) UpsertSessionSummaryIfNewer(_ context.Context, ownerID, sessionID int64, summary string, coveredMessageID int64, _ int) (bool, error) {
+	if s.sessionSummaryByKey == nil {
+		s.sessionSummaryByKey = make(map[string]fakeSessionSummaryState)
+	}
+	key := s.sessionSummaryKey(ownerID, sessionID)
+	current := s.sessionSummaryByKey[key]
+	if coveredMessageID <= current.coveredID {
+		return false, nil
+	}
+	s.sessionSummaryByKey[key] = fakeSessionSummaryState{summary: summary, coveredID: coveredMessageID}
+	return true, nil
 }
 
 func (s *fakeAIStore) EnsureChatSession(_ context.Context, ownerRole int32, ownerID int64, title string, applicationID int64) (ChatSessionRow, error) {

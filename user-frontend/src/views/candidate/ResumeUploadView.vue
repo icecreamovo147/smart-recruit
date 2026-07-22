@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { Document, Download, UploadFilled } from '@element-plus/icons-vue'
+import { Document, Download, UploadFilled, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { confirmResume, getResume, presignResume, putResumeFile } from '@/api/resume'
 import type { ResumeInfo } from '@/types/domain'
@@ -17,17 +17,63 @@ const uploaderSectionRef = ref<any>(null)
 const isPDF = computed(() => currentResume.value?.file_type === 'pdf')
 const showUploader = ref(false)
 const highlightUploader = ref(false)
+/** PDF preview is opt-in so entering the page does not download the file. */
+const previewRequested = ref(false)
+const previewRefreshing = ref(false)
 const allowed = ['pdf', 'docx']
 let highlightTimer: ReturnType<typeof setTimeout> | null = null
+
+const fetchResume = async () => {
+  const data = await getResume()
+  currentResume.value = data.resume || null
+  showUploader.value = !currentResume.value
+  return currentResume.value
+}
 
 const loadResume = async () => {
   resumeLoading.value = true
   try {
-    const data = await getResume()
-    currentResume.value = data.resume || null
-    showUploader.value = !currentResume.value
+    await fetchResume()
+    previewRequested.value = false
   } finally {
     resumeLoading.value = false
+  }
+}
+
+const showResumePreview = async () => {
+  if (!currentResume.value?.resume_url || !isPDF.value) {
+    ElMessage.warning('简历预览暂不可用')
+    return
+  }
+  previewRefreshing.value = true
+  try {
+    // Refresh the signed URL before mounting the iframe (presign expiry ~15m).
+    await fetchResume()
+    if (!currentResume.value?.resume_url) {
+      ElMessage.warning('简历预览暂不可用')
+      previewRequested.value = false
+      return
+    }
+    previewRequested.value = true
+  } finally {
+    previewRefreshing.value = false
+  }
+}
+
+const hideResumePreview = () => {
+  previewRequested.value = false
+}
+
+const refreshResumePreview = async () => {
+  previewRefreshing.value = true
+  try {
+    await fetchResume()
+    if (!currentResume.value?.resume_url) {
+      ElMessage.warning('简历预览暂不可用')
+      previewRequested.value = false
+    }
+  } finally {
+    previewRefreshing.value = false
   }
 }
 
@@ -146,11 +192,29 @@ onMounted(loadResume)
             <span>{{ formatUploadedAt(currentResume.uploaded_at) }}</span>
           </div>
         </div>
-        <el-button type="primary" :icon="UploadFilled" @click="showUpdateUploader">更新简历</el-button>
+        <div class="resume-current__actions">
+          <template v-if="previewRequested && isPDF">
+            <el-button @click="hideResumePreview">收起预览</el-button>
+            <el-button :loading="previewRefreshing" @click="refreshResumePreview">重新加载</el-button>
+          </template>
+          <el-button type="primary" :icon="UploadFilled" @click="showUpdateUploader">更新简历</el-button>
+        </div>
       </div>
 
       <div v-if="currentResume" class="resume-preview">
-        <iframe v-if="currentResume.resume_url && isPDF" :key="currentResume.resume_url" :src="currentResume.resume_url" title="简历预览" />
+        <template v-if="currentResume.resume_url && isPDF">
+          <div v-if="!previewRequested" class="resume-preview-fallback" v-loading="previewRefreshing">
+            <el-icon :size="48"><Document /></el-icon>
+            <h2>点击查看简历</h2>
+            <p>预览需要加载文件，确认需要时再打开即可</p>
+            <el-button type="primary" :icon="View" :loading="previewRefreshing" class="resume-download-btn" @click="showResumePreview">
+              查看简历
+            </el-button>
+          </div>
+          <div v-else class="resume-preview-active" v-loading="previewRefreshing">
+            <iframe :key="currentResume.resume_url" :src="currentResume.resume_url" title="简历预览" />
+          </div>
+        </template>
         <div v-else-if="currentResume.resume_url && !isPDF" class="resume-preview-fallback">
           <el-icon :size="48"><Document /></el-icon>
           <h2>DOCX 文件不支持在线预览</h2>

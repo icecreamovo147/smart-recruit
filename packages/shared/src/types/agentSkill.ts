@@ -293,6 +293,8 @@ export interface SemanticRetrievalDebugParams {
   job_id?: number
   application_id?: number
   limit?: number
+  owner_role?: number
+  owner_id?: number
 }
 
 export interface SemanticRetrievalDebugResult {

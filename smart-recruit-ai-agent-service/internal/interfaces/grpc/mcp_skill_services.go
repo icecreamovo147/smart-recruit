@@ -495,7 +495,7 @@ func (s nativeAgentSkillService) PreviewAgentSkill(ctx context.Context, req *pb.
 
 func (s nativeAgentSkillService) DebugSemanticRetrieval(ctx context.Context, req *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
 	if s.embedding != nil {
-		return s.embedding.SearchAgentSkills(ctx, req.GetQuery(), int(req.GetLimit()))
+		return s.embedding.DebugSemanticRetrieval(ctx, req)
 	}
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {

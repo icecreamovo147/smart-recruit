@@ -410,10 +410,11 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
                 </div>
               </div>
             </template>
-            <div v-if="visibleContextUsage.included_message_count != null || visibleContextUsage.omitted_message_count != null || visibleContextUsage.summary_applied" class="context-usage-popover__meta">
+            <div v-if="visibleContextUsage.included_message_count != null || visibleContextUsage.omitted_message_count != null || visibleContextUsage.summary_applied || visibleContextUsage.memory_applied" class="context-usage-popover__meta">
               <span v-if="visibleContextUsage.included_message_count != null">纳入 {{ visibleContextUsage.included_message_count }} 条消息</span>
               <span v-if="visibleContextUsage.omitted_message_count != null">省略 {{ visibleContextUsage.omitted_message_count }} 条消息</span>
               <span v-if="visibleContextUsage.summary_applied">已应用会话摘要</span>
+              <span v-if="visibleContextUsage.memory_applied">已应用长期记忆</span>
             </div>
             <div class="context-usage-popover__footer">
               <span>{{ contextUsageStageLabel(visibleContextUsage.stage) }}</span>

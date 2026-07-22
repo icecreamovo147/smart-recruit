@@ -127,6 +127,14 @@ service AIService {
   rpc SubscribeAgentRunEvents(SubscribeAgentRunEventsRequest) returns (stream AgentRunEvent);
   rpc CancelAgentRun(CancelAgentRunRequest) returns (CancelAgentRunResponse);
   rpc ConfirmAgentRun(ConfirmAgentRunRequest) returns (ConfirmAgentRunResponse);
+
+  // Durable agent memory lifecycle (owner-scoped long-term memory).
+  rpc ListMemories(ListMemoriesRequest) returns (ListMemoriesResponse);
+  rpc GetMemory(GetMemoryRequest) returns (MemoryResponse);
+  rpc CreateMemory(CreateMemoryRequest) returns (MemoryResponse);
+  rpc UpdateMemory(UpdateMemoryRequest) returns (MemoryResponse);
+  rpc RevokeMemory(RevokeMemoryRequest) returns (MemoryResponse);
+  rpc RecallMemories(RecallMemoriesRequest) returns (RecallMemoriesResponse);
 }
 
 // BillingService is an internal authority for AI entitlements, credit reservations,
@@ -1080,6 +1088,7 @@ message ContextUsageInfo {
   string model_fallback_reason = 24;
   int64 capability_version_id = 25;
   string capability_snapshot_hash = 26;
+  bool memory_applied = 27;
 }
 
 message ChatResponse {
@@ -1551,6 +1560,137 @@ message ConfirmAgentRunResponse {
   int32 code = 1;
   string msg = 2;
   AgentRunSnapshot run = 3;
+}
+
+// ── Agent Memory ──────────────────────────────────────────────────────
+
+message MemoryInfo {
+  uint64 id = 1;
+  int64 tenant_id = 2;
+  int32 owner_role = 3;
+  uint64 owner_id = 4;
+  uint64 hr_id = 5;
+  string scope_type = 6;
+  uint64 scope_id = 7;
+  string memory_type = 8;
+  string content = 9;
+  string source = 10;
+  double confidence = 11;
+  double importance = 12;
+  string status = 13;
+  string pii_level = 14;
+  string content_hash = 15;
+  int64 source_session_id = 16;
+  int64 source_message_id = 17;
+  int64 source_run_id = 18;
+  int64 created_by = 19;
+  int64 revoked_by = 20;
+  string revoke_reason = 21;
+  string expires_at = 22;
+  string deleted_at = 23;
+  string created_at = 24;
+  string updated_at = 25;
+}
+
+message ListMemoriesRequest {
+  int64 tenant_id = 1;
+  int32 owner_role = 2;
+  uint64 owner_id = 3;
+  string scope_type = 4;
+  uint64 scope_id = 5;
+  string memory_type = 6;
+  string status = 7;
+  string pii_level = 8;
+  int32 page = 9;
+  int32 page_size = 10;
+}
+
+message ListMemoriesResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated MemoryInfo list = 4;
+}
+
+message GetMemoryRequest {
+  uint64 id = 1;
+  int32 owner_role = 2;
+  uint64 owner_id = 3;
+}
+
+message MemoryResponse {
+  int32 code = 1;
+  string msg = 2;
+  MemoryInfo memory = 3;
+}
+
+message CreateMemoryRequest {
+  int64 tenant_id = 1;
+  int32 owner_role = 2;
+  uint64 owner_id = 3;
+  string scope_type = 4;
+  uint64 scope_id = 5;
+  string memory_type = 6;
+  string content = 7;
+  string source = 8;
+  double confidence = 9;
+  double importance = 10;
+  string pii_level = 11;
+  int64 source_session_id = 12;
+  int64 source_message_id = 13;
+  int64 source_run_id = 14;
+  int64 created_by = 15;
+  string expires_at = 16;
+  bool confirm_high_pii = 17;
+}
+
+message UpdateMemoryRequest {
+  uint64 id = 1;
+  int32 owner_role = 2;
+  uint64 owner_id = 3;
+  string content = 4;
+  double confidence = 5;
+  double importance = 6;
+  string status = 7;
+  string pii_level = 8;
+  string expires_at = 9;
+  bool content_set = 10;
+  bool confidence_set = 11;
+  bool importance_set = 12;
+  bool status_set = 13;
+  bool pii_level_set = 14;
+  bool expires_at_set = 15;
+}
+
+message RevokeMemoryRequest {
+  uint64 id = 1;
+  int32 owner_role = 2;
+  uint64 owner_id = 3;
+  int64 revoked_by = 4;
+  string revoke_reason = 5;
+}
+
+message RecallMemoriesRequest {
+  int64 tenant_id = 1;
+  int32 owner_role = 2;
+  uint64 owner_id = 3;
+  string scope_type = 4;
+  uint64 scope_id = 5;
+  string query = 6;
+  int32 limit = 7;
+  repeated string memory_types = 8;
+}
+
+message RecallMemoryItem {
+  MemoryInfo memory = 1;
+  double score = 2;
+  string reason = 3;
+}
+
+message RecallMemoriesResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated RecallMemoryItem items = 3;
 }
 
 // ── Interview ─────────────────────────────────────────────────────────
@@ -4153,6 +4293,8 @@ message DebugSemanticRetrievalRequest {
   int64 job_id = 4;
   int64 application_id = 5;
   int32 limit = 6;
+  int32 owner_role = 7;
+  uint64 owner_id = 8;
 }
 
 message SemanticSkillDebugItem {

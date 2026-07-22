@@ -491,5 +491,6 @@ func mapContextUsage(cu *pb.ContextUsageInfo) map[string]any {
 		"included_message_count":     cu.GetIncludedMessageCount(),
 		"omitted_message_count":      cu.GetOmittedMessageCount(),
 		"summary_applied":            cu.GetSummaryApplied(),
+		"memory_applied":             cu.GetMemoryApplied(),
 	}
 }

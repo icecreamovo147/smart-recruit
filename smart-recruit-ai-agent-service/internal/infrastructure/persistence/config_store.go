@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
+	domainmemory "smart-recruit-ai-agent-service/internal/domain/memory"
 	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -1072,6 +1073,40 @@ func (s *NativeStore) ListAgentSkillEmbeddingDocuments(ctx context.Context, obje
 	return docs, nil
 }
 
+func (s *NativeStore) ListMemoryEmbeddingDocuments(ctx context.Context, objectID int64, limit int) ([]embeddinginfra.MemoryEmbeddingDocument, error) {
+	if s == nil || s.db == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	query := s.db.WithContext(ctx).Model(&aiMemoryRecord{}).Where("status = ?", domainmemory.StatusActive)
+	if objectID > 0 {
+		query = query.Where("id = ?", objectID)
+	}
+	var rows []aiMemoryRecord
+	if err := query.Order("updated_at DESC, id DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	docs := make([]embeddinginfra.MemoryEmbeddingDocument, 0, len(rows))
+	for _, row := range rows {
+		docs = append(docs, embeddinginfra.MemoryEmbeddingDocument{
+			ID:         int64(row.ID),
+			TenantID:   row.TenantID,
+			OwnerRole:  row.OwnerRole,
+			OwnerID:    row.OwnerID,
+			ScopeType:  row.ScopeType,
+			ScopeID:    row.ScopeID,
+			MemoryType: row.MemoryType,
+			Content:    row.Content,
+			Source:     row.Source,
+			Confidence: row.Confidence,
+			Importance: row.Importance,
+		})
+	}
+	return docs, nil
+}
+
 func (s *NativeStore) UpsertAIEmbedding(ctx context.Context, row embeddinginfra.AIEmbeddingRecord) error {
 	vector, err := json.Marshal(row.Vector)
 	if err != nil {
@@ -1148,6 +1183,79 @@ func (s *NativeStore) ListAIEmbeddings(ctx context.Context, objectType, modelNam
 		})
 	}
 	return out, nil
+}
+
+func (s *NativeStore) ListAIEmbeddingsForOwner(ctx context.Context, objectType, modelName string, ownerRole int32, ownerID uint64, limit int) ([]embeddinginfra.AIEmbeddingRecord, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 500
+	}
+	var rows []aiEmbeddingRecord
+	query := s.db.WithContext(ctx).
+		Where("object_type = ? AND embedding_model = ? AND status = ?", strings.TrimSpace(objectType), strings.TrimSpace(modelName), "ready")
+	if ownerID > 0 {
+		query = query.Where("metadata_json LIKE ? OR metadata_json LIKE ?", fmt.Sprintf(`%%"owner_id":%d%%`, ownerID), fmt.Sprintf(`%%"owner_id":%d.0%%`, ownerID))
+	}
+	if err := query.Order("updated_at DESC, id DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]embeddinginfra.AIEmbeddingRecord, 0, len(rows))
+	for _, row := range rows {
+		var vector []float64
+		if row.VectorJSON.Valid {
+			_ = json.Unmarshal([]byte(row.VectorJSON.String), &vector)
+		}
+		var metadata map[string]any
+		if row.MetadataJSON.Valid {
+			_ = json.Unmarshal([]byte(row.MetadataJSON.String), &metadata)
+		}
+		if ownerID > 0 {
+			metaOwnerRole := int32(floatFromAny(metadata["owner_role"]))
+			metaOwnerID := uint64(floatFromAny(metadata["owner_id"]))
+			if metaOwnerID != ownerID || (ownerRole > 0 && metaOwnerRole != ownerRole) {
+				continue
+			}
+		}
+		out = append(out, embeddinginfra.AIEmbeddingRecord{
+			ObjectType:     row.ObjectType,
+			ObjectID:       row.ObjectID,
+			ScopeType:      row.ScopeType,
+			ScopeID:        row.ScopeID,
+			TextHash:       row.TextHash,
+			EmbeddingModel: row.EmbeddingModel,
+			EmbeddingDim:   row.EmbeddingDim,
+			Vector:         vector,
+			Metadata:       metadata,
+			Status:         row.Status,
+			LastError:      nullString(row.LastError),
+		})
+	}
+	return out, nil
+}
+
+func floatFromAny(value any) float64 {
+	switch v := value.(type) {
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case int:
+		return float64(v)
+	case int32:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case uint:
+		return float64(v)
+	case uint32:
+		return float64(v)
+	case uint64:
+		return float64(v)
+	case json.Number:
+		n, _ := v.Float64()
+		return n
+	default:
+		return 0
+	}
 }
 
 func (s *NativeStore) getLlmProviderResponse(ctx context.Context, id int64) (*pb.ProviderResponse, error) {

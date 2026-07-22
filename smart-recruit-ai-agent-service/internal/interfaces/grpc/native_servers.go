@@ -23,6 +23,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	candidatetools "smart-recruit-ai-agent-service/internal/application/candidate_tools"
+	appmemory "smart-recruit-ai-agent-service/internal/application/memory"
+	"smart-recruit-ai-agent-service/internal/application/contextbudget"
 	"smart-recruit-ai-agent-service/internal/application/hr_tools"
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
 	"smart-recruit-ai-agent-service/internal/domain/model"
@@ -234,6 +236,8 @@ type RuntimeDeps struct {
 	Store            AIStore
 	Provider         ChatProvider
 	RecruitingPolicy recruitingruntime.RuntimePolicy
+	MemoryService    *appmemory.Service
+	EmbeddingService *embeddinginfra.EmbeddingService
 	EmbeddingWorker  bool
 	AgentRunWorker   bool
 	RuntimeName      string
@@ -799,7 +803,9 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 		mcpRunner = mcpinfra.NewRunner()
 	}
 	var embeddingService *embeddinginfra.EmbeddingService
-	if store, ok := deps.Store.(embeddinginfra.EmbeddingStore); ok {
+	if deps.EmbeddingService != nil {
+		embeddingService = deps.EmbeddingService
+	} else if store, ok := deps.Store.(embeddinginfra.EmbeddingStore); ok {
 		embeddingService = embeddinginfra.NewEmbeddingService(store, deps.EmbeddingRunner)
 	}
 	ai := newNativeAIServiceWithRunner(deps.Store, deps.Provider, deps.Applications, deps.Jobs, deps.AppList, mcpRunner, embeddingService)
@@ -809,6 +815,7 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 	ai.billingRequired = deps.BillingRequired
 	ai.agentRunTimeout = deps.AgentRunTimeout
 	ai.agentRuntime = normalizeAgentRuntime(deps.RuntimeName)
+	ai.memoryService = deps.MemoryService
 	if store, ok := deps.Store.(candidatetools.DataStore); ok {
 		ai.candidateTools = candidatetools.NewExecutor(store)
 	}
@@ -905,6 +912,7 @@ type nativeAIService struct {
 	runCancelMu             sync.Mutex
 	runCancels              map[int64]*agentRunCancelEntry
 	runTransitionMu         sync.Mutex
+	memoryService           *appmemory.Service
 }
 
 func (s *nativeAIService) effectiveAgentRuntime() string {
@@ -1061,6 +1069,15 @@ type hrRuntimeGovernanceContext struct {
 	AgentSkillSelectionMessageID int64
 	GovernanceErrors             []hrRuntimeGovernanceError
 	ReleaseRefs                  CapabilityConfigurationRefs
+	MemorySection                string
+	MemoryEvidence               hrRuntimeMemoryEvidence
+}
+
+type hrRuntimeMemoryEvidence struct {
+	MemoryIDs      []uint64 `json:"memory_ids,omitempty"`
+	Count          int      `json:"count,omitempty"`
+	Chars          int      `json:"chars,omitempty"`
+	RelevanceModes []string `json:"relevance_modes,omitempty"`
 }
 
 type hrRuntimeAgentSkill struct {
@@ -1498,7 +1515,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			}
 			if int64(estimateTokensConservative(contextPrompt)+6) > inputBudget {
 				budgetController.usage.BudgetStatus = "over_budget"
-				return result, &hrContextGuardError{code: hrContextBudgetExceededCode}
+				return result, &hrContextGuardError{Code: hrContextBudgetExceededCode}
 			}
 		}
 		assemblyUsage := result.contextUsage
@@ -1565,6 +1582,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			return result, err
 		}
 	}
+	s.asyncExtractHRMemory(req, session.ID, req.GetMessage(), reply, 0, 0)
 	return result, nil
 }
 
@@ -2282,6 +2300,9 @@ func (s *nativeAIService) loadHRRuntimeGovernanceForAgentWithRelease(ctx context
 func (s *nativeAIService) loadHRRuntimeGovernanceForAgentCore(ctx context.Context, req *pb.ChatRequest, effectiveAgentID int64, effectiveAgentPinned bool, refs CapabilityConfigurationRefs, enforceRelease bool) (hrRuntimeGovernanceContext, error) {
 	var runtime hrRuntimeGovernanceContext
 	runtime.ReleaseRefs = refs
+	memoryRecall := s.recallHRMemory(ctx, req, 0, 0)
+	runtime.MemorySection = memoryRecall.InjectText
+	runtime.MemoryEvidence = memoryRecall.Evidence
 	if s == nil || s.store == nil {
 		return runtime, nil
 	}
@@ -2321,7 +2342,7 @@ func (s *nativeAIService) loadHRRuntimeGovernanceForAgentCore(ctx context.Contex
 	// Keep the full explicit binding list for platform-owned context tools such
 	// as get_application_snapshot. ExecutableToolNames is the separate model /
 	// builtin-runner allowlist and must not erase those bindings.
-	runtime.Prompt, runtime.PromptContent, runtime.GovernanceErrors = s.loadHRRuntimePromptForRelease(ctx, req, agent, refs.PromptTemplateIDs)
+	runtime.Prompt, runtime.PromptContent, runtime.GovernanceErrors = s.loadHRRuntimePromptForRelease(ctx, req, agent, refs.PromptTemplateIDs, runtime.MemorySection)
 	runtime.AgentSkillSelectionConfirmed = req.GetAgentSkillSelectionConfirmed()
 	runtime.AgentSkillSelectionMessageID = req.GetAgentSkillSelectionMessageId()
 	runtime.SelectedAgentSkills = s.selectHRRuntimeAgentSkillsForRelease(ctx, req, runtime.CapabilityKeys, refs.AgentSkillVersionIDs)
@@ -2418,10 +2439,10 @@ func (s *nativeAIService) loadDefaultHRAgentConfig(ctx context.Context) (*pb.Age
 }
 
 func (s *nativeAIService) loadHRRuntimePrompt(ctx context.Context, req *pb.ChatRequest, agent *pb.AgentConfigInfo) (*pb.PromptTemplateInfo, string, []hrRuntimeGovernanceError) {
-	return s.loadHRRuntimePromptForRelease(ctx, req, agent, nil)
+	return s.loadHRRuntimePromptForRelease(ctx, req, agent, nil, emptyMemorySection)
 }
 
-func (s *nativeAIService) loadHRRuntimePromptForRelease(ctx context.Context, req *pb.ChatRequest, agent *pb.AgentConfigInfo, allowedIDs []int64) (*pb.PromptTemplateInfo, string, []hrRuntimeGovernanceError) {
+func (s *nativeAIService) loadHRRuntimePromptForRelease(ctx context.Context, req *pb.ChatRequest, agent *pb.AgentConfigInfo, allowedIDs []int64, memorySection string) (*pb.PromptTemplateInfo, string, []hrRuntimeGovernanceError) {
 	if s == nil || s.store == nil {
 		return nil, "", nil
 	}
@@ -2441,7 +2462,7 @@ func (s *nativeAIService) loadHRRuntimePromptForRelease(ctx context.Context, req
 			if !hrPromptTemplateUsable(template) {
 				return nil, "", []hrRuntimeGovernanceError{{Source: "prompt", Code: "incompatible", ResourceID: promptID}}
 			}
-			content, renderErr := renderHRRuntimePrompt(template.GetContent(), hrRuntimePromptVariables(req))
+			content, renderErr := renderHRRuntimePrompt(template.GetContent(), hrRuntimePromptVariablesWithMemory(req, memorySection))
 			if renderErr != nil {
 				return nil, "", []hrRuntimeGovernanceError{{Source: "prompt", Code: "invalid_variables", ResourceID: promptID}}
 			}
@@ -2454,7 +2475,7 @@ func (s *nativeAIService) loadHRRuntimePromptForRelease(ctx context.Context, req
 			for _, promptID := range allowedIDs {
 				template, found, lookupErr := promptStore.GetRuntimePromptTemplateByID(ctx, promptID)
 				if lookupErr == nil && found && hrPromptTemplateUsable(template) {
-					content, renderErr := renderHRRuntimePrompt(template.GetContent(), hrRuntimePromptVariables(req))
+					content, renderErr := renderHRRuntimePrompt(template.GetContent(), hrRuntimePromptVariablesWithMemory(req, memorySection))
 					if renderErr == nil {
 						return template, content, nil
 					}
@@ -2468,7 +2489,7 @@ func (s *nativeAIService) loadHRRuntimePromptForRelease(ctx context.Context, req
 			resp, err := promptStore.GetActivePromptByAgentType(ctx, &pb.GetActivePromptByAgentTypeRequest{AgentType: agentType, PromptRole: hrRuntimePromptRoleSystem})
 			if err == nil && resp != nil && resp.GetCode() == 0 && hrPromptTemplateUsable(resp.GetTemplate()) {
 				template := resp.GetTemplate()
-				content, renderErr := renderHRRuntimePrompt(template.GetContent(), hrRuntimePromptVariables(req))
+				content, renderErr := renderHRRuntimePrompt(template.GetContent(), hrRuntimePromptVariablesWithMemory(req, memorySection))
 				if renderErr != nil {
 					return nil, "", []hrRuntimeGovernanceError{{Source: "prompt", Code: "invalid_variables", ResourceID: template.GetId()}}
 				}
@@ -3235,7 +3256,7 @@ func ensureHRCurrentMessage(messages []ChatMessageRow, current ChatMessageRow) [
 // values passed to the tool/ADK provider. Each input is assigned to exactly one
 // breakdown bucket, so the breakdown is a strict partition of the estimate.
 func estimateHRMessagesContextUsage(model RuntimeModelInfo, messages []*schema.Message, toolSchemas []*schema.ToolInfo, current string, traces []ToolTraceRow, governance hrRuntimeGovernanceContext) *pb.ContextUsageInfo {
-	var rawSystemTokens, recentTokens, currentTokens int64
+	var rawSystemTokens, recentTokens, currentTokens, summaryTokens, memoryTokens int64
 	currentIndex := -1
 	current = strings.TrimSpace(current)
 	for index := len(messages) - 1; index >= 0; index-- {
@@ -3249,8 +3270,13 @@ func estimateHRMessagesContextUsage(model RuntimeModelInfo, messages []*schema.M
 		if message == nil {
 			continue
 		}
-		tokens := int64(estimateTokensConservative(message.Content))
+		content := message.Content
+		tokens := int64(estimateTokensConservative(content))
 		switch {
+		case strings.HasPrefix(content, hrSummaryMessagePrefix):
+			summaryTokens += int64(estimateTokensConservative(strings.TrimPrefix(content, hrSummaryMessagePrefix)))
+		case strings.HasPrefix(content, contextbudget.MemoryMessagePrefix):
+			memoryTokens += int64(estimateTokensConservative(strings.TrimPrefix(content, contextbudget.MemoryMessagePrefix)))
 		case message.Role == schema.System:
 			rawSystemTokens += tokens
 		case index == currentIndex:
@@ -3265,6 +3291,8 @@ func estimateHRMessagesContextUsage(model RuntimeModelInfo, messages []*schema.M
 	protocolTokens := int64(len(messages)*4 + 2)
 	return newEstimatedHRContextUsage(model, &pb.ContextUsageBreakdown{
 		SystemPromptTokens:     saturatingInt32(systemTokens),
+		SummaryTokens:          saturatingInt32(summaryTokens),
+		MemoryTokens:           saturatingInt32(memoryTokens),
 		RecentMessageTokens:    saturatingInt32(recentTokens),
 		CurrentMessageTokens:   saturatingInt32(currentTokens),
 		SkillTokens:            saturatingInt32(skillTokens),
@@ -3608,8 +3636,8 @@ func buildHRProcessContent(traces []ToolTraceRow, usage *pb.ContextUsageInfo, fa
 	if usage != nil {
 		payload["context_usage"] = contextUsagePayload(usage)
 	}
-	if governance.Agent != nil || governance.Prompt != nil || len(governance.SelectedAgentSkills) > 0 || governance.AgentSkillSelectionMode != "" || len(governance.GovernanceErrors) > 0 {
-		payload["governance"] = map[string]any{
+	if governance.Agent != nil || governance.Prompt != nil || len(governance.SelectedAgentSkills) > 0 || governance.AgentSkillSelectionMode != "" || len(governance.GovernanceErrors) > 0 || governance.MemoryEvidence.Count > 0 {
+		governancePayload := map[string]any{
 			"agent_id":                         agentConfigID(governance.Agent),
 			"agent_type":                       agentConfigType(governance.Agent),
 			"agent_name":                       agentConfigName(governance.Agent),
@@ -3623,6 +3651,10 @@ func buildHRProcessContent(traces []ToolTraceRow, usage *pb.ContextUsageInfo, fa
 			"agent_skills":                     hrRuntimeAgentSkillEvidence(governance.SelectedAgentSkills),
 			"governance_errors":                governance.GovernanceErrors,
 		}
+		if governance.MemoryEvidence.Count > 0 {
+			governancePayload["memory_inject"] = governance.MemoryEvidence
+		}
+		payload["governance"] = governancePayload
 	}
 	if len(traces) > 0 {
 		toolResults := make([]map[string]any, 0, len(traces))

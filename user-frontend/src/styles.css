@@ -1091,6 +1091,19 @@ a {
   background: var(--surface);
 }
 
+.resume-preview-active {
+  height: 100%;
+}
+
+.resume-current__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 .resume-current__icon,
 .resume-empty .el-icon,
 .resume-preview-empty .el-icon {
@@ -1361,6 +1374,11 @@ a {
   .resume-current {
     align-items: flex-start;
     flex-wrap: wrap;
+  }
+
+  .resume-current__actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .resume-current__top {

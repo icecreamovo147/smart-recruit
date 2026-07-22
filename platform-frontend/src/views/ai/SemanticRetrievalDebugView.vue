@@ -1,19 +1,38 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
-import { Refresh, Search } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { computed, reactive, ref, watch } from 'vue'
+import { EditPen, Refresh, Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { debugSemanticRetrieval } from '@/api/agentSkill'
+import { createPlatformMemory, listPlatformMemories, revokePlatformMemory } from '@/api/memory'
 import { PagePanel } from '@/components/admin-console'
 import type {
   SemanticMemoryDebugItem,
   SemanticRetrievalDebugResult,
   SemanticSkillDebugItem,
 } from '@shared/types/agentSkill'
+import {
+  MEMORY_OWNER_ROLE_CANDIDATE,
+  MEMORY_OWNER_ROLE_HR,
+  type MemoryInfo,
+} from '@shared/types/memory'
 
 const AGENT_TYPE_OPTIONS = [
   { value: 'hr_recruiting_agent', label: 'HR 招聘助手' },
   { value: 'candidate_assistant', label: '候选人 AI 助手' },
   { value: 'custom', label: '自定义 Agent' },
+]
+
+const OWNER_ROLE_OPTIONS = [
+  { value: MEMORY_OWNER_ROLE_HR, label: 'HR' },
+  { value: MEMORY_OWNER_ROLE_CANDIDATE, label: '候选人' },
+]
+
+const MEMORY_SCOPE_OPTIONS = [
+  { value: 'hr', label: 'hr（HR 全局）' },
+  { value: 'job', label: 'job（岗位）' },
+  { value: 'application', label: 'application（投递）' },
+  { value: 'candidate', label: 'candidate（候选人）' },
+  { value: 'user', label: 'user（用户）' },
 ]
 
 // TASK-FU-003：pool_confidence 枚举色彩 / 文案映射
@@ -50,6 +69,11 @@ const result = ref<SemanticRetrievalDebugResult | null>(null)
 const requestDurationMs = ref<number | null>(null)
 const expandedSkillIds = ref<number[]>([])
 const expandedMemoryIds = ref<number[]>([])
+const correctionDrawerVisible = ref(false)
+const correctionLoading = ref(false)
+const correctionSaving = ref(false)
+const correctionRows = ref<MemoryInfo[]>([])
+const correctionTotal = ref(0)
 
 const form = reactive({
   query: '',
@@ -57,6 +81,16 @@ const form = reactive({
   job_id: undefined as number | undefined,
   application_id: undefined as number | undefined,
   limit: 5,
+  owner_role: MEMORY_OWNER_ROLE_HR,
+  owner_id: undefined as number | undefined,
+})
+
+const correctionForm = reactive({
+  content: '',
+  scope_type: 'hr',
+  scope_id: undefined as number | undefined,
+  memory_type: 'preference',
+  confirm_high_pii: false,
 })
 
 const skillRows = computed<SemanticSkillDebugItem[]>(() => result.value?.skills || [])
@@ -139,10 +173,26 @@ const applyExample = (example: string) => {
   form.query = example
 }
 
+const selectedOwnerLabel = computed(() => OWNER_ROLE_OPTIONS.find((item) => item.value === form.owner_role)?.label || `${form.owner_role}`)
+
+watch(() => form.agent_type, (agentType) => {
+  if (agentType === 'candidate_assistant') {
+    form.owner_role = MEMORY_OWNER_ROLE_CANDIDATE
+  } else if (agentType === 'hr_recruiting_agent') {
+    form.owner_role = MEMORY_OWNER_ROLE_HR
+  }
+})
+
+const ownerReady = computed(() => Boolean(form.owner_id && form.owner_id > 0))
+
 const runDebug = async () => {
   const query = form.query.trim()
   if (!query) {
     ElMessage.warning('请输入查询内容')
+    return
+  }
+  if (!ownerReady.value) {
+    ElMessage.warning('请填写 Owner ID')
     return
   }
   loading.value = true
@@ -154,6 +204,8 @@ const runDebug = async () => {
       job_id: form.job_id,
       application_id: form.application_id,
       limit: form.limit,
+      owner_role: form.owner_role,
+      owner_id: form.owner_id,
     })
     requestDurationMs.value = Math.round(performance.now() - startedAt)
     expandedSkillIds.value = []
@@ -173,10 +225,102 @@ const reset = () => {
   form.job_id = undefined
   form.application_id = undefined
   form.limit = 5
+  form.owner_role = MEMORY_OWNER_ROLE_HR
+  form.owner_id = undefined
   result.value = null
   requestDurationMs.value = null
   expandedSkillIds.value = []
   expandedMemoryIds.value = []
+}
+
+const loadCorrectionMemories = async () => {
+  if (!ownerReady.value) {
+    ElMessage.warning('请填写 Owner ID')
+    return
+  }
+  correctionLoading.value = true
+  try {
+    const res = await listPlatformMemories({
+      owner_role: form.owner_role,
+      owner_id: form.owner_id,
+      page: 1,
+      page_size: 50,
+    })
+    correctionRows.value = res.list || []
+    correctionTotal.value = res.total || 0
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('加载 Memory 列表失败')
+  } finally {
+    correctionLoading.value = false
+  }
+}
+
+const openCorrectionDrawer = async () => {
+  if (!ownerReady.value) {
+    ElMessage.warning('请填写 Owner ID')
+    return
+  }
+  correctionDrawerVisible.value = true
+  await loadCorrectionMemories()
+}
+
+const revokeCorrectionMemory = async (row: MemoryInfo) => {
+  try {
+    await ElMessageBox.confirm(`确认撤销 Memory #${row.id}？`, '撤销 Memory', {
+      type: 'warning',
+      confirmButtonText: '撤销',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  try {
+    await revokePlatformMemory(row.id, {
+      owner_role: form.owner_role,
+      owner_id: form.owner_id,
+      revoke_reason: 'platform_correction',
+    })
+    ElMessage.success('Memory 已撤销')
+    await loadCorrectionMemories()
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('撤销 Memory 失败')
+  }
+}
+
+const submitCorrectionMemory = async () => {
+  const content = correctionForm.content.trim()
+  if (!content) {
+    ElMessage.warning('请输入 Memory 内容')
+    return
+  }
+  if (!ownerReady.value) {
+    ElMessage.warning('请填写 Owner ID')
+    return
+  }
+  correctionSaving.value = true
+  try {
+    await createPlatformMemory({
+      owner_role: form.owner_role,
+      owner_id: form.owner_id,
+      scope_type: correctionForm.scope_type,
+      scope_id: correctionForm.scope_id,
+      memory_type: correctionForm.memory_type,
+      content,
+      source: 'platform_correction',
+      confirm_high_pii: correctionForm.confirm_high_pii,
+    })
+    ElMessage.success('Memory 已创建')
+    correctionForm.content = ''
+    correctionForm.confirm_high_pii = false
+    await loadCorrectionMemories()
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('创建 Memory 失败')
+  } finally {
+    correctionSaving.value = false
+  }
 }
 </script>
 
@@ -189,6 +333,7 @@ const reset = () => {
           <span class="workspace-surface__context">用真实业务问题验证 Agent Skill 与 AI Memory 的召回效果</span>
         </div>
         <div class="workspace-surface__actions">
+          <el-button :icon="EditPen" :disabled="!ownerReady" @click="openCorrectionDrawer">Memory 校正</el-button>
           <el-button :icon="Refresh" @click="reset">重置</el-button>
           <el-button type="primary" :icon="Search" :loading="loading" @click="runDebug">运行测试</el-button>
         </div>
@@ -243,6 +388,17 @@ const reset = () => {
                     <el-option v-for="item in AGENT_TYPE_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>
                 </el-form-item>
+                <div class="debug-params-grid">
+                  <el-form-item label="Owner 角色">
+                    <el-select v-model="form.owner_role" placeholder="Owner 角色">
+                      <el-option v-for="item in OWNER_ROLE_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="Owner ID">
+                    <el-input-number v-model="form.owner_id" :min="1" :controls="false" placeholder="必填" />
+                  </el-form-item>
+                </div>
+                <p class="debug-owner-hint">当前调试 Owner：{{ selectedOwnerLabel }} #{{ form.owner_id || '—' }}</p>
                 <div class="debug-params-grid">
                   <el-form-item label="岗位 ID">
                     <el-input-number v-model="form.job_id" :min="0" :controls="false" placeholder="可选" />
@@ -544,6 +700,63 @@ const reset = () => {
       </div>
     </div>
     </PagePanel>
+
+    <el-drawer v-model="correctionDrawerVisible" title="Memory 校正" size="480px" append-to-body>
+      <div class="memory-correction" v-loading="correctionLoading">
+        <p class="memory-correction__hint">
+          Owner：{{ selectedOwnerLabel }} #{{ form.owner_id || '—' }} · 共 {{ correctionTotal }} 条
+        </p>
+        <div class="memory-correction__list">
+          <article v-for="row in correctionRows" :key="row.id" class="memory-correction__item">
+            <div class="memory-correction__item-head">
+              <strong>#{{ row.id }}</strong>
+              <el-tag size="small" effect="plain">{{ row.status || 'active' }}</el-tag>
+            </div>
+            <p class="memory-correction__item-meta">
+              {{ row.scope_type }} #{{ row.scope_id || 0 }} · {{ row.memory_type || '-' }} · {{ row.source || '-' }}
+            </p>
+            <p class="memory-correction__item-content">{{ row.content }}</p>
+            <el-button
+              v-if="row.status !== 'revoked'"
+              size="small"
+              type="danger"
+              plain
+              @click="revokeCorrectionMemory(row)"
+            >
+              撤销
+            </el-button>
+          </article>
+          <div v-if="!correctionRows.length" class="memory-correction__empty">暂无 Memory，可在下方创建校正条目。</div>
+        </div>
+        <div class="memory-correction__create">
+          <h4>创建校正 Memory</h4>
+          <el-form label-position="top">
+            <el-form-item label="内容">
+              <el-input v-model="correctionForm.content" type="textarea" :rows="3" maxlength="500" show-word-limit />
+            </el-form-item>
+            <div class="debug-params-grid">
+              <el-form-item label="Scope 类型">
+                <el-select v-model="correctionForm.scope_type">
+                  <el-option v-for="item in MEMORY_SCOPE_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="Scope ID">
+                <el-input-number v-model="correctionForm.scope_id" :min="0" :controls="false" placeholder="可选" />
+              </el-form-item>
+            </div>
+            <el-form-item label="Memory 类型">
+              <el-input v-model="correctionForm.memory_type" placeholder="例如 preference / fact" />
+            </el-form-item>
+            <el-form-item>
+              <el-checkbox v-model="correctionForm.confirm_high_pii">
+                确认写入高敏感内容（手机号 / 邮箱 / 证件号等）
+              </el-checkbox>
+            </el-form-item>
+            <el-button type="primary" :loading="correctionSaving" @click="submitCorrectionMemory">创建</el-button>
+          </el-form>
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -587,6 +800,86 @@ const reset = () => {
 .debug-params-card :deep(.el-input-number),
 .debug-params-card :deep(.el-select) {
   width: 100%;
+}
+
+.debug-owner-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.memory-correction {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+}
+
+.memory-correction__hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.memory-correction__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.memory-correction__item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius, 12px);
+  background: var(--surface-muted);
+}
+
+.memory-correction__item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.memory-correction__item-meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.memory-correction__item-content {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.memory-correction__empty {
+  padding: 16px;
+  border: 1px dashed var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius, 12px);
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.memory-correction__create {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--surface-soft-border);
+}
+
+.memory-correction__create h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
 }
 
 .preset-chips {

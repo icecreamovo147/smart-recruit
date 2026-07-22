@@ -1098,8 +1098,14 @@ func partialToolStreamMessage(chunks []*schema.Message) (*schema.Message, bool) 
 }
 
 // GenerateSessionSummary creates or updates a rolling session summary by feeding the
-// previous summary and new messages to the LLM.
+// previous summary and new messages to the LLM. HR sessions use HR-specific fact hints.
 func (c *Client) GenerateSessionSummary(ctx context.Context, oldSummary string, recentMessages []string) (string, error) {
+	return c.GenerateSessionSummaryForAudience(ctx, "hr", oldSummary, recentMessages)
+}
+
+// GenerateSessionSummaryForAudience creates or updates a rolling session summary with
+// audience-specific fact retention hints (for example HR vs candidate chat).
+func (c *Client) GenerateSessionSummaryForAudience(ctx context.Context, audience string, oldSummary string, recentMessages []string) (string, error) {
 	if c.cm == nil {
 		return "", fmt.Errorf("ai chat model is nil")
 	}
@@ -1107,11 +1113,12 @@ func (c *Client) GenerateSessionSummary(ctx context.Context, oldSummary string, 
 	for i, m := range recentMessages {
 		msgText += fmt.Sprintf("[%d] %s\n", i+1, m)
 	}
+	factHints := sessionSummaryFactHints(audience)
 	prompt := fmt.Sprintf(
 		`你是一个会话摘要助手。请根据之前的摘要和新增的对话消息，更新会话摘要。
 
 要求：
-- 保留关键事实：候选人姓名、岗位名称、分析结论、HR 偏好、待办事项
+- %s
 - 去除重复寒暄和临时错误信息
 - 使用简洁的中文
 - 如果之前没有摘要，直接根据新消息生成摘要
@@ -1122,7 +1129,7 @@ func (c *Client) GenerateSessionSummary(ctx context.Context, oldSummary string, 
 新增对话消息：
 %s
 
-请输出更新后的摘要：`, oldSummary, msgText)
+请输出更新后的摘要：`, factHints, oldSummary, msgText)
 
 	msgs := []*schema.Message{
 		schema.SystemMessage("你是一个会话摘要助手。请根据对话生成简洁的摘要。"),
@@ -1138,6 +1145,15 @@ func (c *Client) GenerateSessionSummary(ctx context.Context, oldSummary string, 
 		return "", err
 	}
 	return strings.TrimSpace(resp.Content), nil
+}
+
+func sessionSummaryFactHints(audience string) string {
+	switch strings.ToLower(strings.TrimSpace(audience)) {
+	case "candidate":
+		return "保留关键事实：投递岗位与状态、简历要点、推荐结论、候选人诉求、待办事项"
+	default:
+		return "保留关键事实：候选人姓名、岗位名称、分析结论、HR 偏好、待办事项"
+	}
 }
 
 func (c *Client) stream(ctx context.Context, messages []*schema.Message, onDelta func(string) error) (string, error) {

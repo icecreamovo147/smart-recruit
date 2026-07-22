@@ -95,6 +95,7 @@ export interface ContextUsageInfo {
   included_message_count?: number
   omitted_message_count?: number
   summary_applied?: boolean
+  memory_applied?: boolean
   breakdown?: ContextUsageBreakdown
 }
 

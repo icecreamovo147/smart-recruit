@@ -7635,6 +7635,7 @@ type ContextUsageInfo struct {
 	ModelFallbackReason      string                 `protobuf:"bytes,24,opt,name=model_fallback_reason,json=modelFallbackReason,proto3" json:"model_fallback_reason,omitempty"`
 	CapabilityVersionId      int64                  `protobuf:"varint,25,opt,name=capability_version_id,json=capabilityVersionId,proto3" json:"capability_version_id,omitempty"`
 	CapabilitySnapshotHash   string                 `protobuf:"bytes,26,opt,name=capability_snapshot_hash,json=capabilitySnapshotHash,proto3" json:"capability_snapshot_hash,omitempty"`
+	MemoryApplied            bool                   `protobuf:"varint,27,opt,name=memory_applied,json=memoryApplied,proto3" json:"memory_applied,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -7849,6 +7850,13 @@ func (x *ContextUsageInfo) GetCapabilitySnapshotHash() string {
 		return x.CapabilitySnapshotHash
 	}
 	return ""
+}
+
+func (x *ContextUsageInfo) GetMemoryApplied() bool {
+	if x != nil {
+		return x.MemoryApplied
+	}
+	return false
 }
 
 type ChatResponse struct {
@@ -12045,6 +12053,1170 @@ func (x *ConfirmAgentRunResponse) GetRun() *AgentRunSnapshot {
 	return nil
 }
 
+type MemoryInfo struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId        int64                  `protobuf:"varint,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	OwnerRole       int32                  `protobuf:"varint,3,opt,name=owner_role,json=ownerRole,proto3" json:"owner_role,omitempty"`
+	OwnerId         uint64                 `protobuf:"varint,4,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	HrId            uint64                 `protobuf:"varint,5,opt,name=hr_id,json=hrId,proto3" json:"hr_id,omitempty"`
+	ScopeType       string                 `protobuf:"bytes,6,opt,name=scope_type,json=scopeType,proto3" json:"scope_type,omitempty"`
+	ScopeId         uint64                 `protobuf:"varint,7,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
+	MemoryType      string                 `protobuf:"bytes,8,opt,name=memory_type,json=memoryType,proto3" json:"memory_type,omitempty"`
+	Content         string                 `protobuf:"bytes,9,opt,name=content,proto3" json:"content,omitempty"`
+	Source          string                 `protobuf:"bytes,10,opt,name=source,proto3" json:"source,omitempty"`
+	Confidence      float64                `protobuf:"fixed64,11,opt,name=confidence,proto3" json:"confidence,omitempty"`
+	Importance      float64                `protobuf:"fixed64,12,opt,name=importance,proto3" json:"importance,omitempty"`
+	Status          string                 `protobuf:"bytes,13,opt,name=status,proto3" json:"status,omitempty"`
+	PiiLevel        string                 `protobuf:"bytes,14,opt,name=pii_level,json=piiLevel,proto3" json:"pii_level,omitempty"`
+	ContentHash     string                 `protobuf:"bytes,15,opt,name=content_hash,json=contentHash,proto3" json:"content_hash,omitempty"`
+	SourceSessionId int64                  `protobuf:"varint,16,opt,name=source_session_id,json=sourceSessionId,proto3" json:"source_session_id,omitempty"`
+	SourceMessageId int64                  `protobuf:"varint,17,opt,name=source_message_id,json=sourceMessageId,proto3" json:"source_message_id,omitempty"`
+	SourceRunId     int64                  `protobuf:"varint,18,opt,name=source_run_id,json=sourceRunId,proto3" json:"source_run_id,omitempty"`
+	CreatedBy       int64                  `protobuf:"varint,19,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	RevokedBy       int64                  `protobuf:"varint,20,opt,name=revoked_by,json=revokedBy,proto3" json:"revoked_by,omitempty"`
+	RevokeReason    string                 `protobuf:"bytes,21,opt,name=revoke_reason,json=revokeReason,proto3" json:"revoke_reason,omitempty"`
+	ExpiresAt       string                 `protobuf:"bytes,22,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	DeletedAt       string                 `protobuf:"bytes,23,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`
+	CreatedAt       string                 `protobuf:"bytes,24,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt       string                 `protobuf:"bytes,25,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *MemoryInfo) Reset() {
+	*x = MemoryInfo{}
+	mi := &file_proto_recruitment_proto_msgTypes[141]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemoryInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemoryInfo) ProtoMessage() {}
+
+func (x *MemoryInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[141]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemoryInfo.ProtoReflect.Descriptor instead.
+func (*MemoryInfo) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{141}
+}
+
+func (x *MemoryInfo) GetId() uint64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *MemoryInfo) GetTenantId() int64 {
+	if x != nil {
+		return x.TenantId
+	}
+	return 0
+}
+
+func (x *MemoryInfo) GetOwnerRole() int32 {
+	if x != nil {
+		return x.OwnerRole
+	}
+	return 0
+}
+
+func (x *MemoryInfo) GetOwnerId() uint64 {
+	if x != nil {
+		return x.OwnerId
+	}
+	return 0
+}
+
+func (x *MemoryInfo) GetHrId() uint64 {
+	if x != nil {
+		return x.HrId
+	}
+	return 0
+}
+
+func (x *MemoryInfo) GetScopeType() string {
+	if x != nil {
+		return x.ScopeType
+	}
+	return ""
+}
+
+func (x *MemoryInfo) GetScopeId() uint64 {
+	if x != nil {
+		return x.ScopeId
+	}
+	return 0
+}
+
+func (x *MemoryInfo) GetMemoryType() string {
+	if x != nil {
+		return x.MemoryType
+	}
+	return ""
+}
+
+func (x *MemoryInfo) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *MemoryInfo) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *MemoryInfo) GetConfidence() float64 {
+	if x != nil {
+		return x.Confidence
+	}
+	return 0
+}
+
+func (x *MemoryInfo) GetImportance() float64 {
+	if x != nil {
+		return x.Importance
+	}
+	return 0
+}
+
+func (x *MemoryInfo) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *MemoryInfo) GetPiiLevel() string {
+	if x != nil {
+		return x.PiiLevel
+	}
+	return ""
+}
+
+func (x *MemoryInfo) GetContentHash() string {
+	if x != nil {
+		return x.ContentHash
+	}
+	return ""
+}
+
+func (x *MemoryInfo) GetSourceSessionId() int64 {
+	if x != nil {
+		return x.SourceSessionId
+	}
+	return 0
+}
+
+func (x *MemoryInfo) GetSourceMessageId() int64 {
+	if x != nil {
+		return x.SourceMessageId
+	}
+	return 0
+}
+
+func (x *MemoryInfo) GetSourceRunId() int64 {
+	if x != nil {
+		return x.SourceRunId
+	}
+	return 0
+}
+
+func (x *MemoryInfo) GetCreatedBy() int64 {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return 0
+}
+
+func (x *MemoryInfo) GetRevokedBy() int64 {
+	if x != nil {
+		return x.RevokedBy
+	}
+	return 0
+}
+
+func (x *MemoryInfo) GetRevokeReason() string {
+	if x != nil {
+		return x.RevokeReason
+	}
+	return ""
+}
+
+func (x *MemoryInfo) GetExpiresAt() string {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return ""
+}
+
+func (x *MemoryInfo) GetDeletedAt() string {
+	if x != nil {
+		return x.DeletedAt
+	}
+	return ""
+}
+
+func (x *MemoryInfo) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *MemoryInfo) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+type ListMemoriesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      int64                  `protobuf:"varint,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	OwnerRole     int32                  `protobuf:"varint,2,opt,name=owner_role,json=ownerRole,proto3" json:"owner_role,omitempty"`
+	OwnerId       uint64                 `protobuf:"varint,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	ScopeType     string                 `protobuf:"bytes,4,opt,name=scope_type,json=scopeType,proto3" json:"scope_type,omitempty"`
+	ScopeId       uint64                 `protobuf:"varint,5,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
+	MemoryType    string                 `protobuf:"bytes,6,opt,name=memory_type,json=memoryType,proto3" json:"memory_type,omitempty"`
+	Status        string                 `protobuf:"bytes,7,opt,name=status,proto3" json:"status,omitempty"`
+	PiiLevel      string                 `protobuf:"bytes,8,opt,name=pii_level,json=piiLevel,proto3" json:"pii_level,omitempty"`
+	Page          int32                  `protobuf:"varint,9,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,10,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMemoriesRequest) Reset() {
+	*x = ListMemoriesRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[142]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMemoriesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMemoriesRequest) ProtoMessage() {}
+
+func (x *ListMemoriesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[142]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMemoriesRequest.ProtoReflect.Descriptor instead.
+func (*ListMemoriesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{142}
+}
+
+func (x *ListMemoriesRequest) GetTenantId() int64 {
+	if x != nil {
+		return x.TenantId
+	}
+	return 0
+}
+
+func (x *ListMemoriesRequest) GetOwnerRole() int32 {
+	if x != nil {
+		return x.OwnerRole
+	}
+	return 0
+}
+
+func (x *ListMemoriesRequest) GetOwnerId() uint64 {
+	if x != nil {
+		return x.OwnerId
+	}
+	return 0
+}
+
+func (x *ListMemoriesRequest) GetScopeType() string {
+	if x != nil {
+		return x.ScopeType
+	}
+	return ""
+}
+
+func (x *ListMemoriesRequest) GetScopeId() uint64 {
+	if x != nil {
+		return x.ScopeId
+	}
+	return 0
+}
+
+func (x *ListMemoriesRequest) GetMemoryType() string {
+	if x != nil {
+		return x.MemoryType
+	}
+	return ""
+}
+
+func (x *ListMemoriesRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ListMemoriesRequest) GetPiiLevel() string {
+	if x != nil {
+		return x.PiiLevel
+	}
+	return ""
+}
+
+func (x *ListMemoriesRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListMemoriesRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListMemoriesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Total         int64                  `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
+	List          []*MemoryInfo          `protobuf:"bytes,4,rep,name=list,proto3" json:"list,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMemoriesResponse) Reset() {
+	*x = ListMemoriesResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[143]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMemoriesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMemoriesResponse) ProtoMessage() {}
+
+func (x *ListMemoriesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[143]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMemoriesResponse.ProtoReflect.Descriptor instead.
+func (*ListMemoriesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{143}
+}
+
+func (x *ListMemoriesResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *ListMemoriesResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *ListMemoriesResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *ListMemoriesResponse) GetList() []*MemoryInfo {
+	if x != nil {
+		return x.List
+	}
+	return nil
+}
+
+type GetMemoryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	OwnerRole     int32                  `protobuf:"varint,2,opt,name=owner_role,json=ownerRole,proto3" json:"owner_role,omitempty"`
+	OwnerId       uint64                 `protobuf:"varint,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMemoryRequest) Reset() {
+	*x = GetMemoryRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[144]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMemoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMemoryRequest) ProtoMessage() {}
+
+func (x *GetMemoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[144]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMemoryRequest.ProtoReflect.Descriptor instead.
+func (*GetMemoryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{144}
+}
+
+func (x *GetMemoryRequest) GetId() uint64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *GetMemoryRequest) GetOwnerRole() int32 {
+	if x != nil {
+		return x.OwnerRole
+	}
+	return 0
+}
+
+func (x *GetMemoryRequest) GetOwnerId() uint64 {
+	if x != nil {
+		return x.OwnerId
+	}
+	return 0
+}
+
+type MemoryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Memory        *MemoryInfo            `protobuf:"bytes,3,opt,name=memory,proto3" json:"memory,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MemoryResponse) Reset() {
+	*x = MemoryResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[145]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemoryResponse) ProtoMessage() {}
+
+func (x *MemoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[145]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemoryResponse.ProtoReflect.Descriptor instead.
+func (*MemoryResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{145}
+}
+
+func (x *MemoryResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *MemoryResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *MemoryResponse) GetMemory() *MemoryInfo {
+	if x != nil {
+		return x.Memory
+	}
+	return nil
+}
+
+type CreateMemoryRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TenantId        int64                  `protobuf:"varint,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	OwnerRole       int32                  `protobuf:"varint,2,opt,name=owner_role,json=ownerRole,proto3" json:"owner_role,omitempty"`
+	OwnerId         uint64                 `protobuf:"varint,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	ScopeType       string                 `protobuf:"bytes,4,opt,name=scope_type,json=scopeType,proto3" json:"scope_type,omitempty"`
+	ScopeId         uint64                 `protobuf:"varint,5,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
+	MemoryType      string                 `protobuf:"bytes,6,opt,name=memory_type,json=memoryType,proto3" json:"memory_type,omitempty"`
+	Content         string                 `protobuf:"bytes,7,opt,name=content,proto3" json:"content,omitempty"`
+	Source          string                 `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty"`
+	Confidence      float64                `protobuf:"fixed64,9,opt,name=confidence,proto3" json:"confidence,omitempty"`
+	Importance      float64                `protobuf:"fixed64,10,opt,name=importance,proto3" json:"importance,omitempty"`
+	PiiLevel        string                 `protobuf:"bytes,11,opt,name=pii_level,json=piiLevel,proto3" json:"pii_level,omitempty"`
+	SourceSessionId int64                  `protobuf:"varint,12,opt,name=source_session_id,json=sourceSessionId,proto3" json:"source_session_id,omitempty"`
+	SourceMessageId int64                  `protobuf:"varint,13,opt,name=source_message_id,json=sourceMessageId,proto3" json:"source_message_id,omitempty"`
+	SourceRunId     int64                  `protobuf:"varint,14,opt,name=source_run_id,json=sourceRunId,proto3" json:"source_run_id,omitempty"`
+	CreatedBy       int64                  `protobuf:"varint,15,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	ExpiresAt       string                 `protobuf:"bytes,16,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	ConfirmHighPii  bool                   `protobuf:"varint,17,opt,name=confirm_high_pii,json=confirmHighPii,proto3" json:"confirm_high_pii,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *CreateMemoryRequest) Reset() {
+	*x = CreateMemoryRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[146]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateMemoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateMemoryRequest) ProtoMessage() {}
+
+func (x *CreateMemoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[146]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateMemoryRequest.ProtoReflect.Descriptor instead.
+func (*CreateMemoryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{146}
+}
+
+func (x *CreateMemoryRequest) GetTenantId() int64 {
+	if x != nil {
+		return x.TenantId
+	}
+	return 0
+}
+
+func (x *CreateMemoryRequest) GetOwnerRole() int32 {
+	if x != nil {
+		return x.OwnerRole
+	}
+	return 0
+}
+
+func (x *CreateMemoryRequest) GetOwnerId() uint64 {
+	if x != nil {
+		return x.OwnerId
+	}
+	return 0
+}
+
+func (x *CreateMemoryRequest) GetScopeType() string {
+	if x != nil {
+		return x.ScopeType
+	}
+	return ""
+}
+
+func (x *CreateMemoryRequest) GetScopeId() uint64 {
+	if x != nil {
+		return x.ScopeId
+	}
+	return 0
+}
+
+func (x *CreateMemoryRequest) GetMemoryType() string {
+	if x != nil {
+		return x.MemoryType
+	}
+	return ""
+}
+
+func (x *CreateMemoryRequest) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *CreateMemoryRequest) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *CreateMemoryRequest) GetConfidence() float64 {
+	if x != nil {
+		return x.Confidence
+	}
+	return 0
+}
+
+func (x *CreateMemoryRequest) GetImportance() float64 {
+	if x != nil {
+		return x.Importance
+	}
+	return 0
+}
+
+func (x *CreateMemoryRequest) GetPiiLevel() string {
+	if x != nil {
+		return x.PiiLevel
+	}
+	return ""
+}
+
+func (x *CreateMemoryRequest) GetSourceSessionId() int64 {
+	if x != nil {
+		return x.SourceSessionId
+	}
+	return 0
+}
+
+func (x *CreateMemoryRequest) GetSourceMessageId() int64 {
+	if x != nil {
+		return x.SourceMessageId
+	}
+	return 0
+}
+
+func (x *CreateMemoryRequest) GetSourceRunId() int64 {
+	if x != nil {
+		return x.SourceRunId
+	}
+	return 0
+}
+
+func (x *CreateMemoryRequest) GetCreatedBy() int64 {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return 0
+}
+
+func (x *CreateMemoryRequest) GetExpiresAt() string {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return ""
+}
+
+func (x *CreateMemoryRequest) GetConfirmHighPii() bool {
+	if x != nil {
+		return x.ConfirmHighPii
+	}
+	return false
+}
+
+type UpdateMemoryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	OwnerRole     int32                  `protobuf:"varint,2,opt,name=owner_role,json=ownerRole,proto3" json:"owner_role,omitempty"`
+	OwnerId       uint64                 `protobuf:"varint,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	Content       string                 `protobuf:"bytes,4,opt,name=content,proto3" json:"content,omitempty"`
+	Confidence    float64                `protobuf:"fixed64,5,opt,name=confidence,proto3" json:"confidence,omitempty"`
+	Importance    float64                `protobuf:"fixed64,6,opt,name=importance,proto3" json:"importance,omitempty"`
+	Status        string                 `protobuf:"bytes,7,opt,name=status,proto3" json:"status,omitempty"`
+	PiiLevel      string                 `protobuf:"bytes,8,opt,name=pii_level,json=piiLevel,proto3" json:"pii_level,omitempty"`
+	ExpiresAt     string                 `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	ContentSet    bool                   `protobuf:"varint,10,opt,name=content_set,json=contentSet,proto3" json:"content_set,omitempty"`
+	ConfidenceSet bool                   `protobuf:"varint,11,opt,name=confidence_set,json=confidenceSet,proto3" json:"confidence_set,omitempty"`
+	ImportanceSet bool                   `protobuf:"varint,12,opt,name=importance_set,json=importanceSet,proto3" json:"importance_set,omitempty"`
+	StatusSet     bool                   `protobuf:"varint,13,opt,name=status_set,json=statusSet,proto3" json:"status_set,omitempty"`
+	PiiLevelSet   bool                   `protobuf:"varint,14,opt,name=pii_level_set,json=piiLevelSet,proto3" json:"pii_level_set,omitempty"`
+	ExpiresAtSet  bool                   `protobuf:"varint,15,opt,name=expires_at_set,json=expiresAtSet,proto3" json:"expires_at_set,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateMemoryRequest) Reset() {
+	*x = UpdateMemoryRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[147]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateMemoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateMemoryRequest) ProtoMessage() {}
+
+func (x *UpdateMemoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[147]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateMemoryRequest.ProtoReflect.Descriptor instead.
+func (*UpdateMemoryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{147}
+}
+
+func (x *UpdateMemoryRequest) GetId() uint64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdateMemoryRequest) GetOwnerRole() int32 {
+	if x != nil {
+		return x.OwnerRole
+	}
+	return 0
+}
+
+func (x *UpdateMemoryRequest) GetOwnerId() uint64 {
+	if x != nil {
+		return x.OwnerId
+	}
+	return 0
+}
+
+func (x *UpdateMemoryRequest) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *UpdateMemoryRequest) GetConfidence() float64 {
+	if x != nil {
+		return x.Confidence
+	}
+	return 0
+}
+
+func (x *UpdateMemoryRequest) GetImportance() float64 {
+	if x != nil {
+		return x.Importance
+	}
+	return 0
+}
+
+func (x *UpdateMemoryRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *UpdateMemoryRequest) GetPiiLevel() string {
+	if x != nil {
+		return x.PiiLevel
+	}
+	return ""
+}
+
+func (x *UpdateMemoryRequest) GetExpiresAt() string {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return ""
+}
+
+func (x *UpdateMemoryRequest) GetContentSet() bool {
+	if x != nil {
+		return x.ContentSet
+	}
+	return false
+}
+
+func (x *UpdateMemoryRequest) GetConfidenceSet() bool {
+	if x != nil {
+		return x.ConfidenceSet
+	}
+	return false
+}
+
+func (x *UpdateMemoryRequest) GetImportanceSet() bool {
+	if x != nil {
+		return x.ImportanceSet
+	}
+	return false
+}
+
+func (x *UpdateMemoryRequest) GetStatusSet() bool {
+	if x != nil {
+		return x.StatusSet
+	}
+	return false
+}
+
+func (x *UpdateMemoryRequest) GetPiiLevelSet() bool {
+	if x != nil {
+		return x.PiiLevelSet
+	}
+	return false
+}
+
+func (x *UpdateMemoryRequest) GetExpiresAtSet() bool {
+	if x != nil {
+		return x.ExpiresAtSet
+	}
+	return false
+}
+
+type RevokeMemoryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	OwnerRole     int32                  `protobuf:"varint,2,opt,name=owner_role,json=ownerRole,proto3" json:"owner_role,omitempty"`
+	OwnerId       uint64                 `protobuf:"varint,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	RevokedBy     int64                  `protobuf:"varint,4,opt,name=revoked_by,json=revokedBy,proto3" json:"revoked_by,omitempty"`
+	RevokeReason  string                 `protobuf:"bytes,5,opt,name=revoke_reason,json=revokeReason,proto3" json:"revoke_reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeMemoryRequest) Reset() {
+	*x = RevokeMemoryRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[148]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeMemoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeMemoryRequest) ProtoMessage() {}
+
+func (x *RevokeMemoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[148]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeMemoryRequest.ProtoReflect.Descriptor instead.
+func (*RevokeMemoryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{148}
+}
+
+func (x *RevokeMemoryRequest) GetId() uint64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *RevokeMemoryRequest) GetOwnerRole() int32 {
+	if x != nil {
+		return x.OwnerRole
+	}
+	return 0
+}
+
+func (x *RevokeMemoryRequest) GetOwnerId() uint64 {
+	if x != nil {
+		return x.OwnerId
+	}
+	return 0
+}
+
+func (x *RevokeMemoryRequest) GetRevokedBy() int64 {
+	if x != nil {
+		return x.RevokedBy
+	}
+	return 0
+}
+
+func (x *RevokeMemoryRequest) GetRevokeReason() string {
+	if x != nil {
+		return x.RevokeReason
+	}
+	return ""
+}
+
+type RecallMemoriesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      int64                  `protobuf:"varint,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	OwnerRole     int32                  `protobuf:"varint,2,opt,name=owner_role,json=ownerRole,proto3" json:"owner_role,omitempty"`
+	OwnerId       uint64                 `protobuf:"varint,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	ScopeType     string                 `protobuf:"bytes,4,opt,name=scope_type,json=scopeType,proto3" json:"scope_type,omitempty"`
+	ScopeId       uint64                 `protobuf:"varint,5,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
+	Query         string                 `protobuf:"bytes,6,opt,name=query,proto3" json:"query,omitempty"`
+	Limit         int32                  `protobuf:"varint,7,opt,name=limit,proto3" json:"limit,omitempty"`
+	MemoryTypes   []string               `protobuf:"bytes,8,rep,name=memory_types,json=memoryTypes,proto3" json:"memory_types,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecallMemoriesRequest) Reset() {
+	*x = RecallMemoriesRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[149]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecallMemoriesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecallMemoriesRequest) ProtoMessage() {}
+
+func (x *RecallMemoriesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[149]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecallMemoriesRequest.ProtoReflect.Descriptor instead.
+func (*RecallMemoriesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{149}
+}
+
+func (x *RecallMemoriesRequest) GetTenantId() int64 {
+	if x != nil {
+		return x.TenantId
+	}
+	return 0
+}
+
+func (x *RecallMemoriesRequest) GetOwnerRole() int32 {
+	if x != nil {
+		return x.OwnerRole
+	}
+	return 0
+}
+
+func (x *RecallMemoriesRequest) GetOwnerId() uint64 {
+	if x != nil {
+		return x.OwnerId
+	}
+	return 0
+}
+
+func (x *RecallMemoriesRequest) GetScopeType() string {
+	if x != nil {
+		return x.ScopeType
+	}
+	return ""
+}
+
+func (x *RecallMemoriesRequest) GetScopeId() uint64 {
+	if x != nil {
+		return x.ScopeId
+	}
+	return 0
+}
+
+func (x *RecallMemoriesRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *RecallMemoriesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *RecallMemoriesRequest) GetMemoryTypes() []string {
+	if x != nil {
+		return x.MemoryTypes
+	}
+	return nil
+}
+
+type RecallMemoryItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Memory        *MemoryInfo            `protobuf:"bytes,1,opt,name=memory,proto3" json:"memory,omitempty"`
+	Score         float64                `protobuf:"fixed64,2,opt,name=score,proto3" json:"score,omitempty"`
+	Reason        string                 `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecallMemoryItem) Reset() {
+	*x = RecallMemoryItem{}
+	mi := &file_proto_recruitment_proto_msgTypes[150]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecallMemoryItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecallMemoryItem) ProtoMessage() {}
+
+func (x *RecallMemoryItem) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[150]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecallMemoryItem.ProtoReflect.Descriptor instead.
+func (*RecallMemoryItem) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{150}
+}
+
+func (x *RecallMemoryItem) GetMemory() *MemoryInfo {
+	if x != nil {
+		return x.Memory
+	}
+	return nil
+}
+
+func (x *RecallMemoryItem) GetScore() float64 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
+func (x *RecallMemoryItem) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type RecallMemoriesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Items         []*RecallMemoryItem    `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecallMemoriesResponse) Reset() {
+	*x = RecallMemoriesResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[151]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecallMemoriesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecallMemoriesResponse) ProtoMessage() {}
+
+func (x *RecallMemoriesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[151]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecallMemoriesResponse.ProtoReflect.Descriptor instead.
+func (*RecallMemoriesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{151}
+}
+
+func (x *RecallMemoriesResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *RecallMemoriesResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *RecallMemoriesResponse) GetItems() []*RecallMemoryItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
 type InterviewSchedule struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	InterviewId     int64                  `protobuf:"varint,1,opt,name=interview_id,json=interviewId,proto3" json:"interview_id,omitempty"`
@@ -12078,7 +13250,7 @@ type InterviewSchedule struct {
 
 func (x *InterviewSchedule) Reset() {
 	*x = InterviewSchedule{}
-	mi := &file_proto_recruitment_proto_msgTypes[141]
+	mi := &file_proto_recruitment_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12090,7 +13262,7 @@ func (x *InterviewSchedule) String() string {
 func (*InterviewSchedule) ProtoMessage() {}
 
 func (x *InterviewSchedule) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[141]
+	mi := &file_proto_recruitment_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12103,7 +13275,7 @@ func (x *InterviewSchedule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InterviewSchedule.ProtoReflect.Descriptor instead.
 func (*InterviewSchedule) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{141}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{152}
 }
 
 func (x *InterviewSchedule) GetInterviewId() int64 {
@@ -12294,7 +13466,7 @@ type ScheduleInterviewRequest struct {
 
 func (x *ScheduleInterviewRequest) Reset() {
 	*x = ScheduleInterviewRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[142]
+	mi := &file_proto_recruitment_proto_msgTypes[153]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12306,7 +13478,7 @@ func (x *ScheduleInterviewRequest) String() string {
 func (*ScheduleInterviewRequest) ProtoMessage() {}
 
 func (x *ScheduleInterviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[142]
+	mi := &file_proto_recruitment_proto_msgTypes[153]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12319,7 +13491,7 @@ func (x *ScheduleInterviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScheduleInterviewRequest.ProtoReflect.Descriptor instead.
 func (*ScheduleInterviewRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{142}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{153}
 }
 
 func (x *ScheduleInterviewRequest) GetHrId() int64 {
@@ -12417,7 +13589,7 @@ type ScheduleInterviewResponse struct {
 
 func (x *ScheduleInterviewResponse) Reset() {
 	*x = ScheduleInterviewResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[143]
+	mi := &file_proto_recruitment_proto_msgTypes[154]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12429,7 +13601,7 @@ func (x *ScheduleInterviewResponse) String() string {
 func (*ScheduleInterviewResponse) ProtoMessage() {}
 
 func (x *ScheduleInterviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[143]
+	mi := &file_proto_recruitment_proto_msgTypes[154]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12442,7 +13614,7 @@ func (x *ScheduleInterviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScheduleInterviewResponse.ProtoReflect.Descriptor instead.
 func (*ScheduleInterviewResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{143}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{154}
 }
 
 func (x *ScheduleInterviewResponse) GetCode() int32 {
@@ -12484,7 +13656,7 @@ type UpdateInterviewRequest struct {
 
 func (x *UpdateInterviewRequest) Reset() {
 	*x = UpdateInterviewRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[144]
+	mi := &file_proto_recruitment_proto_msgTypes[155]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12496,7 +13668,7 @@ func (x *UpdateInterviewRequest) String() string {
 func (*UpdateInterviewRequest) ProtoMessage() {}
 
 func (x *UpdateInterviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[144]
+	mi := &file_proto_recruitment_proto_msgTypes[155]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12509,7 +13681,7 @@ func (x *UpdateInterviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateInterviewRequest.ProtoReflect.Descriptor instead.
 func (*UpdateInterviewRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{144}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{155}
 }
 
 func (x *UpdateInterviewRequest) GetHrId() int64 {
@@ -12593,7 +13765,7 @@ type CancelInterviewRequest struct {
 
 func (x *CancelInterviewRequest) Reset() {
 	*x = CancelInterviewRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[145]
+	mi := &file_proto_recruitment_proto_msgTypes[156]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12605,7 +13777,7 @@ func (x *CancelInterviewRequest) String() string {
 func (*CancelInterviewRequest) ProtoMessage() {}
 
 func (x *CancelInterviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[145]
+	mi := &file_proto_recruitment_proto_msgTypes[156]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12618,7 +13790,7 @@ func (x *CancelInterviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelInterviewRequest.ProtoReflect.Descriptor instead.
 func (*CancelInterviewRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{145}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{156}
 }
 
 func (x *CancelInterviewRequest) GetHrId() int64 {
@@ -12652,7 +13824,7 @@ type GetInterviewRequest struct {
 
 func (x *GetInterviewRequest) Reset() {
 	*x = GetInterviewRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[146]
+	mi := &file_proto_recruitment_proto_msgTypes[157]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12664,7 +13836,7 @@ func (x *GetInterviewRequest) String() string {
 func (*GetInterviewRequest) ProtoMessage() {}
 
 func (x *GetInterviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[146]
+	mi := &file_proto_recruitment_proto_msgTypes[157]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12677,7 +13849,7 @@ func (x *GetInterviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetInterviewRequest.ProtoReflect.Descriptor instead.
 func (*GetInterviewRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{146}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{157}
 }
 
 func (x *GetInterviewRequest) GetUserId() int64 {
@@ -12705,7 +13877,7 @@ type GetInterviewResponse struct {
 
 func (x *GetInterviewResponse) Reset() {
 	*x = GetInterviewResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[147]
+	mi := &file_proto_recruitment_proto_msgTypes[158]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12717,7 +13889,7 @@ func (x *GetInterviewResponse) String() string {
 func (*GetInterviewResponse) ProtoMessage() {}
 
 func (x *GetInterviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[147]
+	mi := &file_proto_recruitment_proto_msgTypes[158]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12730,7 +13902,7 @@ func (x *GetInterviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetInterviewResponse.ProtoReflect.Descriptor instead.
 func (*GetInterviewResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{147}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{158}
 }
 
 func (x *GetInterviewResponse) GetCode() int32 {
@@ -12766,7 +13938,7 @@ type ListInterviewersRequest struct {
 
 func (x *ListInterviewersRequest) Reset() {
 	*x = ListInterviewersRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[148]
+	mi := &file_proto_recruitment_proto_msgTypes[159]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12778,7 +13950,7 @@ func (x *ListInterviewersRequest) String() string {
 func (*ListInterviewersRequest) ProtoMessage() {}
 
 func (x *ListInterviewersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[148]
+	mi := &file_proto_recruitment_proto_msgTypes[159]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12791,7 +13963,7 @@ func (x *ListInterviewersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInterviewersRequest.ProtoReflect.Descriptor instead.
 func (*ListInterviewersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{148}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{159}
 }
 
 func (x *ListInterviewersRequest) GetHrId() int64 {
@@ -12834,7 +14006,7 @@ type ListInterviewersResponse struct {
 
 func (x *ListInterviewersResponse) Reset() {
 	*x = ListInterviewersResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[149]
+	mi := &file_proto_recruitment_proto_msgTypes[160]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12846,7 +14018,7 @@ func (x *ListInterviewersResponse) String() string {
 func (*ListInterviewersResponse) ProtoMessage() {}
 
 func (x *ListInterviewersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[149]
+	mi := &file_proto_recruitment_proto_msgTypes[160]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12859,7 +14031,7 @@ func (x *ListInterviewersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInterviewersResponse.ProtoReflect.Descriptor instead.
 func (*ListInterviewersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{149}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{160}
 }
 
 func (x *ListInterviewersResponse) GetCode() int32 {
@@ -12900,7 +14072,7 @@ type ListApplicationInterviewsRequest struct {
 
 func (x *ListApplicationInterviewsRequest) Reset() {
 	*x = ListApplicationInterviewsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[150]
+	mi := &file_proto_recruitment_proto_msgTypes[161]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12912,7 +14084,7 @@ func (x *ListApplicationInterviewsRequest) String() string {
 func (*ListApplicationInterviewsRequest) ProtoMessage() {}
 
 func (x *ListApplicationInterviewsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[150]
+	mi := &file_proto_recruitment_proto_msgTypes[161]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12925,7 +14097,7 @@ func (x *ListApplicationInterviewsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListApplicationInterviewsRequest.ProtoReflect.Descriptor instead.
 func (*ListApplicationInterviewsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{150}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{161}
 }
 
 func (x *ListApplicationInterviewsRequest) GetHrId() int64 {
@@ -12953,7 +14125,7 @@ type ListApplicationInterviewsResponse struct {
 
 func (x *ListApplicationInterviewsResponse) Reset() {
 	*x = ListApplicationInterviewsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[151]
+	mi := &file_proto_recruitment_proto_msgTypes[162]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12965,7 +14137,7 @@ func (x *ListApplicationInterviewsResponse) String() string {
 func (*ListApplicationInterviewsResponse) ProtoMessage() {}
 
 func (x *ListApplicationInterviewsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[151]
+	mi := &file_proto_recruitment_proto_msgTypes[162]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12978,7 +14150,7 @@ func (x *ListApplicationInterviewsResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ListApplicationInterviewsResponse.ProtoReflect.Descriptor instead.
 func (*ListApplicationInterviewsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{151}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{162}
 }
 
 func (x *ListApplicationInterviewsResponse) GetCode() int32 {
@@ -13012,7 +14184,7 @@ type ListMyInterviewsRequest struct {
 
 func (x *ListMyInterviewsRequest) Reset() {
 	*x = ListMyInterviewsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[152]
+	mi := &file_proto_recruitment_proto_msgTypes[163]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13024,7 +14196,7 @@ func (x *ListMyInterviewsRequest) String() string {
 func (*ListMyInterviewsRequest) ProtoMessage() {}
 
 func (x *ListMyInterviewsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[152]
+	mi := &file_proto_recruitment_proto_msgTypes[163]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13037,7 +14209,7 @@ func (x *ListMyInterviewsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMyInterviewsRequest.ProtoReflect.Descriptor instead.
 func (*ListMyInterviewsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{152}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{163}
 }
 
 func (x *ListMyInterviewsRequest) GetInterviewerId() int64 {
@@ -13065,7 +14237,7 @@ type ListMyInterviewsResponse struct {
 
 func (x *ListMyInterviewsResponse) Reset() {
 	*x = ListMyInterviewsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[153]
+	mi := &file_proto_recruitment_proto_msgTypes[164]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13077,7 +14249,7 @@ func (x *ListMyInterviewsResponse) String() string {
 func (*ListMyInterviewsResponse) ProtoMessage() {}
 
 func (x *ListMyInterviewsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[153]
+	mi := &file_proto_recruitment_proto_msgTypes[164]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13090,7 +14262,7 @@ func (x *ListMyInterviewsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMyInterviewsResponse.ProtoReflect.Descriptor instead.
 func (*ListMyInterviewsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{153}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{164}
 }
 
 func (x *ListMyInterviewsResponse) GetCode() int32 {
@@ -13123,7 +14295,7 @@ type ListCandidateInterviewsRequest struct {
 
 func (x *ListCandidateInterviewsRequest) Reset() {
 	*x = ListCandidateInterviewsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[154]
+	mi := &file_proto_recruitment_proto_msgTypes[165]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13135,7 +14307,7 @@ func (x *ListCandidateInterviewsRequest) String() string {
 func (*ListCandidateInterviewsRequest) ProtoMessage() {}
 
 func (x *ListCandidateInterviewsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[154]
+	mi := &file_proto_recruitment_proto_msgTypes[165]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13148,7 +14320,7 @@ func (x *ListCandidateInterviewsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCandidateInterviewsRequest.ProtoReflect.Descriptor instead.
 func (*ListCandidateInterviewsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{154}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{165}
 }
 
 func (x *ListCandidateInterviewsRequest) GetUserId() int64 {
@@ -13169,7 +14341,7 @@ type ListCandidateInterviewsResponse struct {
 
 func (x *ListCandidateInterviewsResponse) Reset() {
 	*x = ListCandidateInterviewsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[155]
+	mi := &file_proto_recruitment_proto_msgTypes[166]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13181,7 +14353,7 @@ func (x *ListCandidateInterviewsResponse) String() string {
 func (*ListCandidateInterviewsResponse) ProtoMessage() {}
 
 func (x *ListCandidateInterviewsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[155]
+	mi := &file_proto_recruitment_proto_msgTypes[166]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13194,7 +14366,7 @@ func (x *ListCandidateInterviewsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCandidateInterviewsResponse.ProtoReflect.Descriptor instead.
 func (*ListCandidateInterviewsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{155}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{166}
 }
 
 func (x *ListCandidateInterviewsResponse) GetCode() int32 {
@@ -13237,7 +14409,7 @@ type InterviewFeedback struct {
 
 func (x *InterviewFeedback) Reset() {
 	*x = InterviewFeedback{}
-	mi := &file_proto_recruitment_proto_msgTypes[156]
+	mi := &file_proto_recruitment_proto_msgTypes[167]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13249,7 +14421,7 @@ func (x *InterviewFeedback) String() string {
 func (*InterviewFeedback) ProtoMessage() {}
 
 func (x *InterviewFeedback) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[156]
+	mi := &file_proto_recruitment_proto_msgTypes[167]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13262,7 +14434,7 @@ func (x *InterviewFeedback) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InterviewFeedback.ProtoReflect.Descriptor instead.
 func (*InterviewFeedback) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{156}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{167}
 }
 
 func (x *InterviewFeedback) GetFeedbackId() int64 {
@@ -13357,7 +14529,7 @@ type SubmitFeedbackRequest struct {
 
 func (x *SubmitFeedbackRequest) Reset() {
 	*x = SubmitFeedbackRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[157]
+	mi := &file_proto_recruitment_proto_msgTypes[168]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13369,7 +14541,7 @@ func (x *SubmitFeedbackRequest) String() string {
 func (*SubmitFeedbackRequest) ProtoMessage() {}
 
 func (x *SubmitFeedbackRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[157]
+	mi := &file_proto_recruitment_proto_msgTypes[168]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13382,7 +14554,7 @@ func (x *SubmitFeedbackRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitFeedbackRequest.ProtoReflect.Descriptor instead.
 func (*SubmitFeedbackRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{157}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{168}
 }
 
 func (x *SubmitFeedbackRequest) GetInterviewerId() int64 {
@@ -13444,7 +14616,7 @@ type GetFeedbackRequest struct {
 
 func (x *GetFeedbackRequest) Reset() {
 	*x = GetFeedbackRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[158]
+	mi := &file_proto_recruitment_proto_msgTypes[169]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13456,7 +14628,7 @@ func (x *GetFeedbackRequest) String() string {
 func (*GetFeedbackRequest) ProtoMessage() {}
 
 func (x *GetFeedbackRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[158]
+	mi := &file_proto_recruitment_proto_msgTypes[169]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13469,7 +14641,7 @@ func (x *GetFeedbackRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFeedbackRequest.ProtoReflect.Descriptor instead.
 func (*GetFeedbackRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{158}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{169}
 }
 
 func (x *GetFeedbackRequest) GetInterviewerId() int64 {
@@ -13497,7 +14669,7 @@ type GetFeedbackResponse struct {
 
 func (x *GetFeedbackResponse) Reset() {
 	*x = GetFeedbackResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[159]
+	mi := &file_proto_recruitment_proto_msgTypes[170]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13509,7 +14681,7 @@ func (x *GetFeedbackResponse) String() string {
 func (*GetFeedbackResponse) ProtoMessage() {}
 
 func (x *GetFeedbackResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[159]
+	mi := &file_proto_recruitment_proto_msgTypes[170]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13522,7 +14694,7 @@ func (x *GetFeedbackResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFeedbackResponse.ProtoReflect.Descriptor instead.
 func (*GetFeedbackResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{159}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{170}
 }
 
 func (x *GetFeedbackResponse) GetCode() int32 {
@@ -13557,7 +14729,7 @@ type BatchCancelInterviewsRequest struct {
 
 func (x *BatchCancelInterviewsRequest) Reset() {
 	*x = BatchCancelInterviewsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[160]
+	mi := &file_proto_recruitment_proto_msgTypes[171]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13569,7 +14741,7 @@ func (x *BatchCancelInterviewsRequest) String() string {
 func (*BatchCancelInterviewsRequest) ProtoMessage() {}
 
 func (x *BatchCancelInterviewsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[160]
+	mi := &file_proto_recruitment_proto_msgTypes[171]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13582,7 +14754,7 @@ func (x *BatchCancelInterviewsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchCancelInterviewsRequest.ProtoReflect.Descriptor instead.
 func (*BatchCancelInterviewsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{160}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{171}
 }
 
 func (x *BatchCancelInterviewsRequest) GetHrId() int64 {
@@ -13617,7 +14789,7 @@ type BatchCancelInterviewsResponse struct {
 
 func (x *BatchCancelInterviewsResponse) Reset() {
 	*x = BatchCancelInterviewsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[161]
+	mi := &file_proto_recruitment_proto_msgTypes[172]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13629,7 +14801,7 @@ func (x *BatchCancelInterviewsResponse) String() string {
 func (*BatchCancelInterviewsResponse) ProtoMessage() {}
 
 func (x *BatchCancelInterviewsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[161]
+	mi := &file_proto_recruitment_proto_msgTypes[172]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13642,7 +14814,7 @@ func (x *BatchCancelInterviewsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchCancelInterviewsResponse.ProtoReflect.Descriptor instead.
 func (*BatchCancelInterviewsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{161}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{172}
 }
 
 func (x *BatchCancelInterviewsResponse) GetCode() int32 {
@@ -13684,7 +14856,7 @@ type Notification struct {
 
 func (x *Notification) Reset() {
 	*x = Notification{}
-	mi := &file_proto_recruitment_proto_msgTypes[162]
+	mi := &file_proto_recruitment_proto_msgTypes[173]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13696,7 +14868,7 @@ func (x *Notification) String() string {
 func (*Notification) ProtoMessage() {}
 
 func (x *Notification) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[162]
+	mi := &file_proto_recruitment_proto_msgTypes[173]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13709,7 +14881,7 @@ func (x *Notification) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Notification.ProtoReflect.Descriptor instead.
 func (*Notification) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{162}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{173}
 }
 
 func (x *Notification) GetNotificationId() int64 {
@@ -13795,7 +14967,7 @@ type ListNotificationsRequest struct {
 
 func (x *ListNotificationsRequest) Reset() {
 	*x = ListNotificationsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[163]
+	mi := &file_proto_recruitment_proto_msgTypes[174]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13807,7 +14979,7 @@ func (x *ListNotificationsRequest) String() string {
 func (*ListNotificationsRequest) ProtoMessage() {}
 
 func (x *ListNotificationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[163]
+	mi := &file_proto_recruitment_proto_msgTypes[174]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13820,7 +14992,7 @@ func (x *ListNotificationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNotificationsRequest.ProtoReflect.Descriptor instead.
 func (*ListNotificationsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{163}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{174}
 }
 
 func (x *ListNotificationsRequest) GetUserId() int64 {
@@ -13872,7 +15044,7 @@ type ListNotificationsResponse struct {
 
 func (x *ListNotificationsResponse) Reset() {
 	*x = ListNotificationsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[164]
+	mi := &file_proto_recruitment_proto_msgTypes[175]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13884,7 +15056,7 @@ func (x *ListNotificationsResponse) String() string {
 func (*ListNotificationsResponse) ProtoMessage() {}
 
 func (x *ListNotificationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[164]
+	mi := &file_proto_recruitment_proto_msgTypes[175]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13897,7 +15069,7 @@ func (x *ListNotificationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNotificationsResponse.ProtoReflect.Descriptor instead.
 func (*ListNotificationsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{164}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{175}
 }
 
 func (x *ListNotificationsResponse) GetCode() int32 {
@@ -13952,7 +15124,7 @@ type UnreadNotificationCountRequest struct {
 
 func (x *UnreadNotificationCountRequest) Reset() {
 	*x = UnreadNotificationCountRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[165]
+	mi := &file_proto_recruitment_proto_msgTypes[176]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13964,7 +15136,7 @@ func (x *UnreadNotificationCountRequest) String() string {
 func (*UnreadNotificationCountRequest) ProtoMessage() {}
 
 func (x *UnreadNotificationCountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[165]
+	mi := &file_proto_recruitment_proto_msgTypes[176]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13977,7 +15149,7 @@ func (x *UnreadNotificationCountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnreadNotificationCountRequest.ProtoReflect.Descriptor instead.
 func (*UnreadNotificationCountRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{165}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{176}
 }
 
 func (x *UnreadNotificationCountRequest) GetUserId() int64 {
@@ -14005,7 +15177,7 @@ type UnreadNotificationCountResponse struct {
 
 func (x *UnreadNotificationCountResponse) Reset() {
 	*x = UnreadNotificationCountResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[166]
+	mi := &file_proto_recruitment_proto_msgTypes[177]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14017,7 +15189,7 @@ func (x *UnreadNotificationCountResponse) String() string {
 func (*UnreadNotificationCountResponse) ProtoMessage() {}
 
 func (x *UnreadNotificationCountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[166]
+	mi := &file_proto_recruitment_proto_msgTypes[177]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14030,7 +15202,7 @@ func (x *UnreadNotificationCountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnreadNotificationCountResponse.ProtoReflect.Descriptor instead.
 func (*UnreadNotificationCountResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{166}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{177}
 }
 
 func (x *UnreadNotificationCountResponse) GetCode() int32 {
@@ -14064,7 +15236,7 @@ type NotificationSummaryRequest struct {
 
 func (x *NotificationSummaryRequest) Reset() {
 	*x = NotificationSummaryRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[167]
+	mi := &file_proto_recruitment_proto_msgTypes[178]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14076,7 +15248,7 @@ func (x *NotificationSummaryRequest) String() string {
 func (*NotificationSummaryRequest) ProtoMessage() {}
 
 func (x *NotificationSummaryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[167]
+	mi := &file_proto_recruitment_proto_msgTypes[178]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14089,7 +15261,7 @@ func (x *NotificationSummaryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotificationSummaryRequest.ProtoReflect.Descriptor instead.
 func (*NotificationSummaryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{167}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{178}
 }
 
 func (x *NotificationSummaryRequest) GetUserId() int64 {
@@ -14119,7 +15291,7 @@ type NotificationSummaryResponse struct {
 
 func (x *NotificationSummaryResponse) Reset() {
 	*x = NotificationSummaryResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[168]
+	mi := &file_proto_recruitment_proto_msgTypes[179]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14131,7 +15303,7 @@ func (x *NotificationSummaryResponse) String() string {
 func (*NotificationSummaryResponse) ProtoMessage() {}
 
 func (x *NotificationSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[168]
+	mi := &file_proto_recruitment_proto_msgTypes[179]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14144,7 +15316,7 @@ func (x *NotificationSummaryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotificationSummaryResponse.ProtoReflect.Descriptor instead.
 func (*NotificationSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{168}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{179}
 }
 
 func (x *NotificationSummaryResponse) GetCode() int32 {
@@ -14193,7 +15365,7 @@ type MarkNotificationReadRequest struct {
 
 func (x *MarkNotificationReadRequest) Reset() {
 	*x = MarkNotificationReadRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[169]
+	mi := &file_proto_recruitment_proto_msgTypes[180]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14205,7 +15377,7 @@ func (x *MarkNotificationReadRequest) String() string {
 func (*MarkNotificationReadRequest) ProtoMessage() {}
 
 func (x *MarkNotificationReadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[169]
+	mi := &file_proto_recruitment_proto_msgTypes[180]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14218,7 +15390,7 @@ func (x *MarkNotificationReadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkNotificationReadRequest.ProtoReflect.Descriptor instead.
 func (*MarkNotificationReadRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{169}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{180}
 }
 
 func (x *MarkNotificationReadRequest) GetUserId() int64 {
@@ -14252,7 +15424,7 @@ type MarkAllNotificationsReadRequest struct {
 
 func (x *MarkAllNotificationsReadRequest) Reset() {
 	*x = MarkAllNotificationsReadRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[170]
+	mi := &file_proto_recruitment_proto_msgTypes[181]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14264,7 +15436,7 @@ func (x *MarkAllNotificationsReadRequest) String() string {
 func (*MarkAllNotificationsReadRequest) ProtoMessage() {}
 
 func (x *MarkAllNotificationsReadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[170]
+	mi := &file_proto_recruitment_proto_msgTypes[181]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14277,7 +15449,7 @@ func (x *MarkAllNotificationsReadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkAllNotificationsReadRequest.ProtoReflect.Descriptor instead.
 func (*MarkAllNotificationsReadRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{170}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{181}
 }
 
 func (x *MarkAllNotificationsReadRequest) GetUserId() int64 {
@@ -14308,7 +15480,7 @@ type InviteCodeInfo struct {
 
 func (x *InviteCodeInfo) Reset() {
 	*x = InviteCodeInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[171]
+	mi := &file_proto_recruitment_proto_msgTypes[182]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14320,7 +15492,7 @@ func (x *InviteCodeInfo) String() string {
 func (*InviteCodeInfo) ProtoMessage() {}
 
 func (x *InviteCodeInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[171]
+	mi := &file_proto_recruitment_proto_msgTypes[182]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14333,7 +15505,7 @@ func (x *InviteCodeInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InviteCodeInfo.ProtoReflect.Descriptor instead.
 func (*InviteCodeInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{171}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{182}
 }
 
 func (x *InviteCodeInfo) GetId() int64 {
@@ -14388,7 +15560,7 @@ type CreateInviteCodeRequest struct {
 
 func (x *CreateInviteCodeRequest) Reset() {
 	*x = CreateInviteCodeRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[172]
+	mi := &file_proto_recruitment_proto_msgTypes[183]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14400,7 +15572,7 @@ func (x *CreateInviteCodeRequest) String() string {
 func (*CreateInviteCodeRequest) ProtoMessage() {}
 
 func (x *CreateInviteCodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[172]
+	mi := &file_proto_recruitment_proto_msgTypes[183]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14413,7 +15585,7 @@ func (x *CreateInviteCodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateInviteCodeRequest.ProtoReflect.Descriptor instead.
 func (*CreateInviteCodeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{172}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{183}
 }
 
 func (x *CreateInviteCodeRequest) GetCreatedBy() int64 {
@@ -14441,7 +15613,7 @@ type CreateInviteCodeResponse struct {
 
 func (x *CreateInviteCodeResponse) Reset() {
 	*x = CreateInviteCodeResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[173]
+	mi := &file_proto_recruitment_proto_msgTypes[184]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14453,7 +15625,7 @@ func (x *CreateInviteCodeResponse) String() string {
 func (*CreateInviteCodeResponse) ProtoMessage() {}
 
 func (x *CreateInviteCodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[173]
+	mi := &file_proto_recruitment_proto_msgTypes[184]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14466,7 +15638,7 @@ func (x *CreateInviteCodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateInviteCodeResponse.ProtoReflect.Descriptor instead.
 func (*CreateInviteCodeResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{173}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{184}
 }
 
 func (x *CreateInviteCodeResponse) GetCode() int32 {
@@ -14501,7 +15673,7 @@ type ListInviteCodesRequest struct {
 
 func (x *ListInviteCodesRequest) Reset() {
 	*x = ListInviteCodesRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[174]
+	mi := &file_proto_recruitment_proto_msgTypes[185]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14513,7 +15685,7 @@ func (x *ListInviteCodesRequest) String() string {
 func (*ListInviteCodesRequest) ProtoMessage() {}
 
 func (x *ListInviteCodesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[174]
+	mi := &file_proto_recruitment_proto_msgTypes[185]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14526,7 +15698,7 @@ func (x *ListInviteCodesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInviteCodesRequest.ProtoReflect.Descriptor instead.
 func (*ListInviteCodesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{174}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{185}
 }
 
 func (x *ListInviteCodesRequest) GetCreatedBy() int64 {
@@ -14562,7 +15734,7 @@ type ListInviteCodesResponse struct {
 
 func (x *ListInviteCodesResponse) Reset() {
 	*x = ListInviteCodesResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[175]
+	mi := &file_proto_recruitment_proto_msgTypes[186]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14574,7 +15746,7 @@ func (x *ListInviteCodesResponse) String() string {
 func (*ListInviteCodesResponse) ProtoMessage() {}
 
 func (x *ListInviteCodesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[175]
+	mi := &file_proto_recruitment_proto_msgTypes[186]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14587,7 +15759,7 @@ func (x *ListInviteCodesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInviteCodesResponse.ProtoReflect.Descriptor instead.
 func (*ListInviteCodesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{175}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{186}
 }
 
 func (x *ListInviteCodesResponse) GetCode() int32 {
@@ -14629,7 +15801,7 @@ type ExtendInviteCodeRequest struct {
 
 func (x *ExtendInviteCodeRequest) Reset() {
 	*x = ExtendInviteCodeRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[176]
+	mi := &file_proto_recruitment_proto_msgTypes[187]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14641,7 +15813,7 @@ func (x *ExtendInviteCodeRequest) String() string {
 func (*ExtendInviteCodeRequest) ProtoMessage() {}
 
 func (x *ExtendInviteCodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[176]
+	mi := &file_proto_recruitment_proto_msgTypes[187]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14654,7 +15826,7 @@ func (x *ExtendInviteCodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExtendInviteCodeRequest.ProtoReflect.Descriptor instead.
 func (*ExtendInviteCodeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{176}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{187}
 }
 
 func (x *ExtendInviteCodeRequest) GetAdminId() int64 {
@@ -14688,7 +15860,7 @@ type RevokeInviteCodeRequest struct {
 
 func (x *RevokeInviteCodeRequest) Reset() {
 	*x = RevokeInviteCodeRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[177]
+	mi := &file_proto_recruitment_proto_msgTypes[188]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14700,7 +15872,7 @@ func (x *RevokeInviteCodeRequest) String() string {
 func (*RevokeInviteCodeRequest) ProtoMessage() {}
 
 func (x *RevokeInviteCodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[177]
+	mi := &file_proto_recruitment_proto_msgTypes[188]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14713,7 +15885,7 @@ func (x *RevokeInviteCodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeInviteCodeRequest.ProtoReflect.Descriptor instead.
 func (*RevokeInviteCodeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{177}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{188}
 }
 
 func (x *RevokeInviteCodeRequest) GetAdminId() int64 {
@@ -14740,7 +15912,7 @@ type ReactivateInviteCodeRequest struct {
 
 func (x *ReactivateInviteCodeRequest) Reset() {
 	*x = ReactivateInviteCodeRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[178]
+	mi := &file_proto_recruitment_proto_msgTypes[189]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14752,7 +15924,7 @@ func (x *ReactivateInviteCodeRequest) String() string {
 func (*ReactivateInviteCodeRequest) ProtoMessage() {}
 
 func (x *ReactivateInviteCodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[178]
+	mi := &file_proto_recruitment_proto_msgTypes[189]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14765,7 +15937,7 @@ func (x *ReactivateInviteCodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReactivateInviteCodeRequest.ProtoReflect.Descriptor instead.
 func (*ReactivateInviteCodeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{178}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{189}
 }
 
 func (x *ReactivateInviteCodeRequest) GetAdminId() int64 {
@@ -14791,7 +15963,7 @@ type ValidateInviteCodeRequest struct {
 
 func (x *ValidateInviteCodeRequest) Reset() {
 	*x = ValidateInviteCodeRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[179]
+	mi := &file_proto_recruitment_proto_msgTypes[190]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14803,7 +15975,7 @@ func (x *ValidateInviteCodeRequest) String() string {
 func (*ValidateInviteCodeRequest) ProtoMessage() {}
 
 func (x *ValidateInviteCodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[179]
+	mi := &file_proto_recruitment_proto_msgTypes[190]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14816,7 +15988,7 @@ func (x *ValidateInviteCodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateInviteCodeRequest.ProtoReflect.Descriptor instead.
 func (*ValidateInviteCodeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{179}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{190}
 }
 
 func (x *ValidateInviteCodeRequest) GetInviteCode() string {
@@ -14837,7 +16009,7 @@ type ValidateInviteCodeResponse struct {
 
 func (x *ValidateInviteCodeResponse) Reset() {
 	*x = ValidateInviteCodeResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[180]
+	mi := &file_proto_recruitment_proto_msgTypes[191]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14849,7 +16021,7 @@ func (x *ValidateInviteCodeResponse) String() string {
 func (*ValidateInviteCodeResponse) ProtoMessage() {}
 
 func (x *ValidateInviteCodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[180]
+	mi := &file_proto_recruitment_proto_msgTypes[191]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14862,7 +16034,7 @@ func (x *ValidateInviteCodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateInviteCodeResponse.ProtoReflect.Descriptor instead.
 func (*ValidateInviteCodeResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{180}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{191}
 }
 
 func (x *ValidateInviteCodeResponse) GetCode() int32 {
@@ -14894,7 +16066,7 @@ type ListJobOptionsRequest struct {
 
 func (x *ListJobOptionsRequest) Reset() {
 	*x = ListJobOptionsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[181]
+	mi := &file_proto_recruitment_proto_msgTypes[192]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14906,7 +16078,7 @@ func (x *ListJobOptionsRequest) String() string {
 func (*ListJobOptionsRequest) ProtoMessage() {}
 
 func (x *ListJobOptionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[181]
+	mi := &file_proto_recruitment_proto_msgTypes[192]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14919,7 +16091,7 @@ func (x *ListJobOptionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJobOptionsRequest.ProtoReflect.Descriptor instead.
 func (*ListJobOptionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{181}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{192}
 }
 
 type ListJobOptionsResponse struct {
@@ -14935,7 +16107,7 @@ type ListJobOptionsResponse struct {
 
 func (x *ListJobOptionsResponse) Reset() {
 	*x = ListJobOptionsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[182]
+	mi := &file_proto_recruitment_proto_msgTypes[193]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14947,7 +16119,7 @@ func (x *ListJobOptionsResponse) String() string {
 func (*ListJobOptionsResponse) ProtoMessage() {}
 
 func (x *ListJobOptionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[182]
+	mi := &file_proto_recruitment_proto_msgTypes[193]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14960,7 +16132,7 @@ func (x *ListJobOptionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJobOptionsResponse.ProtoReflect.Descriptor instead.
 func (*ListJobOptionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{182}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{193}
 }
 
 func (x *ListJobOptionsResponse) GetCode() int32 {
@@ -15014,7 +16186,7 @@ type DepartmentNode struct {
 
 func (x *DepartmentNode) Reset() {
 	*x = DepartmentNode{}
-	mi := &file_proto_recruitment_proto_msgTypes[183]
+	mi := &file_proto_recruitment_proto_msgTypes[194]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15026,7 +16198,7 @@ func (x *DepartmentNode) String() string {
 func (*DepartmentNode) ProtoMessage() {}
 
 func (x *DepartmentNode) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[183]
+	mi := &file_proto_recruitment_proto_msgTypes[194]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15039,7 +16211,7 @@ func (x *DepartmentNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DepartmentNode.ProtoReflect.Descriptor instead.
 func (*DepartmentNode) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{183}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{194}
 }
 
 func (x *DepartmentNode) GetId() int64 {
@@ -15111,7 +16283,7 @@ type LocationOption struct {
 
 func (x *LocationOption) Reset() {
 	*x = LocationOption{}
-	mi := &file_proto_recruitment_proto_msgTypes[184]
+	mi := &file_proto_recruitment_proto_msgTypes[195]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15123,7 +16295,7 @@ func (x *LocationOption) String() string {
 func (*LocationOption) ProtoMessage() {}
 
 func (x *LocationOption) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[184]
+	mi := &file_proto_recruitment_proto_msgTypes[195]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15136,7 +16308,7 @@ func (x *LocationOption) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocationOption.ProtoReflect.Descriptor instead.
 func (*LocationOption) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{184}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{195}
 }
 
 func (x *LocationOption) GetId() int64 {
@@ -15182,7 +16354,7 @@ type ListDepartmentsRequest struct {
 
 func (x *ListDepartmentsRequest) Reset() {
 	*x = ListDepartmentsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[185]
+	mi := &file_proto_recruitment_proto_msgTypes[196]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15194,7 +16366,7 @@ func (x *ListDepartmentsRequest) String() string {
 func (*ListDepartmentsRequest) ProtoMessage() {}
 
 func (x *ListDepartmentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[185]
+	mi := &file_proto_recruitment_proto_msgTypes[196]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15207,7 +16379,7 @@ func (x *ListDepartmentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDepartmentsRequest.ProtoReflect.Descriptor instead.
 func (*ListDepartmentsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{185}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{196}
 }
 
 type ListDepartmentsResponse struct {
@@ -15221,7 +16393,7 @@ type ListDepartmentsResponse struct {
 
 func (x *ListDepartmentsResponse) Reset() {
 	*x = ListDepartmentsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[186]
+	mi := &file_proto_recruitment_proto_msgTypes[197]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15233,7 +16405,7 @@ func (x *ListDepartmentsResponse) String() string {
 func (*ListDepartmentsResponse) ProtoMessage() {}
 
 func (x *ListDepartmentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[186]
+	mi := &file_proto_recruitment_proto_msgTypes[197]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15246,7 +16418,7 @@ func (x *ListDepartmentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDepartmentsResponse.ProtoReflect.Descriptor instead.
 func (*ListDepartmentsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{186}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{197}
 }
 
 func (x *ListDepartmentsResponse) GetCode() int32 {
@@ -15282,7 +16454,7 @@ type CreateDepartmentRequest struct {
 
 func (x *CreateDepartmentRequest) Reset() {
 	*x = CreateDepartmentRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[187]
+	mi := &file_proto_recruitment_proto_msgTypes[198]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15294,7 +16466,7 @@ func (x *CreateDepartmentRequest) String() string {
 func (*CreateDepartmentRequest) ProtoMessage() {}
 
 func (x *CreateDepartmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[187]
+	mi := &file_proto_recruitment_proto_msgTypes[198]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15307,7 +16479,7 @@ func (x *CreateDepartmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateDepartmentRequest.ProtoReflect.Descriptor instead.
 func (*CreateDepartmentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{187}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{198}
 }
 
 func (x *CreateDepartmentRequest) GetAdminId() int64 {
@@ -15351,7 +16523,7 @@ type UpdateDepartmentRequest struct {
 
 func (x *UpdateDepartmentRequest) Reset() {
 	*x = UpdateDepartmentRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[188]
+	mi := &file_proto_recruitment_proto_msgTypes[199]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15363,7 +16535,7 @@ func (x *UpdateDepartmentRequest) String() string {
 func (*UpdateDepartmentRequest) ProtoMessage() {}
 
 func (x *UpdateDepartmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[188]
+	mi := &file_proto_recruitment_proto_msgTypes[199]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15376,7 +16548,7 @@ func (x *UpdateDepartmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateDepartmentRequest.ProtoReflect.Descriptor instead.
 func (*UpdateDepartmentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{188}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{199}
 }
 
 func (x *UpdateDepartmentRequest) GetAdminId() int64 {
@@ -15425,7 +16597,7 @@ type UpdateDepartmentStatusRequest struct {
 
 func (x *UpdateDepartmentStatusRequest) Reset() {
 	*x = UpdateDepartmentStatusRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[189]
+	mi := &file_proto_recruitment_proto_msgTypes[200]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15437,7 +16609,7 @@ func (x *UpdateDepartmentStatusRequest) String() string {
 func (*UpdateDepartmentStatusRequest) ProtoMessage() {}
 
 func (x *UpdateDepartmentStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[189]
+	mi := &file_proto_recruitment_proto_msgTypes[200]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15450,7 +16622,7 @@ func (x *UpdateDepartmentStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateDepartmentStatusRequest.ProtoReflect.Descriptor instead.
 func (*UpdateDepartmentStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{189}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{200}
 }
 
 func (x *UpdateDepartmentStatusRequest) GetAdminId() int64 {
@@ -15484,7 +16656,7 @@ type DeleteDepartmentRequest struct {
 
 func (x *DeleteDepartmentRequest) Reset() {
 	*x = DeleteDepartmentRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[190]
+	mi := &file_proto_recruitment_proto_msgTypes[201]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15496,7 +16668,7 @@ func (x *DeleteDepartmentRequest) String() string {
 func (*DeleteDepartmentRequest) ProtoMessage() {}
 
 func (x *DeleteDepartmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[190]
+	mi := &file_proto_recruitment_proto_msgTypes[201]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15509,7 +16681,7 @@ func (x *DeleteDepartmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDepartmentRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDepartmentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{190}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{201}
 }
 
 func (x *DeleteDepartmentRequest) GetAdminId() int64 {
@@ -15537,7 +16709,7 @@ type DepartmentResponse struct {
 
 func (x *DepartmentResponse) Reset() {
 	*x = DepartmentResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[191]
+	mi := &file_proto_recruitment_proto_msgTypes[202]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15549,7 +16721,7 @@ func (x *DepartmentResponse) String() string {
 func (*DepartmentResponse) ProtoMessage() {}
 
 func (x *DepartmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[191]
+	mi := &file_proto_recruitment_proto_msgTypes[202]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15562,7 +16734,7 @@ func (x *DepartmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DepartmentResponse.ProtoReflect.Descriptor instead.
 func (*DepartmentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{191}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{202}
 }
 
 func (x *DepartmentResponse) GetCode() int32 {
@@ -15594,7 +16766,7 @@ type ListJobLocationsRequest struct {
 
 func (x *ListJobLocationsRequest) Reset() {
 	*x = ListJobLocationsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[192]
+	mi := &file_proto_recruitment_proto_msgTypes[203]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15606,7 +16778,7 @@ func (x *ListJobLocationsRequest) String() string {
 func (*ListJobLocationsRequest) ProtoMessage() {}
 
 func (x *ListJobLocationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[192]
+	mi := &file_proto_recruitment_proto_msgTypes[203]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15619,7 +16791,7 @@ func (x *ListJobLocationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJobLocationsRequest.ProtoReflect.Descriptor instead.
 func (*ListJobLocationsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{192}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{203}
 }
 
 type ListJobLocationsResponse struct {
@@ -15633,7 +16805,7 @@ type ListJobLocationsResponse struct {
 
 func (x *ListJobLocationsResponse) Reset() {
 	*x = ListJobLocationsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[193]
+	mi := &file_proto_recruitment_proto_msgTypes[204]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15645,7 +16817,7 @@ func (x *ListJobLocationsResponse) String() string {
 func (*ListJobLocationsResponse) ProtoMessage() {}
 
 func (x *ListJobLocationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[193]
+	mi := &file_proto_recruitment_proto_msgTypes[204]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15658,7 +16830,7 @@ func (x *ListJobLocationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJobLocationsResponse.ProtoReflect.Descriptor instead.
 func (*ListJobLocationsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{193}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{204}
 }
 
 func (x *ListJobLocationsResponse) GetCode() int32 {
@@ -15694,7 +16866,7 @@ type CreateJobLocationRequest struct {
 
 func (x *CreateJobLocationRequest) Reset() {
 	*x = CreateJobLocationRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[194]
+	mi := &file_proto_recruitment_proto_msgTypes[205]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15706,7 +16878,7 @@ func (x *CreateJobLocationRequest) String() string {
 func (*CreateJobLocationRequest) ProtoMessage() {}
 
 func (x *CreateJobLocationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[194]
+	mi := &file_proto_recruitment_proto_msgTypes[205]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15719,7 +16891,7 @@ func (x *CreateJobLocationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateJobLocationRequest.ProtoReflect.Descriptor instead.
 func (*CreateJobLocationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{194}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{205}
 }
 
 func (x *CreateJobLocationRequest) GetAdminId() int64 {
@@ -15763,7 +16935,7 @@ type UpdateJobLocationRequest struct {
 
 func (x *UpdateJobLocationRequest) Reset() {
 	*x = UpdateJobLocationRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[195]
+	mi := &file_proto_recruitment_proto_msgTypes[206]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15775,7 +16947,7 @@ func (x *UpdateJobLocationRequest) String() string {
 func (*UpdateJobLocationRequest) ProtoMessage() {}
 
 func (x *UpdateJobLocationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[195]
+	mi := &file_proto_recruitment_proto_msgTypes[206]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15788,7 +16960,7 @@ func (x *UpdateJobLocationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateJobLocationRequest.ProtoReflect.Descriptor instead.
 func (*UpdateJobLocationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{195}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{206}
 }
 
 func (x *UpdateJobLocationRequest) GetAdminId() int64 {
@@ -15837,7 +17009,7 @@ type UpdateJobLocationStatusRequest struct {
 
 func (x *UpdateJobLocationStatusRequest) Reset() {
 	*x = UpdateJobLocationStatusRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[196]
+	mi := &file_proto_recruitment_proto_msgTypes[207]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15849,7 +17021,7 @@ func (x *UpdateJobLocationStatusRequest) String() string {
 func (*UpdateJobLocationStatusRequest) ProtoMessage() {}
 
 func (x *UpdateJobLocationStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[196]
+	mi := &file_proto_recruitment_proto_msgTypes[207]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15862,7 +17034,7 @@ func (x *UpdateJobLocationStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateJobLocationStatusRequest.ProtoReflect.Descriptor instead.
 func (*UpdateJobLocationStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{196}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{207}
 }
 
 func (x *UpdateJobLocationStatusRequest) GetAdminId() int64 {
@@ -15896,7 +17068,7 @@ type DeleteJobLocationRequest struct {
 
 func (x *DeleteJobLocationRequest) Reset() {
 	*x = DeleteJobLocationRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[197]
+	mi := &file_proto_recruitment_proto_msgTypes[208]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15908,7 +17080,7 @@ func (x *DeleteJobLocationRequest) String() string {
 func (*DeleteJobLocationRequest) ProtoMessage() {}
 
 func (x *DeleteJobLocationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[197]
+	mi := &file_proto_recruitment_proto_msgTypes[208]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15921,7 +17093,7 @@ func (x *DeleteJobLocationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteJobLocationRequest.ProtoReflect.Descriptor instead.
 func (*DeleteJobLocationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{197}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{208}
 }
 
 func (x *DeleteJobLocationRequest) GetAdminId() int64 {
@@ -15949,7 +17121,7 @@ type JobLocationResponse struct {
 
 func (x *JobLocationResponse) Reset() {
 	*x = JobLocationResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[198]
+	mi := &file_proto_recruitment_proto_msgTypes[209]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15961,7 +17133,7 @@ func (x *JobLocationResponse) String() string {
 func (*JobLocationResponse) ProtoMessage() {}
 
 func (x *JobLocationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[198]
+	mi := &file_proto_recruitment_proto_msgTypes[209]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15974,7 +17146,7 @@ func (x *JobLocationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobLocationResponse.ProtoReflect.Descriptor instead.
 func (*JobLocationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{198}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{209}
 }
 
 func (x *JobLocationResponse) GetCode() int32 {
@@ -16008,7 +17180,7 @@ type DepartmentLocationMap struct {
 
 func (x *DepartmentLocationMap) Reset() {
 	*x = DepartmentLocationMap{}
-	mi := &file_proto_recruitment_proto_msgTypes[199]
+	mi := &file_proto_recruitment_proto_msgTypes[210]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16020,7 +17192,7 @@ func (x *DepartmentLocationMap) String() string {
 func (*DepartmentLocationMap) ProtoMessage() {}
 
 func (x *DepartmentLocationMap) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[199]
+	mi := &file_proto_recruitment_proto_msgTypes[210]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16033,7 +17205,7 @@ func (x *DepartmentLocationMap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DepartmentLocationMap.ProtoReflect.Descriptor instead.
 func (*DepartmentLocationMap) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{199}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{210}
 }
 
 func (x *DepartmentLocationMap) GetDepartmentId() int64 {
@@ -16058,7 +17230,7 @@ type ListDepartmentsLocationMapRequest struct {
 
 func (x *ListDepartmentsLocationMapRequest) Reset() {
 	*x = ListDepartmentsLocationMapRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[200]
+	mi := &file_proto_recruitment_proto_msgTypes[211]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16070,7 +17242,7 @@ func (x *ListDepartmentsLocationMapRequest) String() string {
 func (*ListDepartmentsLocationMapRequest) ProtoMessage() {}
 
 func (x *ListDepartmentsLocationMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[200]
+	mi := &file_proto_recruitment_proto_msgTypes[211]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16083,7 +17255,7 @@ func (x *ListDepartmentsLocationMapRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ListDepartmentsLocationMapRequest.ProtoReflect.Descriptor instead.
 func (*ListDepartmentsLocationMapRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{200}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{211}
 }
 
 type ListDepartmentsLocationMapResponse struct {
@@ -16097,7 +17269,7 @@ type ListDepartmentsLocationMapResponse struct {
 
 func (x *ListDepartmentsLocationMapResponse) Reset() {
 	*x = ListDepartmentsLocationMapResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[201]
+	mi := &file_proto_recruitment_proto_msgTypes[212]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16109,7 +17281,7 @@ func (x *ListDepartmentsLocationMapResponse) String() string {
 func (*ListDepartmentsLocationMapResponse) ProtoMessage() {}
 
 func (x *ListDepartmentsLocationMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[201]
+	mi := &file_proto_recruitment_proto_msgTypes[212]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16122,7 +17294,7 @@ func (x *ListDepartmentsLocationMapResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ListDepartmentsLocationMapResponse.ProtoReflect.Descriptor instead.
 func (*ListDepartmentsLocationMapResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{201}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{212}
 }
 
 func (x *ListDepartmentsLocationMapResponse) GetCode() int32 {
@@ -16155,7 +17327,7 @@ type ListDepartmentLocationsRequest struct {
 
 func (x *ListDepartmentLocationsRequest) Reset() {
 	*x = ListDepartmentLocationsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[202]
+	mi := &file_proto_recruitment_proto_msgTypes[213]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16167,7 +17339,7 @@ func (x *ListDepartmentLocationsRequest) String() string {
 func (*ListDepartmentLocationsRequest) ProtoMessage() {}
 
 func (x *ListDepartmentLocationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[202]
+	mi := &file_proto_recruitment_proto_msgTypes[213]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16180,7 +17352,7 @@ func (x *ListDepartmentLocationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDepartmentLocationsRequest.ProtoReflect.Descriptor instead.
 func (*ListDepartmentLocationsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{202}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{213}
 }
 
 func (x *ListDepartmentLocationsRequest) GetDepartmentId() int64 {
@@ -16202,7 +17374,7 @@ type ListDepartmentLocationsResponse struct {
 
 func (x *ListDepartmentLocationsResponse) Reset() {
 	*x = ListDepartmentLocationsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[203]
+	mi := &file_proto_recruitment_proto_msgTypes[214]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16214,7 +17386,7 @@ func (x *ListDepartmentLocationsResponse) String() string {
 func (*ListDepartmentLocationsResponse) ProtoMessage() {}
 
 func (x *ListDepartmentLocationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[203]
+	mi := &file_proto_recruitment_proto_msgTypes[214]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16227,7 +17399,7 @@ func (x *ListDepartmentLocationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDepartmentLocationsResponse.ProtoReflect.Descriptor instead.
 func (*ListDepartmentLocationsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{203}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{214}
 }
 
 func (x *ListDepartmentLocationsResponse) GetCode() int32 {
@@ -16267,7 +17439,7 @@ type GetDepartmentLocationConfigRequest struct {
 
 func (x *GetDepartmentLocationConfigRequest) Reset() {
 	*x = GetDepartmentLocationConfigRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[204]
+	mi := &file_proto_recruitment_proto_msgTypes[215]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16279,7 +17451,7 @@ func (x *GetDepartmentLocationConfigRequest) String() string {
 func (*GetDepartmentLocationConfigRequest) ProtoMessage() {}
 
 func (x *GetDepartmentLocationConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[204]
+	mi := &file_proto_recruitment_proto_msgTypes[215]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16292,7 +17464,7 @@ func (x *GetDepartmentLocationConfigRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GetDepartmentLocationConfigRequest.ProtoReflect.Descriptor instead.
 func (*GetDepartmentLocationConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{204}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{215}
 }
 
 func (x *GetDepartmentLocationConfigRequest) GetDepartmentId() int64 {
@@ -16314,7 +17486,7 @@ type UpdateDepartmentLocationConfigRequest struct {
 
 func (x *UpdateDepartmentLocationConfigRequest) Reset() {
 	*x = UpdateDepartmentLocationConfigRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[205]
+	mi := &file_proto_recruitment_proto_msgTypes[216]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16326,7 +17498,7 @@ func (x *UpdateDepartmentLocationConfigRequest) String() string {
 func (*UpdateDepartmentLocationConfigRequest) ProtoMessage() {}
 
 func (x *UpdateDepartmentLocationConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[205]
+	mi := &file_proto_recruitment_proto_msgTypes[216]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16339,7 +17511,7 @@ func (x *UpdateDepartmentLocationConfigRequest) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use UpdateDepartmentLocationConfigRequest.ProtoReflect.Descriptor instead.
 func (*UpdateDepartmentLocationConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{205}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{216}
 }
 
 func (x *UpdateDepartmentLocationConfigRequest) GetAdminId() int64 {
@@ -16386,7 +17558,7 @@ type DepartmentLocationConfigResponse struct {
 
 func (x *DepartmentLocationConfigResponse) Reset() {
 	*x = DepartmentLocationConfigResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[206]
+	mi := &file_proto_recruitment_proto_msgTypes[217]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16398,7 +17570,7 @@ func (x *DepartmentLocationConfigResponse) String() string {
 func (*DepartmentLocationConfigResponse) ProtoMessage() {}
 
 func (x *DepartmentLocationConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[206]
+	mi := &file_proto_recruitment_proto_msgTypes[217]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16411,7 +17583,7 @@ func (x *DepartmentLocationConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DepartmentLocationConfigResponse.ProtoReflect.Descriptor instead.
 func (*DepartmentLocationConfigResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{206}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{217}
 }
 
 func (x *DepartmentLocationConfigResponse) GetCode() int32 {
@@ -16496,7 +17668,7 @@ type UsageLogItem struct {
 
 func (x *UsageLogItem) Reset() {
 	*x = UsageLogItem{}
-	mi := &file_proto_recruitment_proto_msgTypes[207]
+	mi := &file_proto_recruitment_proto_msgTypes[218]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16508,7 +17680,7 @@ func (x *UsageLogItem) String() string {
 func (*UsageLogItem) ProtoMessage() {}
 
 func (x *UsageLogItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[207]
+	mi := &file_proto_recruitment_proto_msgTypes[218]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16521,7 +17693,7 @@ func (x *UsageLogItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsageLogItem.ProtoReflect.Descriptor instead.
 func (*UsageLogItem) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{207}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{218}
 }
 
 func (x *UsageLogItem) GetId() int64 {
@@ -16667,7 +17839,7 @@ type QueryUsageLogsRequest struct {
 
 func (x *QueryUsageLogsRequest) Reset() {
 	*x = QueryUsageLogsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[208]
+	mi := &file_proto_recruitment_proto_msgTypes[219]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16679,7 +17851,7 @@ func (x *QueryUsageLogsRequest) String() string {
 func (*QueryUsageLogsRequest) ProtoMessage() {}
 
 func (x *QueryUsageLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[208]
+	mi := &file_proto_recruitment_proto_msgTypes[219]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16692,7 +17864,7 @@ func (x *QueryUsageLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryUsageLogsRequest.ProtoReflect.Descriptor instead.
 func (*QueryUsageLogsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{208}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{219}
 }
 
 func (x *QueryUsageLogsRequest) GetPage() int32 {
@@ -16770,7 +17942,7 @@ type QueryUsageLogsResponse struct {
 
 func (x *QueryUsageLogsResponse) Reset() {
 	*x = QueryUsageLogsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[209]
+	mi := &file_proto_recruitment_proto_msgTypes[220]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16782,7 +17954,7 @@ func (x *QueryUsageLogsResponse) String() string {
 func (*QueryUsageLogsResponse) ProtoMessage() {}
 
 func (x *QueryUsageLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[209]
+	mi := &file_proto_recruitment_proto_msgTypes[220]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16795,7 +17967,7 @@ func (x *QueryUsageLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryUsageLogsResponse.ProtoReflect.Descriptor instead.
 func (*QueryUsageLogsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{209}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{220}
 }
 
 func (x *QueryUsageLogsResponse) GetCode() int32 {
@@ -16858,7 +18030,7 @@ type Offer struct {
 
 func (x *Offer) Reset() {
 	*x = Offer{}
-	mi := &file_proto_recruitment_proto_msgTypes[210]
+	mi := &file_proto_recruitment_proto_msgTypes[221]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16870,7 +18042,7 @@ func (x *Offer) String() string {
 func (*Offer) ProtoMessage() {}
 
 func (x *Offer) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[210]
+	mi := &file_proto_recruitment_proto_msgTypes[221]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16883,7 +18055,7 @@ func (x *Offer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Offer.ProtoReflect.Descriptor instead.
 func (*Offer) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{210}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{221}
 }
 
 func (x *Offer) GetId() int64 {
@@ -17064,7 +18236,7 @@ type CreateOfferRequest struct {
 
 func (x *CreateOfferRequest) Reset() {
 	*x = CreateOfferRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[211]
+	mi := &file_proto_recruitment_proto_msgTypes[222]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17076,7 +18248,7 @@ func (x *CreateOfferRequest) String() string {
 func (*CreateOfferRequest) ProtoMessage() {}
 
 func (x *CreateOfferRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[211]
+	mi := &file_proto_recruitment_proto_msgTypes[222]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17089,7 +18261,7 @@ func (x *CreateOfferRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateOfferRequest.ProtoReflect.Descriptor instead.
 func (*CreateOfferRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{211}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{222}
 }
 
 func (x *CreateOfferRequest) GetHrId() int64 {
@@ -17166,7 +18338,7 @@ type CreateOfferResponse struct {
 
 func (x *CreateOfferResponse) Reset() {
 	*x = CreateOfferResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[212]
+	mi := &file_proto_recruitment_proto_msgTypes[223]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17178,7 +18350,7 @@ func (x *CreateOfferResponse) String() string {
 func (*CreateOfferResponse) ProtoMessage() {}
 
 func (x *CreateOfferResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[212]
+	mi := &file_proto_recruitment_proto_msgTypes[223]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17191,7 +18363,7 @@ func (x *CreateOfferResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateOfferResponse.ProtoReflect.Descriptor instead.
 func (*CreateOfferResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{212}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{223}
 }
 
 func (x *CreateOfferResponse) GetCode() int32 {
@@ -17232,7 +18404,7 @@ type UpdateOfferRequest struct {
 
 func (x *UpdateOfferRequest) Reset() {
 	*x = UpdateOfferRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[213]
+	mi := &file_proto_recruitment_proto_msgTypes[224]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17244,7 +18416,7 @@ func (x *UpdateOfferRequest) String() string {
 func (*UpdateOfferRequest) ProtoMessage() {}
 
 func (x *UpdateOfferRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[213]
+	mi := &file_proto_recruitment_proto_msgTypes[224]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17257,7 +18429,7 @@ func (x *UpdateOfferRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateOfferRequest.ProtoReflect.Descriptor instead.
 func (*UpdateOfferRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{213}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{224}
 }
 
 func (x *UpdateOfferRequest) GetHrId() int64 {
@@ -17333,7 +18505,7 @@ type GetOfferRequest struct {
 
 func (x *GetOfferRequest) Reset() {
 	*x = GetOfferRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[214]
+	mi := &file_proto_recruitment_proto_msgTypes[225]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17345,7 +18517,7 @@ func (x *GetOfferRequest) String() string {
 func (*GetOfferRequest) ProtoMessage() {}
 
 func (x *GetOfferRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[214]
+	mi := &file_proto_recruitment_proto_msgTypes[225]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17358,7 +18530,7 @@ func (x *GetOfferRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOfferRequest.ProtoReflect.Descriptor instead.
 func (*GetOfferRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{214}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{225}
 }
 
 func (x *GetOfferRequest) GetUserId() int64 {
@@ -17386,7 +18558,7 @@ type GetOfferResponse struct {
 
 func (x *GetOfferResponse) Reset() {
 	*x = GetOfferResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[215]
+	mi := &file_proto_recruitment_proto_msgTypes[226]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17398,7 +18570,7 @@ func (x *GetOfferResponse) String() string {
 func (*GetOfferResponse) ProtoMessage() {}
 
 func (x *GetOfferResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[215]
+	mi := &file_proto_recruitment_proto_msgTypes[226]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17411,7 +18583,7 @@ func (x *GetOfferResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOfferResponse.ProtoReflect.Descriptor instead.
 func (*GetOfferResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{215}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{226}
 }
 
 func (x *GetOfferResponse) GetCode() int32 {
@@ -17445,7 +18617,7 @@ type ListOffersByApplicationRequest struct {
 
 func (x *ListOffersByApplicationRequest) Reset() {
 	*x = ListOffersByApplicationRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[216]
+	mi := &file_proto_recruitment_proto_msgTypes[227]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17457,7 +18629,7 @@ func (x *ListOffersByApplicationRequest) String() string {
 func (*ListOffersByApplicationRequest) ProtoMessage() {}
 
 func (x *ListOffersByApplicationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[216]
+	mi := &file_proto_recruitment_proto_msgTypes[227]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17470,7 +18642,7 @@ func (x *ListOffersByApplicationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOffersByApplicationRequest.ProtoReflect.Descriptor instead.
 func (*ListOffersByApplicationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{216}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{227}
 }
 
 func (x *ListOffersByApplicationRequest) GetHrId() int64 {
@@ -17498,7 +18670,7 @@ type ListOffersByApplicationResponse struct {
 
 func (x *ListOffersByApplicationResponse) Reset() {
 	*x = ListOffersByApplicationResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[217]
+	mi := &file_proto_recruitment_proto_msgTypes[228]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17510,7 +18682,7 @@ func (x *ListOffersByApplicationResponse) String() string {
 func (*ListOffersByApplicationResponse) ProtoMessage() {}
 
 func (x *ListOffersByApplicationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[217]
+	mi := &file_proto_recruitment_proto_msgTypes[228]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17523,7 +18695,7 @@ func (x *ListOffersByApplicationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOffersByApplicationResponse.ProtoReflect.Descriptor instead.
 func (*ListOffersByApplicationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{217}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{228}
 }
 
 func (x *ListOffersByApplicationResponse) GetCode() int32 {
@@ -17557,7 +18729,7 @@ type SendOfferRequest struct {
 
 func (x *SendOfferRequest) Reset() {
 	*x = SendOfferRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[218]
+	mi := &file_proto_recruitment_proto_msgTypes[229]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17569,7 +18741,7 @@ func (x *SendOfferRequest) String() string {
 func (*SendOfferRequest) ProtoMessage() {}
 
 func (x *SendOfferRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[218]
+	mi := &file_proto_recruitment_proto_msgTypes[229]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17582,7 +18754,7 @@ func (x *SendOfferRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendOfferRequest.ProtoReflect.Descriptor instead.
 func (*SendOfferRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{218}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{229}
 }
 
 func (x *SendOfferRequest) GetHrId() int64 {
@@ -17610,7 +18782,7 @@ type WithdrawOfferRequest struct {
 
 func (x *WithdrawOfferRequest) Reset() {
 	*x = WithdrawOfferRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[219]
+	mi := &file_proto_recruitment_proto_msgTypes[230]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17622,7 +18794,7 @@ func (x *WithdrawOfferRequest) String() string {
 func (*WithdrawOfferRequest) ProtoMessage() {}
 
 func (x *WithdrawOfferRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[219]
+	mi := &file_proto_recruitment_proto_msgTypes[230]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17635,7 +18807,7 @@ func (x *WithdrawOfferRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WithdrawOfferRequest.ProtoReflect.Descriptor instead.
 func (*WithdrawOfferRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{219}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{230}
 }
 
 func (x *WithdrawOfferRequest) GetHrId() int64 {
@@ -17669,7 +18841,7 @@ type AcceptOfferRequest struct {
 
 func (x *AcceptOfferRequest) Reset() {
 	*x = AcceptOfferRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[220]
+	mi := &file_proto_recruitment_proto_msgTypes[231]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17681,7 +18853,7 @@ func (x *AcceptOfferRequest) String() string {
 func (*AcceptOfferRequest) ProtoMessage() {}
 
 func (x *AcceptOfferRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[220]
+	mi := &file_proto_recruitment_proto_msgTypes[231]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17694,7 +18866,7 @@ func (x *AcceptOfferRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptOfferRequest.ProtoReflect.Descriptor instead.
 func (*AcceptOfferRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{220}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{231}
 }
 
 func (x *AcceptOfferRequest) GetUserId() int64 {
@@ -17722,7 +18894,7 @@ type RejectOfferRequest struct {
 
 func (x *RejectOfferRequest) Reset() {
 	*x = RejectOfferRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[221]
+	mi := &file_proto_recruitment_proto_msgTypes[232]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17734,7 +18906,7 @@ func (x *RejectOfferRequest) String() string {
 func (*RejectOfferRequest) ProtoMessage() {}
 
 func (x *RejectOfferRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[221]
+	mi := &file_proto_recruitment_proto_msgTypes[232]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17747,7 +18919,7 @@ func (x *RejectOfferRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RejectOfferRequest.ProtoReflect.Descriptor instead.
 func (*RejectOfferRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{221}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{232}
 }
 
 func (x *RejectOfferRequest) GetUserId() int64 {
@@ -17783,7 +18955,7 @@ type ListMyOffersRequest struct {
 
 func (x *ListMyOffersRequest) Reset() {
 	*x = ListMyOffersRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[222]
+	mi := &file_proto_recruitment_proto_msgTypes[233]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17795,7 +18967,7 @@ func (x *ListMyOffersRequest) String() string {
 func (*ListMyOffersRequest) ProtoMessage() {}
 
 func (x *ListMyOffersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[222]
+	mi := &file_proto_recruitment_proto_msgTypes[233]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17808,7 +18980,7 @@ func (x *ListMyOffersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMyOffersRequest.ProtoReflect.Descriptor instead.
 func (*ListMyOffersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{222}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{233}
 }
 
 func (x *ListMyOffersRequest) GetUserId() int64 {
@@ -17853,7 +19025,7 @@ type ListMyOffersResponse struct {
 
 func (x *ListMyOffersResponse) Reset() {
 	*x = ListMyOffersResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[223]
+	mi := &file_proto_recruitment_proto_msgTypes[234]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17865,7 +19037,7 @@ func (x *ListMyOffersResponse) String() string {
 func (*ListMyOffersResponse) ProtoMessage() {}
 
 func (x *ListMyOffersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[223]
+	mi := &file_proto_recruitment_proto_msgTypes[234]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17878,7 +19050,7 @@ func (x *ListMyOffersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMyOffersResponse.ProtoReflect.Descriptor instead.
 func (*ListMyOffersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{223}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{234}
 }
 
 func (x *ListMyOffersResponse) GetCode() int32 {
@@ -17939,7 +19111,7 @@ type OfferEventInfo struct {
 
 func (x *OfferEventInfo) Reset() {
 	*x = OfferEventInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[224]
+	mi := &file_proto_recruitment_proto_msgTypes[235]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17951,7 +19123,7 @@ func (x *OfferEventInfo) String() string {
 func (*OfferEventInfo) ProtoMessage() {}
 
 func (x *OfferEventInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[224]
+	mi := &file_proto_recruitment_proto_msgTypes[235]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17964,7 +19136,7 @@ func (x *OfferEventInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OfferEventInfo.ProtoReflect.Descriptor instead.
 func (*OfferEventInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{224}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{235}
 }
 
 func (x *OfferEventInfo) GetId() int64 {
@@ -18033,7 +19205,7 @@ type ListOfferEventsRequest struct {
 
 func (x *ListOfferEventsRequest) Reset() {
 	*x = ListOfferEventsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[225]
+	mi := &file_proto_recruitment_proto_msgTypes[236]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18045,7 +19217,7 @@ func (x *ListOfferEventsRequest) String() string {
 func (*ListOfferEventsRequest) ProtoMessage() {}
 
 func (x *ListOfferEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[225]
+	mi := &file_proto_recruitment_proto_msgTypes[236]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18058,7 +19230,7 @@ func (x *ListOfferEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOfferEventsRequest.ProtoReflect.Descriptor instead.
 func (*ListOfferEventsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{225}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{236}
 }
 
 func (x *ListOfferEventsRequest) GetHrId() int64 {
@@ -18086,7 +19258,7 @@ type ListOfferEventsResponse struct {
 
 func (x *ListOfferEventsResponse) Reset() {
 	*x = ListOfferEventsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[226]
+	mi := &file_proto_recruitment_proto_msgTypes[237]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18098,7 +19270,7 @@ func (x *ListOfferEventsResponse) String() string {
 func (*ListOfferEventsResponse) ProtoMessage() {}
 
 func (x *ListOfferEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[226]
+	mi := &file_proto_recruitment_proto_msgTypes[237]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18111,7 +19283,7 @@ func (x *ListOfferEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOfferEventsResponse.ProtoReflect.Descriptor instead.
 func (*ListOfferEventsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{226}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{237}
 }
 
 func (x *ListOfferEventsResponse) GetCode() int32 {
@@ -18143,7 +19315,7 @@ type ListRolesRequest struct {
 
 func (x *ListRolesRequest) Reset() {
 	*x = ListRolesRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[227]
+	mi := &file_proto_recruitment_proto_msgTypes[238]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18155,7 +19327,7 @@ func (x *ListRolesRequest) String() string {
 func (*ListRolesRequest) ProtoMessage() {}
 
 func (x *ListRolesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[227]
+	mi := &file_proto_recruitment_proto_msgTypes[238]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18168,7 +19340,7 @@ func (x *ListRolesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRolesRequest.ProtoReflect.Descriptor instead.
 func (*ListRolesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{227}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{238}
 }
 
 type ListRolesResponse struct {
@@ -18182,7 +19354,7 @@ type ListRolesResponse struct {
 
 func (x *ListRolesResponse) Reset() {
 	*x = ListRolesResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[228]
+	mi := &file_proto_recruitment_proto_msgTypes[239]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18194,7 +19366,7 @@ func (x *ListRolesResponse) String() string {
 func (*ListRolesResponse) ProtoMessage() {}
 
 func (x *ListRolesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[228]
+	mi := &file_proto_recruitment_proto_msgTypes[239]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18207,7 +19379,7 @@ func (x *ListRolesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRolesResponse.ProtoReflect.Descriptor instead.
 func (*ListRolesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{228}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{239}
 }
 
 func (x *ListRolesResponse) GetCode() int32 {
@@ -18246,7 +19418,7 @@ type RoleInfo struct {
 
 func (x *RoleInfo) Reset() {
 	*x = RoleInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[229]
+	mi := &file_proto_recruitment_proto_msgTypes[240]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18258,7 +19430,7 @@ func (x *RoleInfo) String() string {
 func (*RoleInfo) ProtoMessage() {}
 
 func (x *RoleInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[229]
+	mi := &file_proto_recruitment_proto_msgTypes[240]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18271,7 +19443,7 @@ func (x *RoleInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoleInfo.ProtoReflect.Descriptor instead.
 func (*RoleInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{229}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{240}
 }
 
 func (x *RoleInfo) GetId() uint64 {
@@ -18331,7 +19503,7 @@ type ListPermissionsRequest struct {
 
 func (x *ListPermissionsRequest) Reset() {
 	*x = ListPermissionsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[230]
+	mi := &file_proto_recruitment_proto_msgTypes[241]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18343,7 +19515,7 @@ func (x *ListPermissionsRequest) String() string {
 func (*ListPermissionsRequest) ProtoMessage() {}
 
 func (x *ListPermissionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[230]
+	mi := &file_proto_recruitment_proto_msgTypes[241]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18356,7 +19528,7 @@ func (x *ListPermissionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPermissionsRequest.ProtoReflect.Descriptor instead.
 func (*ListPermissionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{230}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{241}
 }
 
 type ListPermissionsResponse struct {
@@ -18370,7 +19542,7 @@ type ListPermissionsResponse struct {
 
 func (x *ListPermissionsResponse) Reset() {
 	*x = ListPermissionsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[231]
+	mi := &file_proto_recruitment_proto_msgTypes[242]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18382,7 +19554,7 @@ func (x *ListPermissionsResponse) String() string {
 func (*ListPermissionsResponse) ProtoMessage() {}
 
 func (x *ListPermissionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[231]
+	mi := &file_proto_recruitment_proto_msgTypes[242]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18395,7 +19567,7 @@ func (x *ListPermissionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPermissionsResponse.ProtoReflect.Descriptor instead.
 func (*ListPermissionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{231}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{242}
 }
 
 func (x *ListPermissionsResponse) GetCode() int32 {
@@ -18432,7 +19604,7 @@ type PermissionInfo struct {
 
 func (x *PermissionInfo) Reset() {
 	*x = PermissionInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[232]
+	mi := &file_proto_recruitment_proto_msgTypes[243]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18444,7 +19616,7 @@ func (x *PermissionInfo) String() string {
 func (*PermissionInfo) ProtoMessage() {}
 
 func (x *PermissionInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[232]
+	mi := &file_proto_recruitment_proto_msgTypes[243]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18457,7 +19629,7 @@ func (x *PermissionInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PermissionInfo.ProtoReflect.Descriptor instead.
 func (*PermissionInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{232}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{243}
 }
 
 func (x *PermissionInfo) GetId() uint64 {
@@ -18504,7 +19676,7 @@ type GetUserRolesRequest struct {
 
 func (x *GetUserRolesRequest) Reset() {
 	*x = GetUserRolesRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[233]
+	mi := &file_proto_recruitment_proto_msgTypes[244]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18516,7 +19688,7 @@ func (x *GetUserRolesRequest) String() string {
 func (*GetUserRolesRequest) ProtoMessage() {}
 
 func (x *GetUserRolesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[233]
+	mi := &file_proto_recruitment_proto_msgTypes[244]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18529,7 +19701,7 @@ func (x *GetUserRolesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserRolesRequest.ProtoReflect.Descriptor instead.
 func (*GetUserRolesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{233}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{244}
 }
 
 func (x *GetUserRolesRequest) GetUserId() int64 {
@@ -18552,7 +19724,7 @@ type GetUserRolesResponse struct {
 
 func (x *GetUserRolesResponse) Reset() {
 	*x = GetUserRolesResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[234]
+	mi := &file_proto_recruitment_proto_msgTypes[245]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18564,7 +19736,7 @@ func (x *GetUserRolesResponse) String() string {
 func (*GetUserRolesResponse) ProtoMessage() {}
 
 func (x *GetUserRolesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[234]
+	mi := &file_proto_recruitment_proto_msgTypes[245]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18577,7 +19749,7 @@ func (x *GetUserRolesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserRolesResponse.ProtoReflect.Descriptor instead.
 func (*GetUserRolesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{234}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{245}
 }
 
 func (x *GetUserRolesResponse) GetCode() int32 {
@@ -18628,7 +19800,7 @@ type DataScopeInfo struct {
 
 func (x *DataScopeInfo) Reset() {
 	*x = DataScopeInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[235]
+	mi := &file_proto_recruitment_proto_msgTypes[246]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18640,7 +19812,7 @@ func (x *DataScopeInfo) String() string {
 func (*DataScopeInfo) ProtoMessage() {}
 
 func (x *DataScopeInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[235]
+	mi := &file_proto_recruitment_proto_msgTypes[246]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18653,7 +19825,7 @@ func (x *DataScopeInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DataScopeInfo.ProtoReflect.Descriptor instead.
 func (*DataScopeInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{235}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{246}
 }
 
 func (x *DataScopeInfo) GetId() uint64 {
@@ -18702,7 +19874,7 @@ type AssignUserRoleRequest struct {
 
 func (x *AssignUserRoleRequest) Reset() {
 	*x = AssignUserRoleRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[236]
+	mi := &file_proto_recruitment_proto_msgTypes[247]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18714,7 +19886,7 @@ func (x *AssignUserRoleRequest) String() string {
 func (*AssignUserRoleRequest) ProtoMessage() {}
 
 func (x *AssignUserRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[236]
+	mi := &file_proto_recruitment_proto_msgTypes[247]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18727,7 +19899,7 @@ func (x *AssignUserRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignUserRoleRequest.ProtoReflect.Descriptor instead.
 func (*AssignUserRoleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{236}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{247}
 }
 
 func (x *AssignUserRoleRequest) GetAdminId() int64 {
@@ -18762,7 +19934,7 @@ type RevokeUserRoleRequest struct {
 
 func (x *RevokeUserRoleRequest) Reset() {
 	*x = RevokeUserRoleRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[237]
+	mi := &file_proto_recruitment_proto_msgTypes[248]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18774,7 +19946,7 @@ func (x *RevokeUserRoleRequest) String() string {
 func (*RevokeUserRoleRequest) ProtoMessage() {}
 
 func (x *RevokeUserRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[237]
+	mi := &file_proto_recruitment_proto_msgTypes[248]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18787,7 +19959,7 @@ func (x *RevokeUserRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeUserRoleRequest.ProtoReflect.Descriptor instead.
 func (*RevokeUserRoleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{237}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{248}
 }
 
 func (x *RevokeUserRoleRequest) GetAdminId() int64 {
@@ -18824,7 +19996,7 @@ type AssignDataScopeRequest struct {
 
 func (x *AssignDataScopeRequest) Reset() {
 	*x = AssignDataScopeRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[238]
+	mi := &file_proto_recruitment_proto_msgTypes[249]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18836,7 +20008,7 @@ func (x *AssignDataScopeRequest) String() string {
 func (*AssignDataScopeRequest) ProtoMessage() {}
 
 func (x *AssignDataScopeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[238]
+	mi := &file_proto_recruitment_proto_msgTypes[249]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18849,7 +20021,7 @@ func (x *AssignDataScopeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignDataScopeRequest.ProtoReflect.Descriptor instead.
 func (*AssignDataScopeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{238}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{249}
 }
 
 func (x *AssignDataScopeRequest) GetAdminId() int64 {
@@ -18897,7 +20069,7 @@ type RevokeDataScopeRequest struct {
 
 func (x *RevokeDataScopeRequest) Reset() {
 	*x = RevokeDataScopeRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[239]
+	mi := &file_proto_recruitment_proto_msgTypes[250]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18909,7 +20081,7 @@ func (x *RevokeDataScopeRequest) String() string {
 func (*RevokeDataScopeRequest) ProtoMessage() {}
 
 func (x *RevokeDataScopeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[239]
+	mi := &file_proto_recruitment_proto_msgTypes[250]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18922,7 +20094,7 @@ func (x *RevokeDataScopeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeDataScopeRequest.ProtoReflect.Descriptor instead.
 func (*RevokeDataScopeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{239}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{250}
 }
 
 func (x *RevokeDataScopeRequest) GetAdminId() int64 {
@@ -18950,7 +20122,7 @@ type ListStaffUsersRequest struct {
 
 func (x *ListStaffUsersRequest) Reset() {
 	*x = ListStaffUsersRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[240]
+	mi := &file_proto_recruitment_proto_msgTypes[251]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18962,7 +20134,7 @@ func (x *ListStaffUsersRequest) String() string {
 func (*ListStaffUsersRequest) ProtoMessage() {}
 
 func (x *ListStaffUsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[240]
+	mi := &file_proto_recruitment_proto_msgTypes[251]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18975,7 +20147,7 @@ func (x *ListStaffUsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStaffUsersRequest.ProtoReflect.Descriptor instead.
 func (*ListStaffUsersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{240}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{251}
 }
 
 func (x *ListStaffUsersRequest) GetPage() int32 {
@@ -19011,7 +20183,7 @@ type ListStaffUsersResponse struct {
 
 func (x *ListStaffUsersResponse) Reset() {
 	*x = ListStaffUsersResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[241]
+	mi := &file_proto_recruitment_proto_msgTypes[252]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19023,7 +20195,7 @@ func (x *ListStaffUsersResponse) String() string {
 func (*ListStaffUsersResponse) ProtoMessage() {}
 
 func (x *ListStaffUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[241]
+	mi := &file_proto_recruitment_proto_msgTypes[252]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19036,7 +20208,7 @@ func (x *ListStaffUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStaffUsersResponse.ProtoReflect.Descriptor instead.
 func (*ListStaffUsersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{241}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{252}
 }
 
 func (x *ListStaffUsersResponse) GetCode() int32 {
@@ -19083,7 +20255,7 @@ type StaffUserInfo struct {
 
 func (x *StaffUserInfo) Reset() {
 	*x = StaffUserInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[242]
+	mi := &file_proto_recruitment_proto_msgTypes[253]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19095,7 +20267,7 @@ func (x *StaffUserInfo) String() string {
 func (*StaffUserInfo) ProtoMessage() {}
 
 func (x *StaffUserInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[242]
+	mi := &file_proto_recruitment_proto_msgTypes[253]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19108,7 +20280,7 @@ func (x *StaffUserInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StaffUserInfo.ProtoReflect.Descriptor instead.
 func (*StaffUserInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{242}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{253}
 }
 
 func (x *StaffUserInfo) GetUserId() int64 {
@@ -19180,7 +20352,7 @@ type CreateStaffUserRequest struct {
 
 func (x *CreateStaffUserRequest) Reset() {
 	*x = CreateStaffUserRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[243]
+	mi := &file_proto_recruitment_proto_msgTypes[254]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19192,7 +20364,7 @@ func (x *CreateStaffUserRequest) String() string {
 func (*CreateStaffUserRequest) ProtoMessage() {}
 
 func (x *CreateStaffUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[243]
+	mi := &file_proto_recruitment_proto_msgTypes[254]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19205,7 +20377,7 @@ func (x *CreateStaffUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateStaffUserRequest.ProtoReflect.Descriptor instead.
 func (*CreateStaffUserRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{243}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{254}
 }
 
 func (x *CreateStaffUserRequest) GetAdminId() int64 {
@@ -19254,7 +20426,7 @@ type CreateStaffUserResponse struct {
 
 func (x *CreateStaffUserResponse) Reset() {
 	*x = CreateStaffUserResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[244]
+	mi := &file_proto_recruitment_proto_msgTypes[255]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19266,7 +20438,7 @@ func (x *CreateStaffUserResponse) String() string {
 func (*CreateStaffUserResponse) ProtoMessage() {}
 
 func (x *CreateStaffUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[244]
+	mi := &file_proto_recruitment_proto_msgTypes[255]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19279,7 +20451,7 @@ func (x *CreateStaffUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateStaffUserResponse.ProtoReflect.Descriptor instead.
 func (*CreateStaffUserResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{244}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{255}
 }
 
 func (x *CreateStaffUserResponse) GetCode() int32 {
@@ -19318,7 +20490,7 @@ type PlatformUserInfo struct {
 
 func (x *PlatformUserInfo) Reset() {
 	*x = PlatformUserInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[245]
+	mi := &file_proto_recruitment_proto_msgTypes[256]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19330,7 +20502,7 @@ func (x *PlatformUserInfo) String() string {
 func (*PlatformUserInfo) ProtoMessage() {}
 
 func (x *PlatformUserInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[245]
+	mi := &file_proto_recruitment_proto_msgTypes[256]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19343,7 +20515,7 @@ func (x *PlatformUserInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlatformUserInfo.ProtoReflect.Descriptor instead.
 func (*PlatformUserInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{245}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{256}
 }
 
 func (x *PlatformUserInfo) GetUserId() int64 {
@@ -19406,7 +20578,7 @@ type ListPlatformUsersRequest struct {
 
 func (x *ListPlatformUsersRequest) Reset() {
 	*x = ListPlatformUsersRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[246]
+	mi := &file_proto_recruitment_proto_msgTypes[257]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19418,7 +20590,7 @@ func (x *ListPlatformUsersRequest) String() string {
 func (*ListPlatformUsersRequest) ProtoMessage() {}
 
 func (x *ListPlatformUsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[246]
+	mi := &file_proto_recruitment_proto_msgTypes[257]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19431,7 +20603,7 @@ func (x *ListPlatformUsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPlatformUsersRequest.ProtoReflect.Descriptor instead.
 func (*ListPlatformUsersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{246}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{257}
 }
 
 func (x *ListPlatformUsersRequest) GetPage() int32 {
@@ -19467,7 +20639,7 @@ type ListPlatformUsersResponse struct {
 
 func (x *ListPlatformUsersResponse) Reset() {
 	*x = ListPlatformUsersResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[247]
+	mi := &file_proto_recruitment_proto_msgTypes[258]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19479,7 +20651,7 @@ func (x *ListPlatformUsersResponse) String() string {
 func (*ListPlatformUsersResponse) ProtoMessage() {}
 
 func (x *ListPlatformUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[247]
+	mi := &file_proto_recruitment_proto_msgTypes[258]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19492,7 +20664,7 @@ func (x *ListPlatformUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPlatformUsersResponse.ProtoReflect.Descriptor instead.
 func (*ListPlatformUsersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{247}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{258}
 }
 
 func (x *ListPlatformUsersResponse) GetCode() int32 {
@@ -19536,7 +20708,7 @@ type CreatePlatformUserRequest struct {
 
 func (x *CreatePlatformUserRequest) Reset() {
 	*x = CreatePlatformUserRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[248]
+	mi := &file_proto_recruitment_proto_msgTypes[259]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19548,7 +20720,7 @@ func (x *CreatePlatformUserRequest) String() string {
 func (*CreatePlatformUserRequest) ProtoMessage() {}
 
 func (x *CreatePlatformUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[248]
+	mi := &file_proto_recruitment_proto_msgTypes[259]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19561,7 +20733,7 @@ func (x *CreatePlatformUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePlatformUserRequest.ProtoReflect.Descriptor instead.
 func (*CreatePlatformUserRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{248}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{259}
 }
 
 func (x *CreatePlatformUserRequest) GetAdminId() int64 {
@@ -19610,7 +20782,7 @@ type CreatePlatformUserResponse struct {
 
 func (x *CreatePlatformUserResponse) Reset() {
 	*x = CreatePlatformUserResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[249]
+	mi := &file_proto_recruitment_proto_msgTypes[260]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19622,7 +20794,7 @@ func (x *CreatePlatformUserResponse) String() string {
 func (*CreatePlatformUserResponse) ProtoMessage() {}
 
 func (x *CreatePlatformUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[249]
+	mi := &file_proto_recruitment_proto_msgTypes[260]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19635,7 +20807,7 @@ func (x *CreatePlatformUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePlatformUserResponse.ProtoReflect.Descriptor instead.
 func (*CreatePlatformUserResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{249}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{260}
 }
 
 func (x *CreatePlatformUserResponse) GetCode() int32 {
@@ -19672,7 +20844,7 @@ type UpdatePlatformUserRequest struct {
 
 func (x *UpdatePlatformUserRequest) Reset() {
 	*x = UpdatePlatformUserRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[250]
+	mi := &file_proto_recruitment_proto_msgTypes[261]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19684,7 +20856,7 @@ func (x *UpdatePlatformUserRequest) String() string {
 func (*UpdatePlatformUserRequest) ProtoMessage() {}
 
 func (x *UpdatePlatformUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[250]
+	mi := &file_proto_recruitment_proto_msgTypes[261]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19697,7 +20869,7 @@ func (x *UpdatePlatformUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePlatformUserRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePlatformUserRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{250}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{261}
 }
 
 func (x *UpdatePlatformUserRequest) GetAdminId() int64 {
@@ -19746,7 +20918,7 @@ type PlatformUserResponse struct {
 
 func (x *PlatformUserResponse) Reset() {
 	*x = PlatformUserResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[251]
+	mi := &file_proto_recruitment_proto_msgTypes[262]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19758,7 +20930,7 @@ func (x *PlatformUserResponse) String() string {
 func (*PlatformUserResponse) ProtoMessage() {}
 
 func (x *PlatformUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[251]
+	mi := &file_proto_recruitment_proto_msgTypes[262]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19771,7 +20943,7 @@ func (x *PlatformUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlatformUserResponse.ProtoReflect.Descriptor instead.
 func (*PlatformUserResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{251}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{262}
 }
 
 func (x *PlatformUserResponse) GetCode() int32 {
@@ -19805,7 +20977,7 @@ type GetCandidateWorkspaceRequest struct {
 
 func (x *GetCandidateWorkspaceRequest) Reset() {
 	*x = GetCandidateWorkspaceRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[252]
+	mi := &file_proto_recruitment_proto_msgTypes[263]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19817,7 +20989,7 @@ func (x *GetCandidateWorkspaceRequest) String() string {
 func (*GetCandidateWorkspaceRequest) ProtoMessage() {}
 
 func (x *GetCandidateWorkspaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[252]
+	mi := &file_proto_recruitment_proto_msgTypes[263]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19830,7 +21002,7 @@ func (x *GetCandidateWorkspaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCandidateWorkspaceRequest.ProtoReflect.Descriptor instead.
 func (*GetCandidateWorkspaceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{252}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{263}
 }
 
 func (x *GetCandidateWorkspaceRequest) GetStaffUserId() int64 {
@@ -19876,7 +21048,7 @@ type CandidateWorkspace struct {
 
 func (x *CandidateWorkspace) Reset() {
 	*x = CandidateWorkspace{}
-	mi := &file_proto_recruitment_proto_msgTypes[253]
+	mi := &file_proto_recruitment_proto_msgTypes[264]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19888,7 +21060,7 @@ func (x *CandidateWorkspace) String() string {
 func (*CandidateWorkspace) ProtoMessage() {}
 
 func (x *CandidateWorkspace) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[253]
+	mi := &file_proto_recruitment_proto_msgTypes[264]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19901,7 +21073,7 @@ func (x *CandidateWorkspace) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CandidateWorkspace.ProtoReflect.Descriptor instead.
 func (*CandidateWorkspace) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{253}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{264}
 }
 
 func (x *CandidateWorkspace) GetRealName() string {
@@ -20032,7 +21204,7 @@ type CandidateWorkspaceInterview struct {
 
 func (x *CandidateWorkspaceInterview) Reset() {
 	*x = CandidateWorkspaceInterview{}
-	mi := &file_proto_recruitment_proto_msgTypes[254]
+	mi := &file_proto_recruitment_proto_msgTypes[265]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20044,7 +21216,7 @@ func (x *CandidateWorkspaceInterview) String() string {
 func (*CandidateWorkspaceInterview) ProtoMessage() {}
 
 func (x *CandidateWorkspaceInterview) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[254]
+	mi := &file_proto_recruitment_proto_msgTypes[265]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20057,7 +21229,7 @@ func (x *CandidateWorkspaceInterview) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CandidateWorkspaceInterview.ProtoReflect.Descriptor instead.
 func (*CandidateWorkspaceInterview) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{254}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{265}
 }
 
 func (x *CandidateWorkspaceInterview) GetInterviewId() int64 {
@@ -20175,7 +21347,7 @@ type CandidateWorkspaceOffer struct {
 
 func (x *CandidateWorkspaceOffer) Reset() {
 	*x = CandidateWorkspaceOffer{}
-	mi := &file_proto_recruitment_proto_msgTypes[255]
+	mi := &file_proto_recruitment_proto_msgTypes[266]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20187,7 +21359,7 @@ func (x *CandidateWorkspaceOffer) String() string {
 func (*CandidateWorkspaceOffer) ProtoMessage() {}
 
 func (x *CandidateWorkspaceOffer) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[255]
+	mi := &file_proto_recruitment_proto_msgTypes[266]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20200,7 +21372,7 @@ func (x *CandidateWorkspaceOffer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CandidateWorkspaceOffer.ProtoReflect.Descriptor instead.
 func (*CandidateWorkspaceOffer) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{255}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{266}
 }
 
 func (x *CandidateWorkspaceOffer) GetOfferId() int64 {
@@ -20283,7 +21455,7 @@ type CandidateWorkspaceApplication struct {
 
 func (x *CandidateWorkspaceApplication) Reset() {
 	*x = CandidateWorkspaceApplication{}
-	mi := &file_proto_recruitment_proto_msgTypes[256]
+	mi := &file_proto_recruitment_proto_msgTypes[267]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20295,7 +21467,7 @@ func (x *CandidateWorkspaceApplication) String() string {
 func (*CandidateWorkspaceApplication) ProtoMessage() {}
 
 func (x *CandidateWorkspaceApplication) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[256]
+	mi := &file_proto_recruitment_proto_msgTypes[267]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20308,7 +21480,7 @@ func (x *CandidateWorkspaceApplication) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CandidateWorkspaceApplication.ProtoReflect.Descriptor instead.
 func (*CandidateWorkspaceApplication) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{256}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{267}
 }
 
 func (x *CandidateWorkspaceApplication) GetApplicationId() int64 {
@@ -20385,7 +21557,7 @@ type GetCandidateWorkspaceResponse struct {
 
 func (x *GetCandidateWorkspaceResponse) Reset() {
 	*x = GetCandidateWorkspaceResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[257]
+	mi := &file_proto_recruitment_proto_msgTypes[268]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20397,7 +21569,7 @@ func (x *GetCandidateWorkspaceResponse) String() string {
 func (*GetCandidateWorkspaceResponse) ProtoMessage() {}
 
 func (x *GetCandidateWorkspaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[257]
+	mi := &file_proto_recruitment_proto_msgTypes[268]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20410,7 +21582,7 @@ func (x *GetCandidateWorkspaceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCandidateWorkspaceResponse.ProtoReflect.Descriptor instead.
 func (*GetCandidateWorkspaceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{257}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{268}
 }
 
 func (x *GetCandidateWorkspaceResponse) GetCode() int32 {
@@ -20451,7 +21623,7 @@ type CandidateNoteInfo struct {
 
 func (x *CandidateNoteInfo) Reset() {
 	*x = CandidateNoteInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[258]
+	mi := &file_proto_recruitment_proto_msgTypes[269]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20463,7 +21635,7 @@ func (x *CandidateNoteInfo) String() string {
 func (*CandidateNoteInfo) ProtoMessage() {}
 
 func (x *CandidateNoteInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[258]
+	mi := &file_proto_recruitment_proto_msgTypes[269]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20476,7 +21648,7 @@ func (x *CandidateNoteInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CandidateNoteInfo.ProtoReflect.Descriptor instead.
 func (*CandidateNoteInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{258}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{269}
 }
 
 func (x *CandidateNoteInfo) GetId() uint64 {
@@ -20554,7 +21726,7 @@ type CreateNoteRequest struct {
 
 func (x *CreateNoteRequest) Reset() {
 	*x = CreateNoteRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[259]
+	mi := &file_proto_recruitment_proto_msgTypes[270]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20566,7 +21738,7 @@ func (x *CreateNoteRequest) String() string {
 func (*CreateNoteRequest) ProtoMessage() {}
 
 func (x *CreateNoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[259]
+	mi := &file_proto_recruitment_proto_msgTypes[270]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20579,7 +21751,7 @@ func (x *CreateNoteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateNoteRequest.ProtoReflect.Descriptor instead.
 func (*CreateNoteRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{259}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{270}
 }
 
 func (x *CreateNoteRequest) GetStaffUserId() int64 {
@@ -20621,7 +21793,7 @@ type CreateNoteResponse struct {
 
 func (x *CreateNoteResponse) Reset() {
 	*x = CreateNoteResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[260]
+	mi := &file_proto_recruitment_proto_msgTypes[271]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20633,7 +21805,7 @@ func (x *CreateNoteResponse) String() string {
 func (*CreateNoteResponse) ProtoMessage() {}
 
 func (x *CreateNoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[260]
+	mi := &file_proto_recruitment_proto_msgTypes[271]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20646,7 +21818,7 @@ func (x *CreateNoteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateNoteResponse.ProtoReflect.Descriptor instead.
 func (*CreateNoteResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{260}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{271}
 }
 
 func (x *CreateNoteResponse) GetCode() int32 {
@@ -20681,7 +21853,7 @@ type ListNotesRequest struct {
 
 func (x *ListNotesRequest) Reset() {
 	*x = ListNotesRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[261]
+	mi := &file_proto_recruitment_proto_msgTypes[272]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20693,7 +21865,7 @@ func (x *ListNotesRequest) String() string {
 func (*ListNotesRequest) ProtoMessage() {}
 
 func (x *ListNotesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[261]
+	mi := &file_proto_recruitment_proto_msgTypes[272]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20706,7 +21878,7 @@ func (x *ListNotesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNotesRequest.ProtoReflect.Descriptor instead.
 func (*ListNotesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{261}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{272}
 }
 
 func (x *ListNotesRequest) GetStaffUserId() int64 {
@@ -20741,7 +21913,7 @@ type ListNotesResponse struct {
 
 func (x *ListNotesResponse) Reset() {
 	*x = ListNotesResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[262]
+	mi := &file_proto_recruitment_proto_msgTypes[273]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20753,7 +21925,7 @@ func (x *ListNotesResponse) String() string {
 func (*ListNotesResponse) ProtoMessage() {}
 
 func (x *ListNotesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[262]
+	mi := &file_proto_recruitment_proto_msgTypes[273]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20766,7 +21938,7 @@ func (x *ListNotesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNotesResponse.ProtoReflect.Descriptor instead.
 func (*ListNotesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{262}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{273}
 }
 
 func (x *ListNotesResponse) GetCode() int32 {
@@ -20803,7 +21975,7 @@ type CandidateTagInfo struct {
 
 func (x *CandidateTagInfo) Reset() {
 	*x = CandidateTagInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[263]
+	mi := &file_proto_recruitment_proto_msgTypes[274]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20815,7 +21987,7 @@ func (x *CandidateTagInfo) String() string {
 func (*CandidateTagInfo) ProtoMessage() {}
 
 func (x *CandidateTagInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[263]
+	mi := &file_proto_recruitment_proto_msgTypes[274]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20828,7 +22000,7 @@ func (x *CandidateTagInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CandidateTagInfo.ProtoReflect.Descriptor instead.
 func (*CandidateTagInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{263}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{274}
 }
 
 func (x *CandidateTagInfo) GetId() uint64 {
@@ -20877,7 +22049,7 @@ type CreateTagRequest struct {
 
 func (x *CreateTagRequest) Reset() {
 	*x = CreateTagRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[264]
+	mi := &file_proto_recruitment_proto_msgTypes[275]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20889,7 +22061,7 @@ func (x *CreateTagRequest) String() string {
 func (*CreateTagRequest) ProtoMessage() {}
 
 func (x *CreateTagRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[264]
+	mi := &file_proto_recruitment_proto_msgTypes[275]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20902,7 +22074,7 @@ func (x *CreateTagRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTagRequest.ProtoReflect.Descriptor instead.
 func (*CreateTagRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{264}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{275}
 }
 
 func (x *CreateTagRequest) GetStaffUserId() int64 {
@@ -20937,7 +22109,7 @@ type CreateTagResponse struct {
 
 func (x *CreateTagResponse) Reset() {
 	*x = CreateTagResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[265]
+	mi := &file_proto_recruitment_proto_msgTypes[276]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20949,7 +22121,7 @@ func (x *CreateTagResponse) String() string {
 func (*CreateTagResponse) ProtoMessage() {}
 
 func (x *CreateTagResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[265]
+	mi := &file_proto_recruitment_proto_msgTypes[276]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20962,7 +22134,7 @@ func (x *CreateTagResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTagResponse.ProtoReflect.Descriptor instead.
 func (*CreateTagResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{265}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{276}
 }
 
 func (x *CreateTagResponse) GetCode() int32 {
@@ -20995,7 +22167,7 @@ type ListTagsRequest struct {
 
 func (x *ListTagsRequest) Reset() {
 	*x = ListTagsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[266]
+	mi := &file_proto_recruitment_proto_msgTypes[277]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21007,7 +22179,7 @@ func (x *ListTagsRequest) String() string {
 func (*ListTagsRequest) ProtoMessage() {}
 
 func (x *ListTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[266]
+	mi := &file_proto_recruitment_proto_msgTypes[277]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21020,7 +22192,7 @@ func (x *ListTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTagsRequest.ProtoReflect.Descriptor instead.
 func (*ListTagsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{266}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{277}
 }
 
 func (x *ListTagsRequest) GetStaffUserId() int64 {
@@ -21041,7 +22213,7 @@ type ListTagsResponse struct {
 
 func (x *ListTagsResponse) Reset() {
 	*x = ListTagsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[267]
+	mi := &file_proto_recruitment_proto_msgTypes[278]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21053,7 +22225,7 @@ func (x *ListTagsResponse) String() string {
 func (*ListTagsResponse) ProtoMessage() {}
 
 func (x *ListTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[267]
+	mi := &file_proto_recruitment_proto_msgTypes[278]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21066,7 +22238,7 @@ func (x *ListTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTagsResponse.ProtoReflect.Descriptor instead.
 func (*ListTagsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{267}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{278}
 }
 
 func (x *ListTagsResponse) GetCode() int32 {
@@ -21101,7 +22273,7 @@ type AssignTagRequest struct {
 
 func (x *AssignTagRequest) Reset() {
 	*x = AssignTagRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[268]
+	mi := &file_proto_recruitment_proto_msgTypes[279]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21113,7 +22285,7 @@ func (x *AssignTagRequest) String() string {
 func (*AssignTagRequest) ProtoMessage() {}
 
 func (x *AssignTagRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[268]
+	mi := &file_proto_recruitment_proto_msgTypes[279]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21126,7 +22298,7 @@ func (x *AssignTagRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignTagRequest.ProtoReflect.Descriptor instead.
 func (*AssignTagRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{268}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{279}
 }
 
 func (x *AssignTagRequest) GetStaffUserId() int64 {
@@ -21161,7 +22333,7 @@ type UnassignTagRequest struct {
 
 func (x *UnassignTagRequest) Reset() {
 	*x = UnassignTagRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[269]
+	mi := &file_proto_recruitment_proto_msgTypes[280]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21173,7 +22345,7 @@ func (x *UnassignTagRequest) String() string {
 func (*UnassignTagRequest) ProtoMessage() {}
 
 func (x *UnassignTagRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[269]
+	mi := &file_proto_recruitment_proto_msgTypes[280]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21186,7 +22358,7 @@ func (x *UnassignTagRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnassignTagRequest.ProtoReflect.Descriptor instead.
 func (*UnassignTagRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{269}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{280}
 }
 
 func (x *UnassignTagRequest) GetStaffUserId() int64 {
@@ -21220,7 +22392,7 @@ type ListCandidateTagsRequest struct {
 
 func (x *ListCandidateTagsRequest) Reset() {
 	*x = ListCandidateTagsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[270]
+	mi := &file_proto_recruitment_proto_msgTypes[281]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21232,7 +22404,7 @@ func (x *ListCandidateTagsRequest) String() string {
 func (*ListCandidateTagsRequest) ProtoMessage() {}
 
 func (x *ListCandidateTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[270]
+	mi := &file_proto_recruitment_proto_msgTypes[281]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21245,7 +22417,7 @@ func (x *ListCandidateTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCandidateTagsRequest.ProtoReflect.Descriptor instead.
 func (*ListCandidateTagsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{270}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{281}
 }
 
 func (x *ListCandidateTagsRequest) GetStaffUserId() int64 {
@@ -21273,7 +22445,7 @@ type ListCandidateTagsResponse struct {
 
 func (x *ListCandidateTagsResponse) Reset() {
 	*x = ListCandidateTagsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[271]
+	mi := &file_proto_recruitment_proto_msgTypes[282]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21285,7 +22457,7 @@ func (x *ListCandidateTagsResponse) String() string {
 func (*ListCandidateTagsResponse) ProtoMessage() {}
 
 func (x *ListCandidateTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[271]
+	mi := &file_proto_recruitment_proto_msgTypes[282]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21298,7 +22470,7 @@ func (x *ListCandidateTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCandidateTagsResponse.ProtoReflect.Descriptor instead.
 func (*ListCandidateTagsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{271}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{282}
 }
 
 func (x *ListCandidateTagsResponse) GetCode() int32 {
@@ -21344,7 +22516,7 @@ type FollowUpTaskInfo struct {
 
 func (x *FollowUpTaskInfo) Reset() {
 	*x = FollowUpTaskInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[272]
+	mi := &file_proto_recruitment_proto_msgTypes[283]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21356,7 +22528,7 @@ func (x *FollowUpTaskInfo) String() string {
 func (*FollowUpTaskInfo) ProtoMessage() {}
 
 func (x *FollowUpTaskInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[272]
+	mi := &file_proto_recruitment_proto_msgTypes[283]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21369,7 +22541,7 @@ func (x *FollowUpTaskInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FollowUpTaskInfo.ProtoReflect.Descriptor instead.
 func (*FollowUpTaskInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{272}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{283}
 }
 
 func (x *FollowUpTaskInfo) GetId() uint64 {
@@ -21485,7 +22657,7 @@ type CreateFollowUpTaskRequest struct {
 
 func (x *CreateFollowUpTaskRequest) Reset() {
 	*x = CreateFollowUpTaskRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[273]
+	mi := &file_proto_recruitment_proto_msgTypes[284]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21497,7 +22669,7 @@ func (x *CreateFollowUpTaskRequest) String() string {
 func (*CreateFollowUpTaskRequest) ProtoMessage() {}
 
 func (x *CreateFollowUpTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[273]
+	mi := &file_proto_recruitment_proto_msgTypes[284]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21510,7 +22682,7 @@ func (x *CreateFollowUpTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFollowUpTaskRequest.ProtoReflect.Descriptor instead.
 func (*CreateFollowUpTaskRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{273}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{284}
 }
 
 func (x *CreateFollowUpTaskRequest) GetStaffUserId() int64 {
@@ -21573,7 +22745,7 @@ type CreateFollowUpTaskResponse struct {
 
 func (x *CreateFollowUpTaskResponse) Reset() {
 	*x = CreateFollowUpTaskResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[274]
+	mi := &file_proto_recruitment_proto_msgTypes[285]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21585,7 +22757,7 @@ func (x *CreateFollowUpTaskResponse) String() string {
 func (*CreateFollowUpTaskResponse) ProtoMessage() {}
 
 func (x *CreateFollowUpTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[274]
+	mi := &file_proto_recruitment_proto_msgTypes[285]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21598,7 +22770,7 @@ func (x *CreateFollowUpTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFollowUpTaskResponse.ProtoReflect.Descriptor instead.
 func (*CreateFollowUpTaskResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{274}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{285}
 }
 
 func (x *CreateFollowUpTaskResponse) GetCode() int32 {
@@ -21634,7 +22806,7 @@ type ListFollowUpTasksRequest struct {
 
 func (x *ListFollowUpTasksRequest) Reset() {
 	*x = ListFollowUpTasksRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[275]
+	mi := &file_proto_recruitment_proto_msgTypes[286]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21646,7 +22818,7 @@ func (x *ListFollowUpTasksRequest) String() string {
 func (*ListFollowUpTasksRequest) ProtoMessage() {}
 
 func (x *ListFollowUpTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[275]
+	mi := &file_proto_recruitment_proto_msgTypes[286]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21659,7 +22831,7 @@ func (x *ListFollowUpTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFollowUpTasksRequest.ProtoReflect.Descriptor instead.
 func (*ListFollowUpTasksRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{275}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{286}
 }
 
 func (x *ListFollowUpTasksRequest) GetStaffUserId() int64 {
@@ -21701,7 +22873,7 @@ type ListFollowUpTasksResponse struct {
 
 func (x *ListFollowUpTasksResponse) Reset() {
 	*x = ListFollowUpTasksResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[276]
+	mi := &file_proto_recruitment_proto_msgTypes[287]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21713,7 +22885,7 @@ func (x *ListFollowUpTasksResponse) String() string {
 func (*ListFollowUpTasksResponse) ProtoMessage() {}
 
 func (x *ListFollowUpTasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[276]
+	mi := &file_proto_recruitment_proto_msgTypes[287]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21726,7 +22898,7 @@ func (x *ListFollowUpTasksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFollowUpTasksResponse.ProtoReflect.Descriptor instead.
 func (*ListFollowUpTasksResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{276}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{287}
 }
 
 func (x *ListFollowUpTasksResponse) GetCode() int32 {
@@ -21760,7 +22932,7 @@ type CompleteFollowUpTaskRequest struct {
 
 func (x *CompleteFollowUpTaskRequest) Reset() {
 	*x = CompleteFollowUpTaskRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[277]
+	mi := &file_proto_recruitment_proto_msgTypes[288]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21772,7 +22944,7 @@ func (x *CompleteFollowUpTaskRequest) String() string {
 func (*CompleteFollowUpTaskRequest) ProtoMessage() {}
 
 func (x *CompleteFollowUpTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[277]
+	mi := &file_proto_recruitment_proto_msgTypes[288]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21785,7 +22957,7 @@ func (x *CompleteFollowUpTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteFollowUpTaskRequest.ProtoReflect.Descriptor instead.
 func (*CompleteFollowUpTaskRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{277}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{288}
 }
 
 func (x *CompleteFollowUpTaskRequest) GetStaffUserId() int64 {
@@ -21812,7 +22984,7 @@ type GetFollowUpTaskRequest struct {
 
 func (x *GetFollowUpTaskRequest) Reset() {
 	*x = GetFollowUpTaskRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[278]
+	mi := &file_proto_recruitment_proto_msgTypes[289]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21824,7 +22996,7 @@ func (x *GetFollowUpTaskRequest) String() string {
 func (*GetFollowUpTaskRequest) ProtoMessage() {}
 
 func (x *GetFollowUpTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[278]
+	mi := &file_proto_recruitment_proto_msgTypes[289]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21837,7 +23009,7 @@ func (x *GetFollowUpTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFollowUpTaskRequest.ProtoReflect.Descriptor instead.
 func (*GetFollowUpTaskRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{278}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{289}
 }
 
 func (x *GetFollowUpTaskRequest) GetStaffUserId() int64 {
@@ -21865,7 +23037,7 @@ type GetFollowUpTaskResponse struct {
 
 func (x *GetFollowUpTaskResponse) Reset() {
 	*x = GetFollowUpTaskResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[279]
+	mi := &file_proto_recruitment_proto_msgTypes[290]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21877,7 +23049,7 @@ func (x *GetFollowUpTaskResponse) String() string {
 func (*GetFollowUpTaskResponse) ProtoMessage() {}
 
 func (x *GetFollowUpTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[279]
+	mi := &file_proto_recruitment_proto_msgTypes[290]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21890,7 +23062,7 @@ func (x *GetFollowUpTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFollowUpTaskResponse.ProtoReflect.Descriptor instead.
 func (*GetFollowUpTaskResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{279}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{290}
 }
 
 func (x *GetFollowUpTaskResponse) GetCode() int32 {
@@ -21929,7 +23101,7 @@ type TimelineEventInfo struct {
 
 func (x *TimelineEventInfo) Reset() {
 	*x = TimelineEventInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[280]
+	mi := &file_proto_recruitment_proto_msgTypes[291]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21941,7 +23113,7 @@ func (x *TimelineEventInfo) String() string {
 func (*TimelineEventInfo) ProtoMessage() {}
 
 func (x *TimelineEventInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[280]
+	mi := &file_proto_recruitment_proto_msgTypes[291]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21954,7 +23126,7 @@ func (x *TimelineEventInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimelineEventInfo.ProtoReflect.Descriptor instead.
 func (*TimelineEventInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{280}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{291}
 }
 
 func (x *TimelineEventInfo) GetId() string {
@@ -22016,7 +23188,7 @@ type ListTimelineEventsRequest struct {
 
 func (x *ListTimelineEventsRequest) Reset() {
 	*x = ListTimelineEventsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[281]
+	mi := &file_proto_recruitment_proto_msgTypes[292]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22028,7 +23200,7 @@ func (x *ListTimelineEventsRequest) String() string {
 func (*ListTimelineEventsRequest) ProtoMessage() {}
 
 func (x *ListTimelineEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[281]
+	mi := &file_proto_recruitment_proto_msgTypes[292]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22041,7 +23213,7 @@ func (x *ListTimelineEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTimelineEventsRequest.ProtoReflect.Descriptor instead.
 func (*ListTimelineEventsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{281}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{292}
 }
 
 func (x *ListTimelineEventsRequest) GetStaffUserId() int64 {
@@ -22069,7 +23241,7 @@ type ListTimelineEventsResponse struct {
 
 func (x *ListTimelineEventsResponse) Reset() {
 	*x = ListTimelineEventsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[282]
+	mi := &file_proto_recruitment_proto_msgTypes[293]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22081,7 +23253,7 @@ func (x *ListTimelineEventsResponse) String() string {
 func (*ListTimelineEventsResponse) ProtoMessage() {}
 
 func (x *ListTimelineEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[282]
+	mi := &file_proto_recruitment_proto_msgTypes[293]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22094,7 +23266,7 @@ func (x *ListTimelineEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTimelineEventsResponse.ProtoReflect.Descriptor instead.
 func (*ListTimelineEventsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{282}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{293}
 }
 
 func (x *ListTimelineEventsResponse) GetCode() int32 {
@@ -22131,7 +23303,7 @@ type QueryAuthAuditLogsRequest struct {
 
 func (x *QueryAuthAuditLogsRequest) Reset() {
 	*x = QueryAuthAuditLogsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[283]
+	mi := &file_proto_recruitment_proto_msgTypes[294]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22143,7 +23315,7 @@ func (x *QueryAuthAuditLogsRequest) String() string {
 func (*QueryAuthAuditLogsRequest) ProtoMessage() {}
 
 func (x *QueryAuthAuditLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[283]
+	mi := &file_proto_recruitment_proto_msgTypes[294]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22156,7 +23328,7 @@ func (x *QueryAuthAuditLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryAuthAuditLogsRequest.ProtoReflect.Descriptor instead.
 func (*QueryAuthAuditLogsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{283}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{294}
 }
 
 func (x *QueryAuthAuditLogsRequest) GetActorUserId() int64 {
@@ -22213,7 +23385,7 @@ type AuthAuditLogItem struct {
 
 func (x *AuthAuditLogItem) Reset() {
 	*x = AuthAuditLogItem{}
-	mi := &file_proto_recruitment_proto_msgTypes[284]
+	mi := &file_proto_recruitment_proto_msgTypes[295]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22225,7 +23397,7 @@ func (x *AuthAuditLogItem) String() string {
 func (*AuthAuditLogItem) ProtoMessage() {}
 
 func (x *AuthAuditLogItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[284]
+	mi := &file_proto_recruitment_proto_msgTypes[295]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22238,7 +23410,7 @@ func (x *AuthAuditLogItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthAuditLogItem.ProtoReflect.Descriptor instead.
 func (*AuthAuditLogItem) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{284}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{295}
 }
 
 func (x *AuthAuditLogItem) GetId() uint64 {
@@ -22330,7 +23502,7 @@ type QueryAuthAuditLogsResponse struct {
 
 func (x *QueryAuthAuditLogsResponse) Reset() {
 	*x = QueryAuthAuditLogsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[285]
+	mi := &file_proto_recruitment_proto_msgTypes[296]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22342,7 +23514,7 @@ func (x *QueryAuthAuditLogsResponse) String() string {
 func (*QueryAuthAuditLogsResponse) ProtoMessage() {}
 
 func (x *QueryAuthAuditLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[285]
+	mi := &file_proto_recruitment_proto_msgTypes[296]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22355,7 +23527,7 @@ func (x *QueryAuthAuditLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryAuthAuditLogsResponse.ProtoReflect.Descriptor instead.
 func (*QueryAuthAuditLogsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{285}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{296}
 }
 
 func (x *QueryAuthAuditLogsResponse) GetCode() int32 {
@@ -22395,7 +23567,7 @@ type GetDashboardReportRequest struct {
 
 func (x *GetDashboardReportRequest) Reset() {
 	*x = GetDashboardReportRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[286]
+	mi := &file_proto_recruitment_proto_msgTypes[297]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22407,7 +23579,7 @@ func (x *GetDashboardReportRequest) String() string {
 func (*GetDashboardReportRequest) ProtoMessage() {}
 
 func (x *GetDashboardReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[286]
+	mi := &file_proto_recruitment_proto_msgTypes[297]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22420,7 +23592,7 @@ func (x *GetDashboardReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDashboardReportRequest.ProtoReflect.Descriptor instead.
 func (*GetDashboardReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{286}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{297}
 }
 
 func (x *GetDashboardReportRequest) GetStaffUserId() int64 {
@@ -22441,7 +23613,7 @@ type DashboardReportItem struct {
 
 func (x *DashboardReportItem) Reset() {
 	*x = DashboardReportItem{}
-	mi := &file_proto_recruitment_proto_msgTypes[287]
+	mi := &file_proto_recruitment_proto_msgTypes[298]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22453,7 +23625,7 @@ func (x *DashboardReportItem) String() string {
 func (*DashboardReportItem) ProtoMessage() {}
 
 func (x *DashboardReportItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[287]
+	mi := &file_proto_recruitment_proto_msgTypes[298]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22466,7 +23638,7 @@ func (x *DashboardReportItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DashboardReportItem.ProtoReflect.Descriptor instead.
 func (*DashboardReportItem) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{287}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{298}
 }
 
 func (x *DashboardReportItem) GetStageKey() string {
@@ -22500,7 +23672,7 @@ type DashboardTrendPoint struct {
 
 func (x *DashboardTrendPoint) Reset() {
 	*x = DashboardTrendPoint{}
-	mi := &file_proto_recruitment_proto_msgTypes[288]
+	mi := &file_proto_recruitment_proto_msgTypes[299]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22512,7 +23684,7 @@ func (x *DashboardTrendPoint) String() string {
 func (*DashboardTrendPoint) ProtoMessage() {}
 
 func (x *DashboardTrendPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[288]
+	mi := &file_proto_recruitment_proto_msgTypes[299]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22525,7 +23697,7 @@ func (x *DashboardTrendPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DashboardTrendPoint.ProtoReflect.Descriptor instead.
 func (*DashboardTrendPoint) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{288}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{299}
 }
 
 func (x *DashboardTrendPoint) GetDate() string {
@@ -22563,7 +23735,7 @@ type GetDashboardReportResponse struct {
 
 func (x *GetDashboardReportResponse) Reset() {
 	*x = GetDashboardReportResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[289]
+	mi := &file_proto_recruitment_proto_msgTypes[300]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22575,7 +23747,7 @@ func (x *GetDashboardReportResponse) String() string {
 func (*GetDashboardReportResponse) ProtoMessage() {}
 
 func (x *GetDashboardReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[289]
+	mi := &file_proto_recruitment_proto_msgTypes[300]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22588,7 +23760,7 @@ func (x *GetDashboardReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDashboardReportResponse.ProtoReflect.Descriptor instead.
 func (*GetDashboardReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{289}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{300}
 }
 
 func (x *GetDashboardReportResponse) GetCode() int32 {
@@ -22673,7 +23845,7 @@ type GetFunnelReportRequest struct {
 
 func (x *GetFunnelReportRequest) Reset() {
 	*x = GetFunnelReportRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[290]
+	mi := &file_proto_recruitment_proto_msgTypes[301]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22685,7 +23857,7 @@ func (x *GetFunnelReportRequest) String() string {
 func (*GetFunnelReportRequest) ProtoMessage() {}
 
 func (x *GetFunnelReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[290]
+	mi := &file_proto_recruitment_proto_msgTypes[301]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22698,7 +23870,7 @@ func (x *GetFunnelReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFunnelReportRequest.ProtoReflect.Descriptor instead.
 func (*GetFunnelReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{290}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{301}
 }
 
 func (x *GetFunnelReportRequest) GetStaffUserId() int64 {
@@ -22741,7 +23913,7 @@ type FunnelStage struct {
 
 func (x *FunnelStage) Reset() {
 	*x = FunnelStage{}
-	mi := &file_proto_recruitment_proto_msgTypes[291]
+	mi := &file_proto_recruitment_proto_msgTypes[302]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22753,7 +23925,7 @@ func (x *FunnelStage) String() string {
 func (*FunnelStage) ProtoMessage() {}
 
 func (x *FunnelStage) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[291]
+	mi := &file_proto_recruitment_proto_msgTypes[302]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22766,7 +23938,7 @@ func (x *FunnelStage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FunnelStage.ProtoReflect.Descriptor instead.
 func (*FunnelStage) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{291}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{302}
 }
 
 func (x *FunnelStage) GetStageKey() string {
@@ -22808,7 +23980,7 @@ type GetFunnelReportResponse struct {
 
 func (x *GetFunnelReportResponse) Reset() {
 	*x = GetFunnelReportResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[292]
+	mi := &file_proto_recruitment_proto_msgTypes[303]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22820,7 +23992,7 @@ func (x *GetFunnelReportResponse) String() string {
 func (*GetFunnelReportResponse) ProtoMessage() {}
 
 func (x *GetFunnelReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[292]
+	mi := &file_proto_recruitment_proto_msgTypes[303]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22833,7 +24005,7 @@ func (x *GetFunnelReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFunnelReportResponse.ProtoReflect.Descriptor instead.
 func (*GetFunnelReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{292}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{303}
 }
 
 func (x *GetFunnelReportResponse) GetCode() int32 {
@@ -22869,7 +24041,7 @@ type GetTimeInStageReportRequest struct {
 
 func (x *GetTimeInStageReportRequest) Reset() {
 	*x = GetTimeInStageReportRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[293]
+	mi := &file_proto_recruitment_proto_msgTypes[304]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22881,7 +24053,7 @@ func (x *GetTimeInStageReportRequest) String() string {
 func (*GetTimeInStageReportRequest) ProtoMessage() {}
 
 func (x *GetTimeInStageReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[293]
+	mi := &file_proto_recruitment_proto_msgTypes[304]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22894,7 +24066,7 @@ func (x *GetTimeInStageReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTimeInStageReportRequest.ProtoReflect.Descriptor instead.
 func (*GetTimeInStageReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{293}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{304}
 }
 
 func (x *GetTimeInStageReportRequest) GetStaffUserId() int64 {
@@ -22937,7 +24109,7 @@ type StageDuration struct {
 
 func (x *StageDuration) Reset() {
 	*x = StageDuration{}
-	mi := &file_proto_recruitment_proto_msgTypes[294]
+	mi := &file_proto_recruitment_proto_msgTypes[305]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22949,7 +24121,7 @@ func (x *StageDuration) String() string {
 func (*StageDuration) ProtoMessage() {}
 
 func (x *StageDuration) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[294]
+	mi := &file_proto_recruitment_proto_msgTypes[305]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22962,7 +24134,7 @@ func (x *StageDuration) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StageDuration.ProtoReflect.Descriptor instead.
 func (*StageDuration) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{294}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{305}
 }
 
 func (x *StageDuration) GetStageKey() string {
@@ -23004,7 +24176,7 @@ type GetTimeInStageReportResponse struct {
 
 func (x *GetTimeInStageReportResponse) Reset() {
 	*x = GetTimeInStageReportResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[295]
+	mi := &file_proto_recruitment_proto_msgTypes[306]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -23016,7 +24188,7 @@ func (x *GetTimeInStageReportResponse) String() string {
 func (*GetTimeInStageReportResponse) ProtoMessage() {}
 
 func (x *GetTimeInStageReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[295]
+	mi := &file_proto_recruitment_proto_msgTypes[306]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -23029,7 +24201,7 @@ func (x *GetTimeInStageReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTimeInStageReportResponse.ProtoReflect.Descriptor instead.
 func (*GetTimeInStageReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{295}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{306}
 }
 
 func (x *GetTimeInStageReportResponse) GetCode() int32 {
@@ -23065,7 +24237,7 @@ type GetInterviewOfferMetricsRequest struct {
 
 func (x *GetInterviewOfferMetricsRequest) Reset() {
 	*x = GetInterviewOfferMetricsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[296]
+	mi := &file_proto_recruitment_proto_msgTypes[307]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -23077,7 +24249,7 @@ func (x *GetInterviewOfferMetricsRequest) String() string {
 func (*GetInterviewOfferMetricsRequest) ProtoMessage() {}
 
 func (x *GetInterviewOfferMetricsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[296]
+	mi := &file_proto_recruitment_proto_msgTypes[307]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -23090,7 +24262,7 @@ func (x *GetInterviewOfferMetricsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetInterviewOfferMetricsRequest.ProtoReflect.Descriptor instead.
 func (*GetInterviewOfferMetricsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{296}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{307}
 }
 
 func (x *GetInterviewOfferMetricsRequest) GetStaffUserId() int64 {
@@ -23141,7 +24313,7 @@ type GetInterviewOfferMetricsResponse struct {
 
 func (x *GetInterviewOfferMetricsResponse) Reset() {
 	*x = GetInterviewOfferMetricsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[297]
+	mi := &file_proto_recruitment_proto_msgTypes[308]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -23153,7 +24325,7 @@ func (x *GetInterviewOfferMetricsResponse) String() string {
 func (*GetInterviewOfferMetricsResponse) ProtoMessage() {}
 
 func (x *GetInterviewOfferMetricsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[297]
+	mi := &file_proto_recruitment_proto_msgTypes[308]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -23166,7 +24338,7 @@ func (x *GetInterviewOfferMetricsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetInterviewOfferMetricsResponse.ProtoReflect.Descriptor instead.
 func (*GetInterviewOfferMetricsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{297}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{308}
 }
 
 func (x *GetInterviewOfferMetricsResponse) GetCode() int32 {
@@ -23251,7 +24423,7 @@ type GetUsageStatsRequest struct {
 
 func (x *GetUsageStatsRequest) Reset() {
 	*x = GetUsageStatsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[298]
+	mi := &file_proto_recruitment_proto_msgTypes[309]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -23263,7 +24435,7 @@ func (x *GetUsageStatsRequest) String() string {
 func (*GetUsageStatsRequest) ProtoMessage() {}
 
 func (x *GetUsageStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[298]
+	mi := &file_proto_recruitment_proto_msgTypes[309]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -23276,7 +24448,7 @@ func (x *GetUsageStatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUsageStatsRequest.ProtoReflect.Descriptor instead.
 func (*GetUsageStatsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{298}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{309}
 }
 
 func (x *GetUsageStatsRequest) GetStartTime() string {
@@ -23315,7 +24487,7 @@ type UsageStatsItem struct {
 
 func (x *UsageStatsItem) Reset() {
 	*x = UsageStatsItem{}
-	mi := &file_proto_recruitment_proto_msgTypes[299]
+	mi := &file_proto_recruitment_proto_msgTypes[310]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -23327,7 +24499,7 @@ func (x *UsageStatsItem) String() string {
 func (*UsageStatsItem) ProtoMessage() {}
 
 func (x *UsageStatsItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[299]
+	mi := &file_proto_recruitment_proto_msgTypes[310]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -23340,7 +24512,7 @@ func (x *UsageStatsItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsageStatsItem.ProtoReflect.Descriptor instead.
 func (*UsageStatsItem) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{299}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{310}
 }
 
 func (x *UsageStatsItem) GetName() string {
@@ -23408,7 +24580,7 @@ type UsageStatsSummary struct {
 
 func (x *UsageStatsSummary) Reset() {
 	*x = UsageStatsSummary{}
-	mi := &file_proto_recruitment_proto_msgTypes[300]
+	mi := &file_proto_recruitment_proto_msgTypes[311]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -23420,7 +24592,7 @@ func (x *UsageStatsSummary) String() string {
 func (*UsageStatsSummary) ProtoMessage() {}
 
 func (x *UsageStatsSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[300]
+	mi := &file_proto_recruitment_proto_msgTypes[311]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -23433,7 +24605,7 @@ func (x *UsageStatsSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsageStatsSummary.ProtoReflect.Descriptor instead.
 func (*UsageStatsSummary) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{300}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{311}
 }
 
 func (x *UsageStatsSummary) GetTotalTokens() int64 {
@@ -23497,7 +24669,7 @@ type GetUsageStatsResponse struct {
 
 func (x *GetUsageStatsResponse) Reset() {
 	*x = GetUsageStatsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[301]
+	mi := &file_proto_recruitment_proto_msgTypes[312]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -23509,7 +24681,7 @@ func (x *GetUsageStatsResponse) String() string {
 func (*GetUsageStatsResponse) ProtoMessage() {}
 
 func (x *GetUsageStatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[301]
+	mi := &file_proto_recruitment_proto_msgTypes[312]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -23522,7 +24694,7 @@ func (x *GetUsageStatsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUsageStatsResponse.ProtoReflect.Descriptor instead.
 func (*GetUsageStatsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{301}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{312}
 }
 
 func (x *GetUsageStatsResponse) GetCode() int32 {
@@ -23564,7 +24736,7 @@ type GetUsageTrendRequest struct {
 
 func (x *GetUsageTrendRequest) Reset() {
 	*x = GetUsageTrendRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[302]
+	mi := &file_proto_recruitment_proto_msgTypes[313]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -23576,7 +24748,7 @@ func (x *GetUsageTrendRequest) String() string {
 func (*GetUsageTrendRequest) ProtoMessage() {}
 
 func (x *GetUsageTrendRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[302]
+	mi := &file_proto_recruitment_proto_msgTypes[313]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -23589,7 +24761,7 @@ func (x *GetUsageTrendRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUsageTrendRequest.ProtoReflect.Descriptor instead.
 func (*GetUsageTrendRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{302}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{313}
 }
 
 func (x *GetUsageTrendRequest) GetStartTime() string {
@@ -23626,7 +24798,7 @@ type UsageTrendPoint struct {
 
 func (x *UsageTrendPoint) Reset() {
 	*x = UsageTrendPoint{}
-	mi := &file_proto_recruitment_proto_msgTypes[303]
+	mi := &file_proto_recruitment_proto_msgTypes[314]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -23638,7 +24810,7 @@ func (x *UsageTrendPoint) String() string {
 func (*UsageTrendPoint) ProtoMessage() {}
 
 func (x *UsageTrendPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[303]
+	mi := &file_proto_recruitment_proto_msgTypes[314]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -23651,7 +24823,7 @@ func (x *UsageTrendPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsageTrendPoint.ProtoReflect.Descriptor instead.
 func (*UsageTrendPoint) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{303}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{314}
 }
 
 func (x *UsageTrendPoint) GetDate() string {
@@ -23700,7 +24872,7 @@ type GetUsageTrendResponse struct {
 
 func (x *GetUsageTrendResponse) Reset() {
 	*x = GetUsageTrendResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[304]
+	mi := &file_proto_recruitment_proto_msgTypes[315]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -23712,7 +24884,7 @@ func (x *GetUsageTrendResponse) String() string {
 func (*GetUsageTrendResponse) ProtoMessage() {}
 
 func (x *GetUsageTrendResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[304]
+	mi := &file_proto_recruitment_proto_msgTypes[315]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -23725,7 +24897,7 @@ func (x *GetUsageTrendResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUsageTrendResponse.ProtoReflect.Descriptor instead.
 func (*GetUsageTrendResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{304}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{315}
 }
 
 func (x *GetUsageTrendResponse) GetCode() int32 {
@@ -23764,7 +24936,7 @@ type PlatformAICapabilityInfo struct {
 
 func (x *PlatformAICapabilityInfo) Reset() {
 	*x = PlatformAICapabilityInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[305]
+	mi := &file_proto_recruitment_proto_msgTypes[316]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -23776,7 +24948,7 @@ func (x *PlatformAICapabilityInfo) String() string {
 func (*PlatformAICapabilityInfo) ProtoMessage() {}
 
 func (x *PlatformAICapabilityInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[305]
+	mi := &file_proto_recruitment_proto_msgTypes[316]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -23789,7 +24961,7 @@ func (x *PlatformAICapabilityInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlatformAICapabilityInfo.ProtoReflect.Descriptor instead.
 func (*PlatformAICapabilityInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{305}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{316}
 }
 
 func (x *PlatformAICapabilityInfo) GetId() int64 {
@@ -23857,7 +25029,7 @@ type PlatformAICapabilityVersionInfo struct {
 
 func (x *PlatformAICapabilityVersionInfo) Reset() {
 	*x = PlatformAICapabilityVersionInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[306]
+	mi := &file_proto_recruitment_proto_msgTypes[317]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -23869,7 +25041,7 @@ func (x *PlatformAICapabilityVersionInfo) String() string {
 func (*PlatformAICapabilityVersionInfo) ProtoMessage() {}
 
 func (x *PlatformAICapabilityVersionInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[306]
+	mi := &file_proto_recruitment_proto_msgTypes[317]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -23882,7 +25054,7 @@ func (x *PlatformAICapabilityVersionInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlatformAICapabilityVersionInfo.ProtoReflect.Descriptor instead.
 func (*PlatformAICapabilityVersionInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{306}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{317}
 }
 
 func (x *PlatformAICapabilityVersionInfo) GetId() int64 {
@@ -23949,7 +25121,7 @@ type ListPlatformAICapabilitiesRequest struct {
 
 func (x *ListPlatformAICapabilitiesRequest) Reset() {
 	*x = ListPlatformAICapabilitiesRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[307]
+	mi := &file_proto_recruitment_proto_msgTypes[318]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -23961,7 +25133,7 @@ func (x *ListPlatformAICapabilitiesRequest) String() string {
 func (*ListPlatformAICapabilitiesRequest) ProtoMessage() {}
 
 func (x *ListPlatformAICapabilitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[307]
+	mi := &file_proto_recruitment_proto_msgTypes[318]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -23974,7 +25146,7 @@ func (x *ListPlatformAICapabilitiesRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ListPlatformAICapabilitiesRequest.ProtoReflect.Descriptor instead.
 func (*ListPlatformAICapabilitiesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{307}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{318}
 }
 
 type ListPlatformAICapabilitiesResponse struct {
@@ -23988,7 +25160,7 @@ type ListPlatformAICapabilitiesResponse struct {
 
 func (x *ListPlatformAICapabilitiesResponse) Reset() {
 	*x = ListPlatformAICapabilitiesResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[308]
+	mi := &file_proto_recruitment_proto_msgTypes[319]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24000,7 +25172,7 @@ func (x *ListPlatformAICapabilitiesResponse) String() string {
 func (*ListPlatformAICapabilitiesResponse) ProtoMessage() {}
 
 func (x *ListPlatformAICapabilitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[308]
+	mi := &file_proto_recruitment_proto_msgTypes[319]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24013,7 +25185,7 @@ func (x *ListPlatformAICapabilitiesResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ListPlatformAICapabilitiesResponse.ProtoReflect.Descriptor instead.
 func (*ListPlatformAICapabilitiesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{308}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{319}
 }
 
 func (x *ListPlatformAICapabilitiesResponse) GetCode() int32 {
@@ -24046,7 +25218,7 @@ type ListPlatformAICapabilityVersionsRequest struct {
 
 func (x *ListPlatformAICapabilityVersionsRequest) Reset() {
 	*x = ListPlatformAICapabilityVersionsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[309]
+	mi := &file_proto_recruitment_proto_msgTypes[320]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24058,7 +25230,7 @@ func (x *ListPlatformAICapabilityVersionsRequest) String() string {
 func (*ListPlatformAICapabilityVersionsRequest) ProtoMessage() {}
 
 func (x *ListPlatformAICapabilityVersionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[309]
+	mi := &file_proto_recruitment_proto_msgTypes[320]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24071,7 +25243,7 @@ func (x *ListPlatformAICapabilityVersionsRequest) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use ListPlatformAICapabilityVersionsRequest.ProtoReflect.Descriptor instead.
 func (*ListPlatformAICapabilityVersionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{309}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{320}
 }
 
 func (x *ListPlatformAICapabilityVersionsRequest) GetCapabilityId() int64 {
@@ -24092,7 +25264,7 @@ type ListPlatformAICapabilityVersionsResponse struct {
 
 func (x *ListPlatformAICapabilityVersionsResponse) Reset() {
 	*x = ListPlatformAICapabilityVersionsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[310]
+	mi := &file_proto_recruitment_proto_msgTypes[321]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24104,7 +25276,7 @@ func (x *ListPlatformAICapabilityVersionsResponse) String() string {
 func (*ListPlatformAICapabilityVersionsResponse) ProtoMessage() {}
 
 func (x *ListPlatformAICapabilityVersionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[310]
+	mi := &file_proto_recruitment_proto_msgTypes[321]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24117,7 +25289,7 @@ func (x *ListPlatformAICapabilityVersionsResponse) ProtoReflect() protoreflect.M
 
 // Deprecated: Use ListPlatformAICapabilityVersionsResponse.ProtoReflect.Descriptor instead.
 func (*ListPlatformAICapabilityVersionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{310}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{321}
 }
 
 func (x *ListPlatformAICapabilityVersionsResponse) GetCode() int32 {
@@ -24154,7 +25326,7 @@ type CreatePlatformAICapabilityDraftRequest struct {
 
 func (x *CreatePlatformAICapabilityDraftRequest) Reset() {
 	*x = CreatePlatformAICapabilityDraftRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[311]
+	mi := &file_proto_recruitment_proto_msgTypes[322]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24166,7 +25338,7 @@ func (x *CreatePlatformAICapabilityDraftRequest) String() string {
 func (*CreatePlatformAICapabilityDraftRequest) ProtoMessage() {}
 
 func (x *CreatePlatformAICapabilityDraftRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[311]
+	mi := &file_proto_recruitment_proto_msgTypes[322]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24179,7 +25351,7 @@ func (x *CreatePlatformAICapabilityDraftRequest) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use CreatePlatformAICapabilityDraftRequest.ProtoReflect.Descriptor instead.
 func (*CreatePlatformAICapabilityDraftRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{311}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{322}
 }
 
 func (x *CreatePlatformAICapabilityDraftRequest) GetCapabilityId() int64 {
@@ -24230,7 +25402,7 @@ type UpdatePlatformAICapabilityDraftRequest struct {
 
 func (x *UpdatePlatformAICapabilityDraftRequest) Reset() {
 	*x = UpdatePlatformAICapabilityDraftRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[312]
+	mi := &file_proto_recruitment_proto_msgTypes[323]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24242,7 +25414,7 @@ func (x *UpdatePlatformAICapabilityDraftRequest) String() string {
 func (*UpdatePlatformAICapabilityDraftRequest) ProtoMessage() {}
 
 func (x *UpdatePlatformAICapabilityDraftRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[312]
+	mi := &file_proto_recruitment_proto_msgTypes[323]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24255,7 +25427,7 @@ func (x *UpdatePlatformAICapabilityDraftRequest) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use UpdatePlatformAICapabilityDraftRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePlatformAICapabilityDraftRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{312}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{323}
 }
 
 func (x *UpdatePlatformAICapabilityDraftRequest) GetVersionId() int64 {
@@ -24304,7 +25476,7 @@ type PublishPlatformAICapabilityVersionRequest struct {
 
 func (x *PublishPlatformAICapabilityVersionRequest) Reset() {
 	*x = PublishPlatformAICapabilityVersionRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[313]
+	mi := &file_proto_recruitment_proto_msgTypes[324]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24316,7 +25488,7 @@ func (x *PublishPlatformAICapabilityVersionRequest) String() string {
 func (*PublishPlatformAICapabilityVersionRequest) ProtoMessage() {}
 
 func (x *PublishPlatformAICapabilityVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[313]
+	mi := &file_proto_recruitment_proto_msgTypes[324]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24329,7 +25501,7 @@ func (x *PublishPlatformAICapabilityVersionRequest) ProtoReflect() protoreflect.
 
 // Deprecated: Use PublishPlatformAICapabilityVersionRequest.ProtoReflect.Descriptor instead.
 func (*PublishPlatformAICapabilityVersionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{313}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{324}
 }
 
 func (x *PublishPlatformAICapabilityVersionRequest) GetVersionId() int64 {
@@ -24364,7 +25536,7 @@ type PlatformAICapabilityVersionResponse struct {
 
 func (x *PlatformAICapabilityVersionResponse) Reset() {
 	*x = PlatformAICapabilityVersionResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[314]
+	mi := &file_proto_recruitment_proto_msgTypes[325]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24376,7 +25548,7 @@ func (x *PlatformAICapabilityVersionResponse) String() string {
 func (*PlatformAICapabilityVersionResponse) ProtoMessage() {}
 
 func (x *PlatformAICapabilityVersionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[314]
+	mi := &file_proto_recruitment_proto_msgTypes[325]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24389,7 +25561,7 @@ func (x *PlatformAICapabilityVersionResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use PlatformAICapabilityVersionResponse.ProtoReflect.Descriptor instead.
 func (*PlatformAICapabilityVersionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{314}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{325}
 }
 
 func (x *PlatformAICapabilityVersionResponse) GetCode() int32 {
@@ -24429,7 +25601,7 @@ type PlatformAIRuntimeModelInfo struct {
 
 func (x *PlatformAIRuntimeModelInfo) Reset() {
 	*x = PlatformAIRuntimeModelInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[315]
+	mi := &file_proto_recruitment_proto_msgTypes[326]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24441,7 +25613,7 @@ func (x *PlatformAIRuntimeModelInfo) String() string {
 func (*PlatformAIRuntimeModelInfo) ProtoMessage() {}
 
 func (x *PlatformAIRuntimeModelInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[315]
+	mi := &file_proto_recruitment_proto_msgTypes[326]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24454,7 +25626,7 @@ func (x *PlatformAIRuntimeModelInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlatformAIRuntimeModelInfo.ProtoReflect.Descriptor instead.
 func (*PlatformAIRuntimeModelInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{315}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{326}
 }
 
 func (x *PlatformAIRuntimeModelInfo) GetId() int64 {
@@ -24524,7 +25696,7 @@ type ListPlatformAIRuntimeModelsRequest struct {
 
 func (x *ListPlatformAIRuntimeModelsRequest) Reset() {
 	*x = ListPlatformAIRuntimeModelsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[316]
+	mi := &file_proto_recruitment_proto_msgTypes[327]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24536,7 +25708,7 @@ func (x *ListPlatformAIRuntimeModelsRequest) String() string {
 func (*ListPlatformAIRuntimeModelsRequest) ProtoMessage() {}
 
 func (x *ListPlatformAIRuntimeModelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[316]
+	mi := &file_proto_recruitment_proto_msgTypes[327]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24549,7 +25721,7 @@ func (x *ListPlatformAIRuntimeModelsRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ListPlatformAIRuntimeModelsRequest.ProtoReflect.Descriptor instead.
 func (*ListPlatformAIRuntimeModelsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{316}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{327}
 }
 
 func (x *ListPlatformAIRuntimeModelsRequest) GetCapabilityKey() string {
@@ -24586,7 +25758,7 @@ type ListPlatformAIRuntimeModelsResponse struct {
 
 func (x *ListPlatformAIRuntimeModelsResponse) Reset() {
 	*x = ListPlatformAIRuntimeModelsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[317]
+	mi := &file_proto_recruitment_proto_msgTypes[328]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24598,7 +25770,7 @@ func (x *ListPlatformAIRuntimeModelsResponse) String() string {
 func (*ListPlatformAIRuntimeModelsResponse) ProtoMessage() {}
 
 func (x *ListPlatformAIRuntimeModelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[317]
+	mi := &file_proto_recruitment_proto_msgTypes[328]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24611,7 +25783,7 @@ func (x *ListPlatformAIRuntimeModelsResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use ListPlatformAIRuntimeModelsResponse.ProtoReflect.Descriptor instead.
 func (*ListPlatformAIRuntimeModelsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{317}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{328}
 }
 
 func (x *ListPlatformAIRuntimeModelsResponse) GetCode() int32 {
@@ -24661,7 +25833,7 @@ type ResolvePlatformAIRuntimeModelRequest struct {
 
 func (x *ResolvePlatformAIRuntimeModelRequest) Reset() {
 	*x = ResolvePlatformAIRuntimeModelRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[318]
+	mi := &file_proto_recruitment_proto_msgTypes[329]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24673,7 +25845,7 @@ func (x *ResolvePlatformAIRuntimeModelRequest) String() string {
 func (*ResolvePlatformAIRuntimeModelRequest) ProtoMessage() {}
 
 func (x *ResolvePlatformAIRuntimeModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[318]
+	mi := &file_proto_recruitment_proto_msgTypes[329]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24686,7 +25858,7 @@ func (x *ResolvePlatformAIRuntimeModelRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use ResolvePlatformAIRuntimeModelRequest.ProtoReflect.Descriptor instead.
 func (*ResolvePlatformAIRuntimeModelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{318}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{329}
 }
 
 func (x *ResolvePlatformAIRuntimeModelRequest) GetCapabilityKey() string {
@@ -24738,7 +25910,7 @@ type ResolvePlatformAIRuntimeModelResponse struct {
 
 func (x *ResolvePlatformAIRuntimeModelResponse) Reset() {
 	*x = ResolvePlatformAIRuntimeModelResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[319]
+	mi := &file_proto_recruitment_proto_msgTypes[330]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24750,7 +25922,7 @@ func (x *ResolvePlatformAIRuntimeModelResponse) String() string {
 func (*ResolvePlatformAIRuntimeModelResponse) ProtoMessage() {}
 
 func (x *ResolvePlatformAIRuntimeModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[319]
+	mi := &file_proto_recruitment_proto_msgTypes[330]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24763,7 +25935,7 @@ func (x *ResolvePlatformAIRuntimeModelResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use ResolvePlatformAIRuntimeModelResponse.ProtoReflect.Descriptor instead.
 func (*ResolvePlatformAIRuntimeModelResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{319}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{330}
 }
 
 func (x *ResolvePlatformAIRuntimeModelResponse) GetCode() int32 {
@@ -24869,7 +26041,7 @@ type QueryPlatformAIConfigAuditLogsRequest struct {
 
 func (x *QueryPlatformAIConfigAuditLogsRequest) Reset() {
 	*x = QueryPlatformAIConfigAuditLogsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[320]
+	mi := &file_proto_recruitment_proto_msgTypes[331]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24881,7 +26053,7 @@ func (x *QueryPlatformAIConfigAuditLogsRequest) String() string {
 func (*QueryPlatformAIConfigAuditLogsRequest) ProtoMessage() {}
 
 func (x *QueryPlatformAIConfigAuditLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[320]
+	mi := &file_proto_recruitment_proto_msgTypes[331]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24894,7 +26066,7 @@ func (x *QueryPlatformAIConfigAuditLogsRequest) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use QueryPlatformAIConfigAuditLogsRequest.ProtoReflect.Descriptor instead.
 func (*QueryPlatformAIConfigAuditLogsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{320}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{331}
 }
 
 func (x *QueryPlatformAIConfigAuditLogsRequest) GetPage() int32 {
@@ -24944,7 +26116,7 @@ type PlatformAIConfigAuditLogInfo struct {
 
 func (x *PlatformAIConfigAuditLogInfo) Reset() {
 	*x = PlatformAIConfigAuditLogInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[321]
+	mi := &file_proto_recruitment_proto_msgTypes[332]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -24956,7 +26128,7 @@ func (x *PlatformAIConfigAuditLogInfo) String() string {
 func (*PlatformAIConfigAuditLogInfo) ProtoMessage() {}
 
 func (x *PlatformAIConfigAuditLogInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[321]
+	mi := &file_proto_recruitment_proto_msgTypes[332]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -24969,7 +26141,7 @@ func (x *PlatformAIConfigAuditLogInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlatformAIConfigAuditLogInfo.ProtoReflect.Descriptor instead.
 func (*PlatformAIConfigAuditLogInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{321}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{332}
 }
 
 func (x *PlatformAIConfigAuditLogInfo) GetId() int64 {
@@ -25061,7 +26233,7 @@ type QueryPlatformAIConfigAuditLogsResponse struct {
 
 func (x *QueryPlatformAIConfigAuditLogsResponse) Reset() {
 	*x = QueryPlatformAIConfigAuditLogsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[322]
+	mi := &file_proto_recruitment_proto_msgTypes[333]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -25073,7 +26245,7 @@ func (x *QueryPlatformAIConfigAuditLogsResponse) String() string {
 func (*QueryPlatformAIConfigAuditLogsResponse) ProtoMessage() {}
 
 func (x *QueryPlatformAIConfigAuditLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[322]
+	mi := &file_proto_recruitment_proto_msgTypes[333]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -25086,7 +26258,7 @@ func (x *QueryPlatformAIConfigAuditLogsResponse) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use QueryPlatformAIConfigAuditLogsResponse.ProtoReflect.Descriptor instead.
 func (*QueryPlatformAIConfigAuditLogsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{322}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{333}
 }
 
 func (x *QueryPlatformAIConfigAuditLogsResponse) GetCode() int32 {
@@ -25139,7 +26311,7 @@ type MCPServerInfo struct {
 
 func (x *MCPServerInfo) Reset() {
 	*x = MCPServerInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[323]
+	mi := &file_proto_recruitment_proto_msgTypes[334]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -25151,7 +26323,7 @@ func (x *MCPServerInfo) String() string {
 func (*MCPServerInfo) ProtoMessage() {}
 
 func (x *MCPServerInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[323]
+	mi := &file_proto_recruitment_proto_msgTypes[334]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -25164,7 +26336,7 @@ func (x *MCPServerInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MCPServerInfo.ProtoReflect.Descriptor instead.
 func (*MCPServerInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{323}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{334}
 }
 
 func (x *MCPServerInfo) GetId() int64 {
@@ -25275,7 +26447,7 @@ type ListMCPServersRequest struct {
 
 func (x *ListMCPServersRequest) Reset() {
 	*x = ListMCPServersRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[324]
+	mi := &file_proto_recruitment_proto_msgTypes[335]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -25287,7 +26459,7 @@ func (x *ListMCPServersRequest) String() string {
 func (*ListMCPServersRequest) ProtoMessage() {}
 
 func (x *ListMCPServersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[324]
+	mi := &file_proto_recruitment_proto_msgTypes[335]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -25300,7 +26472,7 @@ func (x *ListMCPServersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMCPServersRequest.ProtoReflect.Descriptor instead.
 func (*ListMCPServersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{324}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{335}
 }
 
 func (x *ListMCPServersRequest) GetPage() int32 {
@@ -25329,7 +26501,7 @@ type ListMCPServersResponse struct {
 
 func (x *ListMCPServersResponse) Reset() {
 	*x = ListMCPServersResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[325]
+	mi := &file_proto_recruitment_proto_msgTypes[336]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -25341,7 +26513,7 @@ func (x *ListMCPServersResponse) String() string {
 func (*ListMCPServersResponse) ProtoMessage() {}
 
 func (x *ListMCPServersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[325]
+	mi := &file_proto_recruitment_proto_msgTypes[336]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -25354,7 +26526,7 @@ func (x *ListMCPServersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMCPServersResponse.ProtoReflect.Descriptor instead.
 func (*ListMCPServersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{325}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{336}
 }
 
 func (x *ListMCPServersResponse) GetCode() int32 {
@@ -25400,7 +26572,7 @@ type CreateMCPServerRequest struct {
 
 func (x *CreateMCPServerRequest) Reset() {
 	*x = CreateMCPServerRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[326]
+	mi := &file_proto_recruitment_proto_msgTypes[337]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -25412,7 +26584,7 @@ func (x *CreateMCPServerRequest) String() string {
 func (*CreateMCPServerRequest) ProtoMessage() {}
 
 func (x *CreateMCPServerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[326]
+	mi := &file_proto_recruitment_proto_msgTypes[337]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -25425,7 +26597,7 @@ func (x *CreateMCPServerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateMCPServerRequest.ProtoReflect.Descriptor instead.
 func (*CreateMCPServerRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{326}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{337}
 }
 
 func (x *CreateMCPServerRequest) GetName() string {
@@ -25496,7 +26668,7 @@ type UpdateMCPServerRequest struct {
 
 func (x *UpdateMCPServerRequest) Reset() {
 	*x = UpdateMCPServerRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[327]
+	mi := &file_proto_recruitment_proto_msgTypes[338]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -25508,7 +26680,7 @@ func (x *UpdateMCPServerRequest) String() string {
 func (*UpdateMCPServerRequest) ProtoMessage() {}
 
 func (x *UpdateMCPServerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[327]
+	mi := &file_proto_recruitment_proto_msgTypes[338]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -25521,7 +26693,7 @@ func (x *UpdateMCPServerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateMCPServerRequest.ProtoReflect.Descriptor instead.
 func (*UpdateMCPServerRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{327}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{338}
 }
 
 func (x *UpdateMCPServerRequest) GetId() int64 {
@@ -25610,7 +26782,7 @@ type DeleteMCPServerRequest struct {
 
 func (x *DeleteMCPServerRequest) Reset() {
 	*x = DeleteMCPServerRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[328]
+	mi := &file_proto_recruitment_proto_msgTypes[339]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -25622,7 +26794,7 @@ func (x *DeleteMCPServerRequest) String() string {
 func (*DeleteMCPServerRequest) ProtoMessage() {}
 
 func (x *DeleteMCPServerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[328]
+	mi := &file_proto_recruitment_proto_msgTypes[339]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -25635,7 +26807,7 @@ func (x *DeleteMCPServerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteMCPServerRequest.ProtoReflect.Descriptor instead.
 func (*DeleteMCPServerRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{328}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{339}
 }
 
 func (x *DeleteMCPServerRequest) GetId() int64 {
@@ -25656,7 +26828,7 @@ type MCPServerResponse struct {
 
 func (x *MCPServerResponse) Reset() {
 	*x = MCPServerResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[329]
+	mi := &file_proto_recruitment_proto_msgTypes[340]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -25668,7 +26840,7 @@ func (x *MCPServerResponse) String() string {
 func (*MCPServerResponse) ProtoMessage() {}
 
 func (x *MCPServerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[329]
+	mi := &file_proto_recruitment_proto_msgTypes[340]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -25681,7 +26853,7 @@ func (x *MCPServerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MCPServerResponse.ProtoReflect.Descriptor instead.
 func (*MCPServerResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{329}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{340}
 }
 
 func (x *MCPServerResponse) GetCode() int32 {
@@ -25732,7 +26904,7 @@ type MCPToolPolicyInfo struct {
 
 func (x *MCPToolPolicyInfo) Reset() {
 	*x = MCPToolPolicyInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[330]
+	mi := &file_proto_recruitment_proto_msgTypes[341]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -25744,7 +26916,7 @@ func (x *MCPToolPolicyInfo) String() string {
 func (*MCPToolPolicyInfo) ProtoMessage() {}
 
 func (x *MCPToolPolicyInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[330]
+	mi := &file_proto_recruitment_proto_msgTypes[341]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -25757,7 +26929,7 @@ func (x *MCPToolPolicyInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MCPToolPolicyInfo.ProtoReflect.Descriptor instead.
 func (*MCPToolPolicyInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{330}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{341}
 }
 
 func (x *MCPToolPolicyInfo) GetId() int64 {
@@ -25904,7 +27076,7 @@ type ListMCPToolPoliciesRequest struct {
 
 func (x *ListMCPToolPoliciesRequest) Reset() {
 	*x = ListMCPToolPoliciesRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[331]
+	mi := &file_proto_recruitment_proto_msgTypes[342]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -25916,7 +27088,7 @@ func (x *ListMCPToolPoliciesRequest) String() string {
 func (*ListMCPToolPoliciesRequest) ProtoMessage() {}
 
 func (x *ListMCPToolPoliciesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[331]
+	mi := &file_proto_recruitment_proto_msgTypes[342]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -25929,7 +27101,7 @@ func (x *ListMCPToolPoliciesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMCPToolPoliciesRequest.ProtoReflect.Descriptor instead.
 func (*ListMCPToolPoliciesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{331}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{342}
 }
 
 func (x *ListMCPToolPoliciesRequest) GetServerId() int64 {
@@ -25965,7 +27137,7 @@ type ListMCPToolPoliciesResponse struct {
 
 func (x *ListMCPToolPoliciesResponse) Reset() {
 	*x = ListMCPToolPoliciesResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[332]
+	mi := &file_proto_recruitment_proto_msgTypes[343]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -25977,7 +27149,7 @@ func (x *ListMCPToolPoliciesResponse) String() string {
 func (*ListMCPToolPoliciesResponse) ProtoMessage() {}
 
 func (x *ListMCPToolPoliciesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[332]
+	mi := &file_proto_recruitment_proto_msgTypes[343]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -25990,7 +27162,7 @@ func (x *ListMCPToolPoliciesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMCPToolPoliciesResponse.ProtoReflect.Descriptor instead.
 func (*ListMCPToolPoliciesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{332}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{343}
 }
 
 func (x *ListMCPToolPoliciesResponse) GetCode() int32 {
@@ -26045,7 +27217,7 @@ type CreateMCPToolPolicyRequest struct {
 
 func (x *CreateMCPToolPolicyRequest) Reset() {
 	*x = CreateMCPToolPolicyRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[333]
+	mi := &file_proto_recruitment_proto_msgTypes[344]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -26057,7 +27229,7 @@ func (x *CreateMCPToolPolicyRequest) String() string {
 func (*CreateMCPToolPolicyRequest) ProtoMessage() {}
 
 func (x *CreateMCPToolPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[333]
+	mi := &file_proto_recruitment_proto_msgTypes[344]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -26070,7 +27242,7 @@ func (x *CreateMCPToolPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateMCPToolPolicyRequest.ProtoReflect.Descriptor instead.
 func (*CreateMCPToolPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{333}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{344}
 }
 
 func (x *CreateMCPToolPolicyRequest) GetServerId() int64 {
@@ -26213,7 +27385,7 @@ type UpdateMCPToolPolicyRequest struct {
 
 func (x *UpdateMCPToolPolicyRequest) Reset() {
 	*x = UpdateMCPToolPolicyRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[334]
+	mi := &file_proto_recruitment_proto_msgTypes[345]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -26225,7 +27397,7 @@ func (x *UpdateMCPToolPolicyRequest) String() string {
 func (*UpdateMCPToolPolicyRequest) ProtoMessage() {}
 
 func (x *UpdateMCPToolPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[334]
+	mi := &file_proto_recruitment_proto_msgTypes[345]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -26238,7 +27410,7 @@ func (x *UpdateMCPToolPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateMCPToolPolicyRequest.ProtoReflect.Descriptor instead.
 func (*UpdateMCPToolPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{334}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{345}
 }
 
 func (x *UpdateMCPToolPolicyRequest) GetId() int64 {
@@ -26390,7 +27562,7 @@ type DeleteMCPToolPolicyRequest struct {
 
 func (x *DeleteMCPToolPolicyRequest) Reset() {
 	*x = DeleteMCPToolPolicyRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[335]
+	mi := &file_proto_recruitment_proto_msgTypes[346]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -26402,7 +27574,7 @@ func (x *DeleteMCPToolPolicyRequest) String() string {
 func (*DeleteMCPToolPolicyRequest) ProtoMessage() {}
 
 func (x *DeleteMCPToolPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[335]
+	mi := &file_proto_recruitment_proto_msgTypes[346]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -26415,7 +27587,7 @@ func (x *DeleteMCPToolPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteMCPToolPolicyRequest.ProtoReflect.Descriptor instead.
 func (*DeleteMCPToolPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{335}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{346}
 }
 
 func (x *DeleteMCPToolPolicyRequest) GetId() int64 {
@@ -26436,7 +27608,7 @@ type MCPToolPolicyResponse struct {
 
 func (x *MCPToolPolicyResponse) Reset() {
 	*x = MCPToolPolicyResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[336]
+	mi := &file_proto_recruitment_proto_msgTypes[347]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -26448,7 +27620,7 @@ func (x *MCPToolPolicyResponse) String() string {
 func (*MCPToolPolicyResponse) ProtoMessage() {}
 
 func (x *MCPToolPolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[336]
+	mi := &file_proto_recruitment_proto_msgTypes[347]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -26461,7 +27633,7 @@ func (x *MCPToolPolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MCPToolPolicyResponse.ProtoReflect.Descriptor instead.
 func (*MCPToolPolicyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{336}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{347}
 }
 
 func (x *MCPToolPolicyResponse) GetCode() int32 {
@@ -26506,7 +27678,7 @@ type MCPToolLogInfo struct {
 
 func (x *MCPToolLogInfo) Reset() {
 	*x = MCPToolLogInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[337]
+	mi := &file_proto_recruitment_proto_msgTypes[348]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -26518,7 +27690,7 @@ func (x *MCPToolLogInfo) String() string {
 func (*MCPToolLogInfo) ProtoMessage() {}
 
 func (x *MCPToolLogInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[337]
+	mi := &file_proto_recruitment_proto_msgTypes[348]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -26531,7 +27703,7 @@ func (x *MCPToolLogInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MCPToolLogInfo.ProtoReflect.Descriptor instead.
 func (*MCPToolLogInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{337}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{348}
 }
 
 func (x *MCPToolLogInfo) GetId() int64 {
@@ -26636,7 +27808,7 @@ type ListMCPToolLogsRequest struct {
 
 func (x *ListMCPToolLogsRequest) Reset() {
 	*x = ListMCPToolLogsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[338]
+	mi := &file_proto_recruitment_proto_msgTypes[349]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -26648,7 +27820,7 @@ func (x *ListMCPToolLogsRequest) String() string {
 func (*ListMCPToolLogsRequest) ProtoMessage() {}
 
 func (x *ListMCPToolLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[338]
+	mi := &file_proto_recruitment_proto_msgTypes[349]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -26661,7 +27833,7 @@ func (x *ListMCPToolLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMCPToolLogsRequest.ProtoReflect.Descriptor instead.
 func (*ListMCPToolLogsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{338}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{349}
 }
 
 func (x *ListMCPToolLogsRequest) GetServerId() int64 {
@@ -26697,7 +27869,7 @@ type ListMCPToolLogsResponse struct {
 
 func (x *ListMCPToolLogsResponse) Reset() {
 	*x = ListMCPToolLogsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[339]
+	mi := &file_proto_recruitment_proto_msgTypes[350]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -26709,7 +27881,7 @@ func (x *ListMCPToolLogsResponse) String() string {
 func (*ListMCPToolLogsResponse) ProtoMessage() {}
 
 func (x *ListMCPToolLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[339]
+	mi := &file_proto_recruitment_proto_msgTypes[350]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -26722,7 +27894,7 @@ func (x *ListMCPToolLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMCPToolLogsResponse.ProtoReflect.Descriptor instead.
 func (*ListMCPToolLogsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{339}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{350}
 }
 
 func (x *ListMCPToolLogsResponse) GetCode() int32 {
@@ -26762,7 +27934,7 @@ type TestMCPConnectionRequest struct {
 
 func (x *TestMCPConnectionRequest) Reset() {
 	*x = TestMCPConnectionRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[340]
+	mi := &file_proto_recruitment_proto_msgTypes[351]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -26774,7 +27946,7 @@ func (x *TestMCPConnectionRequest) String() string {
 func (*TestMCPConnectionRequest) ProtoMessage() {}
 
 func (x *TestMCPConnectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[340]
+	mi := &file_proto_recruitment_proto_msgTypes[351]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -26787,7 +27959,7 @@ func (x *TestMCPConnectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestMCPConnectionRequest.ProtoReflect.Descriptor instead.
 func (*TestMCPConnectionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{340}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{351}
 }
 
 func (x *TestMCPConnectionRequest) GetServerId() int64 {
@@ -26809,7 +27981,7 @@ type TestMCPConnectionResponse struct {
 
 func (x *TestMCPConnectionResponse) Reset() {
 	*x = TestMCPConnectionResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[341]
+	mi := &file_proto_recruitment_proto_msgTypes[352]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -26821,7 +27993,7 @@ func (x *TestMCPConnectionResponse) String() string {
 func (*TestMCPConnectionResponse) ProtoMessage() {}
 
 func (x *TestMCPConnectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[341]
+	mi := &file_proto_recruitment_proto_msgTypes[352]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -26834,7 +28006,7 @@ func (x *TestMCPConnectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestMCPConnectionResponse.ProtoReflect.Descriptor instead.
 func (*TestMCPConnectionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{341}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{352}
 }
 
 func (x *TestMCPConnectionResponse) GetCode() int32 {
@@ -26874,7 +28046,7 @@ type ListMCPToolsRequest struct {
 
 func (x *ListMCPToolsRequest) Reset() {
 	*x = ListMCPToolsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[342]
+	mi := &file_proto_recruitment_proto_msgTypes[353]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -26886,7 +28058,7 @@ func (x *ListMCPToolsRequest) String() string {
 func (*ListMCPToolsRequest) ProtoMessage() {}
 
 func (x *ListMCPToolsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[342]
+	mi := &file_proto_recruitment_proto_msgTypes[353]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -26899,7 +28071,7 @@ func (x *ListMCPToolsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMCPToolsRequest.ProtoReflect.Descriptor instead.
 func (*ListMCPToolsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{342}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{353}
 }
 
 func (x *ListMCPToolsRequest) GetServerId() int64 {
@@ -26920,7 +28092,7 @@ type MCPToolInfo struct {
 
 func (x *MCPToolInfo) Reset() {
 	*x = MCPToolInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[343]
+	mi := &file_proto_recruitment_proto_msgTypes[354]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -26932,7 +28104,7 @@ func (x *MCPToolInfo) String() string {
 func (*MCPToolInfo) ProtoMessage() {}
 
 func (x *MCPToolInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[343]
+	mi := &file_proto_recruitment_proto_msgTypes[354]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -26945,7 +28117,7 @@ func (x *MCPToolInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MCPToolInfo.ProtoReflect.Descriptor instead.
 func (*MCPToolInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{343}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{354}
 }
 
 func (x *MCPToolInfo) GetName() string {
@@ -26980,7 +28152,7 @@ type ListMCPToolsResponse struct {
 
 func (x *ListMCPToolsResponse) Reset() {
 	*x = ListMCPToolsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[344]
+	mi := &file_proto_recruitment_proto_msgTypes[355]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -26992,7 +28164,7 @@ func (x *ListMCPToolsResponse) String() string {
 func (*ListMCPToolsResponse) ProtoMessage() {}
 
 func (x *ListMCPToolsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[344]
+	mi := &file_proto_recruitment_proto_msgTypes[355]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -27005,7 +28177,7 @@ func (x *ListMCPToolsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMCPToolsResponse.ProtoReflect.Descriptor instead.
 func (*ListMCPToolsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{344}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{355}
 }
 
 func (x *ListMCPToolsResponse) GetCode() int32 {
@@ -27045,7 +28217,7 @@ type CallMCPToolRequest struct {
 
 func (x *CallMCPToolRequest) Reset() {
 	*x = CallMCPToolRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[345]
+	mi := &file_proto_recruitment_proto_msgTypes[356]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -27057,7 +28229,7 @@ func (x *CallMCPToolRequest) String() string {
 func (*CallMCPToolRequest) ProtoMessage() {}
 
 func (x *CallMCPToolRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[345]
+	mi := &file_proto_recruitment_proto_msgTypes[356]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -27070,7 +28242,7 @@ func (x *CallMCPToolRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallMCPToolRequest.ProtoReflect.Descriptor instead.
 func (*CallMCPToolRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{345}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{356}
 }
 
 func (x *CallMCPToolRequest) GetServerId() int64 {
@@ -27145,7 +28317,7 @@ type CallMCPToolResponse struct {
 
 func (x *CallMCPToolResponse) Reset() {
 	*x = CallMCPToolResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[346]
+	mi := &file_proto_recruitment_proto_msgTypes[357]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -27157,7 +28329,7 @@ func (x *CallMCPToolResponse) String() string {
 func (*CallMCPToolResponse) ProtoMessage() {}
 
 func (x *CallMCPToolResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[346]
+	mi := &file_proto_recruitment_proto_msgTypes[357]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -27170,7 +28342,7 @@ func (x *CallMCPToolResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallMCPToolResponse.ProtoReflect.Descriptor instead.
 func (*CallMCPToolResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{346}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{357}
 }
 
 func (x *CallMCPToolResponse) GetCode() int32 {
@@ -27250,7 +28422,7 @@ type LlmProviderInfo struct {
 
 func (x *LlmProviderInfo) Reset() {
 	*x = LlmProviderInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[347]
+	mi := &file_proto_recruitment_proto_msgTypes[358]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -27262,7 +28434,7 @@ func (x *LlmProviderInfo) String() string {
 func (*LlmProviderInfo) ProtoMessage() {}
 
 func (x *LlmProviderInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[347]
+	mi := &file_proto_recruitment_proto_msgTypes[358]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -27275,7 +28447,7 @@ func (x *LlmProviderInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LlmProviderInfo.ProtoReflect.Descriptor instead.
 func (*LlmProviderInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{347}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{358}
 }
 
 func (x *LlmProviderInfo) GetId() int64 {
@@ -27379,7 +28551,7 @@ type ListProvidersRequest struct {
 
 func (x *ListProvidersRequest) Reset() {
 	*x = ListProvidersRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[348]
+	mi := &file_proto_recruitment_proto_msgTypes[359]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -27391,7 +28563,7 @@ func (x *ListProvidersRequest) String() string {
 func (*ListProvidersRequest) ProtoMessage() {}
 
 func (x *ListProvidersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[348]
+	mi := &file_proto_recruitment_proto_msgTypes[359]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -27404,7 +28576,7 @@ func (x *ListProvidersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProvidersRequest.ProtoReflect.Descriptor instead.
 func (*ListProvidersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{348}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{359}
 }
 
 func (x *ListProvidersRequest) GetPage() int32 {
@@ -27433,7 +28605,7 @@ type ListProvidersResponse struct {
 
 func (x *ListProvidersResponse) Reset() {
 	*x = ListProvidersResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[349]
+	mi := &file_proto_recruitment_proto_msgTypes[360]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -27445,7 +28617,7 @@ func (x *ListProvidersResponse) String() string {
 func (*ListProvidersResponse) ProtoMessage() {}
 
 func (x *ListProvidersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[349]
+	mi := &file_proto_recruitment_proto_msgTypes[360]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -27458,7 +28630,7 @@ func (x *ListProvidersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProvidersResponse.ProtoReflect.Descriptor instead.
 func (*ListProvidersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{349}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{360}
 }
 
 func (x *ListProvidersResponse) GetCode() int32 {
@@ -27506,7 +28678,7 @@ type CreateProviderRequest struct {
 
 func (x *CreateProviderRequest) Reset() {
 	*x = CreateProviderRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[350]
+	mi := &file_proto_recruitment_proto_msgTypes[361]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -27518,7 +28690,7 @@ func (x *CreateProviderRequest) String() string {
 func (*CreateProviderRequest) ProtoMessage() {}
 
 func (x *CreateProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[350]
+	mi := &file_proto_recruitment_proto_msgTypes[361]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -27531,7 +28703,7 @@ func (x *CreateProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateProviderRequest.ProtoReflect.Descriptor instead.
 func (*CreateProviderRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{350}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{361}
 }
 
 func (x *CreateProviderRequest) GetName() string {
@@ -27620,7 +28792,7 @@ type UpdateProviderRequest struct {
 
 func (x *UpdateProviderRequest) Reset() {
 	*x = UpdateProviderRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[351]
+	mi := &file_proto_recruitment_proto_msgTypes[362]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -27632,7 +28804,7 @@ func (x *UpdateProviderRequest) String() string {
 func (*UpdateProviderRequest) ProtoMessage() {}
 
 func (x *UpdateProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[351]
+	mi := &file_proto_recruitment_proto_msgTypes[362]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -27645,7 +28817,7 @@ func (x *UpdateProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProviderRequest.ProtoReflect.Descriptor instead.
 func (*UpdateProviderRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{351}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{362}
 }
 
 func (x *UpdateProviderRequest) GetId() int64 {
@@ -27764,7 +28936,7 @@ type ProviderResponse struct {
 
 func (x *ProviderResponse) Reset() {
 	*x = ProviderResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[352]
+	mi := &file_proto_recruitment_proto_msgTypes[363]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -27776,7 +28948,7 @@ func (x *ProviderResponse) String() string {
 func (*ProviderResponse) ProtoMessage() {}
 
 func (x *ProviderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[352]
+	mi := &file_proto_recruitment_proto_msgTypes[363]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -27789,7 +28961,7 @@ func (x *ProviderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderResponse.ProtoReflect.Descriptor instead.
 func (*ProviderResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{352}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{363}
 }
 
 func (x *ProviderResponse) GetCode() int32 {
@@ -27822,7 +28994,7 @@ type DeleteProviderRequest struct {
 
 func (x *DeleteProviderRequest) Reset() {
 	*x = DeleteProviderRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[353]
+	mi := &file_proto_recruitment_proto_msgTypes[364]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -27834,7 +29006,7 @@ func (x *DeleteProviderRequest) String() string {
 func (*DeleteProviderRequest) ProtoMessage() {}
 
 func (x *DeleteProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[353]
+	mi := &file_proto_recruitment_proto_msgTypes[364]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -27847,7 +29019,7 @@ func (x *DeleteProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteProviderRequest.ProtoReflect.Descriptor instead.
 func (*DeleteProviderRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{353}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{364}
 }
 
 func (x *DeleteProviderRequest) GetId() int64 {
@@ -27866,7 +29038,7 @@ type TestProviderConnectionRequest struct {
 
 func (x *TestProviderConnectionRequest) Reset() {
 	*x = TestProviderConnectionRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[354]
+	mi := &file_proto_recruitment_proto_msgTypes[365]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -27878,7 +29050,7 @@ func (x *TestProviderConnectionRequest) String() string {
 func (*TestProviderConnectionRequest) ProtoMessage() {}
 
 func (x *TestProviderConnectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[354]
+	mi := &file_proto_recruitment_proto_msgTypes[365]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -27891,7 +29063,7 @@ func (x *TestProviderConnectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestProviderConnectionRequest.ProtoReflect.Descriptor instead.
 func (*TestProviderConnectionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{354}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{365}
 }
 
 func (x *TestProviderConnectionRequest) GetProviderId() int64 {
@@ -27913,7 +29085,7 @@ type TestProviderConnectionResponse struct {
 
 func (x *TestProviderConnectionResponse) Reset() {
 	*x = TestProviderConnectionResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[355]
+	mi := &file_proto_recruitment_proto_msgTypes[366]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -27925,7 +29097,7 @@ func (x *TestProviderConnectionResponse) String() string {
 func (*TestProviderConnectionResponse) ProtoMessage() {}
 
 func (x *TestProviderConnectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[355]
+	mi := &file_proto_recruitment_proto_msgTypes[366]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -27938,7 +29110,7 @@ func (x *TestProviderConnectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestProviderConnectionResponse.ProtoReflect.Descriptor instead.
 func (*TestProviderConnectionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{355}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{366}
 }
 
 func (x *TestProviderConnectionResponse) GetCode() int32 {
@@ -27978,7 +29150,7 @@ type TestModelConnectionRequest struct {
 
 func (x *TestModelConnectionRequest) Reset() {
 	*x = TestModelConnectionRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[356]
+	mi := &file_proto_recruitment_proto_msgTypes[367]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -27990,7 +29162,7 @@ func (x *TestModelConnectionRequest) String() string {
 func (*TestModelConnectionRequest) ProtoMessage() {}
 
 func (x *TestModelConnectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[356]
+	mi := &file_proto_recruitment_proto_msgTypes[367]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -28003,7 +29175,7 @@ func (x *TestModelConnectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestModelConnectionRequest.ProtoReflect.Descriptor instead.
 func (*TestModelConnectionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{356}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{367}
 }
 
 func (x *TestModelConnectionRequest) GetModelId() int64 {
@@ -28023,7 +29195,7 @@ type DiscoverProviderModelsRequest struct {
 
 func (x *DiscoverProviderModelsRequest) Reset() {
 	*x = DiscoverProviderModelsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[357]
+	mi := &file_proto_recruitment_proto_msgTypes[368]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -28035,7 +29207,7 @@ func (x *DiscoverProviderModelsRequest) String() string {
 func (*DiscoverProviderModelsRequest) ProtoMessage() {}
 
 func (x *DiscoverProviderModelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[357]
+	mi := &file_proto_recruitment_proto_msgTypes[368]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -28048,7 +29220,7 @@ func (x *DiscoverProviderModelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoverProviderModelsRequest.ProtoReflect.Descriptor instead.
 func (*DiscoverProviderModelsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{357}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{368}
 }
 
 func (x *DiscoverProviderModelsRequest) GetProviderId() int64 {
@@ -28079,7 +29251,7 @@ type ModelMetadataFieldSource struct {
 
 func (x *ModelMetadataFieldSource) Reset() {
 	*x = ModelMetadataFieldSource{}
-	mi := &file_proto_recruitment_proto_msgTypes[358]
+	mi := &file_proto_recruitment_proto_msgTypes[369]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -28091,7 +29263,7 @@ func (x *ModelMetadataFieldSource) String() string {
 func (*ModelMetadataFieldSource) ProtoMessage() {}
 
 func (x *ModelMetadataFieldSource) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[358]
+	mi := &file_proto_recruitment_proto_msgTypes[369]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -28104,7 +29276,7 @@ func (x *ModelMetadataFieldSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelMetadataFieldSource.ProtoReflect.Descriptor instead.
 func (*ModelMetadataFieldSource) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{358}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{369}
 }
 
 func (x *ModelMetadataFieldSource) GetFieldName() string {
@@ -28173,7 +29345,7 @@ type DiscoveredLlmModel struct {
 
 func (x *DiscoveredLlmModel) Reset() {
 	*x = DiscoveredLlmModel{}
-	mi := &file_proto_recruitment_proto_msgTypes[359]
+	mi := &file_proto_recruitment_proto_msgTypes[370]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -28185,7 +29357,7 @@ func (x *DiscoveredLlmModel) String() string {
 func (*DiscoveredLlmModel) ProtoMessage() {}
 
 func (x *DiscoveredLlmModel) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[359]
+	mi := &file_proto_recruitment_proto_msgTypes[370]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -28198,7 +29370,7 @@ func (x *DiscoveredLlmModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoveredLlmModel.ProtoReflect.Descriptor instead.
 func (*DiscoveredLlmModel) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{359}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{370}
 }
 
 func (x *DiscoveredLlmModel) GetModelName() string {
@@ -28326,7 +29498,7 @@ type DiscoverProviderModelsResponse struct {
 
 func (x *DiscoverProviderModelsResponse) Reset() {
 	*x = DiscoverProviderModelsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[360]
+	mi := &file_proto_recruitment_proto_msgTypes[371]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -28338,7 +29510,7 @@ func (x *DiscoverProviderModelsResponse) String() string {
 func (*DiscoverProviderModelsResponse) ProtoMessage() {}
 
 func (x *DiscoverProviderModelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[360]
+	mi := &file_proto_recruitment_proto_msgTypes[371]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -28351,7 +29523,7 @@ func (x *DiscoverProviderModelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoverProviderModelsResponse.ProtoReflect.Descriptor instead.
 func (*DiscoverProviderModelsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{360}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{371}
 }
 
 func (x *DiscoverProviderModelsResponse) GetCode() int32 {
@@ -28399,7 +29571,7 @@ type GetProviderModelPresetRequest struct {
 
 func (x *GetProviderModelPresetRequest) Reset() {
 	*x = GetProviderModelPresetRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[361]
+	mi := &file_proto_recruitment_proto_msgTypes[372]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -28411,7 +29583,7 @@ func (x *GetProviderModelPresetRequest) String() string {
 func (*GetProviderModelPresetRequest) ProtoMessage() {}
 
 func (x *GetProviderModelPresetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[361]
+	mi := &file_proto_recruitment_proto_msgTypes[372]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -28424,7 +29596,7 @@ func (x *GetProviderModelPresetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetProviderModelPresetRequest.ProtoReflect.Descriptor instead.
 func (*GetProviderModelPresetRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{361}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{372}
 }
 
 func (x *GetProviderModelPresetRequest) GetProviderId() int64 {
@@ -28454,7 +29626,7 @@ type GetProviderModelPresetResponse struct {
 
 func (x *GetProviderModelPresetResponse) Reset() {
 	*x = GetProviderModelPresetResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[362]
+	mi := &file_proto_recruitment_proto_msgTypes[373]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -28466,7 +29638,7 @@ func (x *GetProviderModelPresetResponse) String() string {
 func (*GetProviderModelPresetResponse) ProtoMessage() {}
 
 func (x *GetProviderModelPresetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[362]
+	mi := &file_proto_recruitment_proto_msgTypes[373]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -28479,7 +29651,7 @@ func (x *GetProviderModelPresetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetProviderModelPresetResponse.ProtoReflect.Descriptor instead.
 func (*GetProviderModelPresetResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{362}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{373}
 }
 
 func (x *GetProviderModelPresetResponse) GetCode() int32 {
@@ -28549,7 +29721,7 @@ type LlmModelInfo struct {
 
 func (x *LlmModelInfo) Reset() {
 	*x = LlmModelInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[363]
+	mi := &file_proto_recruitment_proto_msgTypes[374]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -28561,7 +29733,7 @@ func (x *LlmModelInfo) String() string {
 func (*LlmModelInfo) ProtoMessage() {}
 
 func (x *LlmModelInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[363]
+	mi := &file_proto_recruitment_proto_msgTypes[374]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -28574,7 +29746,7 @@ func (x *LlmModelInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LlmModelInfo.ProtoReflect.Descriptor instead.
 func (*LlmModelInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{363}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{374}
 }
 
 func (x *LlmModelInfo) GetId() int64 {
@@ -28756,7 +29928,7 @@ type ListModelsRequest struct {
 
 func (x *ListModelsRequest) Reset() {
 	*x = ListModelsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[364]
+	mi := &file_proto_recruitment_proto_msgTypes[375]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -28768,7 +29940,7 @@ func (x *ListModelsRequest) String() string {
 func (*ListModelsRequest) ProtoMessage() {}
 
 func (x *ListModelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[364]
+	mi := &file_proto_recruitment_proto_msgTypes[375]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -28781,7 +29953,7 @@ func (x *ListModelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListModelsRequest.ProtoReflect.Descriptor instead.
 func (*ListModelsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{364}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{375}
 }
 
 func (x *ListModelsRequest) GetPage() int32 {
@@ -28817,7 +29989,7 @@ type ListModelsResponse struct {
 
 func (x *ListModelsResponse) Reset() {
 	*x = ListModelsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[365]
+	mi := &file_proto_recruitment_proto_msgTypes[376]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -28829,7 +30001,7 @@ func (x *ListModelsResponse) String() string {
 func (*ListModelsResponse) ProtoMessage() {}
 
 func (x *ListModelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[365]
+	mi := &file_proto_recruitment_proto_msgTypes[376]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -28842,7 +30014,7 @@ func (x *ListModelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListModelsResponse.ProtoReflect.Descriptor instead.
 func (*ListModelsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{365}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{376}
 }
 
 func (x *ListModelsResponse) GetCode() int32 {
@@ -28904,7 +30076,7 @@ type CreateModelRequest struct {
 
 func (x *CreateModelRequest) Reset() {
 	*x = CreateModelRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[366]
+	mi := &file_proto_recruitment_proto_msgTypes[377]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -28916,7 +30088,7 @@ func (x *CreateModelRequest) String() string {
 func (*CreateModelRequest) ProtoMessage() {}
 
 func (x *CreateModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[366]
+	mi := &file_proto_recruitment_proto_msgTypes[377]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -28929,7 +30101,7 @@ func (x *CreateModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateModelRequest.ProtoReflect.Descriptor instead.
 func (*CreateModelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{366}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{377}
 }
 
 func (x *CreateModelRequest) GetProviderId() int64 {
@@ -29136,7 +30308,7 @@ type UpdateModelRequest struct {
 
 func (x *UpdateModelRequest) Reset() {
 	*x = UpdateModelRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[367]
+	mi := &file_proto_recruitment_proto_msgTypes[378]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -29148,7 +30320,7 @@ func (x *UpdateModelRequest) String() string {
 func (*UpdateModelRequest) ProtoMessage() {}
 
 func (x *UpdateModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[367]
+	mi := &file_proto_recruitment_proto_msgTypes[378]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -29161,7 +30333,7 @@ func (x *UpdateModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateModelRequest.ProtoReflect.Descriptor instead.
 func (*UpdateModelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{367}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{378}
 }
 
 func (x *UpdateModelRequest) GetId() int64 {
@@ -29420,7 +30592,7 @@ type ModelResponse struct {
 
 func (x *ModelResponse) Reset() {
 	*x = ModelResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[368]
+	mi := &file_proto_recruitment_proto_msgTypes[379]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -29432,7 +30604,7 @@ func (x *ModelResponse) String() string {
 func (*ModelResponse) ProtoMessage() {}
 
 func (x *ModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[368]
+	mi := &file_proto_recruitment_proto_msgTypes[379]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -29445,7 +30617,7 @@ func (x *ModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelResponse.ProtoReflect.Descriptor instead.
 func (*ModelResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{368}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{379}
 }
 
 func (x *ModelResponse) GetCode() int32 {
@@ -29478,7 +30650,7 @@ type DeleteModelRequest struct {
 
 func (x *DeleteModelRequest) Reset() {
 	*x = DeleteModelRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[369]
+	mi := &file_proto_recruitment_proto_msgTypes[380]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -29490,7 +30662,7 @@ func (x *DeleteModelRequest) String() string {
 func (*DeleteModelRequest) ProtoMessage() {}
 
 func (x *DeleteModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[369]
+	mi := &file_proto_recruitment_proto_msgTypes[380]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -29503,7 +30675,7 @@ func (x *DeleteModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteModelRequest.ProtoReflect.Descriptor instead.
 func (*DeleteModelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{369}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{380}
 }
 
 func (x *DeleteModelRequest) GetId() int64 {
@@ -29533,7 +30705,7 @@ type PromptTemplateInfo struct {
 
 func (x *PromptTemplateInfo) Reset() {
 	*x = PromptTemplateInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[370]
+	mi := &file_proto_recruitment_proto_msgTypes[381]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -29545,7 +30717,7 @@ func (x *PromptTemplateInfo) String() string {
 func (*PromptTemplateInfo) ProtoMessage() {}
 
 func (x *PromptTemplateInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[370]
+	mi := &file_proto_recruitment_proto_msgTypes[381]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -29558,7 +30730,7 @@ func (x *PromptTemplateInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromptTemplateInfo.ProtoReflect.Descriptor instead.
 func (*PromptTemplateInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{370}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{381}
 }
 
 func (x *PromptTemplateInfo) GetId() int64 {
@@ -29656,7 +30828,7 @@ type ListPromptTemplatesRequest struct {
 
 func (x *ListPromptTemplatesRequest) Reset() {
 	*x = ListPromptTemplatesRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[371]
+	mi := &file_proto_recruitment_proto_msgTypes[382]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -29668,7 +30840,7 @@ func (x *ListPromptTemplatesRequest) String() string {
 func (*ListPromptTemplatesRequest) ProtoMessage() {}
 
 func (x *ListPromptTemplatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[371]
+	mi := &file_proto_recruitment_proto_msgTypes[382]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -29681,7 +30853,7 @@ func (x *ListPromptTemplatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPromptTemplatesRequest.ProtoReflect.Descriptor instead.
 func (*ListPromptTemplatesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{371}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{382}
 }
 
 func (x *ListPromptTemplatesRequest) GetPage() int32 {
@@ -29717,7 +30889,7 @@ type ListPromptTemplatesResponse struct {
 
 func (x *ListPromptTemplatesResponse) Reset() {
 	*x = ListPromptTemplatesResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[372]
+	mi := &file_proto_recruitment_proto_msgTypes[383]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -29729,7 +30901,7 @@ func (x *ListPromptTemplatesResponse) String() string {
 func (*ListPromptTemplatesResponse) ProtoMessage() {}
 
 func (x *ListPromptTemplatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[372]
+	mi := &file_proto_recruitment_proto_msgTypes[383]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -29742,7 +30914,7 @@ func (x *ListPromptTemplatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPromptTemplatesResponse.ProtoReflect.Descriptor instead.
 func (*ListPromptTemplatesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{372}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{383}
 }
 
 func (x *ListPromptTemplatesResponse) GetCode() int32 {
@@ -29787,7 +30959,7 @@ type CreatePromptTemplateRequest struct {
 
 func (x *CreatePromptTemplateRequest) Reset() {
 	*x = CreatePromptTemplateRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[373]
+	mi := &file_proto_recruitment_proto_msgTypes[384]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -29799,7 +30971,7 @@ func (x *CreatePromptTemplateRequest) String() string {
 func (*CreatePromptTemplateRequest) ProtoMessage() {}
 
 func (x *CreatePromptTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[373]
+	mi := &file_proto_recruitment_proto_msgTypes[384]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -29812,7 +30984,7 @@ func (x *CreatePromptTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePromptTemplateRequest.ProtoReflect.Descriptor instead.
 func (*CreatePromptTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{373}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{384}
 }
 
 func (x *CreatePromptTemplateRequest) GetName() string {
@@ -29873,7 +31045,7 @@ type UpdatePromptTemplateRequest struct {
 
 func (x *UpdatePromptTemplateRequest) Reset() {
 	*x = UpdatePromptTemplateRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[374]
+	mi := &file_proto_recruitment_proto_msgTypes[385]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -29885,7 +31057,7 @@ func (x *UpdatePromptTemplateRequest) String() string {
 func (*UpdatePromptTemplateRequest) ProtoMessage() {}
 
 func (x *UpdatePromptTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[374]
+	mi := &file_proto_recruitment_proto_msgTypes[385]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -29898,7 +31070,7 @@ func (x *UpdatePromptTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePromptTemplateRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePromptTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{374}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{385}
 }
 
 func (x *UpdatePromptTemplateRequest) GetId() int64 {
@@ -29968,7 +31140,7 @@ type PromptTemplateResponse struct {
 
 func (x *PromptTemplateResponse) Reset() {
 	*x = PromptTemplateResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[375]
+	mi := &file_proto_recruitment_proto_msgTypes[386]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -29980,7 +31152,7 @@ func (x *PromptTemplateResponse) String() string {
 func (*PromptTemplateResponse) ProtoMessage() {}
 
 func (x *PromptTemplateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[375]
+	mi := &file_proto_recruitment_proto_msgTypes[386]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -29993,7 +31165,7 @@ func (x *PromptTemplateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromptTemplateResponse.ProtoReflect.Descriptor instead.
 func (*PromptTemplateResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{375}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{386}
 }
 
 func (x *PromptTemplateResponse) GetCode() int32 {
@@ -30026,7 +31198,7 @@ type DeletePromptTemplateRequest struct {
 
 func (x *DeletePromptTemplateRequest) Reset() {
 	*x = DeletePromptTemplateRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[376]
+	mi := &file_proto_recruitment_proto_msgTypes[387]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -30038,7 +31210,7 @@ func (x *DeletePromptTemplateRequest) String() string {
 func (*DeletePromptTemplateRequest) ProtoMessage() {}
 
 func (x *DeletePromptTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[376]
+	mi := &file_proto_recruitment_proto_msgTypes[387]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -30051,7 +31223,7 @@ func (x *DeletePromptTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePromptTemplateRequest.ProtoReflect.Descriptor instead.
 func (*DeletePromptTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{376}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{387}
 }
 
 func (x *DeletePromptTemplateRequest) GetId() int64 {
@@ -30076,7 +31248,7 @@ type PromptVersionInfo struct {
 
 func (x *PromptVersionInfo) Reset() {
 	*x = PromptVersionInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[377]
+	mi := &file_proto_recruitment_proto_msgTypes[388]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -30088,7 +31260,7 @@ func (x *PromptVersionInfo) String() string {
 func (*PromptVersionInfo) ProtoMessage() {}
 
 func (x *PromptVersionInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[377]
+	mi := &file_proto_recruitment_proto_msgTypes[388]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -30101,7 +31273,7 @@ func (x *PromptVersionInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromptVersionInfo.ProtoReflect.Descriptor instead.
 func (*PromptVersionInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{377}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{388}
 }
 
 func (x *PromptVersionInfo) GetId() int64 {
@@ -30164,7 +31336,7 @@ type GetPromptVersionHistoryRequest struct {
 
 func (x *GetPromptVersionHistoryRequest) Reset() {
 	*x = GetPromptVersionHistoryRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[378]
+	mi := &file_proto_recruitment_proto_msgTypes[389]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -30176,7 +31348,7 @@ func (x *GetPromptVersionHistoryRequest) String() string {
 func (*GetPromptVersionHistoryRequest) ProtoMessage() {}
 
 func (x *GetPromptVersionHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[378]
+	mi := &file_proto_recruitment_proto_msgTypes[389]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -30189,7 +31361,7 @@ func (x *GetPromptVersionHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPromptVersionHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetPromptVersionHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{378}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{389}
 }
 
 func (x *GetPromptVersionHistoryRequest) GetTemplateId() int64 {
@@ -30225,7 +31397,7 @@ type GetPromptVersionHistoryResponse struct {
 
 func (x *GetPromptVersionHistoryResponse) Reset() {
 	*x = GetPromptVersionHistoryResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[379]
+	mi := &file_proto_recruitment_proto_msgTypes[390]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -30237,7 +31409,7 @@ func (x *GetPromptVersionHistoryResponse) String() string {
 func (*GetPromptVersionHistoryResponse) ProtoMessage() {}
 
 func (x *GetPromptVersionHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[379]
+	mi := &file_proto_recruitment_proto_msgTypes[390]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -30250,7 +31422,7 @@ func (x *GetPromptVersionHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPromptVersionHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetPromptVersionHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{379}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{390}
 }
 
 func (x *GetPromptVersionHistoryResponse) GetCode() int32 {
@@ -30293,7 +31465,7 @@ type RollbackPromptVersionRequest struct {
 
 func (x *RollbackPromptVersionRequest) Reset() {
 	*x = RollbackPromptVersionRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[380]
+	mi := &file_proto_recruitment_proto_msgTypes[391]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -30305,7 +31477,7 @@ func (x *RollbackPromptVersionRequest) String() string {
 func (*RollbackPromptVersionRequest) ProtoMessage() {}
 
 func (x *RollbackPromptVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[380]
+	mi := &file_proto_recruitment_proto_msgTypes[391]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -30318,7 +31490,7 @@ func (x *RollbackPromptVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RollbackPromptVersionRequest.ProtoReflect.Descriptor instead.
 func (*RollbackPromptVersionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{380}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{391}
 }
 
 func (x *RollbackPromptVersionRequest) GetTemplateId() int64 {
@@ -30359,7 +31531,7 @@ type RenderPromptRequest struct {
 
 func (x *RenderPromptRequest) Reset() {
 	*x = RenderPromptRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[381]
+	mi := &file_proto_recruitment_proto_msgTypes[392]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -30371,7 +31543,7 @@ func (x *RenderPromptRequest) String() string {
 func (*RenderPromptRequest) ProtoMessage() {}
 
 func (x *RenderPromptRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[381]
+	mi := &file_proto_recruitment_proto_msgTypes[392]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -30384,7 +31556,7 @@ func (x *RenderPromptRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderPromptRequest.ProtoReflect.Descriptor instead.
 func (*RenderPromptRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{381}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{392}
 }
 
 func (x *RenderPromptRequest) GetTemplateId() int64 {
@@ -30412,7 +31584,7 @@ type RenderPromptResponse struct {
 
 func (x *RenderPromptResponse) Reset() {
 	*x = RenderPromptResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[382]
+	mi := &file_proto_recruitment_proto_msgTypes[393]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -30424,7 +31596,7 @@ func (x *RenderPromptResponse) String() string {
 func (*RenderPromptResponse) ProtoMessage() {}
 
 func (x *RenderPromptResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[382]
+	mi := &file_proto_recruitment_proto_msgTypes[393]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -30437,7 +31609,7 @@ func (x *RenderPromptResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenderPromptResponse.ProtoReflect.Descriptor instead.
 func (*RenderPromptResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{382}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{393}
 }
 
 func (x *RenderPromptResponse) GetCode() int32 {
@@ -30471,7 +31643,7 @@ type GetActivePromptByAgentTypeRequest struct {
 
 func (x *GetActivePromptByAgentTypeRequest) Reset() {
 	*x = GetActivePromptByAgentTypeRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[383]
+	mi := &file_proto_recruitment_proto_msgTypes[394]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -30483,7 +31655,7 @@ func (x *GetActivePromptByAgentTypeRequest) String() string {
 func (*GetActivePromptByAgentTypeRequest) ProtoMessage() {}
 
 func (x *GetActivePromptByAgentTypeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[383]
+	mi := &file_proto_recruitment_proto_msgTypes[394]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -30496,7 +31668,7 @@ func (x *GetActivePromptByAgentTypeRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use GetActivePromptByAgentTypeRequest.ProtoReflect.Descriptor instead.
 func (*GetActivePromptByAgentTypeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{383}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{394}
 }
 
 func (x *GetActivePromptByAgentTypeRequest) GetAgentType() string {
@@ -30524,7 +31696,7 @@ type GetActivePromptByAgentTypeResponse struct {
 
 func (x *GetActivePromptByAgentTypeResponse) Reset() {
 	*x = GetActivePromptByAgentTypeResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[384]
+	mi := &file_proto_recruitment_proto_msgTypes[395]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -30536,7 +31708,7 @@ func (x *GetActivePromptByAgentTypeResponse) String() string {
 func (*GetActivePromptByAgentTypeResponse) ProtoMessage() {}
 
 func (x *GetActivePromptByAgentTypeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[384]
+	mi := &file_proto_recruitment_proto_msgTypes[395]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -30549,7 +31721,7 @@ func (x *GetActivePromptByAgentTypeResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GetActivePromptByAgentTypeResponse.ProtoReflect.Descriptor instead.
 func (*GetActivePromptByAgentTypeResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{384}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{395}
 }
 
 func (x *GetActivePromptByAgentTypeResponse) GetCode() int32 {
@@ -30598,7 +31770,7 @@ type AgentConfigInfo struct {
 
 func (x *AgentConfigInfo) Reset() {
 	*x = AgentConfigInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[385]
+	mi := &file_proto_recruitment_proto_msgTypes[396]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -30610,7 +31782,7 @@ func (x *AgentConfigInfo) String() string {
 func (*AgentConfigInfo) ProtoMessage() {}
 
 func (x *AgentConfigInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[385]
+	mi := &file_proto_recruitment_proto_msgTypes[396]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -30623,7 +31795,7 @@ func (x *AgentConfigInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentConfigInfo.ProtoReflect.Descriptor instead.
 func (*AgentConfigInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{385}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{396}
 }
 
 func (x *AgentConfigInfo) GetId() int64 {
@@ -30751,7 +31923,7 @@ type AgentToolBindingInfo struct {
 
 func (x *AgentToolBindingInfo) Reset() {
 	*x = AgentToolBindingInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[386]
+	mi := &file_proto_recruitment_proto_msgTypes[397]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -30763,7 +31935,7 @@ func (x *AgentToolBindingInfo) String() string {
 func (*AgentToolBindingInfo) ProtoMessage() {}
 
 func (x *AgentToolBindingInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[386]
+	mi := &file_proto_recruitment_proto_msgTypes[397]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -30776,7 +31948,7 @@ func (x *AgentToolBindingInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentToolBindingInfo.ProtoReflect.Descriptor instead.
 func (*AgentToolBindingInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{386}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{397}
 }
 
 func (x *AgentToolBindingInfo) GetId() int64 {
@@ -30831,7 +32003,7 @@ type AgentCapabilityBindingInfo struct {
 
 func (x *AgentCapabilityBindingInfo) Reset() {
 	*x = AgentCapabilityBindingInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[387]
+	mi := &file_proto_recruitment_proto_msgTypes[398]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -30843,7 +32015,7 @@ func (x *AgentCapabilityBindingInfo) String() string {
 func (*AgentCapabilityBindingInfo) ProtoMessage() {}
 
 func (x *AgentCapabilityBindingInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[387]
+	mi := &file_proto_recruitment_proto_msgTypes[398]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -30856,7 +32028,7 @@ func (x *AgentCapabilityBindingInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentCapabilityBindingInfo.ProtoReflect.Descriptor instead.
 func (*AgentCapabilityBindingInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{387}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{398}
 }
 
 func (x *AgentCapabilityBindingInfo) GetId() int64 {
@@ -30942,7 +32114,7 @@ type CapabilityInfo struct {
 
 func (x *CapabilityInfo) Reset() {
 	*x = CapabilityInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[388]
+	mi := &file_proto_recruitment_proto_msgTypes[399]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -30954,7 +32126,7 @@ func (x *CapabilityInfo) String() string {
 func (*CapabilityInfo) ProtoMessage() {}
 
 func (x *CapabilityInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[388]
+	mi := &file_proto_recruitment_proto_msgTypes[399]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -30967,7 +32139,7 @@ func (x *CapabilityInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CapabilityInfo.ProtoReflect.Descriptor instead.
 func (*CapabilityInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{388}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{399}
 }
 
 func (x *CapabilityInfo) GetSource() string {
@@ -31063,7 +32235,7 @@ type ListCapabilitiesRequest struct {
 
 func (x *ListCapabilitiesRequest) Reset() {
 	*x = ListCapabilitiesRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[389]
+	mi := &file_proto_recruitment_proto_msgTypes[400]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -31075,7 +32247,7 @@ func (x *ListCapabilitiesRequest) String() string {
 func (*ListCapabilitiesRequest) ProtoMessage() {}
 
 func (x *ListCapabilitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[389]
+	mi := &file_proto_recruitment_proto_msgTypes[400]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -31088,7 +32260,7 @@ func (x *ListCapabilitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCapabilitiesRequest.ProtoReflect.Descriptor instead.
 func (*ListCapabilitiesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{389}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{400}
 }
 
 func (x *ListCapabilitiesRequest) GetAgentType() string {
@@ -31109,7 +32281,7 @@ type ListCapabilitiesResponse struct {
 
 func (x *ListCapabilitiesResponse) Reset() {
 	*x = ListCapabilitiesResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[390]
+	mi := &file_proto_recruitment_proto_msgTypes[401]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -31121,7 +32293,7 @@ func (x *ListCapabilitiesResponse) String() string {
 func (*ListCapabilitiesResponse) ProtoMessage() {}
 
 func (x *ListCapabilitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[390]
+	mi := &file_proto_recruitment_proto_msgTypes[401]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -31134,7 +32306,7 @@ func (x *ListCapabilitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCapabilitiesResponse.ProtoReflect.Descriptor instead.
 func (*ListCapabilitiesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{390}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{401}
 }
 
 func (x *ListCapabilitiesResponse) GetCode() int32 {
@@ -31169,7 +32341,7 @@ type ListAgentsRequest struct {
 
 func (x *ListAgentsRequest) Reset() {
 	*x = ListAgentsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[391]
+	mi := &file_proto_recruitment_proto_msgTypes[402]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -31181,7 +32353,7 @@ func (x *ListAgentsRequest) String() string {
 func (*ListAgentsRequest) ProtoMessage() {}
 
 func (x *ListAgentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[391]
+	mi := &file_proto_recruitment_proto_msgTypes[402]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -31194,7 +32366,7 @@ func (x *ListAgentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentsRequest.ProtoReflect.Descriptor instead.
 func (*ListAgentsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{391}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{402}
 }
 
 func (x *ListAgentsRequest) GetPage() int32 {
@@ -31230,7 +32402,7 @@ type ListAgentsResponse struct {
 
 func (x *ListAgentsResponse) Reset() {
 	*x = ListAgentsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[392]
+	mi := &file_proto_recruitment_proto_msgTypes[403]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -31242,7 +32414,7 @@ func (x *ListAgentsResponse) String() string {
 func (*ListAgentsResponse) ProtoMessage() {}
 
 func (x *ListAgentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[392]
+	mi := &file_proto_recruitment_proto_msgTypes[403]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -31255,7 +32427,7 @@ func (x *ListAgentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentsResponse.ProtoReflect.Descriptor instead.
 func (*ListAgentsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{392}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{403}
 }
 
 func (x *ListAgentsResponse) GetCode() int32 {
@@ -31306,7 +32478,7 @@ type CreateAgentRequest struct {
 
 func (x *CreateAgentRequest) Reset() {
 	*x = CreateAgentRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[393]
+	mi := &file_proto_recruitment_proto_msgTypes[404]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -31318,7 +32490,7 @@ func (x *CreateAgentRequest) String() string {
 func (*CreateAgentRequest) ProtoMessage() {}
 
 func (x *CreateAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[393]
+	mi := &file_proto_recruitment_proto_msgTypes[404]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -31331,7 +32503,7 @@ func (x *CreateAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAgentRequest.ProtoReflect.Descriptor instead.
 func (*CreateAgentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{393}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{404}
 }
 
 func (x *CreateAgentRequest) GetName() string {
@@ -31445,7 +32617,7 @@ type UpdateAgentRequest struct {
 
 func (x *UpdateAgentRequest) Reset() {
 	*x = UpdateAgentRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[394]
+	mi := &file_proto_recruitment_proto_msgTypes[405]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -31457,7 +32629,7 @@ func (x *UpdateAgentRequest) String() string {
 func (*UpdateAgentRequest) ProtoMessage() {}
 
 func (x *UpdateAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[394]
+	mi := &file_proto_recruitment_proto_msgTypes[405]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -31470,7 +32642,7 @@ func (x *UpdateAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAgentRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAgentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{394}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{405}
 }
 
 func (x *UpdateAgentRequest) GetId() int64 {
@@ -31617,7 +32789,7 @@ type AgentConfigResponse struct {
 
 func (x *AgentConfigResponse) Reset() {
 	*x = AgentConfigResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[395]
+	mi := &file_proto_recruitment_proto_msgTypes[406]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -31629,7 +32801,7 @@ func (x *AgentConfigResponse) String() string {
 func (*AgentConfigResponse) ProtoMessage() {}
 
 func (x *AgentConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[395]
+	mi := &file_proto_recruitment_proto_msgTypes[406]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -31642,7 +32814,7 @@ func (x *AgentConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentConfigResponse.ProtoReflect.Descriptor instead.
 func (*AgentConfigResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{395}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{406}
 }
 
 func (x *AgentConfigResponse) GetCode() int32 {
@@ -31675,7 +32847,7 @@ type DeleteAgentRequest struct {
 
 func (x *DeleteAgentRequest) Reset() {
 	*x = DeleteAgentRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[396]
+	mi := &file_proto_recruitment_proto_msgTypes[407]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -31687,7 +32859,7 @@ func (x *DeleteAgentRequest) String() string {
 func (*DeleteAgentRequest) ProtoMessage() {}
 
 func (x *DeleteAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[396]
+	mi := &file_proto_recruitment_proto_msgTypes[407]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -31700,7 +32872,7 @@ func (x *DeleteAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAgentRequest.ProtoReflect.Descriptor instead.
 func (*DeleteAgentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{396}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{407}
 }
 
 func (x *DeleteAgentRequest) GetId() int64 {
@@ -31719,7 +32891,7 @@ type GetAgentConfigRequest struct {
 
 func (x *GetAgentConfigRequest) Reset() {
 	*x = GetAgentConfigRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[397]
+	mi := &file_proto_recruitment_proto_msgTypes[408]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -31731,7 +32903,7 @@ func (x *GetAgentConfigRequest) String() string {
 func (*GetAgentConfigRequest) ProtoMessage() {}
 
 func (x *GetAgentConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[397]
+	mi := &file_proto_recruitment_proto_msgTypes[408]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -31744,7 +32916,7 @@ func (x *GetAgentConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAgentConfigRequest.ProtoReflect.Descriptor instead.
 func (*GetAgentConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{397}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{408}
 }
 
 func (x *GetAgentConfigRequest) GetAgentType() string {
@@ -31765,7 +32937,7 @@ type GetAgentConfigResponse struct {
 
 func (x *GetAgentConfigResponse) Reset() {
 	*x = GetAgentConfigResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[398]
+	mi := &file_proto_recruitment_proto_msgTypes[409]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -31777,7 +32949,7 @@ func (x *GetAgentConfigResponse) String() string {
 func (*GetAgentConfigResponse) ProtoMessage() {}
 
 func (x *GetAgentConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[398]
+	mi := &file_proto_recruitment_proto_msgTypes[409]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -31790,7 +32962,7 @@ func (x *GetAgentConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAgentConfigResponse.ProtoReflect.Descriptor instead.
 func (*GetAgentConfigResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{398}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{409}
 }
 
 func (x *GetAgentConfigResponse) GetCode() int32 {
@@ -31832,7 +33004,7 @@ type SkillInfo struct {
 
 func (x *SkillInfo) Reset() {
 	*x = SkillInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[399]
+	mi := &file_proto_recruitment_proto_msgTypes[410]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -31844,7 +33016,7 @@ func (x *SkillInfo) String() string {
 func (*SkillInfo) ProtoMessage() {}
 
 func (x *SkillInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[399]
+	mi := &file_proto_recruitment_proto_msgTypes[410]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -31857,7 +33029,7 @@ func (x *SkillInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillInfo.ProtoReflect.Descriptor instead.
 func (*SkillInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{399}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{410}
 }
 
 func (x *SkillInfo) GetId() int64 {
@@ -31947,7 +33119,7 @@ type SkillVersionInfo struct {
 
 func (x *SkillVersionInfo) Reset() {
 	*x = SkillVersionInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[400]
+	mi := &file_proto_recruitment_proto_msgTypes[411]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -31959,7 +33131,7 @@ func (x *SkillVersionInfo) String() string {
 func (*SkillVersionInfo) ProtoMessage() {}
 
 func (x *SkillVersionInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[400]
+	mi := &file_proto_recruitment_proto_msgTypes[411]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -31972,7 +33144,7 @@ func (x *SkillVersionInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillVersionInfo.ProtoReflect.Descriptor instead.
 func (*SkillVersionInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{400}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{411}
 }
 
 func (x *SkillVersionInfo) GetId() int64 {
@@ -32057,7 +33229,7 @@ type SkillToolInfo struct {
 
 func (x *SkillToolInfo) Reset() {
 	*x = SkillToolInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[401]
+	mi := &file_proto_recruitment_proto_msgTypes[412]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32069,7 +33241,7 @@ func (x *SkillToolInfo) String() string {
 func (*SkillToolInfo) ProtoMessage() {}
 
 func (x *SkillToolInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[401]
+	mi := &file_proto_recruitment_proto_msgTypes[412]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32082,7 +33254,7 @@ func (x *SkillToolInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillToolInfo.ProtoReflect.Descriptor instead.
 func (*SkillToolInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{401}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{412}
 }
 
 func (x *SkillToolInfo) GetId() int64 {
@@ -32172,7 +33344,7 @@ type ListSkillsRequest struct {
 
 func (x *ListSkillsRequest) Reset() {
 	*x = ListSkillsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[402]
+	mi := &file_proto_recruitment_proto_msgTypes[413]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32184,7 +33356,7 @@ func (x *ListSkillsRequest) String() string {
 func (*ListSkillsRequest) ProtoMessage() {}
 
 func (x *ListSkillsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[402]
+	mi := &file_proto_recruitment_proto_msgTypes[413]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32197,7 +33369,7 @@ func (x *ListSkillsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSkillsRequest.ProtoReflect.Descriptor instead.
 func (*ListSkillsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{402}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{413}
 }
 
 func (x *ListSkillsRequest) GetPage() int32 {
@@ -32226,7 +33398,7 @@ type ListSkillsResponse struct {
 
 func (x *ListSkillsResponse) Reset() {
 	*x = ListSkillsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[403]
+	mi := &file_proto_recruitment_proto_msgTypes[414]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32238,7 +33410,7 @@ func (x *ListSkillsResponse) String() string {
 func (*ListSkillsResponse) ProtoMessage() {}
 
 func (x *ListSkillsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[403]
+	mi := &file_proto_recruitment_proto_msgTypes[414]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32251,7 +33423,7 @@ func (x *ListSkillsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSkillsResponse.ProtoReflect.Descriptor instead.
 func (*ListSkillsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{403}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{414}
 }
 
 func (x *ListSkillsResponse) GetCode() int32 {
@@ -32297,7 +33469,7 @@ type CreateSkillRequest struct {
 
 func (x *CreateSkillRequest) Reset() {
 	*x = CreateSkillRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[404]
+	mi := &file_proto_recruitment_proto_msgTypes[415]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32309,7 +33481,7 @@ func (x *CreateSkillRequest) String() string {
 func (*CreateSkillRequest) ProtoMessage() {}
 
 func (x *CreateSkillRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[404]
+	mi := &file_proto_recruitment_proto_msgTypes[415]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32322,7 +33494,7 @@ func (x *CreateSkillRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSkillRequest.ProtoReflect.Descriptor instead.
 func (*CreateSkillRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{404}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{415}
 }
 
 func (x *CreateSkillRequest) GetName() string {
@@ -32389,7 +33561,7 @@ type UpdateSkillRequest struct {
 
 func (x *UpdateSkillRequest) Reset() {
 	*x = UpdateSkillRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[405]
+	mi := &file_proto_recruitment_proto_msgTypes[416]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32401,7 +33573,7 @@ func (x *UpdateSkillRequest) String() string {
 func (*UpdateSkillRequest) ProtoMessage() {}
 
 func (x *UpdateSkillRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[405]
+	mi := &file_proto_recruitment_proto_msgTypes[416]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32414,7 +33586,7 @@ func (x *UpdateSkillRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSkillRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSkillRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{405}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{416}
 }
 
 func (x *UpdateSkillRequest) GetId() int64 {
@@ -32477,7 +33649,7 @@ type SkillResponse struct {
 
 func (x *SkillResponse) Reset() {
 	*x = SkillResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[406]
+	mi := &file_proto_recruitment_proto_msgTypes[417]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32489,7 +33661,7 @@ func (x *SkillResponse) String() string {
 func (*SkillResponse) ProtoMessage() {}
 
 func (x *SkillResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[406]
+	mi := &file_proto_recruitment_proto_msgTypes[417]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32502,7 +33674,7 @@ func (x *SkillResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillResponse.ProtoReflect.Descriptor instead.
 func (*SkillResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{406}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{417}
 }
 
 func (x *SkillResponse) GetCode() int32 {
@@ -32537,7 +33709,7 @@ type CreateSkillVersionRequest struct {
 
 func (x *CreateSkillVersionRequest) Reset() {
 	*x = CreateSkillVersionRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[407]
+	mi := &file_proto_recruitment_proto_msgTypes[418]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32549,7 +33721,7 @@ func (x *CreateSkillVersionRequest) String() string {
 func (*CreateSkillVersionRequest) ProtoMessage() {}
 
 func (x *CreateSkillVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[407]
+	mi := &file_proto_recruitment_proto_msgTypes[418]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32562,7 +33734,7 @@ func (x *CreateSkillVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSkillVersionRequest.ProtoReflect.Descriptor instead.
 func (*CreateSkillVersionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{407}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{418}
 }
 
 func (x *CreateSkillVersionRequest) GetSkillId() int64 {
@@ -32598,7 +33770,7 @@ type SkillVersionResponse struct {
 
 func (x *SkillVersionResponse) Reset() {
 	*x = SkillVersionResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[408]
+	mi := &file_proto_recruitment_proto_msgTypes[419]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32610,7 +33782,7 @@ func (x *SkillVersionResponse) String() string {
 func (*SkillVersionResponse) ProtoMessage() {}
 
 func (x *SkillVersionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[408]
+	mi := &file_proto_recruitment_proto_msgTypes[419]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32623,7 +33795,7 @@ func (x *SkillVersionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillVersionResponse.ProtoReflect.Descriptor instead.
 func (*SkillVersionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{408}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{419}
 }
 
 func (x *SkillVersionResponse) GetCode() int32 {
@@ -32663,7 +33835,7 @@ type ListSkillVersionsRequest struct {
 
 func (x *ListSkillVersionsRequest) Reset() {
 	*x = ListSkillVersionsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[409]
+	mi := &file_proto_recruitment_proto_msgTypes[420]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32675,7 +33847,7 @@ func (x *ListSkillVersionsRequest) String() string {
 func (*ListSkillVersionsRequest) ProtoMessage() {}
 
 func (x *ListSkillVersionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[409]
+	mi := &file_proto_recruitment_proto_msgTypes[420]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32688,7 +33860,7 @@ func (x *ListSkillVersionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSkillVersionsRequest.ProtoReflect.Descriptor instead.
 func (*ListSkillVersionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{409}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{420}
 }
 
 func (x *ListSkillVersionsRequest) GetSkillId() int64 {
@@ -32709,7 +33881,7 @@ type ListSkillVersionsResponse struct {
 
 func (x *ListSkillVersionsResponse) Reset() {
 	*x = ListSkillVersionsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[410]
+	mi := &file_proto_recruitment_proto_msgTypes[421]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32721,7 +33893,7 @@ func (x *ListSkillVersionsResponse) String() string {
 func (*ListSkillVersionsResponse) ProtoMessage() {}
 
 func (x *ListSkillVersionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[410]
+	mi := &file_proto_recruitment_proto_msgTypes[421]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32734,7 +33906,7 @@ func (x *ListSkillVersionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSkillVersionsResponse.ProtoReflect.Descriptor instead.
 func (*ListSkillVersionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{410}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{421}
 }
 
 func (x *ListSkillVersionsResponse) GetCode() int32 {
@@ -32768,7 +33940,7 @@ type ActivateSkillVersionRequest struct {
 
 func (x *ActivateSkillVersionRequest) Reset() {
 	*x = ActivateSkillVersionRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[411]
+	mi := &file_proto_recruitment_proto_msgTypes[422]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32780,7 +33952,7 @@ func (x *ActivateSkillVersionRequest) String() string {
 func (*ActivateSkillVersionRequest) ProtoMessage() {}
 
 func (x *ActivateSkillVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[411]
+	mi := &file_proto_recruitment_proto_msgTypes[422]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32793,7 +33965,7 @@ func (x *ActivateSkillVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActivateSkillVersionRequest.ProtoReflect.Descriptor instead.
 func (*ActivateSkillVersionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{411}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{422}
 }
 
 func (x *ActivateSkillVersionRequest) GetSkillId() int64 {
@@ -32821,7 +33993,7 @@ type ListSkillToolsRequest struct {
 
 func (x *ListSkillToolsRequest) Reset() {
 	*x = ListSkillToolsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[412]
+	mi := &file_proto_recruitment_proto_msgTypes[423]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32833,7 +34005,7 @@ func (x *ListSkillToolsRequest) String() string {
 func (*ListSkillToolsRequest) ProtoMessage() {}
 
 func (x *ListSkillToolsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[412]
+	mi := &file_proto_recruitment_proto_msgTypes[423]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32846,7 +34018,7 @@ func (x *ListSkillToolsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSkillToolsRequest.ProtoReflect.Descriptor instead.
 func (*ListSkillToolsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{412}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{423}
 }
 
 func (x *ListSkillToolsRequest) GetSkillId() int64 {
@@ -32881,7 +34053,7 @@ type ListSkillToolsResponse struct {
 
 func (x *ListSkillToolsResponse) Reset() {
 	*x = ListSkillToolsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[413]
+	mi := &file_proto_recruitment_proto_msgTypes[424]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32893,7 +34065,7 @@ func (x *ListSkillToolsResponse) String() string {
 func (*ListSkillToolsResponse) ProtoMessage() {}
 
 func (x *ListSkillToolsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[413]
+	mi := &file_proto_recruitment_proto_msgTypes[424]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32906,7 +34078,7 @@ func (x *ListSkillToolsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSkillToolsResponse.ProtoReflect.Descriptor instead.
 func (*ListSkillToolsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{413}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{424}
 }
 
 func (x *ListSkillToolsResponse) GetCode() int32 {
@@ -32943,7 +34115,7 @@ type UpdateSkillToolRequest struct {
 
 func (x *UpdateSkillToolRequest) Reset() {
 	*x = UpdateSkillToolRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[414]
+	mi := &file_proto_recruitment_proto_msgTypes[425]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -32955,7 +34127,7 @@ func (x *UpdateSkillToolRequest) String() string {
 func (*UpdateSkillToolRequest) ProtoMessage() {}
 
 func (x *UpdateSkillToolRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[414]
+	mi := &file_proto_recruitment_proto_msgTypes[425]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -32968,7 +34140,7 @@ func (x *UpdateSkillToolRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSkillToolRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSkillToolRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{414}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{425}
 }
 
 func (x *UpdateSkillToolRequest) GetToolId() int64 {
@@ -33017,7 +34189,7 @@ type SkillToolResponse struct {
 
 func (x *SkillToolResponse) Reset() {
 	*x = SkillToolResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[415]
+	mi := &file_proto_recruitment_proto_msgTypes[426]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -33029,7 +34201,7 @@ func (x *SkillToolResponse) String() string {
 func (*SkillToolResponse) ProtoMessage() {}
 
 func (x *SkillToolResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[415]
+	mi := &file_proto_recruitment_proto_msgTypes[426]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -33042,7 +34214,7 @@ func (x *SkillToolResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillToolResponse.ProtoReflect.Descriptor instead.
 func (*SkillToolResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{415}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{426}
 }
 
 func (x *SkillToolResponse) GetCode() int32 {
@@ -33095,7 +34267,7 @@ type AgentSkillInfo struct {
 
 func (x *AgentSkillInfo) Reset() {
 	*x = AgentSkillInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[416]
+	mi := &file_proto_recruitment_proto_msgTypes[427]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -33107,7 +34279,7 @@ func (x *AgentSkillInfo) String() string {
 func (*AgentSkillInfo) ProtoMessage() {}
 
 func (x *AgentSkillInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[416]
+	mi := &file_proto_recruitment_proto_msgTypes[427]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -33120,7 +34292,7 @@ func (x *AgentSkillInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentSkillInfo.ProtoReflect.Descriptor instead.
 func (*AgentSkillInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{416}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{427}
 }
 
 func (x *AgentSkillInfo) GetId() int64 {
@@ -33287,7 +34459,7 @@ type AgentSkillVersionInfo struct {
 
 func (x *AgentSkillVersionInfo) Reset() {
 	*x = AgentSkillVersionInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[417]
+	mi := &file_proto_recruitment_proto_msgTypes[428]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -33299,7 +34471,7 @@ func (x *AgentSkillVersionInfo) String() string {
 func (*AgentSkillVersionInfo) ProtoMessage() {}
 
 func (x *AgentSkillVersionInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[417]
+	mi := &file_proto_recruitment_proto_msgTypes[428]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -33312,7 +34484,7 @@ func (x *AgentSkillVersionInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentSkillVersionInfo.ProtoReflect.Descriptor instead.
 func (*AgentSkillVersionInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{417}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{428}
 }
 
 func (x *AgentSkillVersionInfo) GetId() int64 {
@@ -33390,7 +34562,7 @@ type ListAgentSkillsRequest struct {
 
 func (x *ListAgentSkillsRequest) Reset() {
 	*x = ListAgentSkillsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[418]
+	mi := &file_proto_recruitment_proto_msgTypes[429]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -33402,7 +34574,7 @@ func (x *ListAgentSkillsRequest) String() string {
 func (*ListAgentSkillsRequest) ProtoMessage() {}
 
 func (x *ListAgentSkillsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[418]
+	mi := &file_proto_recruitment_proto_msgTypes[429]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -33415,7 +34587,7 @@ func (x *ListAgentSkillsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentSkillsRequest.ProtoReflect.Descriptor instead.
 func (*ListAgentSkillsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{418}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{429}
 }
 
 func (x *ListAgentSkillsRequest) GetPage() int32 {
@@ -33456,7 +34628,7 @@ type ListAvailableAgentSkillsRequest struct {
 
 func (x *ListAvailableAgentSkillsRequest) Reset() {
 	*x = ListAvailableAgentSkillsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[419]
+	mi := &file_proto_recruitment_proto_msgTypes[430]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -33468,7 +34640,7 @@ func (x *ListAvailableAgentSkillsRequest) String() string {
 func (*ListAvailableAgentSkillsRequest) ProtoMessage() {}
 
 func (x *ListAvailableAgentSkillsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[419]
+	mi := &file_proto_recruitment_proto_msgTypes[430]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -33481,7 +34653,7 @@ func (x *ListAvailableAgentSkillsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAvailableAgentSkillsRequest.ProtoReflect.Descriptor instead.
 func (*ListAvailableAgentSkillsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{419}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{430}
 }
 
 func (x *ListAvailableAgentSkillsRequest) GetPage() int32 {
@@ -33510,7 +34682,7 @@ type ListAgentSkillsResponse struct {
 
 func (x *ListAgentSkillsResponse) Reset() {
 	*x = ListAgentSkillsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[420]
+	mi := &file_proto_recruitment_proto_msgTypes[431]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -33522,7 +34694,7 @@ func (x *ListAgentSkillsResponse) String() string {
 func (*ListAgentSkillsResponse) ProtoMessage() {}
 
 func (x *ListAgentSkillsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[420]
+	mi := &file_proto_recruitment_proto_msgTypes[431]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -33535,7 +34707,7 @@ func (x *ListAgentSkillsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentSkillsResponse.ProtoReflect.Descriptor instead.
 func (*ListAgentSkillsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{420}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{431}
 }
 
 func (x *ListAgentSkillsResponse) GetCode() int32 {
@@ -33575,7 +34747,7 @@ type GetAgentSkillRequest struct {
 
 func (x *GetAgentSkillRequest) Reset() {
 	*x = GetAgentSkillRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[421]
+	mi := &file_proto_recruitment_proto_msgTypes[432]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -33587,7 +34759,7 @@ func (x *GetAgentSkillRequest) String() string {
 func (*GetAgentSkillRequest) ProtoMessage() {}
 
 func (x *GetAgentSkillRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[421]
+	mi := &file_proto_recruitment_proto_msgTypes[432]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -33600,7 +34772,7 @@ func (x *GetAgentSkillRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAgentSkillRequest.ProtoReflect.Descriptor instead.
 func (*GetAgentSkillRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{421}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{432}
 }
 
 func (x *GetAgentSkillRequest) GetId() int64 {
@@ -33641,7 +34813,7 @@ type CreateAgentSkillRequest struct {
 
 func (x *CreateAgentSkillRequest) Reset() {
 	*x = CreateAgentSkillRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[422]
+	mi := &file_proto_recruitment_proto_msgTypes[433]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -33653,7 +34825,7 @@ func (x *CreateAgentSkillRequest) String() string {
 func (*CreateAgentSkillRequest) ProtoMessage() {}
 
 func (x *CreateAgentSkillRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[422]
+	mi := &file_proto_recruitment_proto_msgTypes[433]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -33666,7 +34838,7 @@ func (x *CreateAgentSkillRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAgentSkillRequest.ProtoReflect.Descriptor instead.
 func (*CreateAgentSkillRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{422}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{433}
 }
 
 func (x *CreateAgentSkillRequest) GetName() string {
@@ -33868,7 +35040,7 @@ type UpdateAgentSkillRequest struct {
 
 func (x *UpdateAgentSkillRequest) Reset() {
 	*x = UpdateAgentSkillRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[423]
+	mi := &file_proto_recruitment_proto_msgTypes[434]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -33880,7 +35052,7 @@ func (x *UpdateAgentSkillRequest) String() string {
 func (*UpdateAgentSkillRequest) ProtoMessage() {}
 
 func (x *UpdateAgentSkillRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[423]
+	mi := &file_proto_recruitment_proto_msgTypes[434]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -33893,7 +35065,7 @@ func (x *UpdateAgentSkillRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAgentSkillRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAgentSkillRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{423}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{434}
 }
 
 func (x *UpdateAgentSkillRequest) GetId() int64 {
@@ -34117,7 +35289,7 @@ type AgentSkillResponse struct {
 
 func (x *AgentSkillResponse) Reset() {
 	*x = AgentSkillResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[424]
+	mi := &file_proto_recruitment_proto_msgTypes[435]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -34129,7 +35301,7 @@ func (x *AgentSkillResponse) String() string {
 func (*AgentSkillResponse) ProtoMessage() {}
 
 func (x *AgentSkillResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[424]
+	mi := &file_proto_recruitment_proto_msgTypes[435]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -34142,7 +35314,7 @@ func (x *AgentSkillResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentSkillResponse.ProtoReflect.Descriptor instead.
 func (*AgentSkillResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{424}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{435}
 }
 
 func (x *AgentSkillResponse) GetCode() int32 {
@@ -34181,7 +35353,7 @@ type CreateAgentSkillVersionRequest struct {
 
 func (x *CreateAgentSkillVersionRequest) Reset() {
 	*x = CreateAgentSkillVersionRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[425]
+	mi := &file_proto_recruitment_proto_msgTypes[436]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -34193,7 +35365,7 @@ func (x *CreateAgentSkillVersionRequest) String() string {
 func (*CreateAgentSkillVersionRequest) ProtoMessage() {}
 
 func (x *CreateAgentSkillVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[425]
+	mi := &file_proto_recruitment_proto_msgTypes[436]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -34206,7 +35378,7 @@ func (x *CreateAgentSkillVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAgentSkillVersionRequest.ProtoReflect.Descriptor instead.
 func (*CreateAgentSkillVersionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{425}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{436}
 }
 
 func (x *CreateAgentSkillVersionRequest) GetSkillId() int64 {
@@ -34269,7 +35441,7 @@ type AgentSkillVersionResponse struct {
 
 func (x *AgentSkillVersionResponse) Reset() {
 	*x = AgentSkillVersionResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[426]
+	mi := &file_proto_recruitment_proto_msgTypes[437]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -34281,7 +35453,7 @@ func (x *AgentSkillVersionResponse) String() string {
 func (*AgentSkillVersionResponse) ProtoMessage() {}
 
 func (x *AgentSkillVersionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[426]
+	mi := &file_proto_recruitment_proto_msgTypes[437]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -34294,7 +35466,7 @@ func (x *AgentSkillVersionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentSkillVersionResponse.ProtoReflect.Descriptor instead.
 func (*AgentSkillVersionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{426}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{437}
 }
 
 func (x *AgentSkillVersionResponse) GetCode() int32 {
@@ -34327,7 +35499,7 @@ type ListAgentSkillVersionsRequest struct {
 
 func (x *ListAgentSkillVersionsRequest) Reset() {
 	*x = ListAgentSkillVersionsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[427]
+	mi := &file_proto_recruitment_proto_msgTypes[438]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -34339,7 +35511,7 @@ func (x *ListAgentSkillVersionsRequest) String() string {
 func (*ListAgentSkillVersionsRequest) ProtoMessage() {}
 
 func (x *ListAgentSkillVersionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[427]
+	mi := &file_proto_recruitment_proto_msgTypes[438]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -34352,7 +35524,7 @@ func (x *ListAgentSkillVersionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentSkillVersionsRequest.ProtoReflect.Descriptor instead.
 func (*ListAgentSkillVersionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{427}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{438}
 }
 
 func (x *ListAgentSkillVersionsRequest) GetSkillId() int64 {
@@ -34373,7 +35545,7 @@ type ListAgentSkillVersionsResponse struct {
 
 func (x *ListAgentSkillVersionsResponse) Reset() {
 	*x = ListAgentSkillVersionsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[428]
+	mi := &file_proto_recruitment_proto_msgTypes[439]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -34385,7 +35557,7 @@ func (x *ListAgentSkillVersionsResponse) String() string {
 func (*ListAgentSkillVersionsResponse) ProtoMessage() {}
 
 func (x *ListAgentSkillVersionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[428]
+	mi := &file_proto_recruitment_proto_msgTypes[439]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -34398,7 +35570,7 @@ func (x *ListAgentSkillVersionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentSkillVersionsResponse.ProtoReflect.Descriptor instead.
 func (*ListAgentSkillVersionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{428}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{439}
 }
 
 func (x *ListAgentSkillVersionsResponse) GetCode() int32 {
@@ -34433,7 +35605,7 @@ type ActivateAgentSkillVersionRequest struct {
 
 func (x *ActivateAgentSkillVersionRequest) Reset() {
 	*x = ActivateAgentSkillVersionRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[429]
+	mi := &file_proto_recruitment_proto_msgTypes[440]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -34445,7 +35617,7 @@ func (x *ActivateAgentSkillVersionRequest) String() string {
 func (*ActivateAgentSkillVersionRequest) ProtoMessage() {}
 
 func (x *ActivateAgentSkillVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[429]
+	mi := &file_proto_recruitment_proto_msgTypes[440]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -34458,7 +35630,7 @@ func (x *ActivateAgentSkillVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActivateAgentSkillVersionRequest.ProtoReflect.Descriptor instead.
 func (*ActivateAgentSkillVersionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{429}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{440}
 }
 
 func (x *ActivateAgentSkillVersionRequest) GetSkillId() int64 {
@@ -34493,7 +35665,7 @@ type UpdateAgentSkillStatusRequest struct {
 
 func (x *UpdateAgentSkillStatusRequest) Reset() {
 	*x = UpdateAgentSkillStatusRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[430]
+	mi := &file_proto_recruitment_proto_msgTypes[441]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -34505,7 +35677,7 @@ func (x *UpdateAgentSkillStatusRequest) String() string {
 func (*UpdateAgentSkillStatusRequest) ProtoMessage() {}
 
 func (x *UpdateAgentSkillStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[430]
+	mi := &file_proto_recruitment_proto_msgTypes[441]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -34518,7 +35690,7 @@ func (x *UpdateAgentSkillStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAgentSkillStatusRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAgentSkillStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{430}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{441}
 }
 
 func (x *UpdateAgentSkillStatusRequest) GetId() int64 {
@@ -34553,7 +35725,7 @@ type PreviewAgentSkillRequest struct {
 
 func (x *PreviewAgentSkillRequest) Reset() {
 	*x = PreviewAgentSkillRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[431]
+	mi := &file_proto_recruitment_proto_msgTypes[442]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -34565,7 +35737,7 @@ func (x *PreviewAgentSkillRequest) String() string {
 func (*PreviewAgentSkillRequest) ProtoMessage() {}
 
 func (x *PreviewAgentSkillRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[431]
+	mi := &file_proto_recruitment_proto_msgTypes[442]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -34578,7 +35750,7 @@ func (x *PreviewAgentSkillRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewAgentSkillRequest.ProtoReflect.Descriptor instead.
 func (*PreviewAgentSkillRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{431}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{442}
 }
 
 func (x *PreviewAgentSkillRequest) GetName() string {
@@ -34615,7 +35787,7 @@ type PreviewAgentSkillResponse struct {
 
 func (x *PreviewAgentSkillResponse) Reset() {
 	*x = PreviewAgentSkillResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[432]
+	mi := &file_proto_recruitment_proto_msgTypes[443]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -34627,7 +35799,7 @@ func (x *PreviewAgentSkillResponse) String() string {
 func (*PreviewAgentSkillResponse) ProtoMessage() {}
 
 func (x *PreviewAgentSkillResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[432]
+	mi := &file_proto_recruitment_proto_msgTypes[443]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -34640,7 +35812,7 @@ func (x *PreviewAgentSkillResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewAgentSkillResponse.ProtoReflect.Descriptor instead.
 func (*PreviewAgentSkillResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{432}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{443}
 }
 
 func (x *PreviewAgentSkillResponse) GetCode() int32 {
@@ -34686,13 +35858,15 @@ type DebugSemanticRetrievalRequest struct {
 	JobId         int64                  `protobuf:"varint,4,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
 	ApplicationId int64                  `protobuf:"varint,5,opt,name=application_id,json=applicationId,proto3" json:"application_id,omitempty"`
 	Limit         int32                  `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
+	OwnerRole     int32                  `protobuf:"varint,7,opt,name=owner_role,json=ownerRole,proto3" json:"owner_role,omitempty"`
+	OwnerId       uint64                 `protobuf:"varint,8,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DebugSemanticRetrievalRequest) Reset() {
 	*x = DebugSemanticRetrievalRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[433]
+	mi := &file_proto_recruitment_proto_msgTypes[444]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -34704,7 +35878,7 @@ func (x *DebugSemanticRetrievalRequest) String() string {
 func (*DebugSemanticRetrievalRequest) ProtoMessage() {}
 
 func (x *DebugSemanticRetrievalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[433]
+	mi := &file_proto_recruitment_proto_msgTypes[444]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -34717,7 +35891,7 @@ func (x *DebugSemanticRetrievalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DebugSemanticRetrievalRequest.ProtoReflect.Descriptor instead.
 func (*DebugSemanticRetrievalRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{433}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{444}
 }
 
 func (x *DebugSemanticRetrievalRequest) GetHrId() int64 {
@@ -34762,6 +35936,20 @@ func (x *DebugSemanticRetrievalRequest) GetLimit() int32 {
 	return 0
 }
 
+func (x *DebugSemanticRetrievalRequest) GetOwnerRole() int32 {
+	if x != nil {
+		return x.OwnerRole
+	}
+	return 0
+}
+
+func (x *DebugSemanticRetrievalRequest) GetOwnerId() uint64 {
+	if x != nil {
+		return x.OwnerId
+	}
+	return 0
+}
+
 type SemanticSkillDebugItem struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -34787,7 +35975,7 @@ type SemanticSkillDebugItem struct {
 
 func (x *SemanticSkillDebugItem) Reset() {
 	*x = SemanticSkillDebugItem{}
-	mi := &file_proto_recruitment_proto_msgTypes[434]
+	mi := &file_proto_recruitment_proto_msgTypes[445]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -34799,7 +35987,7 @@ func (x *SemanticSkillDebugItem) String() string {
 func (*SemanticSkillDebugItem) ProtoMessage() {}
 
 func (x *SemanticSkillDebugItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[434]
+	mi := &file_proto_recruitment_proto_msgTypes[445]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -34812,7 +36000,7 @@ func (x *SemanticSkillDebugItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SemanticSkillDebugItem.ProtoReflect.Descriptor instead.
 func (*SemanticSkillDebugItem) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{434}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{445}
 }
 
 func (x *SemanticSkillDebugItem) GetId() int64 {
@@ -34961,7 +36149,7 @@ type SemanticMemoryDebugItem struct {
 
 func (x *SemanticMemoryDebugItem) Reset() {
 	*x = SemanticMemoryDebugItem{}
-	mi := &file_proto_recruitment_proto_msgTypes[435]
+	mi := &file_proto_recruitment_proto_msgTypes[446]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -34973,7 +36161,7 @@ func (x *SemanticMemoryDebugItem) String() string {
 func (*SemanticMemoryDebugItem) ProtoMessage() {}
 
 func (x *SemanticMemoryDebugItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[435]
+	mi := &file_proto_recruitment_proto_msgTypes[446]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -34986,7 +36174,7 @@ func (x *SemanticMemoryDebugItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SemanticMemoryDebugItem.ProtoReflect.Descriptor instead.
 func (*SemanticMemoryDebugItem) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{435}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{446}
 }
 
 func (x *SemanticMemoryDebugItem) GetId() uint64 {
@@ -35145,7 +36333,7 @@ type DebugSemanticRetrievalResponse struct {
 
 func (x *DebugSemanticRetrievalResponse) Reset() {
 	*x = DebugSemanticRetrievalResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[436]
+	mi := &file_proto_recruitment_proto_msgTypes[447]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -35157,7 +36345,7 @@ func (x *DebugSemanticRetrievalResponse) String() string {
 func (*DebugSemanticRetrievalResponse) ProtoMessage() {}
 
 func (x *DebugSemanticRetrievalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[436]
+	mi := &file_proto_recruitment_proto_msgTypes[447]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -35170,7 +36358,7 @@ func (x *DebugSemanticRetrievalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DebugSemanticRetrievalResponse.ProtoReflect.Descriptor instead.
 func (*DebugSemanticRetrievalResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{436}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{447}
 }
 
 func (x *DebugSemanticRetrievalResponse) GetCode() int32 {
@@ -35276,7 +36464,7 @@ type GetResumeProfileRequest struct {
 
 func (x *GetResumeProfileRequest) Reset() {
 	*x = GetResumeProfileRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[437]
+	mi := &file_proto_recruitment_proto_msgTypes[448]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -35288,7 +36476,7 @@ func (x *GetResumeProfileRequest) String() string {
 func (*GetResumeProfileRequest) ProtoMessage() {}
 
 func (x *GetResumeProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[437]
+	mi := &file_proto_recruitment_proto_msgTypes[448]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -35301,7 +36489,7 @@ func (x *GetResumeProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetResumeProfileRequest.ProtoReflect.Descriptor instead.
 func (*GetResumeProfileRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{437}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{448}
 }
 
 func (x *GetResumeProfileRequest) GetStaffUserId() int64 {
@@ -35345,7 +36533,7 @@ type ParseResumeProfileRequest struct {
 
 func (x *ParseResumeProfileRequest) Reset() {
 	*x = ParseResumeProfileRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[438]
+	mi := &file_proto_recruitment_proto_msgTypes[449]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -35357,7 +36545,7 @@ func (x *ParseResumeProfileRequest) String() string {
 func (*ParseResumeProfileRequest) ProtoMessage() {}
 
 func (x *ParseResumeProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[438]
+	mi := &file_proto_recruitment_proto_msgTypes[449]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -35370,7 +36558,7 @@ func (x *ParseResumeProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ParseResumeProfileRequest.ProtoReflect.Descriptor instead.
 func (*ParseResumeProfileRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{438}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{449}
 }
 
 func (x *ParseResumeProfileRequest) GetStaffUserId() int64 {
@@ -35433,7 +36621,7 @@ type ResumeParseRunInfo struct {
 
 func (x *ResumeParseRunInfo) Reset() {
 	*x = ResumeParseRunInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[439]
+	mi := &file_proto_recruitment_proto_msgTypes[450]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -35445,7 +36633,7 @@ func (x *ResumeParseRunInfo) String() string {
 func (*ResumeParseRunInfo) ProtoMessage() {}
 
 func (x *ResumeParseRunInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[439]
+	mi := &file_proto_recruitment_proto_msgTypes[450]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -35458,7 +36646,7 @@ func (x *ResumeParseRunInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeParseRunInfo.ProtoReflect.Descriptor instead.
 func (*ResumeParseRunInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{439}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{450}
 }
 
 func (x *ResumeParseRunInfo) GetId() uint64 {
@@ -35605,7 +36793,7 @@ type ResumeProfileInfo struct {
 
 func (x *ResumeProfileInfo) Reset() {
 	*x = ResumeProfileInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[440]
+	mi := &file_proto_recruitment_proto_msgTypes[451]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -35617,7 +36805,7 @@ func (x *ResumeProfileInfo) String() string {
 func (*ResumeProfileInfo) ProtoMessage() {}
 
 func (x *ResumeProfileInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[440]
+	mi := &file_proto_recruitment_proto_msgTypes[451]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -35630,7 +36818,7 @@ func (x *ResumeProfileInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeProfileInfo.ProtoReflect.Descriptor instead.
 func (*ResumeProfileInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{440}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{451}
 }
 
 func (x *ResumeProfileInfo) GetId() uint64 {
@@ -35768,7 +36956,7 @@ type ResumeEducationInfo struct {
 
 func (x *ResumeEducationInfo) Reset() {
 	*x = ResumeEducationInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[441]
+	mi := &file_proto_recruitment_proto_msgTypes[452]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -35780,7 +36968,7 @@ func (x *ResumeEducationInfo) String() string {
 func (*ResumeEducationInfo) ProtoMessage() {}
 
 func (x *ResumeEducationInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[441]
+	mi := &file_proto_recruitment_proto_msgTypes[452]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -35793,7 +36981,7 @@ func (x *ResumeEducationInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeEducationInfo.ProtoReflect.Descriptor instead.
 func (*ResumeEducationInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{441}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{452}
 }
 
 func (x *ResumeEducationInfo) GetId() uint64 {
@@ -35870,7 +37058,7 @@ type ResumeExperienceInfo struct {
 
 func (x *ResumeExperienceInfo) Reset() {
 	*x = ResumeExperienceInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[442]
+	mi := &file_proto_recruitment_proto_msgTypes[453]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -35882,7 +37070,7 @@ func (x *ResumeExperienceInfo) String() string {
 func (*ResumeExperienceInfo) ProtoMessage() {}
 
 func (x *ResumeExperienceInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[442]
+	mi := &file_proto_recruitment_proto_msgTypes[453]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -35895,7 +37083,7 @@ func (x *ResumeExperienceInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeExperienceInfo.ProtoReflect.Descriptor instead.
 func (*ResumeExperienceInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{442}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{453}
 }
 
 func (x *ResumeExperienceInfo) GetId() uint64 {
@@ -35985,7 +37173,7 @@ type ResumeProjectInfo struct {
 
 func (x *ResumeProjectInfo) Reset() {
 	*x = ResumeProjectInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[443]
+	mi := &file_proto_recruitment_proto_msgTypes[454]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -35997,7 +37185,7 @@ func (x *ResumeProjectInfo) String() string {
 func (*ResumeProjectInfo) ProtoMessage() {}
 
 func (x *ResumeProjectInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[443]
+	mi := &file_proto_recruitment_proto_msgTypes[454]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -36010,7 +37198,7 @@ func (x *ResumeProjectInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeProjectInfo.ProtoReflect.Descriptor instead.
 func (*ResumeProjectInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{443}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{454}
 }
 
 func (x *ResumeProjectInfo) GetId() uint64 {
@@ -36091,7 +37279,7 @@ type ResumeSkillInfo struct {
 
 func (x *ResumeSkillInfo) Reset() {
 	*x = ResumeSkillInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[444]
+	mi := &file_proto_recruitment_proto_msgTypes[455]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -36103,7 +37291,7 @@ func (x *ResumeSkillInfo) String() string {
 func (*ResumeSkillInfo) ProtoMessage() {}
 
 func (x *ResumeSkillInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[444]
+	mi := &file_proto_recruitment_proto_msgTypes[455]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -36116,7 +37304,7 @@ func (x *ResumeSkillInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeSkillInfo.ProtoReflect.Descriptor instead.
 func (*ResumeSkillInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{444}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{455}
 }
 
 func (x *ResumeSkillInfo) GetId() uint64 {
@@ -36182,7 +37370,7 @@ type ResumeProfileSnapshotInfo struct {
 
 func (x *ResumeProfileSnapshotInfo) Reset() {
 	*x = ResumeProfileSnapshotInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[445]
+	mi := &file_proto_recruitment_proto_msgTypes[456]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -36194,7 +37382,7 @@ func (x *ResumeProfileSnapshotInfo) String() string {
 func (*ResumeProfileSnapshotInfo) ProtoMessage() {}
 
 func (x *ResumeProfileSnapshotInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[445]
+	mi := &file_proto_recruitment_proto_msgTypes[456]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -36207,7 +37395,7 @@ func (x *ResumeProfileSnapshotInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeProfileSnapshotInfo.ProtoReflect.Descriptor instead.
 func (*ResumeProfileSnapshotInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{445}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{456}
 }
 
 func (x *ResumeProfileSnapshotInfo) GetParseRun() *ResumeParseRunInfo {
@@ -36263,7 +37451,7 @@ type GetResumeProfileResponse struct {
 
 func (x *GetResumeProfileResponse) Reset() {
 	*x = GetResumeProfileResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[446]
+	mi := &file_proto_recruitment_proto_msgTypes[457]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -36275,7 +37463,7 @@ func (x *GetResumeProfileResponse) String() string {
 func (*GetResumeProfileResponse) ProtoMessage() {}
 
 func (x *GetResumeProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[446]
+	mi := &file_proto_recruitment_proto_msgTypes[457]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -36288,7 +37476,7 @@ func (x *GetResumeProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetResumeProfileResponse.ProtoReflect.Descriptor instead.
 func (*GetResumeProfileResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{446}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{457}
 }
 
 func (x *GetResumeProfileResponse) GetCode() int32 {
@@ -36325,7 +37513,7 @@ type EvaluateCandidateMatchRequest struct {
 
 func (x *EvaluateCandidateMatchRequest) Reset() {
 	*x = EvaluateCandidateMatchRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[447]
+	mi := &file_proto_recruitment_proto_msgTypes[458]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -36337,7 +37525,7 @@ func (x *EvaluateCandidateMatchRequest) String() string {
 func (*EvaluateCandidateMatchRequest) ProtoMessage() {}
 
 func (x *EvaluateCandidateMatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[447]
+	mi := &file_proto_recruitment_proto_msgTypes[458]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -36350,7 +37538,7 @@ func (x *EvaluateCandidateMatchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvaluateCandidateMatchRequest.ProtoReflect.Descriptor instead.
 func (*EvaluateCandidateMatchRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{447}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{458}
 }
 
 func (x *EvaluateCandidateMatchRequest) GetStaffUserId() int64 {
@@ -36400,7 +37588,7 @@ type GetCandidateMatchEvaluationRequest struct {
 
 func (x *GetCandidateMatchEvaluationRequest) Reset() {
 	*x = GetCandidateMatchEvaluationRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[448]
+	mi := &file_proto_recruitment_proto_msgTypes[459]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -36412,7 +37600,7 @@ func (x *GetCandidateMatchEvaluationRequest) String() string {
 func (*GetCandidateMatchEvaluationRequest) ProtoMessage() {}
 
 func (x *GetCandidateMatchEvaluationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[448]
+	mi := &file_proto_recruitment_proto_msgTypes[459]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -36425,7 +37613,7 @@ func (x *GetCandidateMatchEvaluationRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GetCandidateMatchEvaluationRequest.ProtoReflect.Descriptor instead.
 func (*GetCandidateMatchEvaluationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{448}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{459}
 }
 
 func (x *GetCandidateMatchEvaluationRequest) GetStaffUserId() int64 {
@@ -36489,7 +37677,7 @@ type CandidateMatchEvaluationInfo struct {
 
 func (x *CandidateMatchEvaluationInfo) Reset() {
 	*x = CandidateMatchEvaluationInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[449]
+	mi := &file_proto_recruitment_proto_msgTypes[460]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -36501,7 +37689,7 @@ func (x *CandidateMatchEvaluationInfo) String() string {
 func (*CandidateMatchEvaluationInfo) ProtoMessage() {}
 
 func (x *CandidateMatchEvaluationInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[449]
+	mi := &file_proto_recruitment_proto_msgTypes[460]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -36514,7 +37702,7 @@ func (x *CandidateMatchEvaluationInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CandidateMatchEvaluationInfo.ProtoReflect.Descriptor instead.
 func (*CandidateMatchEvaluationInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{449}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{460}
 }
 
 func (x *CandidateMatchEvaluationInfo) GetId() uint64 {
@@ -36710,7 +37898,7 @@ type CandidateMatchEvidenceInfo struct {
 
 func (x *CandidateMatchEvidenceInfo) Reset() {
 	*x = CandidateMatchEvidenceInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[450]
+	mi := &file_proto_recruitment_proto_msgTypes[461]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -36722,7 +37910,7 @@ func (x *CandidateMatchEvidenceInfo) String() string {
 func (*CandidateMatchEvidenceInfo) ProtoMessage() {}
 
 func (x *CandidateMatchEvidenceInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[450]
+	mi := &file_proto_recruitment_proto_msgTypes[461]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -36735,7 +37923,7 @@ func (x *CandidateMatchEvidenceInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CandidateMatchEvidenceInfo.ProtoReflect.Descriptor instead.
 func (*CandidateMatchEvidenceInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{450}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{461}
 }
 
 func (x *CandidateMatchEvidenceInfo) GetId() uint64 {
@@ -36818,7 +38006,7 @@ type CandidateMatchEvaluationSnapshotInfo struct {
 
 func (x *CandidateMatchEvaluationSnapshotInfo) Reset() {
 	*x = CandidateMatchEvaluationSnapshotInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[451]
+	mi := &file_proto_recruitment_proto_msgTypes[462]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -36830,7 +38018,7 @@ func (x *CandidateMatchEvaluationSnapshotInfo) String() string {
 func (*CandidateMatchEvaluationSnapshotInfo) ProtoMessage() {}
 
 func (x *CandidateMatchEvaluationSnapshotInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[451]
+	mi := &file_proto_recruitment_proto_msgTypes[462]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -36843,7 +38031,7 @@ func (x *CandidateMatchEvaluationSnapshotInfo) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use CandidateMatchEvaluationSnapshotInfo.ProtoReflect.Descriptor instead.
 func (*CandidateMatchEvaluationSnapshotInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{451}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{462}
 }
 
 func (x *CandidateMatchEvaluationSnapshotInfo) GetEvaluation() *CandidateMatchEvaluationInfo {
@@ -36871,7 +38059,7 @@ type GetCandidateMatchEvaluationResponse struct {
 
 func (x *GetCandidateMatchEvaluationResponse) Reset() {
 	*x = GetCandidateMatchEvaluationResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[452]
+	mi := &file_proto_recruitment_proto_msgTypes[463]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -36883,7 +38071,7 @@ func (x *GetCandidateMatchEvaluationResponse) String() string {
 func (*GetCandidateMatchEvaluationResponse) ProtoMessage() {}
 
 func (x *GetCandidateMatchEvaluationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[452]
+	mi := &file_proto_recruitment_proto_msgTypes[463]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -36896,7 +38084,7 @@ func (x *GetCandidateMatchEvaluationResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use GetCandidateMatchEvaluationResponse.ProtoReflect.Descriptor instead.
 func (*GetCandidateMatchEvaluationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{452}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{463}
 }
 
 func (x *GetCandidateMatchEvaluationResponse) GetCode() int32 {
@@ -36930,7 +38118,7 @@ type CompareCandidatesForJobRequest struct {
 
 func (x *CompareCandidatesForJobRequest) Reset() {
 	*x = CompareCandidatesForJobRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[453]
+	mi := &file_proto_recruitment_proto_msgTypes[464]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -36942,7 +38130,7 @@ func (x *CompareCandidatesForJobRequest) String() string {
 func (*CompareCandidatesForJobRequest) ProtoMessage() {}
 
 func (x *CompareCandidatesForJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[453]
+	mi := &file_proto_recruitment_proto_msgTypes[464]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -36955,7 +38143,7 @@ func (x *CompareCandidatesForJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompareCandidatesForJobRequest.ProtoReflect.Descriptor instead.
 func (*CompareCandidatesForJobRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{453}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{464}
 }
 
 func (x *CompareCandidatesForJobRequest) GetStaffUserId() int64 {
@@ -36991,7 +38179,7 @@ type CandidateComparisonItem struct {
 
 func (x *CandidateComparisonItem) Reset() {
 	*x = CandidateComparisonItem{}
-	mi := &file_proto_recruitment_proto_msgTypes[454]
+	mi := &file_proto_recruitment_proto_msgTypes[465]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -37003,7 +38191,7 @@ func (x *CandidateComparisonItem) String() string {
 func (*CandidateComparisonItem) ProtoMessage() {}
 
 func (x *CandidateComparisonItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[454]
+	mi := &file_proto_recruitment_proto_msgTypes[465]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -37016,7 +38204,7 @@ func (x *CandidateComparisonItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CandidateComparisonItem.ProtoReflect.Descriptor instead.
 func (*CandidateComparisonItem) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{454}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{465}
 }
 
 func (x *CandidateComparisonItem) GetApplicationId() int64 {
@@ -37109,7 +38297,7 @@ type CompareCandidatesForJobResponse struct {
 
 func (x *CompareCandidatesForJobResponse) Reset() {
 	*x = CompareCandidatesForJobResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[455]
+	mi := &file_proto_recruitment_proto_msgTypes[466]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -37121,7 +38309,7 @@ func (x *CompareCandidatesForJobResponse) String() string {
 func (*CompareCandidatesForJobResponse) ProtoMessage() {}
 
 func (x *CompareCandidatesForJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[455]
+	mi := &file_proto_recruitment_proto_msgTypes[466]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -37134,7 +38322,7 @@ func (x *CompareCandidatesForJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompareCandidatesForJobResponse.ProtoReflect.Descriptor instead.
 func (*CompareCandidatesForJobResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{455}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{466}
 }
 
 func (x *CompareCandidatesForJobResponse) GetCode() int32 {
@@ -37189,7 +38377,7 @@ type EmbeddingProviderInfo struct {
 
 func (x *EmbeddingProviderInfo) Reset() {
 	*x = EmbeddingProviderInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[456]
+	mi := &file_proto_recruitment_proto_msgTypes[467]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -37201,7 +38389,7 @@ func (x *EmbeddingProviderInfo) String() string {
 func (*EmbeddingProviderInfo) ProtoMessage() {}
 
 func (x *EmbeddingProviderInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[456]
+	mi := &file_proto_recruitment_proto_msgTypes[467]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -37214,7 +38402,7 @@ func (x *EmbeddingProviderInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmbeddingProviderInfo.ProtoReflect.Descriptor instead.
 func (*EmbeddingProviderInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{456}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{467}
 }
 
 func (x *EmbeddingProviderInfo) GetId() int64 {
@@ -37290,7 +38478,7 @@ type ListEmbeddingProvidersRequest struct {
 
 func (x *ListEmbeddingProvidersRequest) Reset() {
 	*x = ListEmbeddingProvidersRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[457]
+	mi := &file_proto_recruitment_proto_msgTypes[468]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -37302,7 +38490,7 @@ func (x *ListEmbeddingProvidersRequest) String() string {
 func (*ListEmbeddingProvidersRequest) ProtoMessage() {}
 
 func (x *ListEmbeddingProvidersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[457]
+	mi := &file_proto_recruitment_proto_msgTypes[468]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -37315,7 +38503,7 @@ func (x *ListEmbeddingProvidersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEmbeddingProvidersRequest.ProtoReflect.Descriptor instead.
 func (*ListEmbeddingProvidersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{457}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{468}
 }
 
 func (x *ListEmbeddingProvidersRequest) GetPage() int32 {
@@ -37344,7 +38532,7 @@ type ListEmbeddingProvidersResponse struct {
 
 func (x *ListEmbeddingProvidersResponse) Reset() {
 	*x = ListEmbeddingProvidersResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[458]
+	mi := &file_proto_recruitment_proto_msgTypes[469]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -37356,7 +38544,7 @@ func (x *ListEmbeddingProvidersResponse) String() string {
 func (*ListEmbeddingProvidersResponse) ProtoMessage() {}
 
 func (x *ListEmbeddingProvidersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[458]
+	mi := &file_proto_recruitment_proto_msgTypes[469]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -37369,7 +38557,7 @@ func (x *ListEmbeddingProvidersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEmbeddingProvidersResponse.ProtoReflect.Descriptor instead.
 func (*ListEmbeddingProvidersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{458}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{469}
 }
 
 func (x *ListEmbeddingProvidersResponse) GetCode() int32 {
@@ -37413,7 +38601,7 @@ type CreateEmbeddingProviderRequest struct {
 
 func (x *CreateEmbeddingProviderRequest) Reset() {
 	*x = CreateEmbeddingProviderRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[459]
+	mi := &file_proto_recruitment_proto_msgTypes[470]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -37425,7 +38613,7 @@ func (x *CreateEmbeddingProviderRequest) String() string {
 func (*CreateEmbeddingProviderRequest) ProtoMessage() {}
 
 func (x *CreateEmbeddingProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[459]
+	mi := &file_proto_recruitment_proto_msgTypes[470]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -37438,7 +38626,7 @@ func (x *CreateEmbeddingProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateEmbeddingProviderRequest.ProtoReflect.Descriptor instead.
 func (*CreateEmbeddingProviderRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{459}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{470}
 }
 
 func (x *CreateEmbeddingProviderRequest) GetName() string {
@@ -37493,7 +38681,7 @@ type UpdateEmbeddingProviderRequest struct {
 
 func (x *UpdateEmbeddingProviderRequest) Reset() {
 	*x = UpdateEmbeddingProviderRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[460]
+	mi := &file_proto_recruitment_proto_msgTypes[471]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -37505,7 +38693,7 @@ func (x *UpdateEmbeddingProviderRequest) String() string {
 func (*UpdateEmbeddingProviderRequest) ProtoMessage() {}
 
 func (x *UpdateEmbeddingProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[460]
+	mi := &file_proto_recruitment_proto_msgTypes[471]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -37518,7 +38706,7 @@ func (x *UpdateEmbeddingProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateEmbeddingProviderRequest.ProtoReflect.Descriptor instead.
 func (*UpdateEmbeddingProviderRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{460}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{471}
 }
 
 func (x *UpdateEmbeddingProviderRequest) GetId() int64 {
@@ -37595,7 +38783,7 @@ type EmbeddingProviderResponse struct {
 
 func (x *EmbeddingProviderResponse) Reset() {
 	*x = EmbeddingProviderResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[461]
+	mi := &file_proto_recruitment_proto_msgTypes[472]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -37607,7 +38795,7 @@ func (x *EmbeddingProviderResponse) String() string {
 func (*EmbeddingProviderResponse) ProtoMessage() {}
 
 func (x *EmbeddingProviderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[461]
+	mi := &file_proto_recruitment_proto_msgTypes[472]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -37620,7 +38808,7 @@ func (x *EmbeddingProviderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmbeddingProviderResponse.ProtoReflect.Descriptor instead.
 func (*EmbeddingProviderResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{461}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{472}
 }
 
 func (x *EmbeddingProviderResponse) GetCode() int32 {
@@ -37653,7 +38841,7 @@ type DeleteEmbeddingProviderRequest struct {
 
 func (x *DeleteEmbeddingProviderRequest) Reset() {
 	*x = DeleteEmbeddingProviderRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[462]
+	mi := &file_proto_recruitment_proto_msgTypes[473]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -37665,7 +38853,7 @@ func (x *DeleteEmbeddingProviderRequest) String() string {
 func (*DeleteEmbeddingProviderRequest) ProtoMessage() {}
 
 func (x *DeleteEmbeddingProviderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[462]
+	mi := &file_proto_recruitment_proto_msgTypes[473]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -37678,7 +38866,7 @@ func (x *DeleteEmbeddingProviderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteEmbeddingProviderRequest.ProtoReflect.Descriptor instead.
 func (*DeleteEmbeddingProviderRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{462}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{473}
 }
 
 func (x *DeleteEmbeddingProviderRequest) GetId() int64 {
@@ -37713,7 +38901,7 @@ type EmbeddingModelInfo struct {
 
 func (x *EmbeddingModelInfo) Reset() {
 	*x = EmbeddingModelInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[463]
+	mi := &file_proto_recruitment_proto_msgTypes[474]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -37725,7 +38913,7 @@ func (x *EmbeddingModelInfo) String() string {
 func (*EmbeddingModelInfo) ProtoMessage() {}
 
 func (x *EmbeddingModelInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[463]
+	mi := &file_proto_recruitment_proto_msgTypes[474]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -37738,7 +38926,7 @@ func (x *EmbeddingModelInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmbeddingModelInfo.ProtoReflect.Descriptor instead.
 func (*EmbeddingModelInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{463}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{474}
 }
 
 func (x *EmbeddingModelInfo) GetId() int64 {
@@ -37871,7 +39059,7 @@ type ListEmbeddingModelsRequest struct {
 
 func (x *ListEmbeddingModelsRequest) Reset() {
 	*x = ListEmbeddingModelsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[464]
+	mi := &file_proto_recruitment_proto_msgTypes[475]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -37883,7 +39071,7 @@ func (x *ListEmbeddingModelsRequest) String() string {
 func (*ListEmbeddingModelsRequest) ProtoMessage() {}
 
 func (x *ListEmbeddingModelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[464]
+	mi := &file_proto_recruitment_proto_msgTypes[475]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -37896,7 +39084,7 @@ func (x *ListEmbeddingModelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEmbeddingModelsRequest.ProtoReflect.Descriptor instead.
 func (*ListEmbeddingModelsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{464}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{475}
 }
 
 func (x *ListEmbeddingModelsRequest) GetPage() int32 {
@@ -37932,7 +39120,7 @@ type ListEmbeddingModelsResponse struct {
 
 func (x *ListEmbeddingModelsResponse) Reset() {
 	*x = ListEmbeddingModelsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[465]
+	mi := &file_proto_recruitment_proto_msgTypes[476]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -37944,7 +39132,7 @@ func (x *ListEmbeddingModelsResponse) String() string {
 func (*ListEmbeddingModelsResponse) ProtoMessage() {}
 
 func (x *ListEmbeddingModelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[465]
+	mi := &file_proto_recruitment_proto_msgTypes[476]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -37957,7 +39145,7 @@ func (x *ListEmbeddingModelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEmbeddingModelsResponse.ProtoReflect.Descriptor instead.
 func (*ListEmbeddingModelsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{465}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{476}
 }
 
 func (x *ListEmbeddingModelsResponse) GetCode() int32 {
@@ -38005,7 +39193,7 @@ type CreateEmbeddingModelRequest struct {
 
 func (x *CreateEmbeddingModelRequest) Reset() {
 	*x = CreateEmbeddingModelRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[466]
+	mi := &file_proto_recruitment_proto_msgTypes[477]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -38017,7 +39205,7 @@ func (x *CreateEmbeddingModelRequest) String() string {
 func (*CreateEmbeddingModelRequest) ProtoMessage() {}
 
 func (x *CreateEmbeddingModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[466]
+	mi := &file_proto_recruitment_proto_msgTypes[477]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -38030,7 +39218,7 @@ func (x *CreateEmbeddingModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateEmbeddingModelRequest.ProtoReflect.Descriptor instead.
 func (*CreateEmbeddingModelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{466}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{477}
 }
 
 func (x *CreateEmbeddingModelRequest) GetProviderId() int64 {
@@ -38121,7 +39309,7 @@ type UpdateEmbeddingModelRequest struct {
 
 func (x *UpdateEmbeddingModelRequest) Reset() {
 	*x = UpdateEmbeddingModelRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[467]
+	mi := &file_proto_recruitment_proto_msgTypes[478]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -38133,7 +39321,7 @@ func (x *UpdateEmbeddingModelRequest) String() string {
 func (*UpdateEmbeddingModelRequest) ProtoMessage() {}
 
 func (x *UpdateEmbeddingModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[467]
+	mi := &file_proto_recruitment_proto_msgTypes[478]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -38146,7 +39334,7 @@ func (x *UpdateEmbeddingModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateEmbeddingModelRequest.ProtoReflect.Descriptor instead.
 func (*UpdateEmbeddingModelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{467}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{478}
 }
 
 func (x *UpdateEmbeddingModelRequest) GetId() int64 {
@@ -38279,7 +39467,7 @@ type EmbeddingModelResponse struct {
 
 func (x *EmbeddingModelResponse) Reset() {
 	*x = EmbeddingModelResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[468]
+	mi := &file_proto_recruitment_proto_msgTypes[479]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -38291,7 +39479,7 @@ func (x *EmbeddingModelResponse) String() string {
 func (*EmbeddingModelResponse) ProtoMessage() {}
 
 func (x *EmbeddingModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[468]
+	mi := &file_proto_recruitment_proto_msgTypes[479]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -38304,7 +39492,7 @@ func (x *EmbeddingModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmbeddingModelResponse.ProtoReflect.Descriptor instead.
 func (*EmbeddingModelResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{468}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{479}
 }
 
 func (x *EmbeddingModelResponse) GetCode() int32 {
@@ -38337,7 +39525,7 @@ type DeleteEmbeddingModelRequest struct {
 
 func (x *DeleteEmbeddingModelRequest) Reset() {
 	*x = DeleteEmbeddingModelRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[469]
+	mi := &file_proto_recruitment_proto_msgTypes[480]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -38349,7 +39537,7 @@ func (x *DeleteEmbeddingModelRequest) String() string {
 func (*DeleteEmbeddingModelRequest) ProtoMessage() {}
 
 func (x *DeleteEmbeddingModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[469]
+	mi := &file_proto_recruitment_proto_msgTypes[480]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -38362,7 +39550,7 @@ func (x *DeleteEmbeddingModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteEmbeddingModelRequest.ProtoReflect.Descriptor instead.
 func (*DeleteEmbeddingModelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{469}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{480}
 }
 
 func (x *DeleteEmbeddingModelRequest) GetId() int64 {
@@ -38381,7 +39569,7 @@ type SetDefaultEmbeddingModelRequest struct {
 
 func (x *SetDefaultEmbeddingModelRequest) Reset() {
 	*x = SetDefaultEmbeddingModelRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[470]
+	mi := &file_proto_recruitment_proto_msgTypes[481]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -38393,7 +39581,7 @@ func (x *SetDefaultEmbeddingModelRequest) String() string {
 func (*SetDefaultEmbeddingModelRequest) ProtoMessage() {}
 
 func (x *SetDefaultEmbeddingModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[470]
+	mi := &file_proto_recruitment_proto_msgTypes[481]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -38406,7 +39594,7 @@ func (x *SetDefaultEmbeddingModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetDefaultEmbeddingModelRequest.ProtoReflect.Descriptor instead.
 func (*SetDefaultEmbeddingModelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{470}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{481}
 }
 
 func (x *SetDefaultEmbeddingModelRequest) GetId() int64 {
@@ -38427,7 +39615,7 @@ type TestEmbeddingModelRequest struct {
 
 func (x *TestEmbeddingModelRequest) Reset() {
 	*x = TestEmbeddingModelRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[471]
+	mi := &file_proto_recruitment_proto_msgTypes[482]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -38439,7 +39627,7 @@ func (x *TestEmbeddingModelRequest) String() string {
 func (*TestEmbeddingModelRequest) ProtoMessage() {}
 
 func (x *TestEmbeddingModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[471]
+	mi := &file_proto_recruitment_proto_msgTypes[482]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -38452,7 +39640,7 @@ func (x *TestEmbeddingModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestEmbeddingModelRequest.ProtoReflect.Descriptor instead.
 func (*TestEmbeddingModelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{471}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{482}
 }
 
 func (x *TestEmbeddingModelRequest) GetProviderId() int64 {
@@ -38491,7 +39679,7 @@ type TestEmbeddingModelResponse struct {
 
 func (x *TestEmbeddingModelResponse) Reset() {
 	*x = TestEmbeddingModelResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[472]
+	mi := &file_proto_recruitment_proto_msgTypes[483]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -38503,7 +39691,7 @@ func (x *TestEmbeddingModelResponse) String() string {
 func (*TestEmbeddingModelResponse) ProtoMessage() {}
 
 func (x *TestEmbeddingModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[472]
+	mi := &file_proto_recruitment_proto_msgTypes[483]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -38516,7 +39704,7 @@ func (x *TestEmbeddingModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestEmbeddingModelResponse.ProtoReflect.Descriptor instead.
 func (*TestEmbeddingModelResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{472}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{483}
 }
 
 func (x *TestEmbeddingModelResponse) GetCode() int32 {
@@ -38583,7 +39771,7 @@ type BackfillEmbeddingsRequest struct {
 
 func (x *BackfillEmbeddingsRequest) Reset() {
 	*x = BackfillEmbeddingsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[473]
+	mi := &file_proto_recruitment_proto_msgTypes[484]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -38595,7 +39783,7 @@ func (x *BackfillEmbeddingsRequest) String() string {
 func (*BackfillEmbeddingsRequest) ProtoMessage() {}
 
 func (x *BackfillEmbeddingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[473]
+	mi := &file_proto_recruitment_proto_msgTypes[484]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -38608,7 +39796,7 @@ func (x *BackfillEmbeddingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackfillEmbeddingsRequest.ProtoReflect.Descriptor instead.
 func (*BackfillEmbeddingsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{473}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{484}
 }
 
 func (x *BackfillEmbeddingsRequest) GetObjectType() string {
@@ -38673,7 +39861,7 @@ type BackfillEmbeddingsResponse struct {
 
 func (x *BackfillEmbeddingsResponse) Reset() {
 	*x = BackfillEmbeddingsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[474]
+	mi := &file_proto_recruitment_proto_msgTypes[485]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -38685,7 +39873,7 @@ func (x *BackfillEmbeddingsResponse) String() string {
 func (*BackfillEmbeddingsResponse) ProtoMessage() {}
 
 func (x *BackfillEmbeddingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[474]
+	mi := &file_proto_recruitment_proto_msgTypes[485]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -38698,7 +39886,7 @@ func (x *BackfillEmbeddingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackfillEmbeddingsResponse.ProtoReflect.Descriptor instead.
 func (*BackfillEmbeddingsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{474}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{485}
 }
 
 func (x *BackfillEmbeddingsResponse) GetCode() int32 {
@@ -38749,7 +39937,7 @@ type PreviewChatContextRequest struct {
 
 func (x *PreviewChatContextRequest) Reset() {
 	*x = PreviewChatContextRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[475]
+	mi := &file_proto_recruitment_proto_msgTypes[486]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -38761,7 +39949,7 @@ func (x *PreviewChatContextRequest) String() string {
 func (*PreviewChatContextRequest) ProtoMessage() {}
 
 func (x *PreviewChatContextRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[475]
+	mi := &file_proto_recruitment_proto_msgTypes[486]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -38774,7 +39962,7 @@ func (x *PreviewChatContextRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewChatContextRequest.ProtoReflect.Descriptor instead.
 func (*PreviewChatContextRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{475}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{486}
 }
 
 func (x *PreviewChatContextRequest) GetHrId() int64 {
@@ -38824,7 +40012,7 @@ type PreviewChatContextResponse struct {
 
 func (x *PreviewChatContextResponse) Reset() {
 	*x = PreviewChatContextResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[476]
+	mi := &file_proto_recruitment_proto_msgTypes[487]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -38836,7 +40024,7 @@ func (x *PreviewChatContextResponse) String() string {
 func (*PreviewChatContextResponse) ProtoMessage() {}
 
 func (x *PreviewChatContextResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[476]
+	mi := &file_proto_recruitment_proto_msgTypes[487]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -38849,7 +40037,7 @@ func (x *PreviewChatContextResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewChatContextResponse.ProtoReflect.Descriptor instead.
 func (*PreviewChatContextResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{476}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{487}
 }
 
 func (x *PreviewChatContextResponse) GetCode() int32 {
@@ -38890,7 +40078,7 @@ type BillingOwner struct {
 
 func (x *BillingOwner) Reset() {
 	*x = BillingOwner{}
-	mi := &file_proto_recruitment_proto_msgTypes[477]
+	mi := &file_proto_recruitment_proto_msgTypes[488]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -38902,7 +40090,7 @@ func (x *BillingOwner) String() string {
 func (*BillingOwner) ProtoMessage() {}
 
 func (x *BillingOwner) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[477]
+	mi := &file_proto_recruitment_proto_msgTypes[488]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -38915,7 +40103,7 @@ func (x *BillingOwner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BillingOwner.ProtoReflect.Descriptor instead.
 func (*BillingOwner) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{477}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{488}
 }
 
 func (x *BillingOwner) GetType() BillingOwnerType {
@@ -38944,7 +40132,7 @@ type CheckAIAccessRequest struct {
 
 func (x *CheckAIAccessRequest) Reset() {
 	*x = CheckAIAccessRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[478]
+	mi := &file_proto_recruitment_proto_msgTypes[489]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -38956,7 +40144,7 @@ func (x *CheckAIAccessRequest) String() string {
 func (*CheckAIAccessRequest) ProtoMessage() {}
 
 func (x *CheckAIAccessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[478]
+	mi := &file_proto_recruitment_proto_msgTypes[489]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -38969,7 +40157,7 @@ func (x *CheckAIAccessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckAIAccessRequest.ProtoReflect.Descriptor instead.
 func (*CheckAIAccessRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{478}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{489}
 }
 
 func (x *CheckAIAccessRequest) GetOwner() *BillingOwner {
@@ -39015,7 +40203,7 @@ type CheckAIAccessResponse struct {
 
 func (x *CheckAIAccessResponse) Reset() {
 	*x = CheckAIAccessResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[479]
+	mi := &file_proto_recruitment_proto_msgTypes[490]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -39027,7 +40215,7 @@ func (x *CheckAIAccessResponse) String() string {
 func (*CheckAIAccessResponse) ProtoMessage() {}
 
 func (x *CheckAIAccessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[479]
+	mi := &file_proto_recruitment_proto_msgTypes[490]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -39040,7 +40228,7 @@ func (x *CheckAIAccessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckAIAccessResponse.ProtoReflect.Descriptor instead.
 func (*CheckAIAccessResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{479}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{490}
 }
 
 func (x *CheckAIAccessResponse) GetCode() int32 {
@@ -39109,7 +40297,7 @@ type ReserveAIUsageRequest struct {
 
 func (x *ReserveAIUsageRequest) Reset() {
 	*x = ReserveAIUsageRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[480]
+	mi := &file_proto_recruitment_proto_msgTypes[491]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -39121,7 +40309,7 @@ func (x *ReserveAIUsageRequest) String() string {
 func (*ReserveAIUsageRequest) ProtoMessage() {}
 
 func (x *ReserveAIUsageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[480]
+	mi := &file_proto_recruitment_proto_msgTypes[491]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -39134,7 +40322,7 @@ func (x *ReserveAIUsageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReserveAIUsageRequest.ProtoReflect.Descriptor instead.
 func (*ReserveAIUsageRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{480}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{491}
 }
 
 func (x *ReserveAIUsageRequest) GetOwner() *BillingOwner {
@@ -39218,7 +40406,7 @@ type ReserveAIUsageResponse struct {
 
 func (x *ReserveAIUsageResponse) Reset() {
 	*x = ReserveAIUsageResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[481]
+	mi := &file_proto_recruitment_proto_msgTypes[492]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -39230,7 +40418,7 @@ func (x *ReserveAIUsageResponse) String() string {
 func (*ReserveAIUsageResponse) ProtoMessage() {}
 
 func (x *ReserveAIUsageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[481]
+	mi := &file_proto_recruitment_proto_msgTypes[492]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -39243,7 +40431,7 @@ func (x *ReserveAIUsageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReserveAIUsageResponse.ProtoReflect.Descriptor instead.
 func (*ReserveAIUsageResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{481}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{492}
 }
 
 func (x *ReserveAIUsageResponse) GetCode() int32 {
@@ -39334,7 +40522,7 @@ type AIProviderUsage struct {
 
 func (x *AIProviderUsage) Reset() {
 	*x = AIProviderUsage{}
-	mi := &file_proto_recruitment_proto_msgTypes[482]
+	mi := &file_proto_recruitment_proto_msgTypes[493]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -39346,7 +40534,7 @@ func (x *AIProviderUsage) String() string {
 func (*AIProviderUsage) ProtoMessage() {}
 
 func (x *AIProviderUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[482]
+	mi := &file_proto_recruitment_proto_msgTypes[493]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -39359,7 +40547,7 @@ func (x *AIProviderUsage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIProviderUsage.ProtoReflect.Descriptor instead.
 func (*AIProviderUsage) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{482}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{493}
 }
 
 func (x *AIProviderUsage) GetProviderCallSeq() int32 {
@@ -39443,7 +40631,7 @@ type SettleAIUsageRequest struct {
 
 func (x *SettleAIUsageRequest) Reset() {
 	*x = SettleAIUsageRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[483]
+	mi := &file_proto_recruitment_proto_msgTypes[494]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -39455,7 +40643,7 @@ func (x *SettleAIUsageRequest) String() string {
 func (*SettleAIUsageRequest) ProtoMessage() {}
 
 func (x *SettleAIUsageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[483]
+	mi := &file_proto_recruitment_proto_msgTypes[494]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -39468,7 +40656,7 @@ func (x *SettleAIUsageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SettleAIUsageRequest.ProtoReflect.Descriptor instead.
 func (*SettleAIUsageRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{483}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{494}
 }
 
 func (x *SettleAIUsageRequest) GetReservationNo() string {
@@ -39506,7 +40694,7 @@ type SettleAIUsageResponse struct {
 
 func (x *SettleAIUsageResponse) Reset() {
 	*x = SettleAIUsageResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[484]
+	mi := &file_proto_recruitment_proto_msgTypes[495]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -39518,7 +40706,7 @@ func (x *SettleAIUsageResponse) String() string {
 func (*SettleAIUsageResponse) ProtoMessage() {}
 
 func (x *SettleAIUsageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[484]
+	mi := &file_proto_recruitment_proto_msgTypes[495]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -39531,7 +40719,7 @@ func (x *SettleAIUsageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SettleAIUsageResponse.ProtoReflect.Descriptor instead.
 func (*SettleAIUsageResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{484}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{495}
 }
 
 func (x *SettleAIUsageResponse) GetCode() int32 {
@@ -39587,7 +40775,7 @@ type CancelAIUsageRequest struct {
 
 func (x *CancelAIUsageRequest) Reset() {
 	*x = CancelAIUsageRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[485]
+	mi := &file_proto_recruitment_proto_msgTypes[496]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -39599,7 +40787,7 @@ func (x *CancelAIUsageRequest) String() string {
 func (*CancelAIUsageRequest) ProtoMessage() {}
 
 func (x *CancelAIUsageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[485]
+	mi := &file_proto_recruitment_proto_msgTypes[496]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -39612,7 +40800,7 @@ func (x *CancelAIUsageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelAIUsageRequest.ProtoReflect.Descriptor instead.
 func (*CancelAIUsageRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{485}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{496}
 }
 
 func (x *CancelAIUsageRequest) GetReservationNo() string {
@@ -39649,7 +40837,7 @@ type CancelAIUsageResponse struct {
 
 func (x *CancelAIUsageResponse) Reset() {
 	*x = CancelAIUsageResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[486]
+	mi := &file_proto_recruitment_proto_msgTypes[497]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -39661,7 +40849,7 @@ func (x *CancelAIUsageResponse) String() string {
 func (*CancelAIUsageResponse) ProtoMessage() {}
 
 func (x *CancelAIUsageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[486]
+	mi := &file_proto_recruitment_proto_msgTypes[497]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -39674,7 +40862,7 @@ func (x *CancelAIUsageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelAIUsageResponse.ProtoReflect.Descriptor instead.
 func (*CancelAIUsageResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{486}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{497}
 }
 
 func (x *CancelAIUsageResponse) GetCode() int32 {
@@ -39721,7 +40909,7 @@ type GetAICreditBalanceRequest struct {
 
 func (x *GetAICreditBalanceRequest) Reset() {
 	*x = GetAICreditBalanceRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[487]
+	mi := &file_proto_recruitment_proto_msgTypes[498]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -39733,7 +40921,7 @@ func (x *GetAICreditBalanceRequest) String() string {
 func (*GetAICreditBalanceRequest) ProtoMessage() {}
 
 func (x *GetAICreditBalanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[487]
+	mi := &file_proto_recruitment_proto_msgTypes[498]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -39746,7 +40934,7 @@ func (x *GetAICreditBalanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAICreditBalanceRequest.ProtoReflect.Descriptor instead.
 func (*GetAICreditBalanceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{487}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{498}
 }
 
 func (x *GetAICreditBalanceRequest) GetOwner() *BillingOwner {
@@ -39770,7 +40958,7 @@ type GetAICreditBalanceResponse struct {
 
 func (x *GetAICreditBalanceResponse) Reset() {
 	*x = GetAICreditBalanceResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[488]
+	mi := &file_proto_recruitment_proto_msgTypes[499]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -39782,7 +40970,7 @@ func (x *GetAICreditBalanceResponse) String() string {
 func (*GetAICreditBalanceResponse) ProtoMessage() {}
 
 func (x *GetAICreditBalanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[488]
+	mi := &file_proto_recruitment_proto_msgTypes[499]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -39795,7 +40983,7 @@ func (x *GetAICreditBalanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAICreditBalanceResponse.ProtoReflect.Descriptor instead.
 func (*GetAICreditBalanceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{488}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{499}
 }
 
 func (x *GetAICreditBalanceResponse) GetCode() int32 {
@@ -39855,7 +41043,7 @@ type BillingPriceInfo struct {
 
 func (x *BillingPriceInfo) Reset() {
 	*x = BillingPriceInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[489]
+	mi := &file_proto_recruitment_proto_msgTypes[500]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -39867,7 +41055,7 @@ func (x *BillingPriceInfo) String() string {
 func (*BillingPriceInfo) ProtoMessage() {}
 
 func (x *BillingPriceInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[489]
+	mi := &file_proto_recruitment_proto_msgTypes[500]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -39880,7 +41068,7 @@ func (x *BillingPriceInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BillingPriceInfo.ProtoReflect.Descriptor instead.
 func (*BillingPriceInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{489}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{500}
 }
 
 func (x *BillingPriceInfo) GetId() int64 {
@@ -39946,7 +41134,7 @@ type BillingProductInfo struct {
 
 func (x *BillingProductInfo) Reset() {
 	*x = BillingProductInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[490]
+	mi := &file_proto_recruitment_proto_msgTypes[501]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -39958,7 +41146,7 @@ func (x *BillingProductInfo) String() string {
 func (*BillingProductInfo) ProtoMessage() {}
 
 func (x *BillingProductInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[490]
+	mi := &file_proto_recruitment_proto_msgTypes[501]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -39971,7 +41159,7 @@ func (x *BillingProductInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BillingProductInfo.ProtoReflect.Descriptor instead.
 func (*BillingProductInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{490}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{501}
 }
 
 func (x *BillingProductInfo) GetId() int64 {
@@ -40025,7 +41213,7 @@ type ListBillingCatalogRequest struct {
 
 func (x *ListBillingCatalogRequest) Reset() {
 	*x = ListBillingCatalogRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[491]
+	mi := &file_proto_recruitment_proto_msgTypes[502]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -40037,7 +41225,7 @@ func (x *ListBillingCatalogRequest) String() string {
 func (*ListBillingCatalogRequest) ProtoMessage() {}
 
 func (x *ListBillingCatalogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[491]
+	mi := &file_proto_recruitment_proto_msgTypes[502]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -40050,7 +41238,7 @@ func (x *ListBillingCatalogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBillingCatalogRequest.ProtoReflect.Descriptor instead.
 func (*ListBillingCatalogRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{491}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{502}
 }
 
 func (x *ListBillingCatalogRequest) GetOwner() *BillingOwner {
@@ -40072,7 +41260,7 @@ type ListBillingCatalogResponse struct {
 
 func (x *ListBillingCatalogResponse) Reset() {
 	*x = ListBillingCatalogResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[492]
+	mi := &file_proto_recruitment_proto_msgTypes[503]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -40084,7 +41272,7 @@ func (x *ListBillingCatalogResponse) String() string {
 func (*ListBillingCatalogResponse) ProtoMessage() {}
 
 func (x *ListBillingCatalogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[492]
+	mi := &file_proto_recruitment_proto_msgTypes[503]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -40097,7 +41285,7 @@ func (x *ListBillingCatalogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBillingCatalogResponse.ProtoReflect.Descriptor instead.
 func (*ListBillingCatalogResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{492}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{503}
 }
 
 func (x *ListBillingCatalogResponse) GetCode() int32 {
@@ -40149,7 +41337,7 @@ type BillingSubscriptionInfo struct {
 
 func (x *BillingSubscriptionInfo) Reset() {
 	*x = BillingSubscriptionInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[493]
+	mi := &file_proto_recruitment_proto_msgTypes[504]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -40161,7 +41349,7 @@ func (x *BillingSubscriptionInfo) String() string {
 func (*BillingSubscriptionInfo) ProtoMessage() {}
 
 func (x *BillingSubscriptionInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[493]
+	mi := &file_proto_recruitment_proto_msgTypes[504]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -40174,7 +41362,7 @@ func (x *BillingSubscriptionInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BillingSubscriptionInfo.ProtoReflect.Descriptor instead.
 func (*BillingSubscriptionInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{493}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{504}
 }
 
 func (x *BillingSubscriptionInfo) GetId() int64 {
@@ -40256,7 +41444,7 @@ type GetBillingAccountRequest struct {
 
 func (x *GetBillingAccountRequest) Reset() {
 	*x = GetBillingAccountRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[494]
+	mi := &file_proto_recruitment_proto_msgTypes[505]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -40268,7 +41456,7 @@ func (x *GetBillingAccountRequest) String() string {
 func (*GetBillingAccountRequest) ProtoMessage() {}
 
 func (x *GetBillingAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[494]
+	mi := &file_proto_recruitment_proto_msgTypes[505]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -40281,7 +41469,7 @@ func (x *GetBillingAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBillingAccountRequest.ProtoReflect.Descriptor instead.
 func (*GetBillingAccountRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{494}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{505}
 }
 
 func (x *GetBillingAccountRequest) GetOwner() *BillingOwner {
@@ -40314,7 +41502,7 @@ type GetBillingAccountResponse struct {
 
 func (x *GetBillingAccountResponse) Reset() {
 	*x = GetBillingAccountResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[495]
+	mi := &file_proto_recruitment_proto_msgTypes[506]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -40326,7 +41514,7 @@ func (x *GetBillingAccountResponse) String() string {
 func (*GetBillingAccountResponse) ProtoMessage() {}
 
 func (x *GetBillingAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[495]
+	mi := &file_proto_recruitment_proto_msgTypes[506]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -40339,7 +41527,7 @@ func (x *GetBillingAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBillingAccountResponse.ProtoReflect.Descriptor instead.
 func (*GetBillingAccountResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{495}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{506}
 }
 
 func (x *GetBillingAccountResponse) GetCode() int32 {
@@ -40439,7 +41627,7 @@ type BillingOrderInfo struct {
 
 func (x *BillingOrderInfo) Reset() {
 	*x = BillingOrderInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[496]
+	mi := &file_proto_recruitment_proto_msgTypes[507]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -40451,7 +41639,7 @@ func (x *BillingOrderInfo) String() string {
 func (*BillingOrderInfo) ProtoMessage() {}
 
 func (x *BillingOrderInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[496]
+	mi := &file_proto_recruitment_proto_msgTypes[507]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -40464,7 +41652,7 @@ func (x *BillingOrderInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BillingOrderInfo.ProtoReflect.Descriptor instead.
 func (*BillingOrderInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{496}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{507}
 }
 
 func (x *BillingOrderInfo) GetOrderNo() string {
@@ -40562,7 +41750,7 @@ type ListBillingOrdersRequest struct {
 
 func (x *ListBillingOrdersRequest) Reset() {
 	*x = ListBillingOrdersRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[497]
+	mi := &file_proto_recruitment_proto_msgTypes[508]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -40574,7 +41762,7 @@ func (x *ListBillingOrdersRequest) String() string {
 func (*ListBillingOrdersRequest) ProtoMessage() {}
 
 func (x *ListBillingOrdersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[497]
+	mi := &file_proto_recruitment_proto_msgTypes[508]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -40587,7 +41775,7 @@ func (x *ListBillingOrdersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBillingOrdersRequest.ProtoReflect.Descriptor instead.
 func (*ListBillingOrdersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{497}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{508}
 }
 
 func (x *ListBillingOrdersRequest) GetOwner() *BillingOwner {
@@ -40623,7 +41811,7 @@ type ListBillingOrdersResponse struct {
 
 func (x *ListBillingOrdersResponse) Reset() {
 	*x = ListBillingOrdersResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[498]
+	mi := &file_proto_recruitment_proto_msgTypes[509]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -40635,7 +41823,7 @@ func (x *ListBillingOrdersResponse) String() string {
 func (*ListBillingOrdersResponse) ProtoMessage() {}
 
 func (x *ListBillingOrdersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[498]
+	mi := &file_proto_recruitment_proto_msgTypes[509]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -40648,7 +41836,7 @@ func (x *ListBillingOrdersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBillingOrdersResponse.ProtoReflect.Descriptor instead.
 func (*ListBillingOrdersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{498}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{509}
 }
 
 func (x *ListBillingOrdersResponse) GetCode() int32 {
@@ -40695,7 +41883,7 @@ type CreateBillingOrderRequest struct {
 
 func (x *CreateBillingOrderRequest) Reset() {
 	*x = CreateBillingOrderRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[499]
+	mi := &file_proto_recruitment_proto_msgTypes[510]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -40707,7 +41895,7 @@ func (x *CreateBillingOrderRequest) String() string {
 func (*CreateBillingOrderRequest) ProtoMessage() {}
 
 func (x *CreateBillingOrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[499]
+	mi := &file_proto_recruitment_proto_msgTypes[510]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -40720,7 +41908,7 @@ func (x *CreateBillingOrderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBillingOrderRequest.ProtoReflect.Descriptor instead.
 func (*CreateBillingOrderRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{499}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{510}
 }
 
 func (x *CreateBillingOrderRequest) GetOwner() *BillingOwner {
@@ -40776,7 +41964,7 @@ type BillingOrderResponse struct {
 
 func (x *BillingOrderResponse) Reset() {
 	*x = BillingOrderResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[500]
+	mi := &file_proto_recruitment_proto_msgTypes[511]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -40788,7 +41976,7 @@ func (x *BillingOrderResponse) String() string {
 func (*BillingOrderResponse) ProtoMessage() {}
 
 func (x *BillingOrderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[500]
+	mi := &file_proto_recruitment_proto_msgTypes[511]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -40801,7 +41989,7 @@ func (x *BillingOrderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BillingOrderResponse.ProtoReflect.Descriptor instead.
 func (*BillingOrderResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{500}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{511}
 }
 
 func (x *BillingOrderResponse) GetCode() int32 {
@@ -40837,7 +42025,7 @@ type CreateAlipayPaymentRequest struct {
 
 func (x *CreateAlipayPaymentRequest) Reset() {
 	*x = CreateAlipayPaymentRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[501]
+	mi := &file_proto_recruitment_proto_msgTypes[512]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -40849,7 +42037,7 @@ func (x *CreateAlipayPaymentRequest) String() string {
 func (*CreateAlipayPaymentRequest) ProtoMessage() {}
 
 func (x *CreateAlipayPaymentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[501]
+	mi := &file_proto_recruitment_proto_msgTypes[512]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -40862,7 +42050,7 @@ func (x *CreateAlipayPaymentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAlipayPaymentRequest.ProtoReflect.Descriptor instead.
 func (*CreateAlipayPaymentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{501}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{512}
 }
 
 func (x *CreateAlipayPaymentRequest) GetOwner() *BillingOwner {
@@ -40909,7 +42097,7 @@ type CreateAlipayPaymentResponse struct {
 
 func (x *CreateAlipayPaymentResponse) Reset() {
 	*x = CreateAlipayPaymentResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[502]
+	mi := &file_proto_recruitment_proto_msgTypes[513]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -40921,7 +42109,7 @@ func (x *CreateAlipayPaymentResponse) String() string {
 func (*CreateAlipayPaymentResponse) ProtoMessage() {}
 
 func (x *CreateAlipayPaymentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[502]
+	mi := &file_proto_recruitment_proto_msgTypes[513]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -40934,7 +42122,7 @@ func (x *CreateAlipayPaymentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAlipayPaymentResponse.ProtoReflect.Descriptor instead.
 func (*CreateAlipayPaymentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{502}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{513}
 }
 
 func (x *CreateAlipayPaymentResponse) GetCode() int32 {
@@ -41006,7 +42194,7 @@ type RequestBillingRefundRequest struct {
 
 func (x *RequestBillingRefundRequest) Reset() {
 	*x = RequestBillingRefundRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[503]
+	mi := &file_proto_recruitment_proto_msgTypes[514]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41018,7 +42206,7 @@ func (x *RequestBillingRefundRequest) String() string {
 func (*RequestBillingRefundRequest) ProtoMessage() {}
 
 func (x *RequestBillingRefundRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[503]
+	mi := &file_proto_recruitment_proto_msgTypes[514]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41031,7 +42219,7 @@ func (x *RequestBillingRefundRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestBillingRefundRequest.ProtoReflect.Descriptor instead.
 func (*RequestBillingRefundRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{503}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{514}
 }
 
 func (x *RequestBillingRefundRequest) GetOwner() *BillingOwner {
@@ -41082,7 +42270,7 @@ type BillingRefundResponse struct {
 
 func (x *BillingRefundResponse) Reset() {
 	*x = BillingRefundResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[504]
+	mi := &file_proto_recruitment_proto_msgTypes[515]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41094,7 +42282,7 @@ func (x *BillingRefundResponse) String() string {
 func (*BillingRefundResponse) ProtoMessage() {}
 
 func (x *BillingRefundResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[504]
+	mi := &file_proto_recruitment_proto_msgTypes[515]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41107,7 +42295,7 @@ func (x *BillingRefundResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BillingRefundResponse.ProtoReflect.Descriptor instead.
 func (*BillingRefundResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{504}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{515}
 }
 
 func (x *BillingRefundResponse) GetCode() int32 {
@@ -41166,7 +42354,7 @@ type BillingRefundInfo struct {
 
 func (x *BillingRefundInfo) Reset() {
 	*x = BillingRefundInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[505]
+	mi := &file_proto_recruitment_proto_msgTypes[516]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41178,7 +42366,7 @@ func (x *BillingRefundInfo) String() string {
 func (*BillingRefundInfo) ProtoMessage() {}
 
 func (x *BillingRefundInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[505]
+	mi := &file_proto_recruitment_proto_msgTypes[516]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41191,7 +42379,7 @@ func (x *BillingRefundInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BillingRefundInfo.ProtoReflect.Descriptor instead.
 func (*BillingRefundInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{505}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{516}
 }
 
 func (x *BillingRefundInfo) GetRefundNo() string {
@@ -41296,7 +42484,7 @@ type ListBillingRefundsRequest struct {
 
 func (x *ListBillingRefundsRequest) Reset() {
 	*x = ListBillingRefundsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[506]
+	mi := &file_proto_recruitment_proto_msgTypes[517]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41308,7 +42496,7 @@ func (x *ListBillingRefundsRequest) String() string {
 func (*ListBillingRefundsRequest) ProtoMessage() {}
 
 func (x *ListBillingRefundsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[506]
+	mi := &file_proto_recruitment_proto_msgTypes[517]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41321,7 +42509,7 @@ func (x *ListBillingRefundsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBillingRefundsRequest.ProtoReflect.Descriptor instead.
 func (*ListBillingRefundsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{506}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{517}
 }
 
 func (x *ListBillingRefundsRequest) GetStatus() string {
@@ -41357,7 +42545,7 @@ type ListBillingRefundsResponse struct {
 
 func (x *ListBillingRefundsResponse) Reset() {
 	*x = ListBillingRefundsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[507]
+	mi := &file_proto_recruitment_proto_msgTypes[518]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41369,7 +42557,7 @@ func (x *ListBillingRefundsResponse) String() string {
 func (*ListBillingRefundsResponse) ProtoMessage() {}
 
 func (x *ListBillingRefundsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[507]
+	mi := &file_proto_recruitment_proto_msgTypes[518]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41382,7 +42570,7 @@ func (x *ListBillingRefundsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBillingRefundsResponse.ProtoReflect.Descriptor instead.
 func (*ListBillingRefundsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{507}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{518}
 }
 
 func (x *ListBillingRefundsResponse) GetCode() int32 {
@@ -41425,7 +42613,7 @@ type ReviewBillingRefundRequest struct {
 
 func (x *ReviewBillingRefundRequest) Reset() {
 	*x = ReviewBillingRefundRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[508]
+	mi := &file_proto_recruitment_proto_msgTypes[519]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41437,7 +42625,7 @@ func (x *ReviewBillingRefundRequest) String() string {
 func (*ReviewBillingRefundRequest) ProtoMessage() {}
 
 func (x *ReviewBillingRefundRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[508]
+	mi := &file_proto_recruitment_proto_msgTypes[519]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41450,7 +42638,7 @@ func (x *ReviewBillingRefundRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviewBillingRefundRequest.ProtoReflect.Descriptor instead.
 func (*ReviewBillingRefundRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{508}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{519}
 }
 
 func (x *ReviewBillingRefundRequest) GetRefundNo() string {
@@ -41491,7 +42679,7 @@ type AlipayNotificationField struct {
 
 func (x *AlipayNotificationField) Reset() {
 	*x = AlipayNotificationField{}
-	mi := &file_proto_recruitment_proto_msgTypes[509]
+	mi := &file_proto_recruitment_proto_msgTypes[520]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41503,7 +42691,7 @@ func (x *AlipayNotificationField) String() string {
 func (*AlipayNotificationField) ProtoMessage() {}
 
 func (x *AlipayNotificationField) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[509]
+	mi := &file_proto_recruitment_proto_msgTypes[520]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41516,7 +42704,7 @@ func (x *AlipayNotificationField) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlipayNotificationField.ProtoReflect.Descriptor instead.
 func (*AlipayNotificationField) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{509}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{520}
 }
 
 func (x *AlipayNotificationField) GetKey() string {
@@ -41542,7 +42730,7 @@ type ProcessAlipayNotificationRequest struct {
 
 func (x *ProcessAlipayNotificationRequest) Reset() {
 	*x = ProcessAlipayNotificationRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[510]
+	mi := &file_proto_recruitment_proto_msgTypes[521]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41554,7 +42742,7 @@ func (x *ProcessAlipayNotificationRequest) String() string {
 func (*ProcessAlipayNotificationRequest) ProtoMessage() {}
 
 func (x *ProcessAlipayNotificationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[510]
+	mi := &file_proto_recruitment_proto_msgTypes[521]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41567,7 +42755,7 @@ func (x *ProcessAlipayNotificationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessAlipayNotificationRequest.ProtoReflect.Descriptor instead.
 func (*ProcessAlipayNotificationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{510}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{521}
 }
 
 func (x *ProcessAlipayNotificationRequest) GetFields() []*AlipayNotificationField {
@@ -41588,7 +42776,7 @@ type ProcessAlipayNotificationResponse struct {
 
 func (x *ProcessAlipayNotificationResponse) Reset() {
 	*x = ProcessAlipayNotificationResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[511]
+	mi := &file_proto_recruitment_proto_msgTypes[522]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41600,7 +42788,7 @@ func (x *ProcessAlipayNotificationResponse) String() string {
 func (*ProcessAlipayNotificationResponse) ProtoMessage() {}
 
 func (x *ProcessAlipayNotificationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[511]
+	mi := &file_proto_recruitment_proto_msgTypes[522]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41613,7 +42801,7 @@ func (x *ProcessAlipayNotificationResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ProcessAlipayNotificationResponse.ProtoReflect.Descriptor instead.
 func (*ProcessAlipayNotificationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{511}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{522}
 }
 
 func (x *ProcessAlipayNotificationResponse) GetCode() int32 {
@@ -41646,7 +42834,7 @@ type ResolveAlipayReturnRequest struct {
 
 func (x *ResolveAlipayReturnRequest) Reset() {
 	*x = ResolveAlipayReturnRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[512]
+	mi := &file_proto_recruitment_proto_msgTypes[523]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41658,7 +42846,7 @@ func (x *ResolveAlipayReturnRequest) String() string {
 func (*ResolveAlipayReturnRequest) ProtoMessage() {}
 
 func (x *ResolveAlipayReturnRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[512]
+	mi := &file_proto_recruitment_proto_msgTypes[523]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41671,7 +42859,7 @@ func (x *ResolveAlipayReturnRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveAlipayReturnRequest.ProtoReflect.Descriptor instead.
 func (*ResolveAlipayReturnRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{512}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{523}
 }
 
 func (x *ResolveAlipayReturnRequest) GetFields() []*AlipayNotificationField {
@@ -41693,7 +42881,7 @@ type ResolveAlipayReturnResponse struct {
 
 func (x *ResolveAlipayReturnResponse) Reset() {
 	*x = ResolveAlipayReturnResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[513]
+	mi := &file_proto_recruitment_proto_msgTypes[524]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41705,7 +42893,7 @@ func (x *ResolveAlipayReturnResponse) String() string {
 func (*ResolveAlipayReturnResponse) ProtoMessage() {}
 
 func (x *ResolveAlipayReturnResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[513]
+	mi := &file_proto_recruitment_proto_msgTypes[524]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41718,7 +42906,7 @@ func (x *ResolveAlipayReturnResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveAlipayReturnResponse.ProtoReflect.Descriptor instead.
 func (*ResolveAlipayReturnResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{513}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{524}
 }
 
 func (x *ResolveAlipayReturnResponse) GetCode() int32 {
@@ -41760,7 +42948,7 @@ type SyncAlipayReturnRequest struct {
 
 func (x *SyncAlipayReturnRequest) Reset() {
 	*x = SyncAlipayReturnRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[514]
+	mi := &file_proto_recruitment_proto_msgTypes[525]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41772,7 +42960,7 @@ func (x *SyncAlipayReturnRequest) String() string {
 func (*SyncAlipayReturnRequest) ProtoMessage() {}
 
 func (x *SyncAlipayReturnRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[514]
+	mi := &file_proto_recruitment_proto_msgTypes[525]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41785,7 +42973,7 @@ func (x *SyncAlipayReturnRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncAlipayReturnRequest.ProtoReflect.Descriptor instead.
 func (*SyncAlipayReturnRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{514}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{525}
 }
 
 func (x *SyncAlipayReturnRequest) GetOwner() *BillingOwner {
@@ -41817,7 +43005,7 @@ type ListBillingAdminCatalogRequest struct {
 
 func (x *ListBillingAdminCatalogRequest) Reset() {
 	*x = ListBillingAdminCatalogRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[515]
+	mi := &file_proto_recruitment_proto_msgTypes[526]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41829,7 +43017,7 @@ func (x *ListBillingAdminCatalogRequest) String() string {
 func (*ListBillingAdminCatalogRequest) ProtoMessage() {}
 
 func (x *ListBillingAdminCatalogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[515]
+	mi := &file_proto_recruitment_proto_msgTypes[526]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41842,7 +43030,7 @@ func (x *ListBillingAdminCatalogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBillingAdminCatalogRequest.ProtoReflect.Descriptor instead.
 func (*ListBillingAdminCatalogRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{515}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{526}
 }
 
 type SaveBillingPriceVersionRequest struct {
@@ -41860,7 +43048,7 @@ type SaveBillingPriceVersionRequest struct {
 
 func (x *SaveBillingPriceVersionRequest) Reset() {
 	*x = SaveBillingPriceVersionRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[516]
+	mi := &file_proto_recruitment_proto_msgTypes[527]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41872,7 +43060,7 @@ func (x *SaveBillingPriceVersionRequest) String() string {
 func (*SaveBillingPriceVersionRequest) ProtoMessage() {}
 
 func (x *SaveBillingPriceVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[516]
+	mi := &file_proto_recruitment_proto_msgTypes[527]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41885,7 +43073,7 @@ func (x *SaveBillingPriceVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveBillingPriceVersionRequest.ProtoReflect.Descriptor instead.
 func (*SaveBillingPriceVersionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{516}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{527}
 }
 
 func (x *SaveBillingPriceVersionRequest) GetProductId() int64 {
@@ -41956,7 +43144,7 @@ type AIRateCardInfo struct {
 
 func (x *AIRateCardInfo) Reset() {
 	*x = AIRateCardInfo{}
-	mi := &file_proto_recruitment_proto_msgTypes[517]
+	mi := &file_proto_recruitment_proto_msgTypes[528]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41968,7 +43156,7 @@ func (x *AIRateCardInfo) String() string {
 func (*AIRateCardInfo) ProtoMessage() {}
 
 func (x *AIRateCardInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[517]
+	mi := &file_proto_recruitment_proto_msgTypes[528]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -41981,7 +43169,7 @@ func (x *AIRateCardInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIRateCardInfo.ProtoReflect.Descriptor instead.
 func (*AIRateCardInfo) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{517}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{528}
 }
 
 func (x *AIRateCardInfo) GetId() int64 {
@@ -42069,7 +43257,7 @@ type ListAIRateCardsRequest struct {
 
 func (x *ListAIRateCardsRequest) Reset() {
 	*x = ListAIRateCardsRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[518]
+	mi := &file_proto_recruitment_proto_msgTypes[529]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -42081,7 +43269,7 @@ func (x *ListAIRateCardsRequest) String() string {
 func (*ListAIRateCardsRequest) ProtoMessage() {}
 
 func (x *ListAIRateCardsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[518]
+	mi := &file_proto_recruitment_proto_msgTypes[529]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -42094,7 +43282,7 @@ func (x *ListAIRateCardsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAIRateCardsRequest.ProtoReflect.Descriptor instead.
 func (*ListAIRateCardsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{518}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{529}
 }
 
 type ListAIRateCardsResponse struct {
@@ -42108,7 +43296,7 @@ type ListAIRateCardsResponse struct {
 
 func (x *ListAIRateCardsResponse) Reset() {
 	*x = ListAIRateCardsResponse{}
-	mi := &file_proto_recruitment_proto_msgTypes[519]
+	mi := &file_proto_recruitment_proto_msgTypes[530]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -42120,7 +43308,7 @@ func (x *ListAIRateCardsResponse) String() string {
 func (*ListAIRateCardsResponse) ProtoMessage() {}
 
 func (x *ListAIRateCardsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[519]
+	mi := &file_proto_recruitment_proto_msgTypes[530]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -42133,7 +43321,7 @@ func (x *ListAIRateCardsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAIRateCardsResponse.ProtoReflect.Descriptor instead.
 func (*ListAIRateCardsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{519}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{530}
 }
 
 func (x *ListAIRateCardsResponse) GetCode() int32 {
@@ -42172,7 +43360,7 @@ type SaveAIRateCardRequest struct {
 
 func (x *SaveAIRateCardRequest) Reset() {
 	*x = SaveAIRateCardRequest{}
-	mi := &file_proto_recruitment_proto_msgTypes[520]
+	mi := &file_proto_recruitment_proto_msgTypes[531]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -42184,7 +43372,7 @@ func (x *SaveAIRateCardRequest) String() string {
 func (*SaveAIRateCardRequest) ProtoMessage() {}
 
 func (x *SaveAIRateCardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_recruitment_proto_msgTypes[520]
+	mi := &file_proto_recruitment_proto_msgTypes[531]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -42197,7 +43385,7 @@ func (x *SaveAIRateCardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveAIRateCardRequest.ProtoReflect.Descriptor instead.
 func (*SaveAIRateCardRequest) Descriptor() ([]byte, []int) {
-	return file_proto_recruitment_proto_rawDescGZIP(), []int{520}
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{531}
 }
 
 func (x *SaveAIRateCardRequest) GetProviderKey() string {
@@ -42964,7 +44152,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\fskill_tokens\x18\x06 \x01(\x05R\vskillTokens\x12,\n" +
 	"\x12tool_result_tokens\x18\a \x01(\x05R\x10toolResultTokens\x12,\n" +
 	"\x12tool_schema_tokens\x18\b \x01(\x05R\x10toolSchemaTokens\x128\n" +
-	"\x18protocol_overhead_tokens\x18\t \x01(\x05R\x16protocolOverheadTokens\"\xb3\t\n" +
+	"\x18protocol_overhead_tokens\x18\t \x01(\x05R\x16protocolOverheadTokens\"\xda\t\n" +
 	"\x10ContextUsageInfo\x12\x19\n" +
 	"\bmodel_id\x18\x01 \x01(\x03R\amodelId\x12\x1d\n" +
 	"\n" +
@@ -42994,7 +44182,8 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x12effective_model_id\x18\x17 \x01(\x03R\x10effectiveModelId\x122\n" +
 	"\x15model_fallback_reason\x18\x18 \x01(\tR\x13modelFallbackReason\x122\n" +
 	"\x15capability_version_id\x18\x19 \x01(\x03R\x13capabilityVersionId\x128\n" +
-	"\x18capability_snapshot_hash\x18\x1a \x01(\tR\x16capabilitySnapshotHash\"\x8c\x03\n" +
+	"\x18capability_snapshot_hash\x18\x1a \x01(\tR\x16capabilitySnapshotHash\x12%\n" +
+	"\x0ememory_applied\x18\x1b \x01(\bR\rmemoryApplied\"\x8c\x03\n" +
 	"\fChatResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +
@@ -43429,7 +44618,157 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x17ConfirmAgentRunResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12/\n" +
-	"\x03run\x18\x03 \x01(\v2\x1d.recruitment.AgentRunSnapshotR\x03run\"\xca\x06\n" +
+	"\x03run\x18\x03 \x01(\v2\x1d.recruitment.AgentRunSnapshotR\x03run\"\x88\x06\n" +
+	"\n" +
+	"MemoryInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\x03R\btenantId\x12\x1d\n" +
+	"\n" +
+	"owner_role\x18\x03 \x01(\x05R\townerRole\x12\x19\n" +
+	"\bowner_id\x18\x04 \x01(\x04R\aownerId\x12\x13\n" +
+	"\x05hr_id\x18\x05 \x01(\x04R\x04hrId\x12\x1d\n" +
+	"\n" +
+	"scope_type\x18\x06 \x01(\tR\tscopeType\x12\x19\n" +
+	"\bscope_id\x18\a \x01(\x04R\ascopeId\x12\x1f\n" +
+	"\vmemory_type\x18\b \x01(\tR\n" +
+	"memoryType\x12\x18\n" +
+	"\acontent\x18\t \x01(\tR\acontent\x12\x16\n" +
+	"\x06source\x18\n" +
+	" \x01(\tR\x06source\x12\x1e\n" +
+	"\n" +
+	"confidence\x18\v \x01(\x01R\n" +
+	"confidence\x12\x1e\n" +
+	"\n" +
+	"importance\x18\f \x01(\x01R\n" +
+	"importance\x12\x16\n" +
+	"\x06status\x18\r \x01(\tR\x06status\x12\x1b\n" +
+	"\tpii_level\x18\x0e \x01(\tR\bpiiLevel\x12!\n" +
+	"\fcontent_hash\x18\x0f \x01(\tR\vcontentHash\x12*\n" +
+	"\x11source_session_id\x18\x10 \x01(\x03R\x0fsourceSessionId\x12*\n" +
+	"\x11source_message_id\x18\x11 \x01(\x03R\x0fsourceMessageId\x12\"\n" +
+	"\rsource_run_id\x18\x12 \x01(\x03R\vsourceRunId\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\x13 \x01(\x03R\tcreatedBy\x12\x1d\n" +
+	"\n" +
+	"revoked_by\x18\x14 \x01(\x03R\trevokedBy\x12#\n" +
+	"\rrevoke_reason\x18\x15 \x01(\tR\frevokeReason\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\x16 \x01(\tR\texpiresAt\x12\x1d\n" +
+	"\n" +
+	"deleted_at\x18\x17 \x01(\tR\tdeletedAt\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x18 \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x19 \x01(\tR\tupdatedAt\"\xad\x02\n" +
+	"\x13ListMemoriesRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\x03R\btenantId\x12\x1d\n" +
+	"\n" +
+	"owner_role\x18\x02 \x01(\x05R\townerRole\x12\x19\n" +
+	"\bowner_id\x18\x03 \x01(\x04R\aownerId\x12\x1d\n" +
+	"\n" +
+	"scope_type\x18\x04 \x01(\tR\tscopeType\x12\x19\n" +
+	"\bscope_id\x18\x05 \x01(\x04R\ascopeId\x12\x1f\n" +
+	"\vmemory_type\x18\x06 \x01(\tR\n" +
+	"memoryType\x12\x16\n" +
+	"\x06status\x18\a \x01(\tR\x06status\x12\x1b\n" +
+	"\tpii_level\x18\b \x01(\tR\bpiiLevel\x12\x12\n" +
+	"\x04page\x18\t \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\n" +
+	" \x01(\x05R\bpageSize\"\x7f\n" +
+	"\x14ListMemoriesResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +
+	"\x05total\x18\x03 \x01(\x03R\x05total\x12+\n" +
+	"\x04list\x18\x04 \x03(\v2\x17.recruitment.MemoryInfoR\x04list\"\\\n" +
+	"\x10GetMemoryRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x1d\n" +
+	"\n" +
+	"owner_role\x18\x02 \x01(\x05R\townerRole\x12\x19\n" +
+	"\bowner_id\x18\x03 \x01(\x04R\aownerId\"g\n" +
+	"\x0eMemoryResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12/\n" +
+	"\x06memory\x18\x03 \x01(\v2\x17.recruitment.MemoryInfoR\x06memory\"\xba\x04\n" +
+	"\x13CreateMemoryRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\x03R\btenantId\x12\x1d\n" +
+	"\n" +
+	"owner_role\x18\x02 \x01(\x05R\townerRole\x12\x19\n" +
+	"\bowner_id\x18\x03 \x01(\x04R\aownerId\x12\x1d\n" +
+	"\n" +
+	"scope_type\x18\x04 \x01(\tR\tscopeType\x12\x19\n" +
+	"\bscope_id\x18\x05 \x01(\x04R\ascopeId\x12\x1f\n" +
+	"\vmemory_type\x18\x06 \x01(\tR\n" +
+	"memoryType\x12\x18\n" +
+	"\acontent\x18\a \x01(\tR\acontent\x12\x16\n" +
+	"\x06source\x18\b \x01(\tR\x06source\x12\x1e\n" +
+	"\n" +
+	"confidence\x18\t \x01(\x01R\n" +
+	"confidence\x12\x1e\n" +
+	"\n" +
+	"importance\x18\n" +
+	" \x01(\x01R\n" +
+	"importance\x12\x1b\n" +
+	"\tpii_level\x18\v \x01(\tR\bpiiLevel\x12*\n" +
+	"\x11source_session_id\x18\f \x01(\x03R\x0fsourceSessionId\x12*\n" +
+	"\x11source_message_id\x18\r \x01(\x03R\x0fsourceMessageId\x12\"\n" +
+	"\rsource_run_id\x18\x0e \x01(\x03R\vsourceRunId\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\x0f \x01(\x03R\tcreatedBy\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\x10 \x01(\tR\texpiresAt\x12(\n" +
+	"\x10confirm_high_pii\x18\x11 \x01(\bR\x0econfirmHighPii\"\xe5\x03\n" +
+	"\x13UpdateMemoryRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x1d\n" +
+	"\n" +
+	"owner_role\x18\x02 \x01(\x05R\townerRole\x12\x19\n" +
+	"\bowner_id\x18\x03 \x01(\x04R\aownerId\x12\x18\n" +
+	"\acontent\x18\x04 \x01(\tR\acontent\x12\x1e\n" +
+	"\n" +
+	"confidence\x18\x05 \x01(\x01R\n" +
+	"confidence\x12\x1e\n" +
+	"\n" +
+	"importance\x18\x06 \x01(\x01R\n" +
+	"importance\x12\x16\n" +
+	"\x06status\x18\a \x01(\tR\x06status\x12\x1b\n" +
+	"\tpii_level\x18\b \x01(\tR\bpiiLevel\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\t \x01(\tR\texpiresAt\x12\x1f\n" +
+	"\vcontent_set\x18\n" +
+	" \x01(\bR\n" +
+	"contentSet\x12%\n" +
+	"\x0econfidence_set\x18\v \x01(\bR\rconfidenceSet\x12%\n" +
+	"\x0eimportance_set\x18\f \x01(\bR\rimportanceSet\x12\x1d\n" +
+	"\n" +
+	"status_set\x18\r \x01(\bR\tstatusSet\x12\"\n" +
+	"\rpii_level_set\x18\x0e \x01(\bR\vpiiLevelSet\x12$\n" +
+	"\x0eexpires_at_set\x18\x0f \x01(\bR\fexpiresAtSet\"\xa3\x01\n" +
+	"\x13RevokeMemoryRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x1d\n" +
+	"\n" +
+	"owner_role\x18\x02 \x01(\x05R\townerRole\x12\x19\n" +
+	"\bowner_id\x18\x03 \x01(\x04R\aownerId\x12\x1d\n" +
+	"\n" +
+	"revoked_by\x18\x04 \x01(\x03R\trevokedBy\x12#\n" +
+	"\rrevoke_reason\x18\x05 \x01(\tR\frevokeReason\"\xf7\x01\n" +
+	"\x15RecallMemoriesRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\x03R\btenantId\x12\x1d\n" +
+	"\n" +
+	"owner_role\x18\x02 \x01(\x05R\townerRole\x12\x19\n" +
+	"\bowner_id\x18\x03 \x01(\x04R\aownerId\x12\x1d\n" +
+	"\n" +
+	"scope_type\x18\x04 \x01(\tR\tscopeType\x12\x19\n" +
+	"\bscope_id\x18\x05 \x01(\x04R\ascopeId\x12\x14\n" +
+	"\x05query\x18\x06 \x01(\tR\x05query\x12\x14\n" +
+	"\x05limit\x18\a \x01(\x05R\x05limit\x12!\n" +
+	"\fmemory_types\x18\b \x03(\tR\vmemoryTypes\"q\n" +
+	"\x10RecallMemoryItem\x12/\n" +
+	"\x06memory\x18\x01 \x01(\v2\x17.recruitment.MemoryInfoR\x06memory\x12\x14\n" +
+	"\x05score\x18\x02 \x01(\x01R\x05score\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\"s\n" +
+	"\x16RecallMemoriesResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x123\n" +
+	"\x05items\x18\x03 \x03(\v2\x1d.recruitment.RecallMemoryItemR\x05items\"\xca\x06\n" +
 	"\x11InterviewSchedule\x12!\n" +
 	"\finterview_id\x18\x01 \x01(\x03R\vinterviewId\x12%\n" +
 	"\x0eapplication_id\x18\x02 \x01(\x03R\rapplicationId\x12%\n" +
@@ -45522,7 +46861,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x19\n" +
 	"\bskill_md\x18\x03 \x01(\tR\askillMd\x12)\n" +
 	"\x10frontmatter_json\x18\x04 \x01(\tR\x0ffrontmatterJson\x12#\n" +
-	"\rbody_markdown\x18\x05 \x01(\tR\fbodyMarkdown\"\xbd\x01\n" +
+	"\rbody_markdown\x18\x05 \x01(\tR\fbodyMarkdown\"\xf7\x01\n" +
 	"\x1dDebugSemanticRetrievalRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x1d\n" +
@@ -45530,7 +46869,10 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"agent_type\x18\x03 \x01(\tR\tagentType\x12\x15\n" +
 	"\x06job_id\x18\x04 \x01(\x03R\x05jobId\x12%\n" +
 	"\x0eapplication_id\x18\x05 \x01(\x03R\rapplicationId\x12\x14\n" +
-	"\x05limit\x18\x06 \x01(\x05R\x05limit\"\xb3\x04\n" +
+	"\x05limit\x18\x06 \x01(\x05R\x05limit\x12\x1d\n" +
+	"\n" +
+	"owner_role\x18\a \x01(\x05R\townerRole\x12\x19\n" +
+	"\bowner_id\x18\b \x01(\x04R\aownerId\"\xb3\x04\n" +
 	"\x16SemanticSkillDebugItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
@@ -46353,7 +47695,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x17UnreadNotificationCount\x12+.recruitment.UnreadNotificationCountRequest\x1a,.recruitment.UnreadNotificationCountResponse\x12h\n" +
 	"\x13NotificationSummary\x12'.recruitment.NotificationSummaryRequest\x1a(.recruitment.NotificationSummaryResponse\x12]\n" +
 	"\x14MarkNotificationRead\x12(.recruitment.MarkNotificationReadRequest\x1a\x1b.recruitment.CommonResponse\x12e\n" +
-	"\x18MarkAllNotificationsRead\x12,.recruitment.MarkAllNotificationsReadRequest\x1a\x1b.recruitment.CommonResponse2\xc3\x12\n" +
+	"\x18MarkAllNotificationsRead\x12,.recruitment.MarkAllNotificationsReadRequest\x1a\x1b.recruitment.CommonResponse2\xa9\x16\n" +
 	"\tAIService\x12;\n" +
 	"\x04Chat\x12\x18.recruitment.ChatRequest\x1a\x19.recruitment.ChatResponse\x12I\n" +
 	"\n" +
@@ -46380,7 +47722,13 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x11GetActiveAgentRun\x12%.recruitment.GetActiveAgentRunRequest\x1a&.recruitment.GetActiveAgentRunResponse\x12d\n" +
 	"\x17SubscribeAgentRunEvents\x12+.recruitment.SubscribeAgentRunEventsRequest\x1a\x1a.recruitment.AgentRunEvent0\x01\x12Y\n" +
 	"\x0eCancelAgentRun\x12\".recruitment.CancelAgentRunRequest\x1a#.recruitment.CancelAgentRunResponse\x12\\\n" +
-	"\x0fConfirmAgentRun\x12#.recruitment.ConfirmAgentRunRequest\x1a$.recruitment.ConfirmAgentRunResponse2\xd8\x0f\n" +
+	"\x0fConfirmAgentRun\x12#.recruitment.ConfirmAgentRunRequest\x1a$.recruitment.ConfirmAgentRunResponse\x12S\n" +
+	"\fListMemories\x12 .recruitment.ListMemoriesRequest\x1a!.recruitment.ListMemoriesResponse\x12G\n" +
+	"\tGetMemory\x12\x1d.recruitment.GetMemoryRequest\x1a\x1b.recruitment.MemoryResponse\x12M\n" +
+	"\fCreateMemory\x12 .recruitment.CreateMemoryRequest\x1a\x1b.recruitment.MemoryResponse\x12M\n" +
+	"\fUpdateMemory\x12 .recruitment.UpdateMemoryRequest\x1a\x1b.recruitment.MemoryResponse\x12M\n" +
+	"\fRevokeMemory\x12 .recruitment.RevokeMemoryRequest\x1a\x1b.recruitment.MemoryResponse\x12Y\n" +
+	"\x0eRecallMemories\x12\".recruitment.RecallMemoriesRequest\x1a#.recruitment.RecallMemoriesResponse2\xd8\x0f\n" +
 	"\x0eBillingService\x12V\n" +
 	"\rCheckAIAccess\x12!.recruitment.CheckAIAccessRequest\x1a\".recruitment.CheckAIAccessResponse\x12Y\n" +
 	"\x0eReserveAIUsage\x12\".recruitment.ReserveAIUsageRequest\x1a#.recruitment.ReserveAIUsageResponse\x12V\n" +
@@ -46575,7 +47923,7 @@ func file_proto_recruitment_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_recruitment_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_recruitment_proto_msgTypes = make([]protoimpl.MessageInfo, 522)
+var file_proto_recruitment_proto_msgTypes = make([]protoimpl.MessageInfo, 533)
 var file_proto_recruitment_proto_goTypes = []any{
 	(BillingOwnerType)(0),                               // 0: recruitment.BillingOwnerType
 	(BillingEnforcementMode)(0),                         // 1: recruitment.BillingEnforcementMode
@@ -46720,387 +48068,398 @@ var file_proto_recruitment_proto_goTypes = []any{
 	(*CancelAgentRunResponse)(nil),                      // 140: recruitment.CancelAgentRunResponse
 	(*ConfirmAgentRunRequest)(nil),                      // 141: recruitment.ConfirmAgentRunRequest
 	(*ConfirmAgentRunResponse)(nil),                     // 142: recruitment.ConfirmAgentRunResponse
-	(*InterviewSchedule)(nil),                           // 143: recruitment.InterviewSchedule
-	(*ScheduleInterviewRequest)(nil),                    // 144: recruitment.ScheduleInterviewRequest
-	(*ScheduleInterviewResponse)(nil),                   // 145: recruitment.ScheduleInterviewResponse
-	(*UpdateInterviewRequest)(nil),                      // 146: recruitment.UpdateInterviewRequest
-	(*CancelInterviewRequest)(nil),                      // 147: recruitment.CancelInterviewRequest
-	(*GetInterviewRequest)(nil),                         // 148: recruitment.GetInterviewRequest
-	(*GetInterviewResponse)(nil),                        // 149: recruitment.GetInterviewResponse
-	(*ListInterviewersRequest)(nil),                     // 150: recruitment.ListInterviewersRequest
-	(*ListInterviewersResponse)(nil),                    // 151: recruitment.ListInterviewersResponse
-	(*ListApplicationInterviewsRequest)(nil),            // 152: recruitment.ListApplicationInterviewsRequest
-	(*ListApplicationInterviewsResponse)(nil),           // 153: recruitment.ListApplicationInterviewsResponse
-	(*ListMyInterviewsRequest)(nil),                     // 154: recruitment.ListMyInterviewsRequest
-	(*ListMyInterviewsResponse)(nil),                    // 155: recruitment.ListMyInterviewsResponse
-	(*ListCandidateInterviewsRequest)(nil),              // 156: recruitment.ListCandidateInterviewsRequest
-	(*ListCandidateInterviewsResponse)(nil),             // 157: recruitment.ListCandidateInterviewsResponse
-	(*InterviewFeedback)(nil),                           // 158: recruitment.InterviewFeedback
-	(*SubmitFeedbackRequest)(nil),                       // 159: recruitment.SubmitFeedbackRequest
-	(*GetFeedbackRequest)(nil),                          // 160: recruitment.GetFeedbackRequest
-	(*GetFeedbackResponse)(nil),                         // 161: recruitment.GetFeedbackResponse
-	(*BatchCancelInterviewsRequest)(nil),                // 162: recruitment.BatchCancelInterviewsRequest
-	(*BatchCancelInterviewsResponse)(nil),               // 163: recruitment.BatchCancelInterviewsResponse
-	(*Notification)(nil),                                // 164: recruitment.Notification
-	(*ListNotificationsRequest)(nil),                    // 165: recruitment.ListNotificationsRequest
-	(*ListNotificationsResponse)(nil),                   // 166: recruitment.ListNotificationsResponse
-	(*UnreadNotificationCountRequest)(nil),              // 167: recruitment.UnreadNotificationCountRequest
-	(*UnreadNotificationCountResponse)(nil),             // 168: recruitment.UnreadNotificationCountResponse
-	(*NotificationSummaryRequest)(nil),                  // 169: recruitment.NotificationSummaryRequest
-	(*NotificationSummaryResponse)(nil),                 // 170: recruitment.NotificationSummaryResponse
-	(*MarkNotificationReadRequest)(nil),                 // 171: recruitment.MarkNotificationReadRequest
-	(*MarkAllNotificationsReadRequest)(nil),             // 172: recruitment.MarkAllNotificationsReadRequest
-	(*InviteCodeInfo)(nil),                              // 173: recruitment.InviteCodeInfo
-	(*CreateInviteCodeRequest)(nil),                     // 174: recruitment.CreateInviteCodeRequest
-	(*CreateInviteCodeResponse)(nil),                    // 175: recruitment.CreateInviteCodeResponse
-	(*ListInviteCodesRequest)(nil),                      // 176: recruitment.ListInviteCodesRequest
-	(*ListInviteCodesResponse)(nil),                     // 177: recruitment.ListInviteCodesResponse
-	(*ExtendInviteCodeRequest)(nil),                     // 178: recruitment.ExtendInviteCodeRequest
-	(*RevokeInviteCodeRequest)(nil),                     // 179: recruitment.RevokeInviteCodeRequest
-	(*ReactivateInviteCodeRequest)(nil),                 // 180: recruitment.ReactivateInviteCodeRequest
-	(*ValidateInviteCodeRequest)(nil),                   // 181: recruitment.ValidateInviteCodeRequest
-	(*ValidateInviteCodeResponse)(nil),                  // 182: recruitment.ValidateInviteCodeResponse
-	(*ListJobOptionsRequest)(nil),                       // 183: recruitment.ListJobOptionsRequest
-	(*ListJobOptionsResponse)(nil),                      // 184: recruitment.ListJobOptionsResponse
-	(*DepartmentNode)(nil),                              // 185: recruitment.DepartmentNode
-	(*LocationOption)(nil),                              // 186: recruitment.LocationOption
-	(*ListDepartmentsRequest)(nil),                      // 187: recruitment.ListDepartmentsRequest
-	(*ListDepartmentsResponse)(nil),                     // 188: recruitment.ListDepartmentsResponse
-	(*CreateDepartmentRequest)(nil),                     // 189: recruitment.CreateDepartmentRequest
-	(*UpdateDepartmentRequest)(nil),                     // 190: recruitment.UpdateDepartmentRequest
-	(*UpdateDepartmentStatusRequest)(nil),               // 191: recruitment.UpdateDepartmentStatusRequest
-	(*DeleteDepartmentRequest)(nil),                     // 192: recruitment.DeleteDepartmentRequest
-	(*DepartmentResponse)(nil),                          // 193: recruitment.DepartmentResponse
-	(*ListJobLocationsRequest)(nil),                     // 194: recruitment.ListJobLocationsRequest
-	(*ListJobLocationsResponse)(nil),                    // 195: recruitment.ListJobLocationsResponse
-	(*CreateJobLocationRequest)(nil),                    // 196: recruitment.CreateJobLocationRequest
-	(*UpdateJobLocationRequest)(nil),                    // 197: recruitment.UpdateJobLocationRequest
-	(*UpdateJobLocationStatusRequest)(nil),              // 198: recruitment.UpdateJobLocationStatusRequest
-	(*DeleteJobLocationRequest)(nil),                    // 199: recruitment.DeleteJobLocationRequest
-	(*JobLocationResponse)(nil),                         // 200: recruitment.JobLocationResponse
-	(*DepartmentLocationMap)(nil),                       // 201: recruitment.DepartmentLocationMap
-	(*ListDepartmentsLocationMapRequest)(nil),           // 202: recruitment.ListDepartmentsLocationMapRequest
-	(*ListDepartmentsLocationMapResponse)(nil),          // 203: recruitment.ListDepartmentsLocationMapResponse
-	(*ListDepartmentLocationsRequest)(nil),              // 204: recruitment.ListDepartmentLocationsRequest
-	(*ListDepartmentLocationsResponse)(nil),             // 205: recruitment.ListDepartmentLocationsResponse
-	(*GetDepartmentLocationConfigRequest)(nil),          // 206: recruitment.GetDepartmentLocationConfigRequest
-	(*UpdateDepartmentLocationConfigRequest)(nil),       // 207: recruitment.UpdateDepartmentLocationConfigRequest
-	(*DepartmentLocationConfigResponse)(nil),            // 208: recruitment.DepartmentLocationConfigResponse
-	(*UsageLogItem)(nil),                                // 209: recruitment.UsageLogItem
-	(*QueryUsageLogsRequest)(nil),                       // 210: recruitment.QueryUsageLogsRequest
-	(*QueryUsageLogsResponse)(nil),                      // 211: recruitment.QueryUsageLogsResponse
-	(*Offer)(nil),                                       // 212: recruitment.Offer
-	(*CreateOfferRequest)(nil),                          // 213: recruitment.CreateOfferRequest
-	(*CreateOfferResponse)(nil),                         // 214: recruitment.CreateOfferResponse
-	(*UpdateOfferRequest)(nil),                          // 215: recruitment.UpdateOfferRequest
-	(*GetOfferRequest)(nil),                             // 216: recruitment.GetOfferRequest
-	(*GetOfferResponse)(nil),                            // 217: recruitment.GetOfferResponse
-	(*ListOffersByApplicationRequest)(nil),              // 218: recruitment.ListOffersByApplicationRequest
-	(*ListOffersByApplicationResponse)(nil),             // 219: recruitment.ListOffersByApplicationResponse
-	(*SendOfferRequest)(nil),                            // 220: recruitment.SendOfferRequest
-	(*WithdrawOfferRequest)(nil),                        // 221: recruitment.WithdrawOfferRequest
-	(*AcceptOfferRequest)(nil),                          // 222: recruitment.AcceptOfferRequest
-	(*RejectOfferRequest)(nil),                          // 223: recruitment.RejectOfferRequest
-	(*ListMyOffersRequest)(nil),                         // 224: recruitment.ListMyOffersRequest
-	(*ListMyOffersResponse)(nil),                        // 225: recruitment.ListMyOffersResponse
-	(*OfferEventInfo)(nil),                              // 226: recruitment.OfferEventInfo
-	(*ListOfferEventsRequest)(nil),                      // 227: recruitment.ListOfferEventsRequest
-	(*ListOfferEventsResponse)(nil),                     // 228: recruitment.ListOfferEventsResponse
-	(*ListRolesRequest)(nil),                            // 229: recruitment.ListRolesRequest
-	(*ListRolesResponse)(nil),                           // 230: recruitment.ListRolesResponse
-	(*RoleInfo)(nil),                                    // 231: recruitment.RoleInfo
-	(*ListPermissionsRequest)(nil),                      // 232: recruitment.ListPermissionsRequest
-	(*ListPermissionsResponse)(nil),                     // 233: recruitment.ListPermissionsResponse
-	(*PermissionInfo)(nil),                              // 234: recruitment.PermissionInfo
-	(*GetUserRolesRequest)(nil),                         // 235: recruitment.GetUserRolesRequest
-	(*GetUserRolesResponse)(nil),                        // 236: recruitment.GetUserRolesResponse
-	(*DataScopeInfo)(nil),                               // 237: recruitment.DataScopeInfo
-	(*AssignUserRoleRequest)(nil),                       // 238: recruitment.AssignUserRoleRequest
-	(*RevokeUserRoleRequest)(nil),                       // 239: recruitment.RevokeUserRoleRequest
-	(*AssignDataScopeRequest)(nil),                      // 240: recruitment.AssignDataScopeRequest
-	(*RevokeDataScopeRequest)(nil),                      // 241: recruitment.RevokeDataScopeRequest
-	(*ListStaffUsersRequest)(nil),                       // 242: recruitment.ListStaffUsersRequest
-	(*ListStaffUsersResponse)(nil),                      // 243: recruitment.ListStaffUsersResponse
-	(*StaffUserInfo)(nil),                               // 244: recruitment.StaffUserInfo
-	(*CreateStaffUserRequest)(nil),                      // 245: recruitment.CreateStaffUserRequest
-	(*CreateStaffUserResponse)(nil),                     // 246: recruitment.CreateStaffUserResponse
-	(*PlatformUserInfo)(nil),                            // 247: recruitment.PlatformUserInfo
-	(*ListPlatformUsersRequest)(nil),                    // 248: recruitment.ListPlatformUsersRequest
-	(*ListPlatformUsersResponse)(nil),                   // 249: recruitment.ListPlatformUsersResponse
-	(*CreatePlatformUserRequest)(nil),                   // 250: recruitment.CreatePlatformUserRequest
-	(*CreatePlatformUserResponse)(nil),                  // 251: recruitment.CreatePlatformUserResponse
-	(*UpdatePlatformUserRequest)(nil),                   // 252: recruitment.UpdatePlatformUserRequest
-	(*PlatformUserResponse)(nil),                        // 253: recruitment.PlatformUserResponse
-	(*GetCandidateWorkspaceRequest)(nil),                // 254: recruitment.GetCandidateWorkspaceRequest
-	(*CandidateWorkspace)(nil),                          // 255: recruitment.CandidateWorkspace
-	(*CandidateWorkspaceInterview)(nil),                 // 256: recruitment.CandidateWorkspaceInterview
-	(*CandidateWorkspaceOffer)(nil),                     // 257: recruitment.CandidateWorkspaceOffer
-	(*CandidateWorkspaceApplication)(nil),               // 258: recruitment.CandidateWorkspaceApplication
-	(*GetCandidateWorkspaceResponse)(nil),               // 259: recruitment.GetCandidateWorkspaceResponse
-	(*CandidateNoteInfo)(nil),                           // 260: recruitment.CandidateNoteInfo
-	(*CreateNoteRequest)(nil),                           // 261: recruitment.CreateNoteRequest
-	(*CreateNoteResponse)(nil),                          // 262: recruitment.CreateNoteResponse
-	(*ListNotesRequest)(nil),                            // 263: recruitment.ListNotesRequest
-	(*ListNotesResponse)(nil),                           // 264: recruitment.ListNotesResponse
-	(*CandidateTagInfo)(nil),                            // 265: recruitment.CandidateTagInfo
-	(*CreateTagRequest)(nil),                            // 266: recruitment.CreateTagRequest
-	(*CreateTagResponse)(nil),                           // 267: recruitment.CreateTagResponse
-	(*ListTagsRequest)(nil),                             // 268: recruitment.ListTagsRequest
-	(*ListTagsResponse)(nil),                            // 269: recruitment.ListTagsResponse
-	(*AssignTagRequest)(nil),                            // 270: recruitment.AssignTagRequest
-	(*UnassignTagRequest)(nil),                          // 271: recruitment.UnassignTagRequest
-	(*ListCandidateTagsRequest)(nil),                    // 272: recruitment.ListCandidateTagsRequest
-	(*ListCandidateTagsResponse)(nil),                   // 273: recruitment.ListCandidateTagsResponse
-	(*FollowUpTaskInfo)(nil),                            // 274: recruitment.FollowUpTaskInfo
-	(*CreateFollowUpTaskRequest)(nil),                   // 275: recruitment.CreateFollowUpTaskRequest
-	(*CreateFollowUpTaskResponse)(nil),                  // 276: recruitment.CreateFollowUpTaskResponse
-	(*ListFollowUpTasksRequest)(nil),                    // 277: recruitment.ListFollowUpTasksRequest
-	(*ListFollowUpTasksResponse)(nil),                   // 278: recruitment.ListFollowUpTasksResponse
-	(*CompleteFollowUpTaskRequest)(nil),                 // 279: recruitment.CompleteFollowUpTaskRequest
-	(*GetFollowUpTaskRequest)(nil),                      // 280: recruitment.GetFollowUpTaskRequest
-	(*GetFollowUpTaskResponse)(nil),                     // 281: recruitment.GetFollowUpTaskResponse
-	(*TimelineEventInfo)(nil),                           // 282: recruitment.TimelineEventInfo
-	(*ListTimelineEventsRequest)(nil),                   // 283: recruitment.ListTimelineEventsRequest
-	(*ListTimelineEventsResponse)(nil),                  // 284: recruitment.ListTimelineEventsResponse
-	(*QueryAuthAuditLogsRequest)(nil),                   // 285: recruitment.QueryAuthAuditLogsRequest
-	(*AuthAuditLogItem)(nil),                            // 286: recruitment.AuthAuditLogItem
-	(*QueryAuthAuditLogsResponse)(nil),                  // 287: recruitment.QueryAuthAuditLogsResponse
-	(*GetDashboardReportRequest)(nil),                   // 288: recruitment.GetDashboardReportRequest
-	(*DashboardReportItem)(nil),                         // 289: recruitment.DashboardReportItem
-	(*DashboardTrendPoint)(nil),                         // 290: recruitment.DashboardTrendPoint
-	(*GetDashboardReportResponse)(nil),                  // 291: recruitment.GetDashboardReportResponse
-	(*GetFunnelReportRequest)(nil),                      // 292: recruitment.GetFunnelReportRequest
-	(*FunnelStage)(nil),                                 // 293: recruitment.FunnelStage
-	(*GetFunnelReportResponse)(nil),                     // 294: recruitment.GetFunnelReportResponse
-	(*GetTimeInStageReportRequest)(nil),                 // 295: recruitment.GetTimeInStageReportRequest
-	(*StageDuration)(nil),                               // 296: recruitment.StageDuration
-	(*GetTimeInStageReportResponse)(nil),                // 297: recruitment.GetTimeInStageReportResponse
-	(*GetInterviewOfferMetricsRequest)(nil),             // 298: recruitment.GetInterviewOfferMetricsRequest
-	(*GetInterviewOfferMetricsResponse)(nil),            // 299: recruitment.GetInterviewOfferMetricsResponse
-	(*GetUsageStatsRequest)(nil),                        // 300: recruitment.GetUsageStatsRequest
-	(*UsageStatsItem)(nil),                              // 301: recruitment.UsageStatsItem
-	(*UsageStatsSummary)(nil),                           // 302: recruitment.UsageStatsSummary
-	(*GetUsageStatsResponse)(nil),                       // 303: recruitment.GetUsageStatsResponse
-	(*GetUsageTrendRequest)(nil),                        // 304: recruitment.GetUsageTrendRequest
-	(*UsageTrendPoint)(nil),                             // 305: recruitment.UsageTrendPoint
-	(*GetUsageTrendResponse)(nil),                       // 306: recruitment.GetUsageTrendResponse
-	(*PlatformAICapabilityInfo)(nil),                    // 307: recruitment.PlatformAICapabilityInfo
-	(*PlatformAICapabilityVersionInfo)(nil),             // 308: recruitment.PlatformAICapabilityVersionInfo
-	(*ListPlatformAICapabilitiesRequest)(nil),           // 309: recruitment.ListPlatformAICapabilitiesRequest
-	(*ListPlatformAICapabilitiesResponse)(nil),          // 310: recruitment.ListPlatformAICapabilitiesResponse
-	(*ListPlatformAICapabilityVersionsRequest)(nil),     // 311: recruitment.ListPlatformAICapabilityVersionsRequest
-	(*ListPlatformAICapabilityVersionsResponse)(nil),    // 312: recruitment.ListPlatformAICapabilityVersionsResponse
-	(*CreatePlatformAICapabilityDraftRequest)(nil),      // 313: recruitment.CreatePlatformAICapabilityDraftRequest
-	(*UpdatePlatformAICapabilityDraftRequest)(nil),      // 314: recruitment.UpdatePlatformAICapabilityDraftRequest
-	(*PublishPlatformAICapabilityVersionRequest)(nil),   // 315: recruitment.PublishPlatformAICapabilityVersionRequest
-	(*PlatformAICapabilityVersionResponse)(nil),         // 316: recruitment.PlatformAICapabilityVersionResponse
-	(*PlatformAIRuntimeModelInfo)(nil),                  // 317: recruitment.PlatformAIRuntimeModelInfo
-	(*ListPlatformAIRuntimeModelsRequest)(nil),          // 318: recruitment.ListPlatformAIRuntimeModelsRequest
-	(*ListPlatformAIRuntimeModelsResponse)(nil),         // 319: recruitment.ListPlatformAIRuntimeModelsResponse
-	(*ResolvePlatformAIRuntimeModelRequest)(nil),        // 320: recruitment.ResolvePlatformAIRuntimeModelRequest
-	(*ResolvePlatformAIRuntimeModelResponse)(nil),       // 321: recruitment.ResolvePlatformAIRuntimeModelResponse
-	(*QueryPlatformAIConfigAuditLogsRequest)(nil),       // 322: recruitment.QueryPlatformAIConfigAuditLogsRequest
-	(*PlatformAIConfigAuditLogInfo)(nil),                // 323: recruitment.PlatformAIConfigAuditLogInfo
-	(*QueryPlatformAIConfigAuditLogsResponse)(nil),      // 324: recruitment.QueryPlatformAIConfigAuditLogsResponse
-	(*MCPServerInfo)(nil),                               // 325: recruitment.MCPServerInfo
-	(*ListMCPServersRequest)(nil),                       // 326: recruitment.ListMCPServersRequest
-	(*ListMCPServersResponse)(nil),                      // 327: recruitment.ListMCPServersResponse
-	(*CreateMCPServerRequest)(nil),                      // 328: recruitment.CreateMCPServerRequest
-	(*UpdateMCPServerRequest)(nil),                      // 329: recruitment.UpdateMCPServerRequest
-	(*DeleteMCPServerRequest)(nil),                      // 330: recruitment.DeleteMCPServerRequest
-	(*MCPServerResponse)(nil),                           // 331: recruitment.MCPServerResponse
-	(*MCPToolPolicyInfo)(nil),                           // 332: recruitment.MCPToolPolicyInfo
-	(*ListMCPToolPoliciesRequest)(nil),                  // 333: recruitment.ListMCPToolPoliciesRequest
-	(*ListMCPToolPoliciesResponse)(nil),                 // 334: recruitment.ListMCPToolPoliciesResponse
-	(*CreateMCPToolPolicyRequest)(nil),                  // 335: recruitment.CreateMCPToolPolicyRequest
-	(*UpdateMCPToolPolicyRequest)(nil),                  // 336: recruitment.UpdateMCPToolPolicyRequest
-	(*DeleteMCPToolPolicyRequest)(nil),                  // 337: recruitment.DeleteMCPToolPolicyRequest
-	(*MCPToolPolicyResponse)(nil),                       // 338: recruitment.MCPToolPolicyResponse
-	(*MCPToolLogInfo)(nil),                              // 339: recruitment.MCPToolLogInfo
-	(*ListMCPToolLogsRequest)(nil),                      // 340: recruitment.ListMCPToolLogsRequest
-	(*ListMCPToolLogsResponse)(nil),                     // 341: recruitment.ListMCPToolLogsResponse
-	(*TestMCPConnectionRequest)(nil),                    // 342: recruitment.TestMCPConnectionRequest
-	(*TestMCPConnectionResponse)(nil),                   // 343: recruitment.TestMCPConnectionResponse
-	(*ListMCPToolsRequest)(nil),                         // 344: recruitment.ListMCPToolsRequest
-	(*MCPToolInfo)(nil),                                 // 345: recruitment.MCPToolInfo
-	(*ListMCPToolsResponse)(nil),                        // 346: recruitment.ListMCPToolsResponse
-	(*CallMCPToolRequest)(nil),                          // 347: recruitment.CallMCPToolRequest
-	(*CallMCPToolResponse)(nil),                         // 348: recruitment.CallMCPToolResponse
-	(*LlmProviderInfo)(nil),                             // 349: recruitment.LlmProviderInfo
-	(*ListProvidersRequest)(nil),                        // 350: recruitment.ListProvidersRequest
-	(*ListProvidersResponse)(nil),                       // 351: recruitment.ListProvidersResponse
-	(*CreateProviderRequest)(nil),                       // 352: recruitment.CreateProviderRequest
-	(*UpdateProviderRequest)(nil),                       // 353: recruitment.UpdateProviderRequest
-	(*ProviderResponse)(nil),                            // 354: recruitment.ProviderResponse
-	(*DeleteProviderRequest)(nil),                       // 355: recruitment.DeleteProviderRequest
-	(*TestProviderConnectionRequest)(nil),               // 356: recruitment.TestProviderConnectionRequest
-	(*TestProviderConnectionResponse)(nil),              // 357: recruitment.TestProviderConnectionResponse
-	(*TestModelConnectionRequest)(nil),                  // 358: recruitment.TestModelConnectionRequest
-	(*DiscoverProviderModelsRequest)(nil),               // 359: recruitment.DiscoverProviderModelsRequest
-	(*ModelMetadataFieldSource)(nil),                    // 360: recruitment.ModelMetadataFieldSource
-	(*DiscoveredLlmModel)(nil),                          // 361: recruitment.DiscoveredLlmModel
-	(*DiscoverProviderModelsResponse)(nil),              // 362: recruitment.DiscoverProviderModelsResponse
-	(*GetProviderModelPresetRequest)(nil),               // 363: recruitment.GetProviderModelPresetRequest
-	(*GetProviderModelPresetResponse)(nil),              // 364: recruitment.GetProviderModelPresetResponse
-	(*LlmModelInfo)(nil),                                // 365: recruitment.LlmModelInfo
-	(*ListModelsRequest)(nil),                           // 366: recruitment.ListModelsRequest
-	(*ListModelsResponse)(nil),                          // 367: recruitment.ListModelsResponse
-	(*CreateModelRequest)(nil),                          // 368: recruitment.CreateModelRequest
-	(*UpdateModelRequest)(nil),                          // 369: recruitment.UpdateModelRequest
-	(*ModelResponse)(nil),                               // 370: recruitment.ModelResponse
-	(*DeleteModelRequest)(nil),                          // 371: recruitment.DeleteModelRequest
-	(*PromptTemplateInfo)(nil),                          // 372: recruitment.PromptTemplateInfo
-	(*ListPromptTemplatesRequest)(nil),                  // 373: recruitment.ListPromptTemplatesRequest
-	(*ListPromptTemplatesResponse)(nil),                 // 374: recruitment.ListPromptTemplatesResponse
-	(*CreatePromptTemplateRequest)(nil),                 // 375: recruitment.CreatePromptTemplateRequest
-	(*UpdatePromptTemplateRequest)(nil),                 // 376: recruitment.UpdatePromptTemplateRequest
-	(*PromptTemplateResponse)(nil),                      // 377: recruitment.PromptTemplateResponse
-	(*DeletePromptTemplateRequest)(nil),                 // 378: recruitment.DeletePromptTemplateRequest
-	(*PromptVersionInfo)(nil),                           // 379: recruitment.PromptVersionInfo
-	(*GetPromptVersionHistoryRequest)(nil),              // 380: recruitment.GetPromptVersionHistoryRequest
-	(*GetPromptVersionHistoryResponse)(nil),             // 381: recruitment.GetPromptVersionHistoryResponse
-	(*RollbackPromptVersionRequest)(nil),                // 382: recruitment.RollbackPromptVersionRequest
-	(*RenderPromptRequest)(nil),                         // 383: recruitment.RenderPromptRequest
-	(*RenderPromptResponse)(nil),                        // 384: recruitment.RenderPromptResponse
-	(*GetActivePromptByAgentTypeRequest)(nil),           // 385: recruitment.GetActivePromptByAgentTypeRequest
-	(*GetActivePromptByAgentTypeResponse)(nil),          // 386: recruitment.GetActivePromptByAgentTypeResponse
-	(*AgentConfigInfo)(nil),                             // 387: recruitment.AgentConfigInfo
-	(*AgentToolBindingInfo)(nil),                        // 388: recruitment.AgentToolBindingInfo
-	(*AgentCapabilityBindingInfo)(nil),                  // 389: recruitment.AgentCapabilityBindingInfo
-	(*CapabilityInfo)(nil),                              // 390: recruitment.CapabilityInfo
-	(*ListCapabilitiesRequest)(nil),                     // 391: recruitment.ListCapabilitiesRequest
-	(*ListCapabilitiesResponse)(nil),                    // 392: recruitment.ListCapabilitiesResponse
-	(*ListAgentsRequest)(nil),                           // 393: recruitment.ListAgentsRequest
-	(*ListAgentsResponse)(nil),                          // 394: recruitment.ListAgentsResponse
-	(*CreateAgentRequest)(nil),                          // 395: recruitment.CreateAgentRequest
-	(*UpdateAgentRequest)(nil),                          // 396: recruitment.UpdateAgentRequest
-	(*AgentConfigResponse)(nil),                         // 397: recruitment.AgentConfigResponse
-	(*DeleteAgentRequest)(nil),                          // 398: recruitment.DeleteAgentRequest
-	(*GetAgentConfigRequest)(nil),                       // 399: recruitment.GetAgentConfigRequest
-	(*GetAgentConfigResponse)(nil),                      // 400: recruitment.GetAgentConfigResponse
-	(*SkillInfo)(nil),                                   // 401: recruitment.SkillInfo
-	(*SkillVersionInfo)(nil),                            // 402: recruitment.SkillVersionInfo
-	(*SkillToolInfo)(nil),                               // 403: recruitment.SkillToolInfo
-	(*ListSkillsRequest)(nil),                           // 404: recruitment.ListSkillsRequest
-	(*ListSkillsResponse)(nil),                          // 405: recruitment.ListSkillsResponse
-	(*CreateSkillRequest)(nil),                          // 406: recruitment.CreateSkillRequest
-	(*UpdateSkillRequest)(nil),                          // 407: recruitment.UpdateSkillRequest
-	(*SkillResponse)(nil),                               // 408: recruitment.SkillResponse
-	(*CreateSkillVersionRequest)(nil),                   // 409: recruitment.CreateSkillVersionRequest
-	(*SkillVersionResponse)(nil),                        // 410: recruitment.SkillVersionResponse
-	(*ListSkillVersionsRequest)(nil),                    // 411: recruitment.ListSkillVersionsRequest
-	(*ListSkillVersionsResponse)(nil),                   // 412: recruitment.ListSkillVersionsResponse
-	(*ActivateSkillVersionRequest)(nil),                 // 413: recruitment.ActivateSkillVersionRequest
-	(*ListSkillToolsRequest)(nil),                       // 414: recruitment.ListSkillToolsRequest
-	(*ListSkillToolsResponse)(nil),                      // 415: recruitment.ListSkillToolsResponse
-	(*UpdateSkillToolRequest)(nil),                      // 416: recruitment.UpdateSkillToolRequest
-	(*SkillToolResponse)(nil),                           // 417: recruitment.SkillToolResponse
-	(*AgentSkillInfo)(nil),                              // 418: recruitment.AgentSkillInfo
-	(*AgentSkillVersionInfo)(nil),                       // 419: recruitment.AgentSkillVersionInfo
-	(*ListAgentSkillsRequest)(nil),                      // 420: recruitment.ListAgentSkillsRequest
-	(*ListAvailableAgentSkillsRequest)(nil),             // 421: recruitment.ListAvailableAgentSkillsRequest
-	(*ListAgentSkillsResponse)(nil),                     // 422: recruitment.ListAgentSkillsResponse
-	(*GetAgentSkillRequest)(nil),                        // 423: recruitment.GetAgentSkillRequest
-	(*CreateAgentSkillRequest)(nil),                     // 424: recruitment.CreateAgentSkillRequest
-	(*UpdateAgentSkillRequest)(nil),                     // 425: recruitment.UpdateAgentSkillRequest
-	(*AgentSkillResponse)(nil),                          // 426: recruitment.AgentSkillResponse
-	(*CreateAgentSkillVersionRequest)(nil),              // 427: recruitment.CreateAgentSkillVersionRequest
-	(*AgentSkillVersionResponse)(nil),                   // 428: recruitment.AgentSkillVersionResponse
-	(*ListAgentSkillVersionsRequest)(nil),               // 429: recruitment.ListAgentSkillVersionsRequest
-	(*ListAgentSkillVersionsResponse)(nil),              // 430: recruitment.ListAgentSkillVersionsResponse
-	(*ActivateAgentSkillVersionRequest)(nil),            // 431: recruitment.ActivateAgentSkillVersionRequest
-	(*UpdateAgentSkillStatusRequest)(nil),               // 432: recruitment.UpdateAgentSkillStatusRequest
-	(*PreviewAgentSkillRequest)(nil),                    // 433: recruitment.PreviewAgentSkillRequest
-	(*PreviewAgentSkillResponse)(nil),                   // 434: recruitment.PreviewAgentSkillResponse
-	(*DebugSemanticRetrievalRequest)(nil),               // 435: recruitment.DebugSemanticRetrievalRequest
-	(*SemanticSkillDebugItem)(nil),                      // 436: recruitment.SemanticSkillDebugItem
-	(*SemanticMemoryDebugItem)(nil),                     // 437: recruitment.SemanticMemoryDebugItem
-	(*DebugSemanticRetrievalResponse)(nil),              // 438: recruitment.DebugSemanticRetrievalResponse
-	(*GetResumeProfileRequest)(nil),                     // 439: recruitment.GetResumeProfileRequest
-	(*ParseResumeProfileRequest)(nil),                   // 440: recruitment.ParseResumeProfileRequest
-	(*ResumeParseRunInfo)(nil),                          // 441: recruitment.ResumeParseRunInfo
-	(*ResumeProfileInfo)(nil),                           // 442: recruitment.ResumeProfileInfo
-	(*ResumeEducationInfo)(nil),                         // 443: recruitment.ResumeEducationInfo
-	(*ResumeExperienceInfo)(nil),                        // 444: recruitment.ResumeExperienceInfo
-	(*ResumeProjectInfo)(nil),                           // 445: recruitment.ResumeProjectInfo
-	(*ResumeSkillInfo)(nil),                             // 446: recruitment.ResumeSkillInfo
-	(*ResumeProfileSnapshotInfo)(nil),                   // 447: recruitment.ResumeProfileSnapshotInfo
-	(*GetResumeProfileResponse)(nil),                    // 448: recruitment.GetResumeProfileResponse
-	(*EvaluateCandidateMatchRequest)(nil),               // 449: recruitment.EvaluateCandidateMatchRequest
-	(*GetCandidateMatchEvaluationRequest)(nil),          // 450: recruitment.GetCandidateMatchEvaluationRequest
-	(*CandidateMatchEvaluationInfo)(nil),                // 451: recruitment.CandidateMatchEvaluationInfo
-	(*CandidateMatchEvidenceInfo)(nil),                  // 452: recruitment.CandidateMatchEvidenceInfo
-	(*CandidateMatchEvaluationSnapshotInfo)(nil),        // 453: recruitment.CandidateMatchEvaluationSnapshotInfo
-	(*GetCandidateMatchEvaluationResponse)(nil),         // 454: recruitment.GetCandidateMatchEvaluationResponse
-	(*CompareCandidatesForJobRequest)(nil),              // 455: recruitment.CompareCandidatesForJobRequest
-	(*CandidateComparisonItem)(nil),                     // 456: recruitment.CandidateComparisonItem
-	(*CompareCandidatesForJobResponse)(nil),             // 457: recruitment.CompareCandidatesForJobResponse
-	(*EmbeddingProviderInfo)(nil),                       // 458: recruitment.EmbeddingProviderInfo
-	(*ListEmbeddingProvidersRequest)(nil),               // 459: recruitment.ListEmbeddingProvidersRequest
-	(*ListEmbeddingProvidersResponse)(nil),              // 460: recruitment.ListEmbeddingProvidersResponse
-	(*CreateEmbeddingProviderRequest)(nil),              // 461: recruitment.CreateEmbeddingProviderRequest
-	(*UpdateEmbeddingProviderRequest)(nil),              // 462: recruitment.UpdateEmbeddingProviderRequest
-	(*EmbeddingProviderResponse)(nil),                   // 463: recruitment.EmbeddingProviderResponse
-	(*DeleteEmbeddingProviderRequest)(nil),              // 464: recruitment.DeleteEmbeddingProviderRequest
-	(*EmbeddingModelInfo)(nil),                          // 465: recruitment.EmbeddingModelInfo
-	(*ListEmbeddingModelsRequest)(nil),                  // 466: recruitment.ListEmbeddingModelsRequest
-	(*ListEmbeddingModelsResponse)(nil),                 // 467: recruitment.ListEmbeddingModelsResponse
-	(*CreateEmbeddingModelRequest)(nil),                 // 468: recruitment.CreateEmbeddingModelRequest
-	(*UpdateEmbeddingModelRequest)(nil),                 // 469: recruitment.UpdateEmbeddingModelRequest
-	(*EmbeddingModelResponse)(nil),                      // 470: recruitment.EmbeddingModelResponse
-	(*DeleteEmbeddingModelRequest)(nil),                 // 471: recruitment.DeleteEmbeddingModelRequest
-	(*SetDefaultEmbeddingModelRequest)(nil),             // 472: recruitment.SetDefaultEmbeddingModelRequest
-	(*TestEmbeddingModelRequest)(nil),                   // 473: recruitment.TestEmbeddingModelRequest
-	(*TestEmbeddingModelResponse)(nil),                  // 474: recruitment.TestEmbeddingModelResponse
-	(*BackfillEmbeddingsRequest)(nil),                   // 475: recruitment.BackfillEmbeddingsRequest
-	(*BackfillEmbeddingsResponse)(nil),                  // 476: recruitment.BackfillEmbeddingsResponse
-	(*PreviewChatContextRequest)(nil),                   // 477: recruitment.PreviewChatContextRequest
-	(*PreviewChatContextResponse)(nil),                  // 478: recruitment.PreviewChatContextResponse
-	(*BillingOwner)(nil),                                // 479: recruitment.BillingOwner
-	(*CheckAIAccessRequest)(nil),                        // 480: recruitment.CheckAIAccessRequest
-	(*CheckAIAccessResponse)(nil),                       // 481: recruitment.CheckAIAccessResponse
-	(*ReserveAIUsageRequest)(nil),                       // 482: recruitment.ReserveAIUsageRequest
-	(*ReserveAIUsageResponse)(nil),                      // 483: recruitment.ReserveAIUsageResponse
-	(*AIProviderUsage)(nil),                             // 484: recruitment.AIProviderUsage
-	(*SettleAIUsageRequest)(nil),                        // 485: recruitment.SettleAIUsageRequest
-	(*SettleAIUsageResponse)(nil),                       // 486: recruitment.SettleAIUsageResponse
-	(*CancelAIUsageRequest)(nil),                        // 487: recruitment.CancelAIUsageRequest
-	(*CancelAIUsageResponse)(nil),                       // 488: recruitment.CancelAIUsageResponse
-	(*GetAICreditBalanceRequest)(nil),                   // 489: recruitment.GetAICreditBalanceRequest
-	(*GetAICreditBalanceResponse)(nil),                  // 490: recruitment.GetAICreditBalanceResponse
-	(*BillingPriceInfo)(nil),                            // 491: recruitment.BillingPriceInfo
-	(*BillingProductInfo)(nil),                          // 492: recruitment.BillingProductInfo
-	(*ListBillingCatalogRequest)(nil),                   // 493: recruitment.ListBillingCatalogRequest
-	(*ListBillingCatalogResponse)(nil),                  // 494: recruitment.ListBillingCatalogResponse
-	(*BillingSubscriptionInfo)(nil),                     // 495: recruitment.BillingSubscriptionInfo
-	(*GetBillingAccountRequest)(nil),                    // 496: recruitment.GetBillingAccountRequest
-	(*GetBillingAccountResponse)(nil),                   // 497: recruitment.GetBillingAccountResponse
-	(*BillingOrderInfo)(nil),                            // 498: recruitment.BillingOrderInfo
-	(*ListBillingOrdersRequest)(nil),                    // 499: recruitment.ListBillingOrdersRequest
-	(*ListBillingOrdersResponse)(nil),                   // 500: recruitment.ListBillingOrdersResponse
-	(*CreateBillingOrderRequest)(nil),                   // 501: recruitment.CreateBillingOrderRequest
-	(*BillingOrderResponse)(nil),                        // 502: recruitment.BillingOrderResponse
-	(*CreateAlipayPaymentRequest)(nil),                  // 503: recruitment.CreateAlipayPaymentRequest
-	(*CreateAlipayPaymentResponse)(nil),                 // 504: recruitment.CreateAlipayPaymentResponse
-	(*RequestBillingRefundRequest)(nil),                 // 505: recruitment.RequestBillingRefundRequest
-	(*BillingRefundResponse)(nil),                       // 506: recruitment.BillingRefundResponse
-	(*BillingRefundInfo)(nil),                           // 507: recruitment.BillingRefundInfo
-	(*ListBillingRefundsRequest)(nil),                   // 508: recruitment.ListBillingRefundsRequest
-	(*ListBillingRefundsResponse)(nil),                  // 509: recruitment.ListBillingRefundsResponse
-	(*ReviewBillingRefundRequest)(nil),                  // 510: recruitment.ReviewBillingRefundRequest
-	(*AlipayNotificationField)(nil),                     // 511: recruitment.AlipayNotificationField
-	(*ProcessAlipayNotificationRequest)(nil),            // 512: recruitment.ProcessAlipayNotificationRequest
-	(*ProcessAlipayNotificationResponse)(nil),           // 513: recruitment.ProcessAlipayNotificationResponse
-	(*ResolveAlipayReturnRequest)(nil),                  // 514: recruitment.ResolveAlipayReturnRequest
-	(*ResolveAlipayReturnResponse)(nil),                 // 515: recruitment.ResolveAlipayReturnResponse
-	(*SyncAlipayReturnRequest)(nil),                     // 516: recruitment.SyncAlipayReturnRequest
-	(*ListBillingAdminCatalogRequest)(nil),              // 517: recruitment.ListBillingAdminCatalogRequest
-	(*SaveBillingPriceVersionRequest)(nil),              // 518: recruitment.SaveBillingPriceVersionRequest
-	(*AIRateCardInfo)(nil),                              // 519: recruitment.AIRateCardInfo
-	(*ListAIRateCardsRequest)(nil),                      // 520: recruitment.ListAIRateCardsRequest
-	(*ListAIRateCardsResponse)(nil),                     // 521: recruitment.ListAIRateCardsResponse
-	(*SaveAIRateCardRequest)(nil),                       // 522: recruitment.SaveAIRateCardRequest
-	nil,                                                 // 523: recruitment.RenderPromptRequest.VariablesEntry
+	(*MemoryInfo)(nil),                                  // 143: recruitment.MemoryInfo
+	(*ListMemoriesRequest)(nil),                         // 144: recruitment.ListMemoriesRequest
+	(*ListMemoriesResponse)(nil),                        // 145: recruitment.ListMemoriesResponse
+	(*GetMemoryRequest)(nil),                            // 146: recruitment.GetMemoryRequest
+	(*MemoryResponse)(nil),                              // 147: recruitment.MemoryResponse
+	(*CreateMemoryRequest)(nil),                         // 148: recruitment.CreateMemoryRequest
+	(*UpdateMemoryRequest)(nil),                         // 149: recruitment.UpdateMemoryRequest
+	(*RevokeMemoryRequest)(nil),                         // 150: recruitment.RevokeMemoryRequest
+	(*RecallMemoriesRequest)(nil),                       // 151: recruitment.RecallMemoriesRequest
+	(*RecallMemoryItem)(nil),                            // 152: recruitment.RecallMemoryItem
+	(*RecallMemoriesResponse)(nil),                      // 153: recruitment.RecallMemoriesResponse
+	(*InterviewSchedule)(nil),                           // 154: recruitment.InterviewSchedule
+	(*ScheduleInterviewRequest)(nil),                    // 155: recruitment.ScheduleInterviewRequest
+	(*ScheduleInterviewResponse)(nil),                   // 156: recruitment.ScheduleInterviewResponse
+	(*UpdateInterviewRequest)(nil),                      // 157: recruitment.UpdateInterviewRequest
+	(*CancelInterviewRequest)(nil),                      // 158: recruitment.CancelInterviewRequest
+	(*GetInterviewRequest)(nil),                         // 159: recruitment.GetInterviewRequest
+	(*GetInterviewResponse)(nil),                        // 160: recruitment.GetInterviewResponse
+	(*ListInterviewersRequest)(nil),                     // 161: recruitment.ListInterviewersRequest
+	(*ListInterviewersResponse)(nil),                    // 162: recruitment.ListInterviewersResponse
+	(*ListApplicationInterviewsRequest)(nil),            // 163: recruitment.ListApplicationInterviewsRequest
+	(*ListApplicationInterviewsResponse)(nil),           // 164: recruitment.ListApplicationInterviewsResponse
+	(*ListMyInterviewsRequest)(nil),                     // 165: recruitment.ListMyInterviewsRequest
+	(*ListMyInterviewsResponse)(nil),                    // 166: recruitment.ListMyInterviewsResponse
+	(*ListCandidateInterviewsRequest)(nil),              // 167: recruitment.ListCandidateInterviewsRequest
+	(*ListCandidateInterviewsResponse)(nil),             // 168: recruitment.ListCandidateInterviewsResponse
+	(*InterviewFeedback)(nil),                           // 169: recruitment.InterviewFeedback
+	(*SubmitFeedbackRequest)(nil),                       // 170: recruitment.SubmitFeedbackRequest
+	(*GetFeedbackRequest)(nil),                          // 171: recruitment.GetFeedbackRequest
+	(*GetFeedbackResponse)(nil),                         // 172: recruitment.GetFeedbackResponse
+	(*BatchCancelInterviewsRequest)(nil),                // 173: recruitment.BatchCancelInterviewsRequest
+	(*BatchCancelInterviewsResponse)(nil),               // 174: recruitment.BatchCancelInterviewsResponse
+	(*Notification)(nil),                                // 175: recruitment.Notification
+	(*ListNotificationsRequest)(nil),                    // 176: recruitment.ListNotificationsRequest
+	(*ListNotificationsResponse)(nil),                   // 177: recruitment.ListNotificationsResponse
+	(*UnreadNotificationCountRequest)(nil),              // 178: recruitment.UnreadNotificationCountRequest
+	(*UnreadNotificationCountResponse)(nil),             // 179: recruitment.UnreadNotificationCountResponse
+	(*NotificationSummaryRequest)(nil),                  // 180: recruitment.NotificationSummaryRequest
+	(*NotificationSummaryResponse)(nil),                 // 181: recruitment.NotificationSummaryResponse
+	(*MarkNotificationReadRequest)(nil),                 // 182: recruitment.MarkNotificationReadRequest
+	(*MarkAllNotificationsReadRequest)(nil),             // 183: recruitment.MarkAllNotificationsReadRequest
+	(*InviteCodeInfo)(nil),                              // 184: recruitment.InviteCodeInfo
+	(*CreateInviteCodeRequest)(nil),                     // 185: recruitment.CreateInviteCodeRequest
+	(*CreateInviteCodeResponse)(nil),                    // 186: recruitment.CreateInviteCodeResponse
+	(*ListInviteCodesRequest)(nil),                      // 187: recruitment.ListInviteCodesRequest
+	(*ListInviteCodesResponse)(nil),                     // 188: recruitment.ListInviteCodesResponse
+	(*ExtendInviteCodeRequest)(nil),                     // 189: recruitment.ExtendInviteCodeRequest
+	(*RevokeInviteCodeRequest)(nil),                     // 190: recruitment.RevokeInviteCodeRequest
+	(*ReactivateInviteCodeRequest)(nil),                 // 191: recruitment.ReactivateInviteCodeRequest
+	(*ValidateInviteCodeRequest)(nil),                   // 192: recruitment.ValidateInviteCodeRequest
+	(*ValidateInviteCodeResponse)(nil),                  // 193: recruitment.ValidateInviteCodeResponse
+	(*ListJobOptionsRequest)(nil),                       // 194: recruitment.ListJobOptionsRequest
+	(*ListJobOptionsResponse)(nil),                      // 195: recruitment.ListJobOptionsResponse
+	(*DepartmentNode)(nil),                              // 196: recruitment.DepartmentNode
+	(*LocationOption)(nil),                              // 197: recruitment.LocationOption
+	(*ListDepartmentsRequest)(nil),                      // 198: recruitment.ListDepartmentsRequest
+	(*ListDepartmentsResponse)(nil),                     // 199: recruitment.ListDepartmentsResponse
+	(*CreateDepartmentRequest)(nil),                     // 200: recruitment.CreateDepartmentRequest
+	(*UpdateDepartmentRequest)(nil),                     // 201: recruitment.UpdateDepartmentRequest
+	(*UpdateDepartmentStatusRequest)(nil),               // 202: recruitment.UpdateDepartmentStatusRequest
+	(*DeleteDepartmentRequest)(nil),                     // 203: recruitment.DeleteDepartmentRequest
+	(*DepartmentResponse)(nil),                          // 204: recruitment.DepartmentResponse
+	(*ListJobLocationsRequest)(nil),                     // 205: recruitment.ListJobLocationsRequest
+	(*ListJobLocationsResponse)(nil),                    // 206: recruitment.ListJobLocationsResponse
+	(*CreateJobLocationRequest)(nil),                    // 207: recruitment.CreateJobLocationRequest
+	(*UpdateJobLocationRequest)(nil),                    // 208: recruitment.UpdateJobLocationRequest
+	(*UpdateJobLocationStatusRequest)(nil),              // 209: recruitment.UpdateJobLocationStatusRequest
+	(*DeleteJobLocationRequest)(nil),                    // 210: recruitment.DeleteJobLocationRequest
+	(*JobLocationResponse)(nil),                         // 211: recruitment.JobLocationResponse
+	(*DepartmentLocationMap)(nil),                       // 212: recruitment.DepartmentLocationMap
+	(*ListDepartmentsLocationMapRequest)(nil),           // 213: recruitment.ListDepartmentsLocationMapRequest
+	(*ListDepartmentsLocationMapResponse)(nil),          // 214: recruitment.ListDepartmentsLocationMapResponse
+	(*ListDepartmentLocationsRequest)(nil),              // 215: recruitment.ListDepartmentLocationsRequest
+	(*ListDepartmentLocationsResponse)(nil),             // 216: recruitment.ListDepartmentLocationsResponse
+	(*GetDepartmentLocationConfigRequest)(nil),          // 217: recruitment.GetDepartmentLocationConfigRequest
+	(*UpdateDepartmentLocationConfigRequest)(nil),       // 218: recruitment.UpdateDepartmentLocationConfigRequest
+	(*DepartmentLocationConfigResponse)(nil),            // 219: recruitment.DepartmentLocationConfigResponse
+	(*UsageLogItem)(nil),                                // 220: recruitment.UsageLogItem
+	(*QueryUsageLogsRequest)(nil),                       // 221: recruitment.QueryUsageLogsRequest
+	(*QueryUsageLogsResponse)(nil),                      // 222: recruitment.QueryUsageLogsResponse
+	(*Offer)(nil),                                       // 223: recruitment.Offer
+	(*CreateOfferRequest)(nil),                          // 224: recruitment.CreateOfferRequest
+	(*CreateOfferResponse)(nil),                         // 225: recruitment.CreateOfferResponse
+	(*UpdateOfferRequest)(nil),                          // 226: recruitment.UpdateOfferRequest
+	(*GetOfferRequest)(nil),                             // 227: recruitment.GetOfferRequest
+	(*GetOfferResponse)(nil),                            // 228: recruitment.GetOfferResponse
+	(*ListOffersByApplicationRequest)(nil),              // 229: recruitment.ListOffersByApplicationRequest
+	(*ListOffersByApplicationResponse)(nil),             // 230: recruitment.ListOffersByApplicationResponse
+	(*SendOfferRequest)(nil),                            // 231: recruitment.SendOfferRequest
+	(*WithdrawOfferRequest)(nil),                        // 232: recruitment.WithdrawOfferRequest
+	(*AcceptOfferRequest)(nil),                          // 233: recruitment.AcceptOfferRequest
+	(*RejectOfferRequest)(nil),                          // 234: recruitment.RejectOfferRequest
+	(*ListMyOffersRequest)(nil),                         // 235: recruitment.ListMyOffersRequest
+	(*ListMyOffersResponse)(nil),                        // 236: recruitment.ListMyOffersResponse
+	(*OfferEventInfo)(nil),                              // 237: recruitment.OfferEventInfo
+	(*ListOfferEventsRequest)(nil),                      // 238: recruitment.ListOfferEventsRequest
+	(*ListOfferEventsResponse)(nil),                     // 239: recruitment.ListOfferEventsResponse
+	(*ListRolesRequest)(nil),                            // 240: recruitment.ListRolesRequest
+	(*ListRolesResponse)(nil),                           // 241: recruitment.ListRolesResponse
+	(*RoleInfo)(nil),                                    // 242: recruitment.RoleInfo
+	(*ListPermissionsRequest)(nil),                      // 243: recruitment.ListPermissionsRequest
+	(*ListPermissionsResponse)(nil),                     // 244: recruitment.ListPermissionsResponse
+	(*PermissionInfo)(nil),                              // 245: recruitment.PermissionInfo
+	(*GetUserRolesRequest)(nil),                         // 246: recruitment.GetUserRolesRequest
+	(*GetUserRolesResponse)(nil),                        // 247: recruitment.GetUserRolesResponse
+	(*DataScopeInfo)(nil),                               // 248: recruitment.DataScopeInfo
+	(*AssignUserRoleRequest)(nil),                       // 249: recruitment.AssignUserRoleRequest
+	(*RevokeUserRoleRequest)(nil),                       // 250: recruitment.RevokeUserRoleRequest
+	(*AssignDataScopeRequest)(nil),                      // 251: recruitment.AssignDataScopeRequest
+	(*RevokeDataScopeRequest)(nil),                      // 252: recruitment.RevokeDataScopeRequest
+	(*ListStaffUsersRequest)(nil),                       // 253: recruitment.ListStaffUsersRequest
+	(*ListStaffUsersResponse)(nil),                      // 254: recruitment.ListStaffUsersResponse
+	(*StaffUserInfo)(nil),                               // 255: recruitment.StaffUserInfo
+	(*CreateStaffUserRequest)(nil),                      // 256: recruitment.CreateStaffUserRequest
+	(*CreateStaffUserResponse)(nil),                     // 257: recruitment.CreateStaffUserResponse
+	(*PlatformUserInfo)(nil),                            // 258: recruitment.PlatformUserInfo
+	(*ListPlatformUsersRequest)(nil),                    // 259: recruitment.ListPlatformUsersRequest
+	(*ListPlatformUsersResponse)(nil),                   // 260: recruitment.ListPlatformUsersResponse
+	(*CreatePlatformUserRequest)(nil),                   // 261: recruitment.CreatePlatformUserRequest
+	(*CreatePlatformUserResponse)(nil),                  // 262: recruitment.CreatePlatformUserResponse
+	(*UpdatePlatformUserRequest)(nil),                   // 263: recruitment.UpdatePlatformUserRequest
+	(*PlatformUserResponse)(nil),                        // 264: recruitment.PlatformUserResponse
+	(*GetCandidateWorkspaceRequest)(nil),                // 265: recruitment.GetCandidateWorkspaceRequest
+	(*CandidateWorkspace)(nil),                          // 266: recruitment.CandidateWorkspace
+	(*CandidateWorkspaceInterview)(nil),                 // 267: recruitment.CandidateWorkspaceInterview
+	(*CandidateWorkspaceOffer)(nil),                     // 268: recruitment.CandidateWorkspaceOffer
+	(*CandidateWorkspaceApplication)(nil),               // 269: recruitment.CandidateWorkspaceApplication
+	(*GetCandidateWorkspaceResponse)(nil),               // 270: recruitment.GetCandidateWorkspaceResponse
+	(*CandidateNoteInfo)(nil),                           // 271: recruitment.CandidateNoteInfo
+	(*CreateNoteRequest)(nil),                           // 272: recruitment.CreateNoteRequest
+	(*CreateNoteResponse)(nil),                          // 273: recruitment.CreateNoteResponse
+	(*ListNotesRequest)(nil),                            // 274: recruitment.ListNotesRequest
+	(*ListNotesResponse)(nil),                           // 275: recruitment.ListNotesResponse
+	(*CandidateTagInfo)(nil),                            // 276: recruitment.CandidateTagInfo
+	(*CreateTagRequest)(nil),                            // 277: recruitment.CreateTagRequest
+	(*CreateTagResponse)(nil),                           // 278: recruitment.CreateTagResponse
+	(*ListTagsRequest)(nil),                             // 279: recruitment.ListTagsRequest
+	(*ListTagsResponse)(nil),                            // 280: recruitment.ListTagsResponse
+	(*AssignTagRequest)(nil),                            // 281: recruitment.AssignTagRequest
+	(*UnassignTagRequest)(nil),                          // 282: recruitment.UnassignTagRequest
+	(*ListCandidateTagsRequest)(nil),                    // 283: recruitment.ListCandidateTagsRequest
+	(*ListCandidateTagsResponse)(nil),                   // 284: recruitment.ListCandidateTagsResponse
+	(*FollowUpTaskInfo)(nil),                            // 285: recruitment.FollowUpTaskInfo
+	(*CreateFollowUpTaskRequest)(nil),                   // 286: recruitment.CreateFollowUpTaskRequest
+	(*CreateFollowUpTaskResponse)(nil),                  // 287: recruitment.CreateFollowUpTaskResponse
+	(*ListFollowUpTasksRequest)(nil),                    // 288: recruitment.ListFollowUpTasksRequest
+	(*ListFollowUpTasksResponse)(nil),                   // 289: recruitment.ListFollowUpTasksResponse
+	(*CompleteFollowUpTaskRequest)(nil),                 // 290: recruitment.CompleteFollowUpTaskRequest
+	(*GetFollowUpTaskRequest)(nil),                      // 291: recruitment.GetFollowUpTaskRequest
+	(*GetFollowUpTaskResponse)(nil),                     // 292: recruitment.GetFollowUpTaskResponse
+	(*TimelineEventInfo)(nil),                           // 293: recruitment.TimelineEventInfo
+	(*ListTimelineEventsRequest)(nil),                   // 294: recruitment.ListTimelineEventsRequest
+	(*ListTimelineEventsResponse)(nil),                  // 295: recruitment.ListTimelineEventsResponse
+	(*QueryAuthAuditLogsRequest)(nil),                   // 296: recruitment.QueryAuthAuditLogsRequest
+	(*AuthAuditLogItem)(nil),                            // 297: recruitment.AuthAuditLogItem
+	(*QueryAuthAuditLogsResponse)(nil),                  // 298: recruitment.QueryAuthAuditLogsResponse
+	(*GetDashboardReportRequest)(nil),                   // 299: recruitment.GetDashboardReportRequest
+	(*DashboardReportItem)(nil),                         // 300: recruitment.DashboardReportItem
+	(*DashboardTrendPoint)(nil),                         // 301: recruitment.DashboardTrendPoint
+	(*GetDashboardReportResponse)(nil),                  // 302: recruitment.GetDashboardReportResponse
+	(*GetFunnelReportRequest)(nil),                      // 303: recruitment.GetFunnelReportRequest
+	(*FunnelStage)(nil),                                 // 304: recruitment.FunnelStage
+	(*GetFunnelReportResponse)(nil),                     // 305: recruitment.GetFunnelReportResponse
+	(*GetTimeInStageReportRequest)(nil),                 // 306: recruitment.GetTimeInStageReportRequest
+	(*StageDuration)(nil),                               // 307: recruitment.StageDuration
+	(*GetTimeInStageReportResponse)(nil),                // 308: recruitment.GetTimeInStageReportResponse
+	(*GetInterviewOfferMetricsRequest)(nil),             // 309: recruitment.GetInterviewOfferMetricsRequest
+	(*GetInterviewOfferMetricsResponse)(nil),            // 310: recruitment.GetInterviewOfferMetricsResponse
+	(*GetUsageStatsRequest)(nil),                        // 311: recruitment.GetUsageStatsRequest
+	(*UsageStatsItem)(nil),                              // 312: recruitment.UsageStatsItem
+	(*UsageStatsSummary)(nil),                           // 313: recruitment.UsageStatsSummary
+	(*GetUsageStatsResponse)(nil),                       // 314: recruitment.GetUsageStatsResponse
+	(*GetUsageTrendRequest)(nil),                        // 315: recruitment.GetUsageTrendRequest
+	(*UsageTrendPoint)(nil),                             // 316: recruitment.UsageTrendPoint
+	(*GetUsageTrendResponse)(nil),                       // 317: recruitment.GetUsageTrendResponse
+	(*PlatformAICapabilityInfo)(nil),                    // 318: recruitment.PlatformAICapabilityInfo
+	(*PlatformAICapabilityVersionInfo)(nil),             // 319: recruitment.PlatformAICapabilityVersionInfo
+	(*ListPlatformAICapabilitiesRequest)(nil),           // 320: recruitment.ListPlatformAICapabilitiesRequest
+	(*ListPlatformAICapabilitiesResponse)(nil),          // 321: recruitment.ListPlatformAICapabilitiesResponse
+	(*ListPlatformAICapabilityVersionsRequest)(nil),     // 322: recruitment.ListPlatformAICapabilityVersionsRequest
+	(*ListPlatformAICapabilityVersionsResponse)(nil),    // 323: recruitment.ListPlatformAICapabilityVersionsResponse
+	(*CreatePlatformAICapabilityDraftRequest)(nil),      // 324: recruitment.CreatePlatformAICapabilityDraftRequest
+	(*UpdatePlatformAICapabilityDraftRequest)(nil),      // 325: recruitment.UpdatePlatformAICapabilityDraftRequest
+	(*PublishPlatformAICapabilityVersionRequest)(nil),   // 326: recruitment.PublishPlatformAICapabilityVersionRequest
+	(*PlatformAICapabilityVersionResponse)(nil),         // 327: recruitment.PlatformAICapabilityVersionResponse
+	(*PlatformAIRuntimeModelInfo)(nil),                  // 328: recruitment.PlatformAIRuntimeModelInfo
+	(*ListPlatformAIRuntimeModelsRequest)(nil),          // 329: recruitment.ListPlatformAIRuntimeModelsRequest
+	(*ListPlatformAIRuntimeModelsResponse)(nil),         // 330: recruitment.ListPlatformAIRuntimeModelsResponse
+	(*ResolvePlatformAIRuntimeModelRequest)(nil),        // 331: recruitment.ResolvePlatformAIRuntimeModelRequest
+	(*ResolvePlatformAIRuntimeModelResponse)(nil),       // 332: recruitment.ResolvePlatformAIRuntimeModelResponse
+	(*QueryPlatformAIConfigAuditLogsRequest)(nil),       // 333: recruitment.QueryPlatformAIConfigAuditLogsRequest
+	(*PlatformAIConfigAuditLogInfo)(nil),                // 334: recruitment.PlatformAIConfigAuditLogInfo
+	(*QueryPlatformAIConfigAuditLogsResponse)(nil),      // 335: recruitment.QueryPlatformAIConfigAuditLogsResponse
+	(*MCPServerInfo)(nil),                               // 336: recruitment.MCPServerInfo
+	(*ListMCPServersRequest)(nil),                       // 337: recruitment.ListMCPServersRequest
+	(*ListMCPServersResponse)(nil),                      // 338: recruitment.ListMCPServersResponse
+	(*CreateMCPServerRequest)(nil),                      // 339: recruitment.CreateMCPServerRequest
+	(*UpdateMCPServerRequest)(nil),                      // 340: recruitment.UpdateMCPServerRequest
+	(*DeleteMCPServerRequest)(nil),                      // 341: recruitment.DeleteMCPServerRequest
+	(*MCPServerResponse)(nil),                           // 342: recruitment.MCPServerResponse
+	(*MCPToolPolicyInfo)(nil),                           // 343: recruitment.MCPToolPolicyInfo
+	(*ListMCPToolPoliciesRequest)(nil),                  // 344: recruitment.ListMCPToolPoliciesRequest
+	(*ListMCPToolPoliciesResponse)(nil),                 // 345: recruitment.ListMCPToolPoliciesResponse
+	(*CreateMCPToolPolicyRequest)(nil),                  // 346: recruitment.CreateMCPToolPolicyRequest
+	(*UpdateMCPToolPolicyRequest)(nil),                  // 347: recruitment.UpdateMCPToolPolicyRequest
+	(*DeleteMCPToolPolicyRequest)(nil),                  // 348: recruitment.DeleteMCPToolPolicyRequest
+	(*MCPToolPolicyResponse)(nil),                       // 349: recruitment.MCPToolPolicyResponse
+	(*MCPToolLogInfo)(nil),                              // 350: recruitment.MCPToolLogInfo
+	(*ListMCPToolLogsRequest)(nil),                      // 351: recruitment.ListMCPToolLogsRequest
+	(*ListMCPToolLogsResponse)(nil),                     // 352: recruitment.ListMCPToolLogsResponse
+	(*TestMCPConnectionRequest)(nil),                    // 353: recruitment.TestMCPConnectionRequest
+	(*TestMCPConnectionResponse)(nil),                   // 354: recruitment.TestMCPConnectionResponse
+	(*ListMCPToolsRequest)(nil),                         // 355: recruitment.ListMCPToolsRequest
+	(*MCPToolInfo)(nil),                                 // 356: recruitment.MCPToolInfo
+	(*ListMCPToolsResponse)(nil),                        // 357: recruitment.ListMCPToolsResponse
+	(*CallMCPToolRequest)(nil),                          // 358: recruitment.CallMCPToolRequest
+	(*CallMCPToolResponse)(nil),                         // 359: recruitment.CallMCPToolResponse
+	(*LlmProviderInfo)(nil),                             // 360: recruitment.LlmProviderInfo
+	(*ListProvidersRequest)(nil),                        // 361: recruitment.ListProvidersRequest
+	(*ListProvidersResponse)(nil),                       // 362: recruitment.ListProvidersResponse
+	(*CreateProviderRequest)(nil),                       // 363: recruitment.CreateProviderRequest
+	(*UpdateProviderRequest)(nil),                       // 364: recruitment.UpdateProviderRequest
+	(*ProviderResponse)(nil),                            // 365: recruitment.ProviderResponse
+	(*DeleteProviderRequest)(nil),                       // 366: recruitment.DeleteProviderRequest
+	(*TestProviderConnectionRequest)(nil),               // 367: recruitment.TestProviderConnectionRequest
+	(*TestProviderConnectionResponse)(nil),              // 368: recruitment.TestProviderConnectionResponse
+	(*TestModelConnectionRequest)(nil),                  // 369: recruitment.TestModelConnectionRequest
+	(*DiscoverProviderModelsRequest)(nil),               // 370: recruitment.DiscoverProviderModelsRequest
+	(*ModelMetadataFieldSource)(nil),                    // 371: recruitment.ModelMetadataFieldSource
+	(*DiscoveredLlmModel)(nil),                          // 372: recruitment.DiscoveredLlmModel
+	(*DiscoverProviderModelsResponse)(nil),              // 373: recruitment.DiscoverProviderModelsResponse
+	(*GetProviderModelPresetRequest)(nil),               // 374: recruitment.GetProviderModelPresetRequest
+	(*GetProviderModelPresetResponse)(nil),              // 375: recruitment.GetProviderModelPresetResponse
+	(*LlmModelInfo)(nil),                                // 376: recruitment.LlmModelInfo
+	(*ListModelsRequest)(nil),                           // 377: recruitment.ListModelsRequest
+	(*ListModelsResponse)(nil),                          // 378: recruitment.ListModelsResponse
+	(*CreateModelRequest)(nil),                          // 379: recruitment.CreateModelRequest
+	(*UpdateModelRequest)(nil),                          // 380: recruitment.UpdateModelRequest
+	(*ModelResponse)(nil),                               // 381: recruitment.ModelResponse
+	(*DeleteModelRequest)(nil),                          // 382: recruitment.DeleteModelRequest
+	(*PromptTemplateInfo)(nil),                          // 383: recruitment.PromptTemplateInfo
+	(*ListPromptTemplatesRequest)(nil),                  // 384: recruitment.ListPromptTemplatesRequest
+	(*ListPromptTemplatesResponse)(nil),                 // 385: recruitment.ListPromptTemplatesResponse
+	(*CreatePromptTemplateRequest)(nil),                 // 386: recruitment.CreatePromptTemplateRequest
+	(*UpdatePromptTemplateRequest)(nil),                 // 387: recruitment.UpdatePromptTemplateRequest
+	(*PromptTemplateResponse)(nil),                      // 388: recruitment.PromptTemplateResponse
+	(*DeletePromptTemplateRequest)(nil),                 // 389: recruitment.DeletePromptTemplateRequest
+	(*PromptVersionInfo)(nil),                           // 390: recruitment.PromptVersionInfo
+	(*GetPromptVersionHistoryRequest)(nil),              // 391: recruitment.GetPromptVersionHistoryRequest
+	(*GetPromptVersionHistoryResponse)(nil),             // 392: recruitment.GetPromptVersionHistoryResponse
+	(*RollbackPromptVersionRequest)(nil),                // 393: recruitment.RollbackPromptVersionRequest
+	(*RenderPromptRequest)(nil),                         // 394: recruitment.RenderPromptRequest
+	(*RenderPromptResponse)(nil),                        // 395: recruitment.RenderPromptResponse
+	(*GetActivePromptByAgentTypeRequest)(nil),           // 396: recruitment.GetActivePromptByAgentTypeRequest
+	(*GetActivePromptByAgentTypeResponse)(nil),          // 397: recruitment.GetActivePromptByAgentTypeResponse
+	(*AgentConfigInfo)(nil),                             // 398: recruitment.AgentConfigInfo
+	(*AgentToolBindingInfo)(nil),                        // 399: recruitment.AgentToolBindingInfo
+	(*AgentCapabilityBindingInfo)(nil),                  // 400: recruitment.AgentCapabilityBindingInfo
+	(*CapabilityInfo)(nil),                              // 401: recruitment.CapabilityInfo
+	(*ListCapabilitiesRequest)(nil),                     // 402: recruitment.ListCapabilitiesRequest
+	(*ListCapabilitiesResponse)(nil),                    // 403: recruitment.ListCapabilitiesResponse
+	(*ListAgentsRequest)(nil),                           // 404: recruitment.ListAgentsRequest
+	(*ListAgentsResponse)(nil),                          // 405: recruitment.ListAgentsResponse
+	(*CreateAgentRequest)(nil),                          // 406: recruitment.CreateAgentRequest
+	(*UpdateAgentRequest)(nil),                          // 407: recruitment.UpdateAgentRequest
+	(*AgentConfigResponse)(nil),                         // 408: recruitment.AgentConfigResponse
+	(*DeleteAgentRequest)(nil),                          // 409: recruitment.DeleteAgentRequest
+	(*GetAgentConfigRequest)(nil),                       // 410: recruitment.GetAgentConfigRequest
+	(*GetAgentConfigResponse)(nil),                      // 411: recruitment.GetAgentConfigResponse
+	(*SkillInfo)(nil),                                   // 412: recruitment.SkillInfo
+	(*SkillVersionInfo)(nil),                            // 413: recruitment.SkillVersionInfo
+	(*SkillToolInfo)(nil),                               // 414: recruitment.SkillToolInfo
+	(*ListSkillsRequest)(nil),                           // 415: recruitment.ListSkillsRequest
+	(*ListSkillsResponse)(nil),                          // 416: recruitment.ListSkillsResponse
+	(*CreateSkillRequest)(nil),                          // 417: recruitment.CreateSkillRequest
+	(*UpdateSkillRequest)(nil),                          // 418: recruitment.UpdateSkillRequest
+	(*SkillResponse)(nil),                               // 419: recruitment.SkillResponse
+	(*CreateSkillVersionRequest)(nil),                   // 420: recruitment.CreateSkillVersionRequest
+	(*SkillVersionResponse)(nil),                        // 421: recruitment.SkillVersionResponse
+	(*ListSkillVersionsRequest)(nil),                    // 422: recruitment.ListSkillVersionsRequest
+	(*ListSkillVersionsResponse)(nil),                   // 423: recruitment.ListSkillVersionsResponse
+	(*ActivateSkillVersionRequest)(nil),                 // 424: recruitment.ActivateSkillVersionRequest
+	(*ListSkillToolsRequest)(nil),                       // 425: recruitment.ListSkillToolsRequest
+	(*ListSkillToolsResponse)(nil),                      // 426: recruitment.ListSkillToolsResponse
+	(*UpdateSkillToolRequest)(nil),                      // 427: recruitment.UpdateSkillToolRequest
+	(*SkillToolResponse)(nil),                           // 428: recruitment.SkillToolResponse
+	(*AgentSkillInfo)(nil),                              // 429: recruitment.AgentSkillInfo
+	(*AgentSkillVersionInfo)(nil),                       // 430: recruitment.AgentSkillVersionInfo
+	(*ListAgentSkillsRequest)(nil),                      // 431: recruitment.ListAgentSkillsRequest
+	(*ListAvailableAgentSkillsRequest)(nil),             // 432: recruitment.ListAvailableAgentSkillsRequest
+	(*ListAgentSkillsResponse)(nil),                     // 433: recruitment.ListAgentSkillsResponse
+	(*GetAgentSkillRequest)(nil),                        // 434: recruitment.GetAgentSkillRequest
+	(*CreateAgentSkillRequest)(nil),                     // 435: recruitment.CreateAgentSkillRequest
+	(*UpdateAgentSkillRequest)(nil),                     // 436: recruitment.UpdateAgentSkillRequest
+	(*AgentSkillResponse)(nil),                          // 437: recruitment.AgentSkillResponse
+	(*CreateAgentSkillVersionRequest)(nil),              // 438: recruitment.CreateAgentSkillVersionRequest
+	(*AgentSkillVersionResponse)(nil),                   // 439: recruitment.AgentSkillVersionResponse
+	(*ListAgentSkillVersionsRequest)(nil),               // 440: recruitment.ListAgentSkillVersionsRequest
+	(*ListAgentSkillVersionsResponse)(nil),              // 441: recruitment.ListAgentSkillVersionsResponse
+	(*ActivateAgentSkillVersionRequest)(nil),            // 442: recruitment.ActivateAgentSkillVersionRequest
+	(*UpdateAgentSkillStatusRequest)(nil),               // 443: recruitment.UpdateAgentSkillStatusRequest
+	(*PreviewAgentSkillRequest)(nil),                    // 444: recruitment.PreviewAgentSkillRequest
+	(*PreviewAgentSkillResponse)(nil),                   // 445: recruitment.PreviewAgentSkillResponse
+	(*DebugSemanticRetrievalRequest)(nil),               // 446: recruitment.DebugSemanticRetrievalRequest
+	(*SemanticSkillDebugItem)(nil),                      // 447: recruitment.SemanticSkillDebugItem
+	(*SemanticMemoryDebugItem)(nil),                     // 448: recruitment.SemanticMemoryDebugItem
+	(*DebugSemanticRetrievalResponse)(nil),              // 449: recruitment.DebugSemanticRetrievalResponse
+	(*GetResumeProfileRequest)(nil),                     // 450: recruitment.GetResumeProfileRequest
+	(*ParseResumeProfileRequest)(nil),                   // 451: recruitment.ParseResumeProfileRequest
+	(*ResumeParseRunInfo)(nil),                          // 452: recruitment.ResumeParseRunInfo
+	(*ResumeProfileInfo)(nil),                           // 453: recruitment.ResumeProfileInfo
+	(*ResumeEducationInfo)(nil),                         // 454: recruitment.ResumeEducationInfo
+	(*ResumeExperienceInfo)(nil),                        // 455: recruitment.ResumeExperienceInfo
+	(*ResumeProjectInfo)(nil),                           // 456: recruitment.ResumeProjectInfo
+	(*ResumeSkillInfo)(nil),                             // 457: recruitment.ResumeSkillInfo
+	(*ResumeProfileSnapshotInfo)(nil),                   // 458: recruitment.ResumeProfileSnapshotInfo
+	(*GetResumeProfileResponse)(nil),                    // 459: recruitment.GetResumeProfileResponse
+	(*EvaluateCandidateMatchRequest)(nil),               // 460: recruitment.EvaluateCandidateMatchRequest
+	(*GetCandidateMatchEvaluationRequest)(nil),          // 461: recruitment.GetCandidateMatchEvaluationRequest
+	(*CandidateMatchEvaluationInfo)(nil),                // 462: recruitment.CandidateMatchEvaluationInfo
+	(*CandidateMatchEvidenceInfo)(nil),                  // 463: recruitment.CandidateMatchEvidenceInfo
+	(*CandidateMatchEvaluationSnapshotInfo)(nil),        // 464: recruitment.CandidateMatchEvaluationSnapshotInfo
+	(*GetCandidateMatchEvaluationResponse)(nil),         // 465: recruitment.GetCandidateMatchEvaluationResponse
+	(*CompareCandidatesForJobRequest)(nil),              // 466: recruitment.CompareCandidatesForJobRequest
+	(*CandidateComparisonItem)(nil),                     // 467: recruitment.CandidateComparisonItem
+	(*CompareCandidatesForJobResponse)(nil),             // 468: recruitment.CompareCandidatesForJobResponse
+	(*EmbeddingProviderInfo)(nil),                       // 469: recruitment.EmbeddingProviderInfo
+	(*ListEmbeddingProvidersRequest)(nil),               // 470: recruitment.ListEmbeddingProvidersRequest
+	(*ListEmbeddingProvidersResponse)(nil),              // 471: recruitment.ListEmbeddingProvidersResponse
+	(*CreateEmbeddingProviderRequest)(nil),              // 472: recruitment.CreateEmbeddingProviderRequest
+	(*UpdateEmbeddingProviderRequest)(nil),              // 473: recruitment.UpdateEmbeddingProviderRequest
+	(*EmbeddingProviderResponse)(nil),                   // 474: recruitment.EmbeddingProviderResponse
+	(*DeleteEmbeddingProviderRequest)(nil),              // 475: recruitment.DeleteEmbeddingProviderRequest
+	(*EmbeddingModelInfo)(nil),                          // 476: recruitment.EmbeddingModelInfo
+	(*ListEmbeddingModelsRequest)(nil),                  // 477: recruitment.ListEmbeddingModelsRequest
+	(*ListEmbeddingModelsResponse)(nil),                 // 478: recruitment.ListEmbeddingModelsResponse
+	(*CreateEmbeddingModelRequest)(nil),                 // 479: recruitment.CreateEmbeddingModelRequest
+	(*UpdateEmbeddingModelRequest)(nil),                 // 480: recruitment.UpdateEmbeddingModelRequest
+	(*EmbeddingModelResponse)(nil),                      // 481: recruitment.EmbeddingModelResponse
+	(*DeleteEmbeddingModelRequest)(nil),                 // 482: recruitment.DeleteEmbeddingModelRequest
+	(*SetDefaultEmbeddingModelRequest)(nil),             // 483: recruitment.SetDefaultEmbeddingModelRequest
+	(*TestEmbeddingModelRequest)(nil),                   // 484: recruitment.TestEmbeddingModelRequest
+	(*TestEmbeddingModelResponse)(nil),                  // 485: recruitment.TestEmbeddingModelResponse
+	(*BackfillEmbeddingsRequest)(nil),                   // 486: recruitment.BackfillEmbeddingsRequest
+	(*BackfillEmbeddingsResponse)(nil),                  // 487: recruitment.BackfillEmbeddingsResponse
+	(*PreviewChatContextRequest)(nil),                   // 488: recruitment.PreviewChatContextRequest
+	(*PreviewChatContextResponse)(nil),                  // 489: recruitment.PreviewChatContextResponse
+	(*BillingOwner)(nil),                                // 490: recruitment.BillingOwner
+	(*CheckAIAccessRequest)(nil),                        // 491: recruitment.CheckAIAccessRequest
+	(*CheckAIAccessResponse)(nil),                       // 492: recruitment.CheckAIAccessResponse
+	(*ReserveAIUsageRequest)(nil),                       // 493: recruitment.ReserveAIUsageRequest
+	(*ReserveAIUsageResponse)(nil),                      // 494: recruitment.ReserveAIUsageResponse
+	(*AIProviderUsage)(nil),                             // 495: recruitment.AIProviderUsage
+	(*SettleAIUsageRequest)(nil),                        // 496: recruitment.SettleAIUsageRequest
+	(*SettleAIUsageResponse)(nil),                       // 497: recruitment.SettleAIUsageResponse
+	(*CancelAIUsageRequest)(nil),                        // 498: recruitment.CancelAIUsageRequest
+	(*CancelAIUsageResponse)(nil),                       // 499: recruitment.CancelAIUsageResponse
+	(*GetAICreditBalanceRequest)(nil),                   // 500: recruitment.GetAICreditBalanceRequest
+	(*GetAICreditBalanceResponse)(nil),                  // 501: recruitment.GetAICreditBalanceResponse
+	(*BillingPriceInfo)(nil),                            // 502: recruitment.BillingPriceInfo
+	(*BillingProductInfo)(nil),                          // 503: recruitment.BillingProductInfo
+	(*ListBillingCatalogRequest)(nil),                   // 504: recruitment.ListBillingCatalogRequest
+	(*ListBillingCatalogResponse)(nil),                  // 505: recruitment.ListBillingCatalogResponse
+	(*BillingSubscriptionInfo)(nil),                     // 506: recruitment.BillingSubscriptionInfo
+	(*GetBillingAccountRequest)(nil),                    // 507: recruitment.GetBillingAccountRequest
+	(*GetBillingAccountResponse)(nil),                   // 508: recruitment.GetBillingAccountResponse
+	(*BillingOrderInfo)(nil),                            // 509: recruitment.BillingOrderInfo
+	(*ListBillingOrdersRequest)(nil),                    // 510: recruitment.ListBillingOrdersRequest
+	(*ListBillingOrdersResponse)(nil),                   // 511: recruitment.ListBillingOrdersResponse
+	(*CreateBillingOrderRequest)(nil),                   // 512: recruitment.CreateBillingOrderRequest
+	(*BillingOrderResponse)(nil),                        // 513: recruitment.BillingOrderResponse
+	(*CreateAlipayPaymentRequest)(nil),                  // 514: recruitment.CreateAlipayPaymentRequest
+	(*CreateAlipayPaymentResponse)(nil),                 // 515: recruitment.CreateAlipayPaymentResponse
+	(*RequestBillingRefundRequest)(nil),                 // 516: recruitment.RequestBillingRefundRequest
+	(*BillingRefundResponse)(nil),                       // 517: recruitment.BillingRefundResponse
+	(*BillingRefundInfo)(nil),                           // 518: recruitment.BillingRefundInfo
+	(*ListBillingRefundsRequest)(nil),                   // 519: recruitment.ListBillingRefundsRequest
+	(*ListBillingRefundsResponse)(nil),                  // 520: recruitment.ListBillingRefundsResponse
+	(*ReviewBillingRefundRequest)(nil),                  // 521: recruitment.ReviewBillingRefundRequest
+	(*AlipayNotificationField)(nil),                     // 522: recruitment.AlipayNotificationField
+	(*ProcessAlipayNotificationRequest)(nil),            // 523: recruitment.ProcessAlipayNotificationRequest
+	(*ProcessAlipayNotificationResponse)(nil),           // 524: recruitment.ProcessAlipayNotificationResponse
+	(*ResolveAlipayReturnRequest)(nil),                  // 525: recruitment.ResolveAlipayReturnRequest
+	(*ResolveAlipayReturnResponse)(nil),                 // 526: recruitment.ResolveAlipayReturnResponse
+	(*SyncAlipayReturnRequest)(nil),                     // 527: recruitment.SyncAlipayReturnRequest
+	(*ListBillingAdminCatalogRequest)(nil),              // 528: recruitment.ListBillingAdminCatalogRequest
+	(*SaveBillingPriceVersionRequest)(nil),              // 529: recruitment.SaveBillingPriceVersionRequest
+	(*AIRateCardInfo)(nil),                              // 530: recruitment.AIRateCardInfo
+	(*ListAIRateCardsRequest)(nil),                      // 531: recruitment.ListAIRateCardsRequest
+	(*ListAIRateCardsResponse)(nil),                     // 532: recruitment.ListAIRateCardsResponse
+	(*SaveAIRateCardRequest)(nil),                       // 533: recruitment.SaveAIRateCardRequest
+	nil,                                                 // 534: recruitment.RenderPromptRequest.VariablesEntry
 }
 var file_proto_recruitment_proto_depIdxs = []int32{
 	7,   // 0: recruitment.TenantResponse.tenant:type_name -> recruitment.TenantInfo
@@ -47158,649 +48517,665 @@ var file_proto_recruitment_proto_depIdxs = []int32{
 	130, // 52: recruitment.GetActiveAgentRunResponse.run:type_name -> recruitment.AgentRunSnapshot
 	130, // 53: recruitment.CancelAgentRunResponse.run:type_name -> recruitment.AgentRunSnapshot
 	130, // 54: recruitment.ConfirmAgentRunResponse.run:type_name -> recruitment.AgentRunSnapshot
-	143, // 55: recruitment.GetInterviewResponse.interview:type_name -> recruitment.InterviewSchedule
-	244, // 56: recruitment.ListInterviewersResponse.list:type_name -> recruitment.StaffUserInfo
-	143, // 57: recruitment.ListApplicationInterviewsResponse.list:type_name -> recruitment.InterviewSchedule
-	143, // 58: recruitment.ListMyInterviewsResponse.list:type_name -> recruitment.InterviewSchedule
-	143, // 59: recruitment.ListCandidateInterviewsResponse.list:type_name -> recruitment.InterviewSchedule
-	158, // 60: recruitment.GetFeedbackResponse.feedback:type_name -> recruitment.InterviewFeedback
-	164, // 61: recruitment.ListNotificationsResponse.list:type_name -> recruitment.Notification
-	173, // 62: recruitment.CreateInviteCodeResponse.invite_code:type_name -> recruitment.InviteCodeInfo
-	173, // 63: recruitment.ListInviteCodesResponse.list:type_name -> recruitment.InviteCodeInfo
-	185, // 64: recruitment.ListJobOptionsResponse.department_tree:type_name -> recruitment.DepartmentNode
-	186, // 65: recruitment.ListJobOptionsResponse.locations:type_name -> recruitment.LocationOption
-	201, // 66: recruitment.ListJobOptionsResponse.department_location_map:type_name -> recruitment.DepartmentLocationMap
-	185, // 67: recruitment.DepartmentNode.children:type_name -> recruitment.DepartmentNode
-	185, // 68: recruitment.ListDepartmentsResponse.list:type_name -> recruitment.DepartmentNode
-	185, // 69: recruitment.DepartmentResponse.department:type_name -> recruitment.DepartmentNode
-	186, // 70: recruitment.ListJobLocationsResponse.list:type_name -> recruitment.LocationOption
-	186, // 71: recruitment.JobLocationResponse.location:type_name -> recruitment.LocationOption
-	201, // 72: recruitment.ListDepartmentsLocationMapResponse.items:type_name -> recruitment.DepartmentLocationMap
-	186, // 73: recruitment.ListDepartmentLocationsResponse.locations:type_name -> recruitment.LocationOption
-	186, // 74: recruitment.DepartmentLocationConfigResponse.locations:type_name -> recruitment.LocationOption
-	209, // 75: recruitment.QueryUsageLogsResponse.list:type_name -> recruitment.UsageLogItem
-	212, // 76: recruitment.GetOfferResponse.offer:type_name -> recruitment.Offer
-	212, // 77: recruitment.ListOffersByApplicationResponse.list:type_name -> recruitment.Offer
-	212, // 78: recruitment.ListMyOffersResponse.list:type_name -> recruitment.Offer
-	226, // 79: recruitment.ListOfferEventsResponse.list:type_name -> recruitment.OfferEventInfo
-	231, // 80: recruitment.ListRolesResponse.list:type_name -> recruitment.RoleInfo
-	234, // 81: recruitment.ListPermissionsResponse.list:type_name -> recruitment.PermissionInfo
-	237, // 82: recruitment.GetUserRolesResponse.data_scopes:type_name -> recruitment.DataScopeInfo
-	244, // 83: recruitment.ListStaffUsersResponse.list:type_name -> recruitment.StaffUserInfo
-	247, // 84: recruitment.ListPlatformUsersResponse.list:type_name -> recruitment.PlatformUserInfo
-	247, // 85: recruitment.PlatformUserResponse.user:type_name -> recruitment.PlatformUserInfo
-	258, // 86: recruitment.CandidateWorkspace.applications:type_name -> recruitment.CandidateWorkspaceApplication
-	265, // 87: recruitment.CandidateWorkspace.tags:type_name -> recruitment.CandidateTagInfo
-	256, // 88: recruitment.CandidateWorkspace.interviews:type_name -> recruitment.CandidateWorkspaceInterview
-	257, // 89: recruitment.CandidateWorkspace.offers:type_name -> recruitment.CandidateWorkspaceOffer
-	255, // 90: recruitment.GetCandidateWorkspaceResponse.workspace:type_name -> recruitment.CandidateWorkspace
-	260, // 91: recruitment.CreateNoteResponse.note:type_name -> recruitment.CandidateNoteInfo
-	260, // 92: recruitment.ListNotesResponse.list:type_name -> recruitment.CandidateNoteInfo
-	265, // 93: recruitment.CreateTagResponse.tag:type_name -> recruitment.CandidateTagInfo
-	265, // 94: recruitment.ListTagsResponse.list:type_name -> recruitment.CandidateTagInfo
-	265, // 95: recruitment.ListCandidateTagsResponse.list:type_name -> recruitment.CandidateTagInfo
-	274, // 96: recruitment.CreateFollowUpTaskResponse.task:type_name -> recruitment.FollowUpTaskInfo
-	274, // 97: recruitment.ListFollowUpTasksResponse.list:type_name -> recruitment.FollowUpTaskInfo
-	274, // 98: recruitment.GetFollowUpTaskResponse.task:type_name -> recruitment.FollowUpTaskInfo
-	282, // 99: recruitment.ListTimelineEventsResponse.events:type_name -> recruitment.TimelineEventInfo
-	286, // 100: recruitment.QueryAuthAuditLogsResponse.list:type_name -> recruitment.AuthAuditLogItem
-	290, // 101: recruitment.GetDashboardReportResponse.trend:type_name -> recruitment.DashboardTrendPoint
-	289, // 102: recruitment.GetDashboardReportResponse.stage_distribution:type_name -> recruitment.DashboardReportItem
-	293, // 103: recruitment.GetFunnelReportResponse.stages:type_name -> recruitment.FunnelStage
-	296, // 104: recruitment.GetTimeInStageReportResponse.durations:type_name -> recruitment.StageDuration
-	301, // 105: recruitment.GetUsageStatsResponse.list:type_name -> recruitment.UsageStatsItem
-	302, // 106: recruitment.GetUsageStatsResponse.summary:type_name -> recruitment.UsageStatsSummary
-	305, // 107: recruitment.GetUsageTrendResponse.list:type_name -> recruitment.UsageTrendPoint
-	307, // 108: recruitment.ListPlatformAICapabilitiesResponse.list:type_name -> recruitment.PlatformAICapabilityInfo
-	308, // 109: recruitment.ListPlatformAICapabilityVersionsResponse.list:type_name -> recruitment.PlatformAICapabilityVersionInfo
-	308, // 110: recruitment.PlatformAICapabilityVersionResponse.version:type_name -> recruitment.PlatformAICapabilityVersionInfo
-	317, // 111: recruitment.ListPlatformAIRuntimeModelsResponse.list:type_name -> recruitment.PlatformAIRuntimeModelInfo
-	323, // 112: recruitment.QueryPlatformAIConfigAuditLogsResponse.list:type_name -> recruitment.PlatformAIConfigAuditLogInfo
-	325, // 113: recruitment.ListMCPServersResponse.list:type_name -> recruitment.MCPServerInfo
-	325, // 114: recruitment.MCPServerResponse.server:type_name -> recruitment.MCPServerInfo
-	332, // 115: recruitment.ListMCPToolPoliciesResponse.list:type_name -> recruitment.MCPToolPolicyInfo
-	332, // 116: recruitment.MCPToolPolicyResponse.policy:type_name -> recruitment.MCPToolPolicyInfo
-	339, // 117: recruitment.ListMCPToolLogsResponse.list:type_name -> recruitment.MCPToolLogInfo
-	345, // 118: recruitment.ListMCPToolsResponse.list:type_name -> recruitment.MCPToolInfo
-	349, // 119: recruitment.ListProvidersResponse.list:type_name -> recruitment.LlmProviderInfo
-	349, // 120: recruitment.ProviderResponse.provider:type_name -> recruitment.LlmProviderInfo
-	360, // 121: recruitment.DiscoveredLlmModel.field_sources:type_name -> recruitment.ModelMetadataFieldSource
-	361, // 122: recruitment.DiscoverProviderModelsResponse.list:type_name -> recruitment.DiscoveredLlmModel
-	361, // 123: recruitment.GetProviderModelPresetResponse.model:type_name -> recruitment.DiscoveredLlmModel
-	365, // 124: recruitment.ListModelsResponse.list:type_name -> recruitment.LlmModelInfo
-	365, // 125: recruitment.ModelResponse.model:type_name -> recruitment.LlmModelInfo
-	372, // 126: recruitment.ListPromptTemplatesResponse.list:type_name -> recruitment.PromptTemplateInfo
-	372, // 127: recruitment.PromptTemplateResponse.template:type_name -> recruitment.PromptTemplateInfo
-	379, // 128: recruitment.GetPromptVersionHistoryResponse.list:type_name -> recruitment.PromptVersionInfo
-	523, // 129: recruitment.RenderPromptRequest.variables:type_name -> recruitment.RenderPromptRequest.VariablesEntry
-	372, // 130: recruitment.GetActivePromptByAgentTypeResponse.template:type_name -> recruitment.PromptTemplateInfo
-	388, // 131: recruitment.AgentConfigInfo.tool_bindings:type_name -> recruitment.AgentToolBindingInfo
-	389, // 132: recruitment.AgentConfigInfo.capability_bindings:type_name -> recruitment.AgentCapabilityBindingInfo
-	390, // 133: recruitment.ListCapabilitiesResponse.list:type_name -> recruitment.CapabilityInfo
-	387, // 134: recruitment.ListAgentsResponse.list:type_name -> recruitment.AgentConfigInfo
-	389, // 135: recruitment.CreateAgentRequest.capability_bindings:type_name -> recruitment.AgentCapabilityBindingInfo
-	389, // 136: recruitment.UpdateAgentRequest.capability_bindings:type_name -> recruitment.AgentCapabilityBindingInfo
-	387, // 137: recruitment.AgentConfigResponse.agent:type_name -> recruitment.AgentConfigInfo
-	387, // 138: recruitment.GetAgentConfigResponse.agent:type_name -> recruitment.AgentConfigInfo
-	401, // 139: recruitment.ListSkillsResponse.list:type_name -> recruitment.SkillInfo
-	401, // 140: recruitment.SkillResponse.skill:type_name -> recruitment.SkillInfo
-	402, // 141: recruitment.SkillVersionResponse.version:type_name -> recruitment.SkillVersionInfo
-	403, // 142: recruitment.SkillVersionResponse.tools:type_name -> recruitment.SkillToolInfo
-	402, // 143: recruitment.ListSkillVersionsResponse.list:type_name -> recruitment.SkillVersionInfo
-	403, // 144: recruitment.ListSkillToolsResponse.list:type_name -> recruitment.SkillToolInfo
-	403, // 145: recruitment.SkillToolResponse.tool:type_name -> recruitment.SkillToolInfo
-	418, // 146: recruitment.ListAgentSkillsResponse.list:type_name -> recruitment.AgentSkillInfo
-	418, // 147: recruitment.AgentSkillResponse.skill:type_name -> recruitment.AgentSkillInfo
-	419, // 148: recruitment.AgentSkillVersionResponse.version:type_name -> recruitment.AgentSkillVersionInfo
-	419, // 149: recruitment.ListAgentSkillVersionsResponse.list:type_name -> recruitment.AgentSkillVersionInfo
-	436, // 150: recruitment.DebugSemanticRetrievalResponse.skills:type_name -> recruitment.SemanticSkillDebugItem
-	437, // 151: recruitment.DebugSemanticRetrievalResponse.memories:type_name -> recruitment.SemanticMemoryDebugItem
-	441, // 152: recruitment.ResumeProfileSnapshotInfo.parse_run:type_name -> recruitment.ResumeParseRunInfo
-	442, // 153: recruitment.ResumeProfileSnapshotInfo.profile:type_name -> recruitment.ResumeProfileInfo
-	443, // 154: recruitment.ResumeProfileSnapshotInfo.educations:type_name -> recruitment.ResumeEducationInfo
-	444, // 155: recruitment.ResumeProfileSnapshotInfo.experiences:type_name -> recruitment.ResumeExperienceInfo
-	445, // 156: recruitment.ResumeProfileSnapshotInfo.projects:type_name -> recruitment.ResumeProjectInfo
-	446, // 157: recruitment.ResumeProfileSnapshotInfo.skills:type_name -> recruitment.ResumeSkillInfo
-	447, // 158: recruitment.GetResumeProfileResponse.profile:type_name -> recruitment.ResumeProfileSnapshotInfo
-	451, // 159: recruitment.CandidateMatchEvaluationSnapshotInfo.evaluation:type_name -> recruitment.CandidateMatchEvaluationInfo
-	452, // 160: recruitment.CandidateMatchEvaluationSnapshotInfo.evidence:type_name -> recruitment.CandidateMatchEvidenceInfo
-	453, // 161: recruitment.GetCandidateMatchEvaluationResponse.evaluation:type_name -> recruitment.CandidateMatchEvaluationSnapshotInfo
-	456, // 162: recruitment.CompareCandidatesForJobResponse.candidates:type_name -> recruitment.CandidateComparisonItem
-	458, // 163: recruitment.ListEmbeddingProvidersResponse.list:type_name -> recruitment.EmbeddingProviderInfo
-	458, // 164: recruitment.EmbeddingProviderResponse.provider:type_name -> recruitment.EmbeddingProviderInfo
-	465, // 165: recruitment.ListEmbeddingModelsResponse.list:type_name -> recruitment.EmbeddingModelInfo
-	465, // 166: recruitment.EmbeddingModelResponse.model:type_name -> recruitment.EmbeddingModelInfo
-	95,  // 167: recruitment.PreviewChatContextResponse.context_usage:type_name -> recruitment.ContextUsageInfo
-	0,   // 168: recruitment.BillingOwner.type:type_name -> recruitment.BillingOwnerType
-	479, // 169: recruitment.CheckAIAccessRequest.owner:type_name -> recruitment.BillingOwner
-	1,   // 170: recruitment.CheckAIAccessResponse.enforcement_mode:type_name -> recruitment.BillingEnforcementMode
-	479, // 171: recruitment.ReserveAIUsageRequest.owner:type_name -> recruitment.BillingOwner
-	1,   // 172: recruitment.ReserveAIUsageResponse.enforcement_mode:type_name -> recruitment.BillingEnforcementMode
-	484, // 173: recruitment.SettleAIUsageRequest.provider_usages:type_name -> recruitment.AIProviderUsage
-	479, // 174: recruitment.GetAICreditBalanceRequest.owner:type_name -> recruitment.BillingOwner
-	1,   // 175: recruitment.GetAICreditBalanceResponse.enforcement_mode:type_name -> recruitment.BillingEnforcementMode
-	491, // 176: recruitment.BillingProductInfo.prices:type_name -> recruitment.BillingPriceInfo
-	479, // 177: recruitment.ListBillingCatalogRequest.owner:type_name -> recruitment.BillingOwner
-	492, // 178: recruitment.ListBillingCatalogResponse.products:type_name -> recruitment.BillingProductInfo
-	479, // 179: recruitment.GetBillingAccountRequest.owner:type_name -> recruitment.BillingOwner
-	495, // 180: recruitment.GetBillingAccountResponse.subscription:type_name -> recruitment.BillingSubscriptionInfo
-	495, // 181: recruitment.GetBillingAccountResponse.scheduled_subscription:type_name -> recruitment.BillingSubscriptionInfo
-	479, // 182: recruitment.ListBillingOrdersRequest.owner:type_name -> recruitment.BillingOwner
-	498, // 183: recruitment.ListBillingOrdersResponse.orders:type_name -> recruitment.BillingOrderInfo
-	479, // 184: recruitment.CreateBillingOrderRequest.owner:type_name -> recruitment.BillingOwner
-	498, // 185: recruitment.BillingOrderResponse.order:type_name -> recruitment.BillingOrderInfo
-	479, // 186: recruitment.CreateAlipayPaymentRequest.owner:type_name -> recruitment.BillingOwner
-	479, // 187: recruitment.RequestBillingRefundRequest.owner:type_name -> recruitment.BillingOwner
-	507, // 188: recruitment.ListBillingRefundsResponse.refunds:type_name -> recruitment.BillingRefundInfo
-	511, // 189: recruitment.ProcessAlipayNotificationRequest.fields:type_name -> recruitment.AlipayNotificationField
-	511, // 190: recruitment.ResolveAlipayReturnRequest.fields:type_name -> recruitment.AlipayNotificationField
-	479, // 191: recruitment.SyncAlipayReturnRequest.owner:type_name -> recruitment.BillingOwner
-	519, // 192: recruitment.ListAIRateCardsResponse.rates:type_name -> recruitment.AIRateCardInfo
-	3,   // 193: recruitment.AuthService.Register:input_type -> recruitment.RegisterRequest
-	5,   // 194: recruitment.AuthService.Login:input_type -> recruitment.LoginRequest
-	46,  // 195: recruitment.AuthService.RefreshToken:input_type -> recruitment.RefreshTokenRequest
-	48,  // 196: recruitment.AuthService.SwitchTenant:input_type -> recruitment.SwitchTenantRequest
-	49,  // 197: recruitment.AuthService.RevokeRefreshToken:input_type -> recruitment.RevokeRefreshTokenRequest
-	50,  // 198: recruitment.AuthService.RecordAuthDecision:input_type -> recruitment.AuthAuditRequest
-	51,  // 199: recruitment.AuthService.GetPrincipal:input_type -> recruitment.GetPrincipalRequest
-	53,  // 200: recruitment.AuthService.AuthorizeInternal:input_type -> recruitment.AuthorizeInternalRequest
-	55,  // 201: recruitment.AuthService.UpdateEmail:input_type -> recruitment.UpdateEmailRequest
-	8,   // 202: recruitment.PlatformTenantService.CreateTenant:input_type -> recruitment.CreateTenantRequest
-	9,   // 203: recruitment.PlatformTenantService.ListTenants:input_type -> recruitment.ListTenantsRequest
-	12,  // 204: recruitment.PlatformTenantService.GetTenant:input_type -> recruitment.GetTenantRequest
-	13,  // 205: recruitment.PlatformTenantService.UpdateTenantStatus:input_type -> recruitment.UpdateTenantStatusRequest
-	14,  // 206: recruitment.PlatformTenantService.ListTenantMemberships:input_type -> recruitment.ListTenantMembershipsRequest
-	16,  // 207: recruitment.PlatformTenantService.UpdateTenantMembershipStatus:input_type -> recruitment.UpdateTenantMembershipStatusRequest
-	18,  // 208: recruitment.PlatformTenantService.GetPlatformDashboard:input_type -> recruitment.GetPlatformDashboardRequest
-	21,  // 209: recruitment.PlatformTenantService.QueryPlatformAuditLogs:input_type -> recruitment.QueryPlatformAuditLogsRequest
-	27,  // 210: recruitment.PlatformTenantService.ListPlatformPlans:input_type -> recruitment.ListPlatformPlansRequest
-	29,  // 211: recruitment.PlatformTenantService.SavePlatformPlanVersion:input_type -> recruitment.SavePlatformPlanVersionRequest
-	30,  // 212: recruitment.PlatformTenantService.PublishPlatformPlanVersion:input_type -> recruitment.PublishPlatformPlanVersionRequest
-	33,  // 213: recruitment.PlatformTenantService.GetTenantSubscription:input_type -> recruitment.GetTenantSubscriptionRequest
-	34,  // 214: recruitment.PlatformTenantService.UpdateTenantSubscription:input_type -> recruitment.UpdateTenantSubscriptionRequest
-	36,  // 215: recruitment.PlatformTenantService.UpdateTenantEntitlementOverride:input_type -> recruitment.UpdateTenantEntitlementOverrideRequest
-	38,  // 216: recruitment.PlatformTenantService.GetTenantUsage:input_type -> recruitment.GetTenantUsageRequest
-	41,  // 217: recruitment.PlatformTenantService.ListQuotaAlerts:input_type -> recruitment.ListQuotaAlertsRequest
-	43,  // 218: recruitment.PlatformTenantService.UpdateQuotaAlert:input_type -> recruitment.UpdateQuotaAlertRequest
-	57,  // 219: recruitment.JobService.CreateJob:input_type -> recruitment.CreateJobRequest
-	59,  // 220: recruitment.JobService.UpdateJob:input_type -> recruitment.UpdateJobRequest
-	60,  // 221: recruitment.JobService.OfflineJob:input_type -> recruitment.OfflineJobRequest
-	60,  // 222: recruitment.JobService.OnlineJob:input_type -> recruitment.OfflineJobRequest
-	61,  // 223: recruitment.JobService.ListHRJobs:input_type -> recruitment.ListHRJobsRequest
-	62,  // 224: recruitment.JobService.ListPublicJobs:input_type -> recruitment.ListPublicJobsRequest
-	63,  // 225: recruitment.JobService.GetJobDetail:input_type -> recruitment.GetJobDetailRequest
-	183, // 226: recruitment.JobService.ListJobOptions:input_type -> recruitment.ListJobOptionsRequest
-	204, // 227: recruitment.JobService.ListDepartmentLocations:input_type -> recruitment.ListDepartmentLocationsRequest
-	67,  // 228: recruitment.CandidateService.GetProfile:input_type -> recruitment.GetProfileRequest
-	68,  // 229: recruitment.CandidateService.UpdateProfile:input_type -> recruitment.UpdateProfileRequest
-	71,  // 230: recruitment.CandidateService.GetResume:input_type -> recruitment.GetResumeRequest
-	74,  // 231: recruitment.CandidateService.PresignResumeUpload:input_type -> recruitment.PresignResumeUploadRequest
-	76,  // 232: recruitment.CandidateService.ConfirmResumeUpload:input_type -> recruitment.ConfirmResumeUploadRequest
-	78,  // 233: recruitment.ApplicationService.ApplyJob:input_type -> recruitment.ApplyJobRequest
-	79,  // 234: recruitment.ApplicationService.ListMyApplications:input_type -> recruitment.ListMyApplicationsRequest
-	82,  // 235: recruitment.ApplicationService.ListJobApplications:input_type -> recruitment.ListJobApplicationsRequest
-	85,  // 236: recruitment.ApplicationService.UpdateApplicationStatus:input_type -> recruitment.UpdateApplicationStatusRequest
-	86,  // 237: recruitment.ApplicationService.ListApplicationStatusTransitions:input_type -> recruitment.ListApplicationStatusTransitionsRequest
-	89,  // 238: recruitment.ApplicationOwnerService.GetApplicationSnapshot:input_type -> recruitment.GetApplicationSnapshotRequest
-	91,  // 239: recruitment.ApplicationOwnerService.ApplyApplicationLifecycleTransition:input_type -> recruitment.ApplyApplicationLifecycleTransitionRequest
-	144, // 240: recruitment.InterviewService.ScheduleInterview:input_type -> recruitment.ScheduleInterviewRequest
-	146, // 241: recruitment.InterviewService.UpdateInterview:input_type -> recruitment.UpdateInterviewRequest
-	147, // 242: recruitment.InterviewService.CancelInterview:input_type -> recruitment.CancelInterviewRequest
-	148, // 243: recruitment.InterviewService.GetInterview:input_type -> recruitment.GetInterviewRequest
-	150, // 244: recruitment.InterviewService.ListInterviewers:input_type -> recruitment.ListInterviewersRequest
-	152, // 245: recruitment.InterviewService.ListApplicationInterviews:input_type -> recruitment.ListApplicationInterviewsRequest
-	154, // 246: recruitment.InterviewService.ListMyInterviews:input_type -> recruitment.ListMyInterviewsRequest
-	156, // 247: recruitment.InterviewService.ListCandidateInterviews:input_type -> recruitment.ListCandidateInterviewsRequest
-	159, // 248: recruitment.InterviewService.SubmitFeedback:input_type -> recruitment.SubmitFeedbackRequest
-	160, // 249: recruitment.InterviewService.GetFeedback:input_type -> recruitment.GetFeedbackRequest
-	162, // 250: recruitment.InterviewService.BatchCancelInterviews:input_type -> recruitment.BatchCancelInterviewsRequest
-	165, // 251: recruitment.NotificationService.ListNotifications:input_type -> recruitment.ListNotificationsRequest
-	167, // 252: recruitment.NotificationService.UnreadNotificationCount:input_type -> recruitment.UnreadNotificationCountRequest
-	169, // 253: recruitment.NotificationService.NotificationSummary:input_type -> recruitment.NotificationSummaryRequest
-	171, // 254: recruitment.NotificationService.MarkNotificationRead:input_type -> recruitment.MarkNotificationReadRequest
-	172, // 255: recruitment.NotificationService.MarkAllNotificationsRead:input_type -> recruitment.MarkAllNotificationsReadRequest
-	93,  // 256: recruitment.AIService.Chat:input_type -> recruitment.ChatRequest
-	93,  // 257: recruitment.AIService.ChatStream:input_type -> recruitment.ChatRequest
-	100, // 258: recruitment.AIService.History:input_type -> recruitment.ChatHistoryRequest
-	103, // 259: recruitment.AIService.AnalyzeApplication:input_type -> recruitment.AnalyzeApplicationRequest
-	105, // 260: recruitment.AIService.ListChatSessions:input_type -> recruitment.ChatSessionListRequest
-	108, // 261: recruitment.AIService.CreateChatSession:input_type -> recruitment.CreateChatSessionRequest
-	110, // 262: recruitment.AIService.SessionMessages:input_type -> recruitment.SessionMessagesRequest
-	111, // 263: recruitment.AIService.CreateApplicationAnalysisSession:input_type -> recruitment.CreateApplicationAnalysisSessionRequest
-	477, // 264: recruitment.AIService.PreviewChatContext:input_type -> recruitment.PreviewChatContextRequest
-	113, // 265: recruitment.AIService.UpdateSession:input_type -> recruitment.UpdateSessionRequest
-	114, // 266: recruitment.AIService.DeleteSession:input_type -> recruitment.DeleteSessionRequest
-	115, // 267: recruitment.AIService.CandidateChatStream:input_type -> recruitment.CandidateChatRequest
-	116, // 268: recruitment.AIService.CandidateListSessions:input_type -> recruitment.CandidateSessionListRequest
-	117, // 269: recruitment.AIService.CandidateCreateSession:input_type -> recruitment.CandidateCreateSessionRequest
-	118, // 270: recruitment.AIService.CandidateSessionMessages:input_type -> recruitment.CandidateSessionMessagesRequest
-	119, // 271: recruitment.AIService.CandidateUpdateSession:input_type -> recruitment.CandidateUpdateSessionRequest
-	120, // 272: recruitment.AIService.CandidateDeleteSession:input_type -> recruitment.CandidateDeleteSessionRequest
-	121, // 273: recruitment.AIService.GetToolTraces:input_type -> recruitment.GetToolTracesRequest
-	124, // 274: recruitment.AIService.GetAgentRuns:input_type -> recruitment.GetAgentRunsRequest
-	132, // 275: recruitment.AIService.CreateAgentRun:input_type -> recruitment.CreateAgentRunRequest
-	134, // 276: recruitment.AIService.GetAgentRun:input_type -> recruitment.GetAgentRunRequest
-	136, // 277: recruitment.AIService.GetActiveAgentRun:input_type -> recruitment.GetActiveAgentRunRequest
-	138, // 278: recruitment.AIService.SubscribeAgentRunEvents:input_type -> recruitment.SubscribeAgentRunEventsRequest
-	139, // 279: recruitment.AIService.CancelAgentRun:input_type -> recruitment.CancelAgentRunRequest
-	141, // 280: recruitment.AIService.ConfirmAgentRun:input_type -> recruitment.ConfirmAgentRunRequest
-	480, // 281: recruitment.BillingService.CheckAIAccess:input_type -> recruitment.CheckAIAccessRequest
-	482, // 282: recruitment.BillingService.ReserveAIUsage:input_type -> recruitment.ReserveAIUsageRequest
-	485, // 283: recruitment.BillingService.SettleAIUsage:input_type -> recruitment.SettleAIUsageRequest
-	487, // 284: recruitment.BillingService.CancelAIUsage:input_type -> recruitment.CancelAIUsageRequest
-	489, // 285: recruitment.BillingService.GetAICreditBalance:input_type -> recruitment.GetAICreditBalanceRequest
-	493, // 286: recruitment.BillingService.ListBillingCatalog:input_type -> recruitment.ListBillingCatalogRequest
-	496, // 287: recruitment.BillingService.GetBillingAccount:input_type -> recruitment.GetBillingAccountRequest
-	499, // 288: recruitment.BillingService.ListBillingOrders:input_type -> recruitment.ListBillingOrdersRequest
-	501, // 289: recruitment.BillingService.CreateBillingOrder:input_type -> recruitment.CreateBillingOrderRequest
-	503, // 290: recruitment.BillingService.CreateAlipayPayment:input_type -> recruitment.CreateAlipayPaymentRequest
-	505, // 291: recruitment.BillingService.RequestBillingRefund:input_type -> recruitment.RequestBillingRefundRequest
-	512, // 292: recruitment.BillingService.ProcessAlipayNotification:input_type -> recruitment.ProcessAlipayNotificationRequest
-	514, // 293: recruitment.BillingService.ResolveAlipayReturn:input_type -> recruitment.ResolveAlipayReturnRequest
-	516, // 294: recruitment.BillingService.SyncAlipayReturn:input_type -> recruitment.SyncAlipayReturnRequest
-	508, // 295: recruitment.BillingService.ListBillingRefunds:input_type -> recruitment.ListBillingRefundsRequest
-	510, // 296: recruitment.BillingService.ReviewBillingRefund:input_type -> recruitment.ReviewBillingRefundRequest
-	517, // 297: recruitment.BillingService.ListBillingAdminCatalog:input_type -> recruitment.ListBillingAdminCatalogRequest
-	518, // 298: recruitment.BillingService.SaveBillingPriceVersion:input_type -> recruitment.SaveBillingPriceVersionRequest
-	520, // 299: recruitment.BillingService.ListAIRateCards:input_type -> recruitment.ListAIRateCardsRequest
-	522, // 300: recruitment.BillingService.SaveAIRateCard:input_type -> recruitment.SaveAIRateCardRequest
-	213, // 301: recruitment.OfferService.CreateOffer:input_type -> recruitment.CreateOfferRequest
-	215, // 302: recruitment.OfferService.UpdateOffer:input_type -> recruitment.UpdateOfferRequest
-	216, // 303: recruitment.OfferService.GetOffer:input_type -> recruitment.GetOfferRequest
-	218, // 304: recruitment.OfferService.ListOffersByApplication:input_type -> recruitment.ListOffersByApplicationRequest
-	220, // 305: recruitment.OfferService.SendOffer:input_type -> recruitment.SendOfferRequest
-	221, // 306: recruitment.OfferService.WithdrawOffer:input_type -> recruitment.WithdrawOfferRequest
-	222, // 307: recruitment.OfferService.AcceptOffer:input_type -> recruitment.AcceptOfferRequest
-	223, // 308: recruitment.OfferService.RejectOffer:input_type -> recruitment.RejectOfferRequest
-	224, // 309: recruitment.OfferService.ListMyOffers:input_type -> recruitment.ListMyOffersRequest
-	227, // 310: recruitment.OfferService.ListOfferEvents:input_type -> recruitment.ListOfferEventsRequest
-	174, // 311: recruitment.AdminService.CreateInviteCode:input_type -> recruitment.CreateInviteCodeRequest
-	176, // 312: recruitment.AdminService.ListInviteCodes:input_type -> recruitment.ListInviteCodesRequest
-	178, // 313: recruitment.AdminService.ExtendInviteCode:input_type -> recruitment.ExtendInviteCodeRequest
-	179, // 314: recruitment.AdminService.RevokeInviteCode:input_type -> recruitment.RevokeInviteCodeRequest
-	180, // 315: recruitment.AdminService.ReactivateInviteCode:input_type -> recruitment.ReactivateInviteCodeRequest
-	181, // 316: recruitment.AdminService.ValidateInviteCode:input_type -> recruitment.ValidateInviteCodeRequest
-	187, // 317: recruitment.AdminService.ListDepartments:input_type -> recruitment.ListDepartmentsRequest
-	189, // 318: recruitment.AdminService.CreateDepartment:input_type -> recruitment.CreateDepartmentRequest
-	190, // 319: recruitment.AdminService.UpdateDepartment:input_type -> recruitment.UpdateDepartmentRequest
-	191, // 320: recruitment.AdminService.UpdateDepartmentStatus:input_type -> recruitment.UpdateDepartmentStatusRequest
-	192, // 321: recruitment.AdminService.DeleteDepartment:input_type -> recruitment.DeleteDepartmentRequest
-	194, // 322: recruitment.AdminService.ListJobLocations:input_type -> recruitment.ListJobLocationsRequest
-	196, // 323: recruitment.AdminService.CreateJobLocation:input_type -> recruitment.CreateJobLocationRequest
-	197, // 324: recruitment.AdminService.UpdateJobLocation:input_type -> recruitment.UpdateJobLocationRequest
-	198, // 325: recruitment.AdminService.UpdateJobLocationStatus:input_type -> recruitment.UpdateJobLocationStatusRequest
-	199, // 326: recruitment.AdminService.DeleteJobLocation:input_type -> recruitment.DeleteJobLocationRequest
-	206, // 327: recruitment.AdminService.GetDepartmentLocationConfig:input_type -> recruitment.GetDepartmentLocationConfigRequest
-	207, // 328: recruitment.AdminService.UpdateDepartmentLocationConfig:input_type -> recruitment.UpdateDepartmentLocationConfigRequest
-	202, // 329: recruitment.AdminService.ListDepartmentsLocationMap:input_type -> recruitment.ListDepartmentsLocationMapRequest
-	210, // 330: recruitment.AdminService.QueryUsageLogs:input_type -> recruitment.QueryUsageLogsRequest
-	229, // 331: recruitment.AdminService.ListRoles:input_type -> recruitment.ListRolesRequest
-	232, // 332: recruitment.AdminService.ListPermissions:input_type -> recruitment.ListPermissionsRequest
-	235, // 333: recruitment.AdminService.GetUserRoles:input_type -> recruitment.GetUserRolesRequest
-	238, // 334: recruitment.AdminService.AssignUserRole:input_type -> recruitment.AssignUserRoleRequest
-	239, // 335: recruitment.AdminService.RevokeUserRole:input_type -> recruitment.RevokeUserRoleRequest
-	240, // 336: recruitment.AdminService.AssignDataScope:input_type -> recruitment.AssignDataScopeRequest
-	241, // 337: recruitment.AdminService.RevokeDataScope:input_type -> recruitment.RevokeDataScopeRequest
-	242, // 338: recruitment.AdminService.ListStaffUsers:input_type -> recruitment.ListStaffUsersRequest
-	245, // 339: recruitment.AdminService.CreateStaffUser:input_type -> recruitment.CreateStaffUserRequest
-	248, // 340: recruitment.AdminService.ListPlatformUsers:input_type -> recruitment.ListPlatformUsersRequest
-	250, // 341: recruitment.AdminService.CreatePlatformUser:input_type -> recruitment.CreatePlatformUserRequest
-	252, // 342: recruitment.AdminService.UpdatePlatformUser:input_type -> recruitment.UpdatePlatformUserRequest
-	285, // 343: recruitment.AdminService.QueryAuthAuditLogs:input_type -> recruitment.QueryAuthAuditLogsRequest
-	288, // 344: recruitment.AdminService.GetDashboardReport:input_type -> recruitment.GetDashboardReportRequest
-	292, // 345: recruitment.AdminService.GetFunnelReport:input_type -> recruitment.GetFunnelReportRequest
-	295, // 346: recruitment.AdminService.GetTimeInStageReport:input_type -> recruitment.GetTimeInStageReportRequest
-	298, // 347: recruitment.AdminService.GetInterviewOfferMetrics:input_type -> recruitment.GetInterviewOfferMetricsRequest
-	300, // 348: recruitment.AdminService.GetUsageStats:input_type -> recruitment.GetUsageStatsRequest
-	304, // 349: recruitment.AdminService.GetUsageTrend:input_type -> recruitment.GetUsageTrendRequest
-	254, // 350: recruitment.CollaborationService.GetCandidateWorkspace:input_type -> recruitment.GetCandidateWorkspaceRequest
-	261, // 351: recruitment.CollaborationService.CreateNote:input_type -> recruitment.CreateNoteRequest
-	263, // 352: recruitment.CollaborationService.ListNotes:input_type -> recruitment.ListNotesRequest
-	266, // 353: recruitment.CollaborationService.CreateTag:input_type -> recruitment.CreateTagRequest
-	268, // 354: recruitment.CollaborationService.ListTags:input_type -> recruitment.ListTagsRequest
-	270, // 355: recruitment.CollaborationService.AssignTag:input_type -> recruitment.AssignTagRequest
-	271, // 356: recruitment.CollaborationService.UnassignTag:input_type -> recruitment.UnassignTagRequest
-	272, // 357: recruitment.CollaborationService.ListCandidateTags:input_type -> recruitment.ListCandidateTagsRequest
-	275, // 358: recruitment.CollaborationService.CreateFollowUpTask:input_type -> recruitment.CreateFollowUpTaskRequest
-	277, // 359: recruitment.CollaborationService.ListFollowUpTasks:input_type -> recruitment.ListFollowUpTasksRequest
-	279, // 360: recruitment.CollaborationService.CompleteFollowUpTask:input_type -> recruitment.CompleteFollowUpTaskRequest
-	280, // 361: recruitment.CollaborationService.GetFollowUpTask:input_type -> recruitment.GetFollowUpTaskRequest
-	283, // 362: recruitment.CollaborationService.ListTimelineEvents:input_type -> recruitment.ListTimelineEventsRequest
-	439, // 363: recruitment.RecruitingIntelligenceService.GetResumeProfile:input_type -> recruitment.GetResumeProfileRequest
-	440, // 364: recruitment.RecruitingIntelligenceService.ParseResumeProfile:input_type -> recruitment.ParseResumeProfileRequest
-	449, // 365: recruitment.RecruitingIntelligenceService.EvaluateCandidateMatch:input_type -> recruitment.EvaluateCandidateMatchRequest
-	450, // 366: recruitment.RecruitingIntelligenceService.GetCandidateMatchEvaluation:input_type -> recruitment.GetCandidateMatchEvaluationRequest
-	455, // 367: recruitment.RecruitingIntelligenceService.CompareCandidatesForJob:input_type -> recruitment.CompareCandidatesForJobRequest
-	309, // 368: recruitment.PlatformAIControlPlaneService.ListPlatformAICapabilities:input_type -> recruitment.ListPlatformAICapabilitiesRequest
-	311, // 369: recruitment.PlatformAIControlPlaneService.ListPlatformAICapabilityVersions:input_type -> recruitment.ListPlatformAICapabilityVersionsRequest
-	313, // 370: recruitment.PlatformAIControlPlaneService.CreatePlatformAICapabilityDraft:input_type -> recruitment.CreatePlatformAICapabilityDraftRequest
-	314, // 371: recruitment.PlatformAIControlPlaneService.UpdatePlatformAICapabilityDraft:input_type -> recruitment.UpdatePlatformAICapabilityDraftRequest
-	315, // 372: recruitment.PlatformAIControlPlaneService.PublishPlatformAICapabilityVersion:input_type -> recruitment.PublishPlatformAICapabilityVersionRequest
-	318, // 373: recruitment.PlatformAIControlPlaneService.ListPlatformAIRuntimeModels:input_type -> recruitment.ListPlatformAIRuntimeModelsRequest
-	320, // 374: recruitment.PlatformAIControlPlaneService.ResolvePlatformAIRuntimeModel:input_type -> recruitment.ResolvePlatformAIRuntimeModelRequest
-	322, // 375: recruitment.PlatformAIControlPlaneService.QueryPlatformAIConfigAuditLogs:input_type -> recruitment.QueryPlatformAIConfigAuditLogsRequest
-	326, // 376: recruitment.MCPService.ListMCPServers:input_type -> recruitment.ListMCPServersRequest
-	328, // 377: recruitment.MCPService.CreateMCPServer:input_type -> recruitment.CreateMCPServerRequest
-	329, // 378: recruitment.MCPService.UpdateMCPServer:input_type -> recruitment.UpdateMCPServerRequest
-	330, // 379: recruitment.MCPService.DeleteMCPServer:input_type -> recruitment.DeleteMCPServerRequest
-	333, // 380: recruitment.MCPService.ListMCPToolPolicies:input_type -> recruitment.ListMCPToolPoliciesRequest
-	335, // 381: recruitment.MCPService.CreateMCPToolPolicy:input_type -> recruitment.CreateMCPToolPolicyRequest
-	336, // 382: recruitment.MCPService.UpdateMCPToolPolicy:input_type -> recruitment.UpdateMCPToolPolicyRequest
-	337, // 383: recruitment.MCPService.DeleteMCPToolPolicy:input_type -> recruitment.DeleteMCPToolPolicyRequest
-	340, // 384: recruitment.MCPService.ListMCPToolLogs:input_type -> recruitment.ListMCPToolLogsRequest
-	342, // 385: recruitment.MCPService.TestMCPConnection:input_type -> recruitment.TestMCPConnectionRequest
-	344, // 386: recruitment.MCPService.ListMCPTools:input_type -> recruitment.ListMCPToolsRequest
-	347, // 387: recruitment.MCPService.CallMCPTool:input_type -> recruitment.CallMCPToolRequest
-	350, // 388: recruitment.LlmConfigService.ListProviders:input_type -> recruitment.ListProvidersRequest
-	352, // 389: recruitment.LlmConfigService.CreateProvider:input_type -> recruitment.CreateProviderRequest
-	353, // 390: recruitment.LlmConfigService.UpdateProvider:input_type -> recruitment.UpdateProviderRequest
-	355, // 391: recruitment.LlmConfigService.DeleteProvider:input_type -> recruitment.DeleteProviderRequest
-	356, // 392: recruitment.LlmConfigService.TestProviderConnection:input_type -> recruitment.TestProviderConnectionRequest
-	359, // 393: recruitment.LlmConfigService.DiscoverProviderModels:input_type -> recruitment.DiscoverProviderModelsRequest
-	363, // 394: recruitment.LlmConfigService.GetProviderModelPreset:input_type -> recruitment.GetProviderModelPresetRequest
-	366, // 395: recruitment.LlmConfigService.ListModels:input_type -> recruitment.ListModelsRequest
-	368, // 396: recruitment.LlmConfigService.CreateModel:input_type -> recruitment.CreateModelRequest
-	369, // 397: recruitment.LlmConfigService.UpdateModel:input_type -> recruitment.UpdateModelRequest
-	371, // 398: recruitment.LlmConfigService.DeleteModel:input_type -> recruitment.DeleteModelRequest
-	358, // 399: recruitment.LlmConfigService.TestModelConnection:input_type -> recruitment.TestModelConnectionRequest
-	373, // 400: recruitment.PromptService.ListPromptTemplates:input_type -> recruitment.ListPromptTemplatesRequest
-	375, // 401: recruitment.PromptService.CreatePromptTemplate:input_type -> recruitment.CreatePromptTemplateRequest
-	376, // 402: recruitment.PromptService.UpdatePromptTemplate:input_type -> recruitment.UpdatePromptTemplateRequest
-	378, // 403: recruitment.PromptService.DeletePromptTemplate:input_type -> recruitment.DeletePromptTemplateRequest
-	380, // 404: recruitment.PromptService.GetPromptVersionHistory:input_type -> recruitment.GetPromptVersionHistoryRequest
-	382, // 405: recruitment.PromptService.RollbackPromptVersion:input_type -> recruitment.RollbackPromptVersionRequest
-	383, // 406: recruitment.PromptService.RenderPrompt:input_type -> recruitment.RenderPromptRequest
-	385, // 407: recruitment.PromptService.GetActivePromptByAgentType:input_type -> recruitment.GetActivePromptByAgentTypeRequest
-	393, // 408: recruitment.AgentConfigService.ListAgents:input_type -> recruitment.ListAgentsRequest
-	391, // 409: recruitment.AgentConfigService.ListCapabilities:input_type -> recruitment.ListCapabilitiesRequest
-	395, // 410: recruitment.AgentConfigService.CreateAgent:input_type -> recruitment.CreateAgentRequest
-	396, // 411: recruitment.AgentConfigService.UpdateAgent:input_type -> recruitment.UpdateAgentRequest
-	398, // 412: recruitment.AgentConfigService.DeleteAgent:input_type -> recruitment.DeleteAgentRequest
-	399, // 413: recruitment.AgentConfigService.GetAgentConfig:input_type -> recruitment.GetAgentConfigRequest
-	404, // 414: recruitment.SkillService.ListSkills:input_type -> recruitment.ListSkillsRequest
-	406, // 415: recruitment.SkillService.CreateSkill:input_type -> recruitment.CreateSkillRequest
-	407, // 416: recruitment.SkillService.UpdateSkill:input_type -> recruitment.UpdateSkillRequest
-	409, // 417: recruitment.SkillService.CreateSkillVersion:input_type -> recruitment.CreateSkillVersionRequest
-	411, // 418: recruitment.SkillService.ListSkillVersions:input_type -> recruitment.ListSkillVersionsRequest
-	413, // 419: recruitment.SkillService.ActivateSkillVersion:input_type -> recruitment.ActivateSkillVersionRequest
-	414, // 420: recruitment.SkillService.ListSkillTools:input_type -> recruitment.ListSkillToolsRequest
-	416, // 421: recruitment.SkillService.UpdateSkillTool:input_type -> recruitment.UpdateSkillToolRequest
-	420, // 422: recruitment.AgentSkillService.ListAgentSkills:input_type -> recruitment.ListAgentSkillsRequest
-	423, // 423: recruitment.AgentSkillService.GetAgentSkill:input_type -> recruitment.GetAgentSkillRequest
-	424, // 424: recruitment.AgentSkillService.CreateAgentSkill:input_type -> recruitment.CreateAgentSkillRequest
-	425, // 425: recruitment.AgentSkillService.UpdateAgentSkill:input_type -> recruitment.UpdateAgentSkillRequest
-	427, // 426: recruitment.AgentSkillService.CreateAgentSkillVersion:input_type -> recruitment.CreateAgentSkillVersionRequest
-	429, // 427: recruitment.AgentSkillService.ListAgentSkillVersions:input_type -> recruitment.ListAgentSkillVersionsRequest
-	431, // 428: recruitment.AgentSkillService.ActivateAgentSkillVersion:input_type -> recruitment.ActivateAgentSkillVersionRequest
-	432, // 429: recruitment.AgentSkillService.UpdateAgentSkillStatus:input_type -> recruitment.UpdateAgentSkillStatusRequest
-	433, // 430: recruitment.AgentSkillService.PreviewAgentSkill:input_type -> recruitment.PreviewAgentSkillRequest
-	421, // 431: recruitment.AgentSkillService.ListAvailableAgentSkills:input_type -> recruitment.ListAvailableAgentSkillsRequest
-	435, // 432: recruitment.AgentSkillService.DebugSemanticRetrieval:input_type -> recruitment.DebugSemanticRetrievalRequest
-	459, // 433: recruitment.EmbeddingConfigService.ListEmbeddingProviders:input_type -> recruitment.ListEmbeddingProvidersRequest
-	461, // 434: recruitment.EmbeddingConfigService.CreateEmbeddingProvider:input_type -> recruitment.CreateEmbeddingProviderRequest
-	462, // 435: recruitment.EmbeddingConfigService.UpdateEmbeddingProvider:input_type -> recruitment.UpdateEmbeddingProviderRequest
-	464, // 436: recruitment.EmbeddingConfigService.DeleteEmbeddingProvider:input_type -> recruitment.DeleteEmbeddingProviderRequest
-	466, // 437: recruitment.EmbeddingConfigService.ListEmbeddingModels:input_type -> recruitment.ListEmbeddingModelsRequest
-	468, // 438: recruitment.EmbeddingConfigService.CreateEmbeddingModel:input_type -> recruitment.CreateEmbeddingModelRequest
-	469, // 439: recruitment.EmbeddingConfigService.UpdateEmbeddingModel:input_type -> recruitment.UpdateEmbeddingModelRequest
-	472, // 440: recruitment.EmbeddingConfigService.SetDefaultEmbeddingModel:input_type -> recruitment.SetDefaultEmbeddingModelRequest
-	473, // 441: recruitment.EmbeddingConfigService.TestEmbeddingModel:input_type -> recruitment.TestEmbeddingModelRequest
-	475, // 442: recruitment.EmbeddingConfigService.BackfillEmbeddings:input_type -> recruitment.BackfillEmbeddingsRequest
-	4,   // 443: recruitment.AuthService.Register:output_type -> recruitment.RegisterResponse
-	45,  // 444: recruitment.AuthService.Login:output_type -> recruitment.LoginResponse
-	47,  // 445: recruitment.AuthService.RefreshToken:output_type -> recruitment.RefreshTokenResponse
-	45,  // 446: recruitment.AuthService.SwitchTenant:output_type -> recruitment.LoginResponse
-	2,   // 447: recruitment.AuthService.RevokeRefreshToken:output_type -> recruitment.CommonResponse
-	2,   // 448: recruitment.AuthService.RecordAuthDecision:output_type -> recruitment.CommonResponse
-	52,  // 449: recruitment.AuthService.GetPrincipal:output_type -> recruitment.GetPrincipalResponse
-	54,  // 450: recruitment.AuthService.AuthorizeInternal:output_type -> recruitment.AuthorizeInternalResponse
-	2,   // 451: recruitment.AuthService.UpdateEmail:output_type -> recruitment.CommonResponse
-	10,  // 452: recruitment.PlatformTenantService.CreateTenant:output_type -> recruitment.TenantResponse
-	11,  // 453: recruitment.PlatformTenantService.ListTenants:output_type -> recruitment.ListTenantsResponse
-	10,  // 454: recruitment.PlatformTenantService.GetTenant:output_type -> recruitment.TenantResponse
-	10,  // 455: recruitment.PlatformTenantService.UpdateTenantStatus:output_type -> recruitment.TenantResponse
-	15,  // 456: recruitment.PlatformTenantService.ListTenantMemberships:output_type -> recruitment.ListTenantMembershipsResponse
-	17,  // 457: recruitment.PlatformTenantService.UpdateTenantMembershipStatus:output_type -> recruitment.TenantMembershipResponse
-	20,  // 458: recruitment.PlatformTenantService.GetPlatformDashboard:output_type -> recruitment.GetPlatformDashboardResponse
-	23,  // 459: recruitment.PlatformTenantService.QueryPlatformAuditLogs:output_type -> recruitment.QueryPlatformAuditLogsResponse
-	28,  // 460: recruitment.PlatformTenantService.ListPlatformPlans:output_type -> recruitment.ListPlatformPlansResponse
-	31,  // 461: recruitment.PlatformTenantService.SavePlatformPlanVersion:output_type -> recruitment.PlatformPlanVersionResponse
-	31,  // 462: recruitment.PlatformTenantService.PublishPlatformPlanVersion:output_type -> recruitment.PlatformPlanVersionResponse
-	35,  // 463: recruitment.PlatformTenantService.GetTenantSubscription:output_type -> recruitment.TenantSubscriptionResponse
-	35,  // 464: recruitment.PlatformTenantService.UpdateTenantSubscription:output_type -> recruitment.TenantSubscriptionResponse
-	35,  // 465: recruitment.PlatformTenantService.UpdateTenantEntitlementOverride:output_type -> recruitment.TenantSubscriptionResponse
-	39,  // 466: recruitment.PlatformTenantService.GetTenantUsage:output_type -> recruitment.GetTenantUsageResponse
-	42,  // 467: recruitment.PlatformTenantService.ListQuotaAlerts:output_type -> recruitment.ListQuotaAlertsResponse
-	44,  // 468: recruitment.PlatformTenantService.UpdateQuotaAlert:output_type -> recruitment.QuotaAlertResponse
-	58,  // 469: recruitment.JobService.CreateJob:output_type -> recruitment.CreateJobResponse
-	2,   // 470: recruitment.JobService.UpdateJob:output_type -> recruitment.CommonResponse
-	2,   // 471: recruitment.JobService.OfflineJob:output_type -> recruitment.CommonResponse
-	2,   // 472: recruitment.JobService.OnlineJob:output_type -> recruitment.CommonResponse
-	65,  // 473: recruitment.JobService.ListHRJobs:output_type -> recruitment.ListJobsResponse
-	65,  // 474: recruitment.JobService.ListPublicJobs:output_type -> recruitment.ListJobsResponse
-	66,  // 475: recruitment.JobService.GetJobDetail:output_type -> recruitment.GetJobDetailResponse
-	184, // 476: recruitment.JobService.ListJobOptions:output_type -> recruitment.ListJobOptionsResponse
-	205, // 477: recruitment.JobService.ListDepartmentLocations:output_type -> recruitment.ListDepartmentLocationsResponse
-	70,  // 478: recruitment.CandidateService.GetProfile:output_type -> recruitment.GetProfileResponse
-	70,  // 479: recruitment.CandidateService.UpdateProfile:output_type -> recruitment.GetProfileResponse
-	73,  // 480: recruitment.CandidateService.GetResume:output_type -> recruitment.GetResumeResponse
-	75,  // 481: recruitment.CandidateService.PresignResumeUpload:output_type -> recruitment.PresignResumeUploadResponse
-	77,  // 482: recruitment.CandidateService.ConfirmResumeUpload:output_type -> recruitment.ConfirmResumeUploadResponse
-	2,   // 483: recruitment.ApplicationService.ApplyJob:output_type -> recruitment.CommonResponse
-	81,  // 484: recruitment.ApplicationService.ListMyApplications:output_type -> recruitment.ListMyApplicationsResponse
-	84,  // 485: recruitment.ApplicationService.ListJobApplications:output_type -> recruitment.ListJobApplicationsResponse
-	2,   // 486: recruitment.ApplicationService.UpdateApplicationStatus:output_type -> recruitment.CommonResponse
-	88,  // 487: recruitment.ApplicationService.ListApplicationStatusTransitions:output_type -> recruitment.ListApplicationStatusTransitionsResponse
-	90,  // 488: recruitment.ApplicationOwnerService.GetApplicationSnapshot:output_type -> recruitment.GetApplicationSnapshotResponse
-	92,  // 489: recruitment.ApplicationOwnerService.ApplyApplicationLifecycleTransition:output_type -> recruitment.ApplyApplicationLifecycleTransitionResponse
-	145, // 490: recruitment.InterviewService.ScheduleInterview:output_type -> recruitment.ScheduleInterviewResponse
-	2,   // 491: recruitment.InterviewService.UpdateInterview:output_type -> recruitment.CommonResponse
-	2,   // 492: recruitment.InterviewService.CancelInterview:output_type -> recruitment.CommonResponse
-	149, // 493: recruitment.InterviewService.GetInterview:output_type -> recruitment.GetInterviewResponse
-	151, // 494: recruitment.InterviewService.ListInterviewers:output_type -> recruitment.ListInterviewersResponse
-	153, // 495: recruitment.InterviewService.ListApplicationInterviews:output_type -> recruitment.ListApplicationInterviewsResponse
-	155, // 496: recruitment.InterviewService.ListMyInterviews:output_type -> recruitment.ListMyInterviewsResponse
-	157, // 497: recruitment.InterviewService.ListCandidateInterviews:output_type -> recruitment.ListCandidateInterviewsResponse
-	2,   // 498: recruitment.InterviewService.SubmitFeedback:output_type -> recruitment.CommonResponse
-	161, // 499: recruitment.InterviewService.GetFeedback:output_type -> recruitment.GetFeedbackResponse
-	163, // 500: recruitment.InterviewService.BatchCancelInterviews:output_type -> recruitment.BatchCancelInterviewsResponse
-	166, // 501: recruitment.NotificationService.ListNotifications:output_type -> recruitment.ListNotificationsResponse
-	168, // 502: recruitment.NotificationService.UnreadNotificationCount:output_type -> recruitment.UnreadNotificationCountResponse
-	170, // 503: recruitment.NotificationService.NotificationSummary:output_type -> recruitment.NotificationSummaryResponse
-	2,   // 504: recruitment.NotificationService.MarkNotificationRead:output_type -> recruitment.CommonResponse
-	2,   // 505: recruitment.NotificationService.MarkAllNotificationsRead:output_type -> recruitment.CommonResponse
-	96,  // 506: recruitment.AIService.Chat:output_type -> recruitment.ChatResponse
-	99,  // 507: recruitment.AIService.ChatStream:output_type -> recruitment.ChatStreamResponse
-	102, // 508: recruitment.AIService.History:output_type -> recruitment.ChatHistoryResponse
-	104, // 509: recruitment.AIService.AnalyzeApplication:output_type -> recruitment.AnalyzeApplicationResponse
-	107, // 510: recruitment.AIService.ListChatSessions:output_type -> recruitment.ChatSessionListResponse
-	109, // 511: recruitment.AIService.CreateChatSession:output_type -> recruitment.CreateChatSessionResponse
-	102, // 512: recruitment.AIService.SessionMessages:output_type -> recruitment.ChatHistoryResponse
-	112, // 513: recruitment.AIService.CreateApplicationAnalysisSession:output_type -> recruitment.CreateApplicationAnalysisSessionResponse
-	478, // 514: recruitment.AIService.PreviewChatContext:output_type -> recruitment.PreviewChatContextResponse
-	2,   // 515: recruitment.AIService.UpdateSession:output_type -> recruitment.CommonResponse
-	2,   // 516: recruitment.AIService.DeleteSession:output_type -> recruitment.CommonResponse
-	99,  // 517: recruitment.AIService.CandidateChatStream:output_type -> recruitment.ChatStreamResponse
-	107, // 518: recruitment.AIService.CandidateListSessions:output_type -> recruitment.ChatSessionListResponse
-	109, // 519: recruitment.AIService.CandidateCreateSession:output_type -> recruitment.CreateChatSessionResponse
-	102, // 520: recruitment.AIService.CandidateSessionMessages:output_type -> recruitment.ChatHistoryResponse
-	2,   // 521: recruitment.AIService.CandidateUpdateSession:output_type -> recruitment.CommonResponse
-	2,   // 522: recruitment.AIService.CandidateDeleteSession:output_type -> recruitment.CommonResponse
-	123, // 523: recruitment.AIService.GetToolTraces:output_type -> recruitment.GetToolTracesResponse
-	127, // 524: recruitment.AIService.GetAgentRuns:output_type -> recruitment.GetAgentRunsResponse
-	133, // 525: recruitment.AIService.CreateAgentRun:output_type -> recruitment.CreateAgentRunResponse
-	135, // 526: recruitment.AIService.GetAgentRun:output_type -> recruitment.GetAgentRunResponse
-	137, // 527: recruitment.AIService.GetActiveAgentRun:output_type -> recruitment.GetActiveAgentRunResponse
-	131, // 528: recruitment.AIService.SubscribeAgentRunEvents:output_type -> recruitment.AgentRunEvent
-	140, // 529: recruitment.AIService.CancelAgentRun:output_type -> recruitment.CancelAgentRunResponse
-	142, // 530: recruitment.AIService.ConfirmAgentRun:output_type -> recruitment.ConfirmAgentRunResponse
-	481, // 531: recruitment.BillingService.CheckAIAccess:output_type -> recruitment.CheckAIAccessResponse
-	483, // 532: recruitment.BillingService.ReserveAIUsage:output_type -> recruitment.ReserveAIUsageResponse
-	486, // 533: recruitment.BillingService.SettleAIUsage:output_type -> recruitment.SettleAIUsageResponse
-	488, // 534: recruitment.BillingService.CancelAIUsage:output_type -> recruitment.CancelAIUsageResponse
-	490, // 535: recruitment.BillingService.GetAICreditBalance:output_type -> recruitment.GetAICreditBalanceResponse
-	494, // 536: recruitment.BillingService.ListBillingCatalog:output_type -> recruitment.ListBillingCatalogResponse
-	497, // 537: recruitment.BillingService.GetBillingAccount:output_type -> recruitment.GetBillingAccountResponse
-	500, // 538: recruitment.BillingService.ListBillingOrders:output_type -> recruitment.ListBillingOrdersResponse
-	502, // 539: recruitment.BillingService.CreateBillingOrder:output_type -> recruitment.BillingOrderResponse
-	504, // 540: recruitment.BillingService.CreateAlipayPayment:output_type -> recruitment.CreateAlipayPaymentResponse
-	506, // 541: recruitment.BillingService.RequestBillingRefund:output_type -> recruitment.BillingRefundResponse
-	513, // 542: recruitment.BillingService.ProcessAlipayNotification:output_type -> recruitment.ProcessAlipayNotificationResponse
-	515, // 543: recruitment.BillingService.ResolveAlipayReturn:output_type -> recruitment.ResolveAlipayReturnResponse
-	504, // 544: recruitment.BillingService.SyncAlipayReturn:output_type -> recruitment.CreateAlipayPaymentResponse
-	509, // 545: recruitment.BillingService.ListBillingRefunds:output_type -> recruitment.ListBillingRefundsResponse
-	506, // 546: recruitment.BillingService.ReviewBillingRefund:output_type -> recruitment.BillingRefundResponse
-	494, // 547: recruitment.BillingService.ListBillingAdminCatalog:output_type -> recruitment.ListBillingCatalogResponse
-	491, // 548: recruitment.BillingService.SaveBillingPriceVersion:output_type -> recruitment.BillingPriceInfo
-	521, // 549: recruitment.BillingService.ListAIRateCards:output_type -> recruitment.ListAIRateCardsResponse
-	519, // 550: recruitment.BillingService.SaveAIRateCard:output_type -> recruitment.AIRateCardInfo
-	214, // 551: recruitment.OfferService.CreateOffer:output_type -> recruitment.CreateOfferResponse
-	2,   // 552: recruitment.OfferService.UpdateOffer:output_type -> recruitment.CommonResponse
-	217, // 553: recruitment.OfferService.GetOffer:output_type -> recruitment.GetOfferResponse
-	219, // 554: recruitment.OfferService.ListOffersByApplication:output_type -> recruitment.ListOffersByApplicationResponse
-	2,   // 555: recruitment.OfferService.SendOffer:output_type -> recruitment.CommonResponse
-	2,   // 556: recruitment.OfferService.WithdrawOffer:output_type -> recruitment.CommonResponse
-	2,   // 557: recruitment.OfferService.AcceptOffer:output_type -> recruitment.CommonResponse
-	2,   // 558: recruitment.OfferService.RejectOffer:output_type -> recruitment.CommonResponse
-	225, // 559: recruitment.OfferService.ListMyOffers:output_type -> recruitment.ListMyOffersResponse
-	228, // 560: recruitment.OfferService.ListOfferEvents:output_type -> recruitment.ListOfferEventsResponse
-	175, // 561: recruitment.AdminService.CreateInviteCode:output_type -> recruitment.CreateInviteCodeResponse
-	177, // 562: recruitment.AdminService.ListInviteCodes:output_type -> recruitment.ListInviteCodesResponse
-	2,   // 563: recruitment.AdminService.ExtendInviteCode:output_type -> recruitment.CommonResponse
-	2,   // 564: recruitment.AdminService.RevokeInviteCode:output_type -> recruitment.CommonResponse
-	2,   // 565: recruitment.AdminService.ReactivateInviteCode:output_type -> recruitment.CommonResponse
-	182, // 566: recruitment.AdminService.ValidateInviteCode:output_type -> recruitment.ValidateInviteCodeResponse
-	188, // 567: recruitment.AdminService.ListDepartments:output_type -> recruitment.ListDepartmentsResponse
-	193, // 568: recruitment.AdminService.CreateDepartment:output_type -> recruitment.DepartmentResponse
-	193, // 569: recruitment.AdminService.UpdateDepartment:output_type -> recruitment.DepartmentResponse
-	2,   // 570: recruitment.AdminService.UpdateDepartmentStatus:output_type -> recruitment.CommonResponse
-	2,   // 571: recruitment.AdminService.DeleteDepartment:output_type -> recruitment.CommonResponse
-	195, // 572: recruitment.AdminService.ListJobLocations:output_type -> recruitment.ListJobLocationsResponse
-	200, // 573: recruitment.AdminService.CreateJobLocation:output_type -> recruitment.JobLocationResponse
-	200, // 574: recruitment.AdminService.UpdateJobLocation:output_type -> recruitment.JobLocationResponse
-	2,   // 575: recruitment.AdminService.UpdateJobLocationStatus:output_type -> recruitment.CommonResponse
-	2,   // 576: recruitment.AdminService.DeleteJobLocation:output_type -> recruitment.CommonResponse
-	208, // 577: recruitment.AdminService.GetDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
-	208, // 578: recruitment.AdminService.UpdateDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
-	203, // 579: recruitment.AdminService.ListDepartmentsLocationMap:output_type -> recruitment.ListDepartmentsLocationMapResponse
-	211, // 580: recruitment.AdminService.QueryUsageLogs:output_type -> recruitment.QueryUsageLogsResponse
-	230, // 581: recruitment.AdminService.ListRoles:output_type -> recruitment.ListRolesResponse
-	233, // 582: recruitment.AdminService.ListPermissions:output_type -> recruitment.ListPermissionsResponse
-	236, // 583: recruitment.AdminService.GetUserRoles:output_type -> recruitment.GetUserRolesResponse
-	2,   // 584: recruitment.AdminService.AssignUserRole:output_type -> recruitment.CommonResponse
-	2,   // 585: recruitment.AdminService.RevokeUserRole:output_type -> recruitment.CommonResponse
-	2,   // 586: recruitment.AdminService.AssignDataScope:output_type -> recruitment.CommonResponse
-	2,   // 587: recruitment.AdminService.RevokeDataScope:output_type -> recruitment.CommonResponse
-	243, // 588: recruitment.AdminService.ListStaffUsers:output_type -> recruitment.ListStaffUsersResponse
-	246, // 589: recruitment.AdminService.CreateStaffUser:output_type -> recruitment.CreateStaffUserResponse
-	249, // 590: recruitment.AdminService.ListPlatformUsers:output_type -> recruitment.ListPlatformUsersResponse
-	251, // 591: recruitment.AdminService.CreatePlatformUser:output_type -> recruitment.CreatePlatformUserResponse
-	253, // 592: recruitment.AdminService.UpdatePlatformUser:output_type -> recruitment.PlatformUserResponse
-	287, // 593: recruitment.AdminService.QueryAuthAuditLogs:output_type -> recruitment.QueryAuthAuditLogsResponse
-	291, // 594: recruitment.AdminService.GetDashboardReport:output_type -> recruitment.GetDashboardReportResponse
-	294, // 595: recruitment.AdminService.GetFunnelReport:output_type -> recruitment.GetFunnelReportResponse
-	297, // 596: recruitment.AdminService.GetTimeInStageReport:output_type -> recruitment.GetTimeInStageReportResponse
-	299, // 597: recruitment.AdminService.GetInterviewOfferMetrics:output_type -> recruitment.GetInterviewOfferMetricsResponse
-	303, // 598: recruitment.AdminService.GetUsageStats:output_type -> recruitment.GetUsageStatsResponse
-	306, // 599: recruitment.AdminService.GetUsageTrend:output_type -> recruitment.GetUsageTrendResponse
-	259, // 600: recruitment.CollaborationService.GetCandidateWorkspace:output_type -> recruitment.GetCandidateWorkspaceResponse
-	262, // 601: recruitment.CollaborationService.CreateNote:output_type -> recruitment.CreateNoteResponse
-	264, // 602: recruitment.CollaborationService.ListNotes:output_type -> recruitment.ListNotesResponse
-	267, // 603: recruitment.CollaborationService.CreateTag:output_type -> recruitment.CreateTagResponse
-	269, // 604: recruitment.CollaborationService.ListTags:output_type -> recruitment.ListTagsResponse
-	2,   // 605: recruitment.CollaborationService.AssignTag:output_type -> recruitment.CommonResponse
-	2,   // 606: recruitment.CollaborationService.UnassignTag:output_type -> recruitment.CommonResponse
-	273, // 607: recruitment.CollaborationService.ListCandidateTags:output_type -> recruitment.ListCandidateTagsResponse
-	276, // 608: recruitment.CollaborationService.CreateFollowUpTask:output_type -> recruitment.CreateFollowUpTaskResponse
-	278, // 609: recruitment.CollaborationService.ListFollowUpTasks:output_type -> recruitment.ListFollowUpTasksResponse
-	2,   // 610: recruitment.CollaborationService.CompleteFollowUpTask:output_type -> recruitment.CommonResponse
-	281, // 611: recruitment.CollaborationService.GetFollowUpTask:output_type -> recruitment.GetFollowUpTaskResponse
-	284, // 612: recruitment.CollaborationService.ListTimelineEvents:output_type -> recruitment.ListTimelineEventsResponse
-	448, // 613: recruitment.RecruitingIntelligenceService.GetResumeProfile:output_type -> recruitment.GetResumeProfileResponse
-	448, // 614: recruitment.RecruitingIntelligenceService.ParseResumeProfile:output_type -> recruitment.GetResumeProfileResponse
-	454, // 615: recruitment.RecruitingIntelligenceService.EvaluateCandidateMatch:output_type -> recruitment.GetCandidateMatchEvaluationResponse
-	454, // 616: recruitment.RecruitingIntelligenceService.GetCandidateMatchEvaluation:output_type -> recruitment.GetCandidateMatchEvaluationResponse
-	457, // 617: recruitment.RecruitingIntelligenceService.CompareCandidatesForJob:output_type -> recruitment.CompareCandidatesForJobResponse
-	310, // 618: recruitment.PlatformAIControlPlaneService.ListPlatformAICapabilities:output_type -> recruitment.ListPlatformAICapabilitiesResponse
-	312, // 619: recruitment.PlatformAIControlPlaneService.ListPlatformAICapabilityVersions:output_type -> recruitment.ListPlatformAICapabilityVersionsResponse
-	316, // 620: recruitment.PlatformAIControlPlaneService.CreatePlatformAICapabilityDraft:output_type -> recruitment.PlatformAICapabilityVersionResponse
-	316, // 621: recruitment.PlatformAIControlPlaneService.UpdatePlatformAICapabilityDraft:output_type -> recruitment.PlatformAICapabilityVersionResponse
-	316, // 622: recruitment.PlatformAIControlPlaneService.PublishPlatformAICapabilityVersion:output_type -> recruitment.PlatformAICapabilityVersionResponse
-	319, // 623: recruitment.PlatformAIControlPlaneService.ListPlatformAIRuntimeModels:output_type -> recruitment.ListPlatformAIRuntimeModelsResponse
-	321, // 624: recruitment.PlatformAIControlPlaneService.ResolvePlatformAIRuntimeModel:output_type -> recruitment.ResolvePlatformAIRuntimeModelResponse
-	324, // 625: recruitment.PlatformAIControlPlaneService.QueryPlatformAIConfigAuditLogs:output_type -> recruitment.QueryPlatformAIConfigAuditLogsResponse
-	327, // 626: recruitment.MCPService.ListMCPServers:output_type -> recruitment.ListMCPServersResponse
-	331, // 627: recruitment.MCPService.CreateMCPServer:output_type -> recruitment.MCPServerResponse
-	331, // 628: recruitment.MCPService.UpdateMCPServer:output_type -> recruitment.MCPServerResponse
-	2,   // 629: recruitment.MCPService.DeleteMCPServer:output_type -> recruitment.CommonResponse
-	334, // 630: recruitment.MCPService.ListMCPToolPolicies:output_type -> recruitment.ListMCPToolPoliciesResponse
-	338, // 631: recruitment.MCPService.CreateMCPToolPolicy:output_type -> recruitment.MCPToolPolicyResponse
-	338, // 632: recruitment.MCPService.UpdateMCPToolPolicy:output_type -> recruitment.MCPToolPolicyResponse
-	2,   // 633: recruitment.MCPService.DeleteMCPToolPolicy:output_type -> recruitment.CommonResponse
-	341, // 634: recruitment.MCPService.ListMCPToolLogs:output_type -> recruitment.ListMCPToolLogsResponse
-	343, // 635: recruitment.MCPService.TestMCPConnection:output_type -> recruitment.TestMCPConnectionResponse
-	346, // 636: recruitment.MCPService.ListMCPTools:output_type -> recruitment.ListMCPToolsResponse
-	348, // 637: recruitment.MCPService.CallMCPTool:output_type -> recruitment.CallMCPToolResponse
-	351, // 638: recruitment.LlmConfigService.ListProviders:output_type -> recruitment.ListProvidersResponse
-	354, // 639: recruitment.LlmConfigService.CreateProvider:output_type -> recruitment.ProviderResponse
-	354, // 640: recruitment.LlmConfigService.UpdateProvider:output_type -> recruitment.ProviderResponse
-	2,   // 641: recruitment.LlmConfigService.DeleteProvider:output_type -> recruitment.CommonResponse
-	357, // 642: recruitment.LlmConfigService.TestProviderConnection:output_type -> recruitment.TestProviderConnectionResponse
-	362, // 643: recruitment.LlmConfigService.DiscoverProviderModels:output_type -> recruitment.DiscoverProviderModelsResponse
-	364, // 644: recruitment.LlmConfigService.GetProviderModelPreset:output_type -> recruitment.GetProviderModelPresetResponse
-	367, // 645: recruitment.LlmConfigService.ListModels:output_type -> recruitment.ListModelsResponse
-	370, // 646: recruitment.LlmConfigService.CreateModel:output_type -> recruitment.ModelResponse
-	370, // 647: recruitment.LlmConfigService.UpdateModel:output_type -> recruitment.ModelResponse
-	2,   // 648: recruitment.LlmConfigService.DeleteModel:output_type -> recruitment.CommonResponse
-	357, // 649: recruitment.LlmConfigService.TestModelConnection:output_type -> recruitment.TestProviderConnectionResponse
-	374, // 650: recruitment.PromptService.ListPromptTemplates:output_type -> recruitment.ListPromptTemplatesResponse
-	377, // 651: recruitment.PromptService.CreatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
-	377, // 652: recruitment.PromptService.UpdatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
-	2,   // 653: recruitment.PromptService.DeletePromptTemplate:output_type -> recruitment.CommonResponse
-	381, // 654: recruitment.PromptService.GetPromptVersionHistory:output_type -> recruitment.GetPromptVersionHistoryResponse
-	377, // 655: recruitment.PromptService.RollbackPromptVersion:output_type -> recruitment.PromptTemplateResponse
-	384, // 656: recruitment.PromptService.RenderPrompt:output_type -> recruitment.RenderPromptResponse
-	386, // 657: recruitment.PromptService.GetActivePromptByAgentType:output_type -> recruitment.GetActivePromptByAgentTypeResponse
-	394, // 658: recruitment.AgentConfigService.ListAgents:output_type -> recruitment.ListAgentsResponse
-	392, // 659: recruitment.AgentConfigService.ListCapabilities:output_type -> recruitment.ListCapabilitiesResponse
-	397, // 660: recruitment.AgentConfigService.CreateAgent:output_type -> recruitment.AgentConfigResponse
-	397, // 661: recruitment.AgentConfigService.UpdateAgent:output_type -> recruitment.AgentConfigResponse
-	2,   // 662: recruitment.AgentConfigService.DeleteAgent:output_type -> recruitment.CommonResponse
-	400, // 663: recruitment.AgentConfigService.GetAgentConfig:output_type -> recruitment.GetAgentConfigResponse
-	405, // 664: recruitment.SkillService.ListSkills:output_type -> recruitment.ListSkillsResponse
-	408, // 665: recruitment.SkillService.CreateSkill:output_type -> recruitment.SkillResponse
-	408, // 666: recruitment.SkillService.UpdateSkill:output_type -> recruitment.SkillResponse
-	410, // 667: recruitment.SkillService.CreateSkillVersion:output_type -> recruitment.SkillVersionResponse
-	412, // 668: recruitment.SkillService.ListSkillVersions:output_type -> recruitment.ListSkillVersionsResponse
-	408, // 669: recruitment.SkillService.ActivateSkillVersion:output_type -> recruitment.SkillResponse
-	415, // 670: recruitment.SkillService.ListSkillTools:output_type -> recruitment.ListSkillToolsResponse
-	417, // 671: recruitment.SkillService.UpdateSkillTool:output_type -> recruitment.SkillToolResponse
-	422, // 672: recruitment.AgentSkillService.ListAgentSkills:output_type -> recruitment.ListAgentSkillsResponse
-	426, // 673: recruitment.AgentSkillService.GetAgentSkill:output_type -> recruitment.AgentSkillResponse
-	426, // 674: recruitment.AgentSkillService.CreateAgentSkill:output_type -> recruitment.AgentSkillResponse
-	426, // 675: recruitment.AgentSkillService.UpdateAgentSkill:output_type -> recruitment.AgentSkillResponse
-	428, // 676: recruitment.AgentSkillService.CreateAgentSkillVersion:output_type -> recruitment.AgentSkillVersionResponse
-	430, // 677: recruitment.AgentSkillService.ListAgentSkillVersions:output_type -> recruitment.ListAgentSkillVersionsResponse
-	426, // 678: recruitment.AgentSkillService.ActivateAgentSkillVersion:output_type -> recruitment.AgentSkillResponse
-	426, // 679: recruitment.AgentSkillService.UpdateAgentSkillStatus:output_type -> recruitment.AgentSkillResponse
-	434, // 680: recruitment.AgentSkillService.PreviewAgentSkill:output_type -> recruitment.PreviewAgentSkillResponse
-	422, // 681: recruitment.AgentSkillService.ListAvailableAgentSkills:output_type -> recruitment.ListAgentSkillsResponse
-	438, // 682: recruitment.AgentSkillService.DebugSemanticRetrieval:output_type -> recruitment.DebugSemanticRetrievalResponse
-	460, // 683: recruitment.EmbeddingConfigService.ListEmbeddingProviders:output_type -> recruitment.ListEmbeddingProvidersResponse
-	463, // 684: recruitment.EmbeddingConfigService.CreateEmbeddingProvider:output_type -> recruitment.EmbeddingProviderResponse
-	463, // 685: recruitment.EmbeddingConfigService.UpdateEmbeddingProvider:output_type -> recruitment.EmbeddingProviderResponse
-	2,   // 686: recruitment.EmbeddingConfigService.DeleteEmbeddingProvider:output_type -> recruitment.CommonResponse
-	467, // 687: recruitment.EmbeddingConfigService.ListEmbeddingModels:output_type -> recruitment.ListEmbeddingModelsResponse
-	470, // 688: recruitment.EmbeddingConfigService.CreateEmbeddingModel:output_type -> recruitment.EmbeddingModelResponse
-	470, // 689: recruitment.EmbeddingConfigService.UpdateEmbeddingModel:output_type -> recruitment.EmbeddingModelResponse
-	2,   // 690: recruitment.EmbeddingConfigService.SetDefaultEmbeddingModel:output_type -> recruitment.CommonResponse
-	474, // 691: recruitment.EmbeddingConfigService.TestEmbeddingModel:output_type -> recruitment.TestEmbeddingModelResponse
-	476, // 692: recruitment.EmbeddingConfigService.BackfillEmbeddings:output_type -> recruitment.BackfillEmbeddingsResponse
-	443, // [443:693] is the sub-list for method output_type
-	193, // [193:443] is the sub-list for method input_type
-	193, // [193:193] is the sub-list for extension type_name
-	193, // [193:193] is the sub-list for extension extendee
-	0,   // [0:193] is the sub-list for field type_name
+	143, // 55: recruitment.ListMemoriesResponse.list:type_name -> recruitment.MemoryInfo
+	143, // 56: recruitment.MemoryResponse.memory:type_name -> recruitment.MemoryInfo
+	143, // 57: recruitment.RecallMemoryItem.memory:type_name -> recruitment.MemoryInfo
+	152, // 58: recruitment.RecallMemoriesResponse.items:type_name -> recruitment.RecallMemoryItem
+	154, // 59: recruitment.GetInterviewResponse.interview:type_name -> recruitment.InterviewSchedule
+	255, // 60: recruitment.ListInterviewersResponse.list:type_name -> recruitment.StaffUserInfo
+	154, // 61: recruitment.ListApplicationInterviewsResponse.list:type_name -> recruitment.InterviewSchedule
+	154, // 62: recruitment.ListMyInterviewsResponse.list:type_name -> recruitment.InterviewSchedule
+	154, // 63: recruitment.ListCandidateInterviewsResponse.list:type_name -> recruitment.InterviewSchedule
+	169, // 64: recruitment.GetFeedbackResponse.feedback:type_name -> recruitment.InterviewFeedback
+	175, // 65: recruitment.ListNotificationsResponse.list:type_name -> recruitment.Notification
+	184, // 66: recruitment.CreateInviteCodeResponse.invite_code:type_name -> recruitment.InviteCodeInfo
+	184, // 67: recruitment.ListInviteCodesResponse.list:type_name -> recruitment.InviteCodeInfo
+	196, // 68: recruitment.ListJobOptionsResponse.department_tree:type_name -> recruitment.DepartmentNode
+	197, // 69: recruitment.ListJobOptionsResponse.locations:type_name -> recruitment.LocationOption
+	212, // 70: recruitment.ListJobOptionsResponse.department_location_map:type_name -> recruitment.DepartmentLocationMap
+	196, // 71: recruitment.DepartmentNode.children:type_name -> recruitment.DepartmentNode
+	196, // 72: recruitment.ListDepartmentsResponse.list:type_name -> recruitment.DepartmentNode
+	196, // 73: recruitment.DepartmentResponse.department:type_name -> recruitment.DepartmentNode
+	197, // 74: recruitment.ListJobLocationsResponse.list:type_name -> recruitment.LocationOption
+	197, // 75: recruitment.JobLocationResponse.location:type_name -> recruitment.LocationOption
+	212, // 76: recruitment.ListDepartmentsLocationMapResponse.items:type_name -> recruitment.DepartmentLocationMap
+	197, // 77: recruitment.ListDepartmentLocationsResponse.locations:type_name -> recruitment.LocationOption
+	197, // 78: recruitment.DepartmentLocationConfigResponse.locations:type_name -> recruitment.LocationOption
+	220, // 79: recruitment.QueryUsageLogsResponse.list:type_name -> recruitment.UsageLogItem
+	223, // 80: recruitment.GetOfferResponse.offer:type_name -> recruitment.Offer
+	223, // 81: recruitment.ListOffersByApplicationResponse.list:type_name -> recruitment.Offer
+	223, // 82: recruitment.ListMyOffersResponse.list:type_name -> recruitment.Offer
+	237, // 83: recruitment.ListOfferEventsResponse.list:type_name -> recruitment.OfferEventInfo
+	242, // 84: recruitment.ListRolesResponse.list:type_name -> recruitment.RoleInfo
+	245, // 85: recruitment.ListPermissionsResponse.list:type_name -> recruitment.PermissionInfo
+	248, // 86: recruitment.GetUserRolesResponse.data_scopes:type_name -> recruitment.DataScopeInfo
+	255, // 87: recruitment.ListStaffUsersResponse.list:type_name -> recruitment.StaffUserInfo
+	258, // 88: recruitment.ListPlatformUsersResponse.list:type_name -> recruitment.PlatformUserInfo
+	258, // 89: recruitment.PlatformUserResponse.user:type_name -> recruitment.PlatformUserInfo
+	269, // 90: recruitment.CandidateWorkspace.applications:type_name -> recruitment.CandidateWorkspaceApplication
+	276, // 91: recruitment.CandidateWorkspace.tags:type_name -> recruitment.CandidateTagInfo
+	267, // 92: recruitment.CandidateWorkspace.interviews:type_name -> recruitment.CandidateWorkspaceInterview
+	268, // 93: recruitment.CandidateWorkspace.offers:type_name -> recruitment.CandidateWorkspaceOffer
+	266, // 94: recruitment.GetCandidateWorkspaceResponse.workspace:type_name -> recruitment.CandidateWorkspace
+	271, // 95: recruitment.CreateNoteResponse.note:type_name -> recruitment.CandidateNoteInfo
+	271, // 96: recruitment.ListNotesResponse.list:type_name -> recruitment.CandidateNoteInfo
+	276, // 97: recruitment.CreateTagResponse.tag:type_name -> recruitment.CandidateTagInfo
+	276, // 98: recruitment.ListTagsResponse.list:type_name -> recruitment.CandidateTagInfo
+	276, // 99: recruitment.ListCandidateTagsResponse.list:type_name -> recruitment.CandidateTagInfo
+	285, // 100: recruitment.CreateFollowUpTaskResponse.task:type_name -> recruitment.FollowUpTaskInfo
+	285, // 101: recruitment.ListFollowUpTasksResponse.list:type_name -> recruitment.FollowUpTaskInfo
+	285, // 102: recruitment.GetFollowUpTaskResponse.task:type_name -> recruitment.FollowUpTaskInfo
+	293, // 103: recruitment.ListTimelineEventsResponse.events:type_name -> recruitment.TimelineEventInfo
+	297, // 104: recruitment.QueryAuthAuditLogsResponse.list:type_name -> recruitment.AuthAuditLogItem
+	301, // 105: recruitment.GetDashboardReportResponse.trend:type_name -> recruitment.DashboardTrendPoint
+	300, // 106: recruitment.GetDashboardReportResponse.stage_distribution:type_name -> recruitment.DashboardReportItem
+	304, // 107: recruitment.GetFunnelReportResponse.stages:type_name -> recruitment.FunnelStage
+	307, // 108: recruitment.GetTimeInStageReportResponse.durations:type_name -> recruitment.StageDuration
+	312, // 109: recruitment.GetUsageStatsResponse.list:type_name -> recruitment.UsageStatsItem
+	313, // 110: recruitment.GetUsageStatsResponse.summary:type_name -> recruitment.UsageStatsSummary
+	316, // 111: recruitment.GetUsageTrendResponse.list:type_name -> recruitment.UsageTrendPoint
+	318, // 112: recruitment.ListPlatformAICapabilitiesResponse.list:type_name -> recruitment.PlatformAICapabilityInfo
+	319, // 113: recruitment.ListPlatformAICapabilityVersionsResponse.list:type_name -> recruitment.PlatformAICapabilityVersionInfo
+	319, // 114: recruitment.PlatformAICapabilityVersionResponse.version:type_name -> recruitment.PlatformAICapabilityVersionInfo
+	328, // 115: recruitment.ListPlatformAIRuntimeModelsResponse.list:type_name -> recruitment.PlatformAIRuntimeModelInfo
+	334, // 116: recruitment.QueryPlatformAIConfigAuditLogsResponse.list:type_name -> recruitment.PlatformAIConfigAuditLogInfo
+	336, // 117: recruitment.ListMCPServersResponse.list:type_name -> recruitment.MCPServerInfo
+	336, // 118: recruitment.MCPServerResponse.server:type_name -> recruitment.MCPServerInfo
+	343, // 119: recruitment.ListMCPToolPoliciesResponse.list:type_name -> recruitment.MCPToolPolicyInfo
+	343, // 120: recruitment.MCPToolPolicyResponse.policy:type_name -> recruitment.MCPToolPolicyInfo
+	350, // 121: recruitment.ListMCPToolLogsResponse.list:type_name -> recruitment.MCPToolLogInfo
+	356, // 122: recruitment.ListMCPToolsResponse.list:type_name -> recruitment.MCPToolInfo
+	360, // 123: recruitment.ListProvidersResponse.list:type_name -> recruitment.LlmProviderInfo
+	360, // 124: recruitment.ProviderResponse.provider:type_name -> recruitment.LlmProviderInfo
+	371, // 125: recruitment.DiscoveredLlmModel.field_sources:type_name -> recruitment.ModelMetadataFieldSource
+	372, // 126: recruitment.DiscoverProviderModelsResponse.list:type_name -> recruitment.DiscoveredLlmModel
+	372, // 127: recruitment.GetProviderModelPresetResponse.model:type_name -> recruitment.DiscoveredLlmModel
+	376, // 128: recruitment.ListModelsResponse.list:type_name -> recruitment.LlmModelInfo
+	376, // 129: recruitment.ModelResponse.model:type_name -> recruitment.LlmModelInfo
+	383, // 130: recruitment.ListPromptTemplatesResponse.list:type_name -> recruitment.PromptTemplateInfo
+	383, // 131: recruitment.PromptTemplateResponse.template:type_name -> recruitment.PromptTemplateInfo
+	390, // 132: recruitment.GetPromptVersionHistoryResponse.list:type_name -> recruitment.PromptVersionInfo
+	534, // 133: recruitment.RenderPromptRequest.variables:type_name -> recruitment.RenderPromptRequest.VariablesEntry
+	383, // 134: recruitment.GetActivePromptByAgentTypeResponse.template:type_name -> recruitment.PromptTemplateInfo
+	399, // 135: recruitment.AgentConfigInfo.tool_bindings:type_name -> recruitment.AgentToolBindingInfo
+	400, // 136: recruitment.AgentConfigInfo.capability_bindings:type_name -> recruitment.AgentCapabilityBindingInfo
+	401, // 137: recruitment.ListCapabilitiesResponse.list:type_name -> recruitment.CapabilityInfo
+	398, // 138: recruitment.ListAgentsResponse.list:type_name -> recruitment.AgentConfigInfo
+	400, // 139: recruitment.CreateAgentRequest.capability_bindings:type_name -> recruitment.AgentCapabilityBindingInfo
+	400, // 140: recruitment.UpdateAgentRequest.capability_bindings:type_name -> recruitment.AgentCapabilityBindingInfo
+	398, // 141: recruitment.AgentConfigResponse.agent:type_name -> recruitment.AgentConfigInfo
+	398, // 142: recruitment.GetAgentConfigResponse.agent:type_name -> recruitment.AgentConfigInfo
+	412, // 143: recruitment.ListSkillsResponse.list:type_name -> recruitment.SkillInfo
+	412, // 144: recruitment.SkillResponse.skill:type_name -> recruitment.SkillInfo
+	413, // 145: recruitment.SkillVersionResponse.version:type_name -> recruitment.SkillVersionInfo
+	414, // 146: recruitment.SkillVersionResponse.tools:type_name -> recruitment.SkillToolInfo
+	413, // 147: recruitment.ListSkillVersionsResponse.list:type_name -> recruitment.SkillVersionInfo
+	414, // 148: recruitment.ListSkillToolsResponse.list:type_name -> recruitment.SkillToolInfo
+	414, // 149: recruitment.SkillToolResponse.tool:type_name -> recruitment.SkillToolInfo
+	429, // 150: recruitment.ListAgentSkillsResponse.list:type_name -> recruitment.AgentSkillInfo
+	429, // 151: recruitment.AgentSkillResponse.skill:type_name -> recruitment.AgentSkillInfo
+	430, // 152: recruitment.AgentSkillVersionResponse.version:type_name -> recruitment.AgentSkillVersionInfo
+	430, // 153: recruitment.ListAgentSkillVersionsResponse.list:type_name -> recruitment.AgentSkillVersionInfo
+	447, // 154: recruitment.DebugSemanticRetrievalResponse.skills:type_name -> recruitment.SemanticSkillDebugItem
+	448, // 155: recruitment.DebugSemanticRetrievalResponse.memories:type_name -> recruitment.SemanticMemoryDebugItem
+	452, // 156: recruitment.ResumeProfileSnapshotInfo.parse_run:type_name -> recruitment.ResumeParseRunInfo
+	453, // 157: recruitment.ResumeProfileSnapshotInfo.profile:type_name -> recruitment.ResumeProfileInfo
+	454, // 158: recruitment.ResumeProfileSnapshotInfo.educations:type_name -> recruitment.ResumeEducationInfo
+	455, // 159: recruitment.ResumeProfileSnapshotInfo.experiences:type_name -> recruitment.ResumeExperienceInfo
+	456, // 160: recruitment.ResumeProfileSnapshotInfo.projects:type_name -> recruitment.ResumeProjectInfo
+	457, // 161: recruitment.ResumeProfileSnapshotInfo.skills:type_name -> recruitment.ResumeSkillInfo
+	458, // 162: recruitment.GetResumeProfileResponse.profile:type_name -> recruitment.ResumeProfileSnapshotInfo
+	462, // 163: recruitment.CandidateMatchEvaluationSnapshotInfo.evaluation:type_name -> recruitment.CandidateMatchEvaluationInfo
+	463, // 164: recruitment.CandidateMatchEvaluationSnapshotInfo.evidence:type_name -> recruitment.CandidateMatchEvidenceInfo
+	464, // 165: recruitment.GetCandidateMatchEvaluationResponse.evaluation:type_name -> recruitment.CandidateMatchEvaluationSnapshotInfo
+	467, // 166: recruitment.CompareCandidatesForJobResponse.candidates:type_name -> recruitment.CandidateComparisonItem
+	469, // 167: recruitment.ListEmbeddingProvidersResponse.list:type_name -> recruitment.EmbeddingProviderInfo
+	469, // 168: recruitment.EmbeddingProviderResponse.provider:type_name -> recruitment.EmbeddingProviderInfo
+	476, // 169: recruitment.ListEmbeddingModelsResponse.list:type_name -> recruitment.EmbeddingModelInfo
+	476, // 170: recruitment.EmbeddingModelResponse.model:type_name -> recruitment.EmbeddingModelInfo
+	95,  // 171: recruitment.PreviewChatContextResponse.context_usage:type_name -> recruitment.ContextUsageInfo
+	0,   // 172: recruitment.BillingOwner.type:type_name -> recruitment.BillingOwnerType
+	490, // 173: recruitment.CheckAIAccessRequest.owner:type_name -> recruitment.BillingOwner
+	1,   // 174: recruitment.CheckAIAccessResponse.enforcement_mode:type_name -> recruitment.BillingEnforcementMode
+	490, // 175: recruitment.ReserveAIUsageRequest.owner:type_name -> recruitment.BillingOwner
+	1,   // 176: recruitment.ReserveAIUsageResponse.enforcement_mode:type_name -> recruitment.BillingEnforcementMode
+	495, // 177: recruitment.SettleAIUsageRequest.provider_usages:type_name -> recruitment.AIProviderUsage
+	490, // 178: recruitment.GetAICreditBalanceRequest.owner:type_name -> recruitment.BillingOwner
+	1,   // 179: recruitment.GetAICreditBalanceResponse.enforcement_mode:type_name -> recruitment.BillingEnforcementMode
+	502, // 180: recruitment.BillingProductInfo.prices:type_name -> recruitment.BillingPriceInfo
+	490, // 181: recruitment.ListBillingCatalogRequest.owner:type_name -> recruitment.BillingOwner
+	503, // 182: recruitment.ListBillingCatalogResponse.products:type_name -> recruitment.BillingProductInfo
+	490, // 183: recruitment.GetBillingAccountRequest.owner:type_name -> recruitment.BillingOwner
+	506, // 184: recruitment.GetBillingAccountResponse.subscription:type_name -> recruitment.BillingSubscriptionInfo
+	506, // 185: recruitment.GetBillingAccountResponse.scheduled_subscription:type_name -> recruitment.BillingSubscriptionInfo
+	490, // 186: recruitment.ListBillingOrdersRequest.owner:type_name -> recruitment.BillingOwner
+	509, // 187: recruitment.ListBillingOrdersResponse.orders:type_name -> recruitment.BillingOrderInfo
+	490, // 188: recruitment.CreateBillingOrderRequest.owner:type_name -> recruitment.BillingOwner
+	509, // 189: recruitment.BillingOrderResponse.order:type_name -> recruitment.BillingOrderInfo
+	490, // 190: recruitment.CreateAlipayPaymentRequest.owner:type_name -> recruitment.BillingOwner
+	490, // 191: recruitment.RequestBillingRefundRequest.owner:type_name -> recruitment.BillingOwner
+	518, // 192: recruitment.ListBillingRefundsResponse.refunds:type_name -> recruitment.BillingRefundInfo
+	522, // 193: recruitment.ProcessAlipayNotificationRequest.fields:type_name -> recruitment.AlipayNotificationField
+	522, // 194: recruitment.ResolveAlipayReturnRequest.fields:type_name -> recruitment.AlipayNotificationField
+	490, // 195: recruitment.SyncAlipayReturnRequest.owner:type_name -> recruitment.BillingOwner
+	530, // 196: recruitment.ListAIRateCardsResponse.rates:type_name -> recruitment.AIRateCardInfo
+	3,   // 197: recruitment.AuthService.Register:input_type -> recruitment.RegisterRequest
+	5,   // 198: recruitment.AuthService.Login:input_type -> recruitment.LoginRequest
+	46,  // 199: recruitment.AuthService.RefreshToken:input_type -> recruitment.RefreshTokenRequest
+	48,  // 200: recruitment.AuthService.SwitchTenant:input_type -> recruitment.SwitchTenantRequest
+	49,  // 201: recruitment.AuthService.RevokeRefreshToken:input_type -> recruitment.RevokeRefreshTokenRequest
+	50,  // 202: recruitment.AuthService.RecordAuthDecision:input_type -> recruitment.AuthAuditRequest
+	51,  // 203: recruitment.AuthService.GetPrincipal:input_type -> recruitment.GetPrincipalRequest
+	53,  // 204: recruitment.AuthService.AuthorizeInternal:input_type -> recruitment.AuthorizeInternalRequest
+	55,  // 205: recruitment.AuthService.UpdateEmail:input_type -> recruitment.UpdateEmailRequest
+	8,   // 206: recruitment.PlatformTenantService.CreateTenant:input_type -> recruitment.CreateTenantRequest
+	9,   // 207: recruitment.PlatformTenantService.ListTenants:input_type -> recruitment.ListTenantsRequest
+	12,  // 208: recruitment.PlatformTenantService.GetTenant:input_type -> recruitment.GetTenantRequest
+	13,  // 209: recruitment.PlatformTenantService.UpdateTenantStatus:input_type -> recruitment.UpdateTenantStatusRequest
+	14,  // 210: recruitment.PlatformTenantService.ListTenantMemberships:input_type -> recruitment.ListTenantMembershipsRequest
+	16,  // 211: recruitment.PlatformTenantService.UpdateTenantMembershipStatus:input_type -> recruitment.UpdateTenantMembershipStatusRequest
+	18,  // 212: recruitment.PlatformTenantService.GetPlatformDashboard:input_type -> recruitment.GetPlatformDashboardRequest
+	21,  // 213: recruitment.PlatformTenantService.QueryPlatformAuditLogs:input_type -> recruitment.QueryPlatformAuditLogsRequest
+	27,  // 214: recruitment.PlatformTenantService.ListPlatformPlans:input_type -> recruitment.ListPlatformPlansRequest
+	29,  // 215: recruitment.PlatformTenantService.SavePlatformPlanVersion:input_type -> recruitment.SavePlatformPlanVersionRequest
+	30,  // 216: recruitment.PlatformTenantService.PublishPlatformPlanVersion:input_type -> recruitment.PublishPlatformPlanVersionRequest
+	33,  // 217: recruitment.PlatformTenantService.GetTenantSubscription:input_type -> recruitment.GetTenantSubscriptionRequest
+	34,  // 218: recruitment.PlatformTenantService.UpdateTenantSubscription:input_type -> recruitment.UpdateTenantSubscriptionRequest
+	36,  // 219: recruitment.PlatformTenantService.UpdateTenantEntitlementOverride:input_type -> recruitment.UpdateTenantEntitlementOverrideRequest
+	38,  // 220: recruitment.PlatformTenantService.GetTenantUsage:input_type -> recruitment.GetTenantUsageRequest
+	41,  // 221: recruitment.PlatformTenantService.ListQuotaAlerts:input_type -> recruitment.ListQuotaAlertsRequest
+	43,  // 222: recruitment.PlatformTenantService.UpdateQuotaAlert:input_type -> recruitment.UpdateQuotaAlertRequest
+	57,  // 223: recruitment.JobService.CreateJob:input_type -> recruitment.CreateJobRequest
+	59,  // 224: recruitment.JobService.UpdateJob:input_type -> recruitment.UpdateJobRequest
+	60,  // 225: recruitment.JobService.OfflineJob:input_type -> recruitment.OfflineJobRequest
+	60,  // 226: recruitment.JobService.OnlineJob:input_type -> recruitment.OfflineJobRequest
+	61,  // 227: recruitment.JobService.ListHRJobs:input_type -> recruitment.ListHRJobsRequest
+	62,  // 228: recruitment.JobService.ListPublicJobs:input_type -> recruitment.ListPublicJobsRequest
+	63,  // 229: recruitment.JobService.GetJobDetail:input_type -> recruitment.GetJobDetailRequest
+	194, // 230: recruitment.JobService.ListJobOptions:input_type -> recruitment.ListJobOptionsRequest
+	215, // 231: recruitment.JobService.ListDepartmentLocations:input_type -> recruitment.ListDepartmentLocationsRequest
+	67,  // 232: recruitment.CandidateService.GetProfile:input_type -> recruitment.GetProfileRequest
+	68,  // 233: recruitment.CandidateService.UpdateProfile:input_type -> recruitment.UpdateProfileRequest
+	71,  // 234: recruitment.CandidateService.GetResume:input_type -> recruitment.GetResumeRequest
+	74,  // 235: recruitment.CandidateService.PresignResumeUpload:input_type -> recruitment.PresignResumeUploadRequest
+	76,  // 236: recruitment.CandidateService.ConfirmResumeUpload:input_type -> recruitment.ConfirmResumeUploadRequest
+	78,  // 237: recruitment.ApplicationService.ApplyJob:input_type -> recruitment.ApplyJobRequest
+	79,  // 238: recruitment.ApplicationService.ListMyApplications:input_type -> recruitment.ListMyApplicationsRequest
+	82,  // 239: recruitment.ApplicationService.ListJobApplications:input_type -> recruitment.ListJobApplicationsRequest
+	85,  // 240: recruitment.ApplicationService.UpdateApplicationStatus:input_type -> recruitment.UpdateApplicationStatusRequest
+	86,  // 241: recruitment.ApplicationService.ListApplicationStatusTransitions:input_type -> recruitment.ListApplicationStatusTransitionsRequest
+	89,  // 242: recruitment.ApplicationOwnerService.GetApplicationSnapshot:input_type -> recruitment.GetApplicationSnapshotRequest
+	91,  // 243: recruitment.ApplicationOwnerService.ApplyApplicationLifecycleTransition:input_type -> recruitment.ApplyApplicationLifecycleTransitionRequest
+	155, // 244: recruitment.InterviewService.ScheduleInterview:input_type -> recruitment.ScheduleInterviewRequest
+	157, // 245: recruitment.InterviewService.UpdateInterview:input_type -> recruitment.UpdateInterviewRequest
+	158, // 246: recruitment.InterviewService.CancelInterview:input_type -> recruitment.CancelInterviewRequest
+	159, // 247: recruitment.InterviewService.GetInterview:input_type -> recruitment.GetInterviewRequest
+	161, // 248: recruitment.InterviewService.ListInterviewers:input_type -> recruitment.ListInterviewersRequest
+	163, // 249: recruitment.InterviewService.ListApplicationInterviews:input_type -> recruitment.ListApplicationInterviewsRequest
+	165, // 250: recruitment.InterviewService.ListMyInterviews:input_type -> recruitment.ListMyInterviewsRequest
+	167, // 251: recruitment.InterviewService.ListCandidateInterviews:input_type -> recruitment.ListCandidateInterviewsRequest
+	170, // 252: recruitment.InterviewService.SubmitFeedback:input_type -> recruitment.SubmitFeedbackRequest
+	171, // 253: recruitment.InterviewService.GetFeedback:input_type -> recruitment.GetFeedbackRequest
+	173, // 254: recruitment.InterviewService.BatchCancelInterviews:input_type -> recruitment.BatchCancelInterviewsRequest
+	176, // 255: recruitment.NotificationService.ListNotifications:input_type -> recruitment.ListNotificationsRequest
+	178, // 256: recruitment.NotificationService.UnreadNotificationCount:input_type -> recruitment.UnreadNotificationCountRequest
+	180, // 257: recruitment.NotificationService.NotificationSummary:input_type -> recruitment.NotificationSummaryRequest
+	182, // 258: recruitment.NotificationService.MarkNotificationRead:input_type -> recruitment.MarkNotificationReadRequest
+	183, // 259: recruitment.NotificationService.MarkAllNotificationsRead:input_type -> recruitment.MarkAllNotificationsReadRequest
+	93,  // 260: recruitment.AIService.Chat:input_type -> recruitment.ChatRequest
+	93,  // 261: recruitment.AIService.ChatStream:input_type -> recruitment.ChatRequest
+	100, // 262: recruitment.AIService.History:input_type -> recruitment.ChatHistoryRequest
+	103, // 263: recruitment.AIService.AnalyzeApplication:input_type -> recruitment.AnalyzeApplicationRequest
+	105, // 264: recruitment.AIService.ListChatSessions:input_type -> recruitment.ChatSessionListRequest
+	108, // 265: recruitment.AIService.CreateChatSession:input_type -> recruitment.CreateChatSessionRequest
+	110, // 266: recruitment.AIService.SessionMessages:input_type -> recruitment.SessionMessagesRequest
+	111, // 267: recruitment.AIService.CreateApplicationAnalysisSession:input_type -> recruitment.CreateApplicationAnalysisSessionRequest
+	488, // 268: recruitment.AIService.PreviewChatContext:input_type -> recruitment.PreviewChatContextRequest
+	113, // 269: recruitment.AIService.UpdateSession:input_type -> recruitment.UpdateSessionRequest
+	114, // 270: recruitment.AIService.DeleteSession:input_type -> recruitment.DeleteSessionRequest
+	115, // 271: recruitment.AIService.CandidateChatStream:input_type -> recruitment.CandidateChatRequest
+	116, // 272: recruitment.AIService.CandidateListSessions:input_type -> recruitment.CandidateSessionListRequest
+	117, // 273: recruitment.AIService.CandidateCreateSession:input_type -> recruitment.CandidateCreateSessionRequest
+	118, // 274: recruitment.AIService.CandidateSessionMessages:input_type -> recruitment.CandidateSessionMessagesRequest
+	119, // 275: recruitment.AIService.CandidateUpdateSession:input_type -> recruitment.CandidateUpdateSessionRequest
+	120, // 276: recruitment.AIService.CandidateDeleteSession:input_type -> recruitment.CandidateDeleteSessionRequest
+	121, // 277: recruitment.AIService.GetToolTraces:input_type -> recruitment.GetToolTracesRequest
+	124, // 278: recruitment.AIService.GetAgentRuns:input_type -> recruitment.GetAgentRunsRequest
+	132, // 279: recruitment.AIService.CreateAgentRun:input_type -> recruitment.CreateAgentRunRequest
+	134, // 280: recruitment.AIService.GetAgentRun:input_type -> recruitment.GetAgentRunRequest
+	136, // 281: recruitment.AIService.GetActiveAgentRun:input_type -> recruitment.GetActiveAgentRunRequest
+	138, // 282: recruitment.AIService.SubscribeAgentRunEvents:input_type -> recruitment.SubscribeAgentRunEventsRequest
+	139, // 283: recruitment.AIService.CancelAgentRun:input_type -> recruitment.CancelAgentRunRequest
+	141, // 284: recruitment.AIService.ConfirmAgentRun:input_type -> recruitment.ConfirmAgentRunRequest
+	144, // 285: recruitment.AIService.ListMemories:input_type -> recruitment.ListMemoriesRequest
+	146, // 286: recruitment.AIService.GetMemory:input_type -> recruitment.GetMemoryRequest
+	148, // 287: recruitment.AIService.CreateMemory:input_type -> recruitment.CreateMemoryRequest
+	149, // 288: recruitment.AIService.UpdateMemory:input_type -> recruitment.UpdateMemoryRequest
+	150, // 289: recruitment.AIService.RevokeMemory:input_type -> recruitment.RevokeMemoryRequest
+	151, // 290: recruitment.AIService.RecallMemories:input_type -> recruitment.RecallMemoriesRequest
+	491, // 291: recruitment.BillingService.CheckAIAccess:input_type -> recruitment.CheckAIAccessRequest
+	493, // 292: recruitment.BillingService.ReserveAIUsage:input_type -> recruitment.ReserveAIUsageRequest
+	496, // 293: recruitment.BillingService.SettleAIUsage:input_type -> recruitment.SettleAIUsageRequest
+	498, // 294: recruitment.BillingService.CancelAIUsage:input_type -> recruitment.CancelAIUsageRequest
+	500, // 295: recruitment.BillingService.GetAICreditBalance:input_type -> recruitment.GetAICreditBalanceRequest
+	504, // 296: recruitment.BillingService.ListBillingCatalog:input_type -> recruitment.ListBillingCatalogRequest
+	507, // 297: recruitment.BillingService.GetBillingAccount:input_type -> recruitment.GetBillingAccountRequest
+	510, // 298: recruitment.BillingService.ListBillingOrders:input_type -> recruitment.ListBillingOrdersRequest
+	512, // 299: recruitment.BillingService.CreateBillingOrder:input_type -> recruitment.CreateBillingOrderRequest
+	514, // 300: recruitment.BillingService.CreateAlipayPayment:input_type -> recruitment.CreateAlipayPaymentRequest
+	516, // 301: recruitment.BillingService.RequestBillingRefund:input_type -> recruitment.RequestBillingRefundRequest
+	523, // 302: recruitment.BillingService.ProcessAlipayNotification:input_type -> recruitment.ProcessAlipayNotificationRequest
+	525, // 303: recruitment.BillingService.ResolveAlipayReturn:input_type -> recruitment.ResolveAlipayReturnRequest
+	527, // 304: recruitment.BillingService.SyncAlipayReturn:input_type -> recruitment.SyncAlipayReturnRequest
+	519, // 305: recruitment.BillingService.ListBillingRefunds:input_type -> recruitment.ListBillingRefundsRequest
+	521, // 306: recruitment.BillingService.ReviewBillingRefund:input_type -> recruitment.ReviewBillingRefundRequest
+	528, // 307: recruitment.BillingService.ListBillingAdminCatalog:input_type -> recruitment.ListBillingAdminCatalogRequest
+	529, // 308: recruitment.BillingService.SaveBillingPriceVersion:input_type -> recruitment.SaveBillingPriceVersionRequest
+	531, // 309: recruitment.BillingService.ListAIRateCards:input_type -> recruitment.ListAIRateCardsRequest
+	533, // 310: recruitment.BillingService.SaveAIRateCard:input_type -> recruitment.SaveAIRateCardRequest
+	224, // 311: recruitment.OfferService.CreateOffer:input_type -> recruitment.CreateOfferRequest
+	226, // 312: recruitment.OfferService.UpdateOffer:input_type -> recruitment.UpdateOfferRequest
+	227, // 313: recruitment.OfferService.GetOffer:input_type -> recruitment.GetOfferRequest
+	229, // 314: recruitment.OfferService.ListOffersByApplication:input_type -> recruitment.ListOffersByApplicationRequest
+	231, // 315: recruitment.OfferService.SendOffer:input_type -> recruitment.SendOfferRequest
+	232, // 316: recruitment.OfferService.WithdrawOffer:input_type -> recruitment.WithdrawOfferRequest
+	233, // 317: recruitment.OfferService.AcceptOffer:input_type -> recruitment.AcceptOfferRequest
+	234, // 318: recruitment.OfferService.RejectOffer:input_type -> recruitment.RejectOfferRequest
+	235, // 319: recruitment.OfferService.ListMyOffers:input_type -> recruitment.ListMyOffersRequest
+	238, // 320: recruitment.OfferService.ListOfferEvents:input_type -> recruitment.ListOfferEventsRequest
+	185, // 321: recruitment.AdminService.CreateInviteCode:input_type -> recruitment.CreateInviteCodeRequest
+	187, // 322: recruitment.AdminService.ListInviteCodes:input_type -> recruitment.ListInviteCodesRequest
+	189, // 323: recruitment.AdminService.ExtendInviteCode:input_type -> recruitment.ExtendInviteCodeRequest
+	190, // 324: recruitment.AdminService.RevokeInviteCode:input_type -> recruitment.RevokeInviteCodeRequest
+	191, // 325: recruitment.AdminService.ReactivateInviteCode:input_type -> recruitment.ReactivateInviteCodeRequest
+	192, // 326: recruitment.AdminService.ValidateInviteCode:input_type -> recruitment.ValidateInviteCodeRequest
+	198, // 327: recruitment.AdminService.ListDepartments:input_type -> recruitment.ListDepartmentsRequest
+	200, // 328: recruitment.AdminService.CreateDepartment:input_type -> recruitment.CreateDepartmentRequest
+	201, // 329: recruitment.AdminService.UpdateDepartment:input_type -> recruitment.UpdateDepartmentRequest
+	202, // 330: recruitment.AdminService.UpdateDepartmentStatus:input_type -> recruitment.UpdateDepartmentStatusRequest
+	203, // 331: recruitment.AdminService.DeleteDepartment:input_type -> recruitment.DeleteDepartmentRequest
+	205, // 332: recruitment.AdminService.ListJobLocations:input_type -> recruitment.ListJobLocationsRequest
+	207, // 333: recruitment.AdminService.CreateJobLocation:input_type -> recruitment.CreateJobLocationRequest
+	208, // 334: recruitment.AdminService.UpdateJobLocation:input_type -> recruitment.UpdateJobLocationRequest
+	209, // 335: recruitment.AdminService.UpdateJobLocationStatus:input_type -> recruitment.UpdateJobLocationStatusRequest
+	210, // 336: recruitment.AdminService.DeleteJobLocation:input_type -> recruitment.DeleteJobLocationRequest
+	217, // 337: recruitment.AdminService.GetDepartmentLocationConfig:input_type -> recruitment.GetDepartmentLocationConfigRequest
+	218, // 338: recruitment.AdminService.UpdateDepartmentLocationConfig:input_type -> recruitment.UpdateDepartmentLocationConfigRequest
+	213, // 339: recruitment.AdminService.ListDepartmentsLocationMap:input_type -> recruitment.ListDepartmentsLocationMapRequest
+	221, // 340: recruitment.AdminService.QueryUsageLogs:input_type -> recruitment.QueryUsageLogsRequest
+	240, // 341: recruitment.AdminService.ListRoles:input_type -> recruitment.ListRolesRequest
+	243, // 342: recruitment.AdminService.ListPermissions:input_type -> recruitment.ListPermissionsRequest
+	246, // 343: recruitment.AdminService.GetUserRoles:input_type -> recruitment.GetUserRolesRequest
+	249, // 344: recruitment.AdminService.AssignUserRole:input_type -> recruitment.AssignUserRoleRequest
+	250, // 345: recruitment.AdminService.RevokeUserRole:input_type -> recruitment.RevokeUserRoleRequest
+	251, // 346: recruitment.AdminService.AssignDataScope:input_type -> recruitment.AssignDataScopeRequest
+	252, // 347: recruitment.AdminService.RevokeDataScope:input_type -> recruitment.RevokeDataScopeRequest
+	253, // 348: recruitment.AdminService.ListStaffUsers:input_type -> recruitment.ListStaffUsersRequest
+	256, // 349: recruitment.AdminService.CreateStaffUser:input_type -> recruitment.CreateStaffUserRequest
+	259, // 350: recruitment.AdminService.ListPlatformUsers:input_type -> recruitment.ListPlatformUsersRequest
+	261, // 351: recruitment.AdminService.CreatePlatformUser:input_type -> recruitment.CreatePlatformUserRequest
+	263, // 352: recruitment.AdminService.UpdatePlatformUser:input_type -> recruitment.UpdatePlatformUserRequest
+	296, // 353: recruitment.AdminService.QueryAuthAuditLogs:input_type -> recruitment.QueryAuthAuditLogsRequest
+	299, // 354: recruitment.AdminService.GetDashboardReport:input_type -> recruitment.GetDashboardReportRequest
+	303, // 355: recruitment.AdminService.GetFunnelReport:input_type -> recruitment.GetFunnelReportRequest
+	306, // 356: recruitment.AdminService.GetTimeInStageReport:input_type -> recruitment.GetTimeInStageReportRequest
+	309, // 357: recruitment.AdminService.GetInterviewOfferMetrics:input_type -> recruitment.GetInterviewOfferMetricsRequest
+	311, // 358: recruitment.AdminService.GetUsageStats:input_type -> recruitment.GetUsageStatsRequest
+	315, // 359: recruitment.AdminService.GetUsageTrend:input_type -> recruitment.GetUsageTrendRequest
+	265, // 360: recruitment.CollaborationService.GetCandidateWorkspace:input_type -> recruitment.GetCandidateWorkspaceRequest
+	272, // 361: recruitment.CollaborationService.CreateNote:input_type -> recruitment.CreateNoteRequest
+	274, // 362: recruitment.CollaborationService.ListNotes:input_type -> recruitment.ListNotesRequest
+	277, // 363: recruitment.CollaborationService.CreateTag:input_type -> recruitment.CreateTagRequest
+	279, // 364: recruitment.CollaborationService.ListTags:input_type -> recruitment.ListTagsRequest
+	281, // 365: recruitment.CollaborationService.AssignTag:input_type -> recruitment.AssignTagRequest
+	282, // 366: recruitment.CollaborationService.UnassignTag:input_type -> recruitment.UnassignTagRequest
+	283, // 367: recruitment.CollaborationService.ListCandidateTags:input_type -> recruitment.ListCandidateTagsRequest
+	286, // 368: recruitment.CollaborationService.CreateFollowUpTask:input_type -> recruitment.CreateFollowUpTaskRequest
+	288, // 369: recruitment.CollaborationService.ListFollowUpTasks:input_type -> recruitment.ListFollowUpTasksRequest
+	290, // 370: recruitment.CollaborationService.CompleteFollowUpTask:input_type -> recruitment.CompleteFollowUpTaskRequest
+	291, // 371: recruitment.CollaborationService.GetFollowUpTask:input_type -> recruitment.GetFollowUpTaskRequest
+	294, // 372: recruitment.CollaborationService.ListTimelineEvents:input_type -> recruitment.ListTimelineEventsRequest
+	450, // 373: recruitment.RecruitingIntelligenceService.GetResumeProfile:input_type -> recruitment.GetResumeProfileRequest
+	451, // 374: recruitment.RecruitingIntelligenceService.ParseResumeProfile:input_type -> recruitment.ParseResumeProfileRequest
+	460, // 375: recruitment.RecruitingIntelligenceService.EvaluateCandidateMatch:input_type -> recruitment.EvaluateCandidateMatchRequest
+	461, // 376: recruitment.RecruitingIntelligenceService.GetCandidateMatchEvaluation:input_type -> recruitment.GetCandidateMatchEvaluationRequest
+	466, // 377: recruitment.RecruitingIntelligenceService.CompareCandidatesForJob:input_type -> recruitment.CompareCandidatesForJobRequest
+	320, // 378: recruitment.PlatformAIControlPlaneService.ListPlatformAICapabilities:input_type -> recruitment.ListPlatformAICapabilitiesRequest
+	322, // 379: recruitment.PlatformAIControlPlaneService.ListPlatformAICapabilityVersions:input_type -> recruitment.ListPlatformAICapabilityVersionsRequest
+	324, // 380: recruitment.PlatformAIControlPlaneService.CreatePlatformAICapabilityDraft:input_type -> recruitment.CreatePlatformAICapabilityDraftRequest
+	325, // 381: recruitment.PlatformAIControlPlaneService.UpdatePlatformAICapabilityDraft:input_type -> recruitment.UpdatePlatformAICapabilityDraftRequest
+	326, // 382: recruitment.PlatformAIControlPlaneService.PublishPlatformAICapabilityVersion:input_type -> recruitment.PublishPlatformAICapabilityVersionRequest
+	329, // 383: recruitment.PlatformAIControlPlaneService.ListPlatformAIRuntimeModels:input_type -> recruitment.ListPlatformAIRuntimeModelsRequest
+	331, // 384: recruitment.PlatformAIControlPlaneService.ResolvePlatformAIRuntimeModel:input_type -> recruitment.ResolvePlatformAIRuntimeModelRequest
+	333, // 385: recruitment.PlatformAIControlPlaneService.QueryPlatformAIConfigAuditLogs:input_type -> recruitment.QueryPlatformAIConfigAuditLogsRequest
+	337, // 386: recruitment.MCPService.ListMCPServers:input_type -> recruitment.ListMCPServersRequest
+	339, // 387: recruitment.MCPService.CreateMCPServer:input_type -> recruitment.CreateMCPServerRequest
+	340, // 388: recruitment.MCPService.UpdateMCPServer:input_type -> recruitment.UpdateMCPServerRequest
+	341, // 389: recruitment.MCPService.DeleteMCPServer:input_type -> recruitment.DeleteMCPServerRequest
+	344, // 390: recruitment.MCPService.ListMCPToolPolicies:input_type -> recruitment.ListMCPToolPoliciesRequest
+	346, // 391: recruitment.MCPService.CreateMCPToolPolicy:input_type -> recruitment.CreateMCPToolPolicyRequest
+	347, // 392: recruitment.MCPService.UpdateMCPToolPolicy:input_type -> recruitment.UpdateMCPToolPolicyRequest
+	348, // 393: recruitment.MCPService.DeleteMCPToolPolicy:input_type -> recruitment.DeleteMCPToolPolicyRequest
+	351, // 394: recruitment.MCPService.ListMCPToolLogs:input_type -> recruitment.ListMCPToolLogsRequest
+	353, // 395: recruitment.MCPService.TestMCPConnection:input_type -> recruitment.TestMCPConnectionRequest
+	355, // 396: recruitment.MCPService.ListMCPTools:input_type -> recruitment.ListMCPToolsRequest
+	358, // 397: recruitment.MCPService.CallMCPTool:input_type -> recruitment.CallMCPToolRequest
+	361, // 398: recruitment.LlmConfigService.ListProviders:input_type -> recruitment.ListProvidersRequest
+	363, // 399: recruitment.LlmConfigService.CreateProvider:input_type -> recruitment.CreateProviderRequest
+	364, // 400: recruitment.LlmConfigService.UpdateProvider:input_type -> recruitment.UpdateProviderRequest
+	366, // 401: recruitment.LlmConfigService.DeleteProvider:input_type -> recruitment.DeleteProviderRequest
+	367, // 402: recruitment.LlmConfigService.TestProviderConnection:input_type -> recruitment.TestProviderConnectionRequest
+	370, // 403: recruitment.LlmConfigService.DiscoverProviderModels:input_type -> recruitment.DiscoverProviderModelsRequest
+	374, // 404: recruitment.LlmConfigService.GetProviderModelPreset:input_type -> recruitment.GetProviderModelPresetRequest
+	377, // 405: recruitment.LlmConfigService.ListModels:input_type -> recruitment.ListModelsRequest
+	379, // 406: recruitment.LlmConfigService.CreateModel:input_type -> recruitment.CreateModelRequest
+	380, // 407: recruitment.LlmConfigService.UpdateModel:input_type -> recruitment.UpdateModelRequest
+	382, // 408: recruitment.LlmConfigService.DeleteModel:input_type -> recruitment.DeleteModelRequest
+	369, // 409: recruitment.LlmConfigService.TestModelConnection:input_type -> recruitment.TestModelConnectionRequest
+	384, // 410: recruitment.PromptService.ListPromptTemplates:input_type -> recruitment.ListPromptTemplatesRequest
+	386, // 411: recruitment.PromptService.CreatePromptTemplate:input_type -> recruitment.CreatePromptTemplateRequest
+	387, // 412: recruitment.PromptService.UpdatePromptTemplate:input_type -> recruitment.UpdatePromptTemplateRequest
+	389, // 413: recruitment.PromptService.DeletePromptTemplate:input_type -> recruitment.DeletePromptTemplateRequest
+	391, // 414: recruitment.PromptService.GetPromptVersionHistory:input_type -> recruitment.GetPromptVersionHistoryRequest
+	393, // 415: recruitment.PromptService.RollbackPromptVersion:input_type -> recruitment.RollbackPromptVersionRequest
+	394, // 416: recruitment.PromptService.RenderPrompt:input_type -> recruitment.RenderPromptRequest
+	396, // 417: recruitment.PromptService.GetActivePromptByAgentType:input_type -> recruitment.GetActivePromptByAgentTypeRequest
+	404, // 418: recruitment.AgentConfigService.ListAgents:input_type -> recruitment.ListAgentsRequest
+	402, // 419: recruitment.AgentConfigService.ListCapabilities:input_type -> recruitment.ListCapabilitiesRequest
+	406, // 420: recruitment.AgentConfigService.CreateAgent:input_type -> recruitment.CreateAgentRequest
+	407, // 421: recruitment.AgentConfigService.UpdateAgent:input_type -> recruitment.UpdateAgentRequest
+	409, // 422: recruitment.AgentConfigService.DeleteAgent:input_type -> recruitment.DeleteAgentRequest
+	410, // 423: recruitment.AgentConfigService.GetAgentConfig:input_type -> recruitment.GetAgentConfigRequest
+	415, // 424: recruitment.SkillService.ListSkills:input_type -> recruitment.ListSkillsRequest
+	417, // 425: recruitment.SkillService.CreateSkill:input_type -> recruitment.CreateSkillRequest
+	418, // 426: recruitment.SkillService.UpdateSkill:input_type -> recruitment.UpdateSkillRequest
+	420, // 427: recruitment.SkillService.CreateSkillVersion:input_type -> recruitment.CreateSkillVersionRequest
+	422, // 428: recruitment.SkillService.ListSkillVersions:input_type -> recruitment.ListSkillVersionsRequest
+	424, // 429: recruitment.SkillService.ActivateSkillVersion:input_type -> recruitment.ActivateSkillVersionRequest
+	425, // 430: recruitment.SkillService.ListSkillTools:input_type -> recruitment.ListSkillToolsRequest
+	427, // 431: recruitment.SkillService.UpdateSkillTool:input_type -> recruitment.UpdateSkillToolRequest
+	431, // 432: recruitment.AgentSkillService.ListAgentSkills:input_type -> recruitment.ListAgentSkillsRequest
+	434, // 433: recruitment.AgentSkillService.GetAgentSkill:input_type -> recruitment.GetAgentSkillRequest
+	435, // 434: recruitment.AgentSkillService.CreateAgentSkill:input_type -> recruitment.CreateAgentSkillRequest
+	436, // 435: recruitment.AgentSkillService.UpdateAgentSkill:input_type -> recruitment.UpdateAgentSkillRequest
+	438, // 436: recruitment.AgentSkillService.CreateAgentSkillVersion:input_type -> recruitment.CreateAgentSkillVersionRequest
+	440, // 437: recruitment.AgentSkillService.ListAgentSkillVersions:input_type -> recruitment.ListAgentSkillVersionsRequest
+	442, // 438: recruitment.AgentSkillService.ActivateAgentSkillVersion:input_type -> recruitment.ActivateAgentSkillVersionRequest
+	443, // 439: recruitment.AgentSkillService.UpdateAgentSkillStatus:input_type -> recruitment.UpdateAgentSkillStatusRequest
+	444, // 440: recruitment.AgentSkillService.PreviewAgentSkill:input_type -> recruitment.PreviewAgentSkillRequest
+	432, // 441: recruitment.AgentSkillService.ListAvailableAgentSkills:input_type -> recruitment.ListAvailableAgentSkillsRequest
+	446, // 442: recruitment.AgentSkillService.DebugSemanticRetrieval:input_type -> recruitment.DebugSemanticRetrievalRequest
+	470, // 443: recruitment.EmbeddingConfigService.ListEmbeddingProviders:input_type -> recruitment.ListEmbeddingProvidersRequest
+	472, // 444: recruitment.EmbeddingConfigService.CreateEmbeddingProvider:input_type -> recruitment.CreateEmbeddingProviderRequest
+	473, // 445: recruitment.EmbeddingConfigService.UpdateEmbeddingProvider:input_type -> recruitment.UpdateEmbeddingProviderRequest
+	475, // 446: recruitment.EmbeddingConfigService.DeleteEmbeddingProvider:input_type -> recruitment.DeleteEmbeddingProviderRequest
+	477, // 447: recruitment.EmbeddingConfigService.ListEmbeddingModels:input_type -> recruitment.ListEmbeddingModelsRequest
+	479, // 448: recruitment.EmbeddingConfigService.CreateEmbeddingModel:input_type -> recruitment.CreateEmbeddingModelRequest
+	480, // 449: recruitment.EmbeddingConfigService.UpdateEmbeddingModel:input_type -> recruitment.UpdateEmbeddingModelRequest
+	483, // 450: recruitment.EmbeddingConfigService.SetDefaultEmbeddingModel:input_type -> recruitment.SetDefaultEmbeddingModelRequest
+	484, // 451: recruitment.EmbeddingConfigService.TestEmbeddingModel:input_type -> recruitment.TestEmbeddingModelRequest
+	486, // 452: recruitment.EmbeddingConfigService.BackfillEmbeddings:input_type -> recruitment.BackfillEmbeddingsRequest
+	4,   // 453: recruitment.AuthService.Register:output_type -> recruitment.RegisterResponse
+	45,  // 454: recruitment.AuthService.Login:output_type -> recruitment.LoginResponse
+	47,  // 455: recruitment.AuthService.RefreshToken:output_type -> recruitment.RefreshTokenResponse
+	45,  // 456: recruitment.AuthService.SwitchTenant:output_type -> recruitment.LoginResponse
+	2,   // 457: recruitment.AuthService.RevokeRefreshToken:output_type -> recruitment.CommonResponse
+	2,   // 458: recruitment.AuthService.RecordAuthDecision:output_type -> recruitment.CommonResponse
+	52,  // 459: recruitment.AuthService.GetPrincipal:output_type -> recruitment.GetPrincipalResponse
+	54,  // 460: recruitment.AuthService.AuthorizeInternal:output_type -> recruitment.AuthorizeInternalResponse
+	2,   // 461: recruitment.AuthService.UpdateEmail:output_type -> recruitment.CommonResponse
+	10,  // 462: recruitment.PlatformTenantService.CreateTenant:output_type -> recruitment.TenantResponse
+	11,  // 463: recruitment.PlatformTenantService.ListTenants:output_type -> recruitment.ListTenantsResponse
+	10,  // 464: recruitment.PlatformTenantService.GetTenant:output_type -> recruitment.TenantResponse
+	10,  // 465: recruitment.PlatformTenantService.UpdateTenantStatus:output_type -> recruitment.TenantResponse
+	15,  // 466: recruitment.PlatformTenantService.ListTenantMemberships:output_type -> recruitment.ListTenantMembershipsResponse
+	17,  // 467: recruitment.PlatformTenantService.UpdateTenantMembershipStatus:output_type -> recruitment.TenantMembershipResponse
+	20,  // 468: recruitment.PlatformTenantService.GetPlatformDashboard:output_type -> recruitment.GetPlatformDashboardResponse
+	23,  // 469: recruitment.PlatformTenantService.QueryPlatformAuditLogs:output_type -> recruitment.QueryPlatformAuditLogsResponse
+	28,  // 470: recruitment.PlatformTenantService.ListPlatformPlans:output_type -> recruitment.ListPlatformPlansResponse
+	31,  // 471: recruitment.PlatformTenantService.SavePlatformPlanVersion:output_type -> recruitment.PlatformPlanVersionResponse
+	31,  // 472: recruitment.PlatformTenantService.PublishPlatformPlanVersion:output_type -> recruitment.PlatformPlanVersionResponse
+	35,  // 473: recruitment.PlatformTenantService.GetTenantSubscription:output_type -> recruitment.TenantSubscriptionResponse
+	35,  // 474: recruitment.PlatformTenantService.UpdateTenantSubscription:output_type -> recruitment.TenantSubscriptionResponse
+	35,  // 475: recruitment.PlatformTenantService.UpdateTenantEntitlementOverride:output_type -> recruitment.TenantSubscriptionResponse
+	39,  // 476: recruitment.PlatformTenantService.GetTenantUsage:output_type -> recruitment.GetTenantUsageResponse
+	42,  // 477: recruitment.PlatformTenantService.ListQuotaAlerts:output_type -> recruitment.ListQuotaAlertsResponse
+	44,  // 478: recruitment.PlatformTenantService.UpdateQuotaAlert:output_type -> recruitment.QuotaAlertResponse
+	58,  // 479: recruitment.JobService.CreateJob:output_type -> recruitment.CreateJobResponse
+	2,   // 480: recruitment.JobService.UpdateJob:output_type -> recruitment.CommonResponse
+	2,   // 481: recruitment.JobService.OfflineJob:output_type -> recruitment.CommonResponse
+	2,   // 482: recruitment.JobService.OnlineJob:output_type -> recruitment.CommonResponse
+	65,  // 483: recruitment.JobService.ListHRJobs:output_type -> recruitment.ListJobsResponse
+	65,  // 484: recruitment.JobService.ListPublicJobs:output_type -> recruitment.ListJobsResponse
+	66,  // 485: recruitment.JobService.GetJobDetail:output_type -> recruitment.GetJobDetailResponse
+	195, // 486: recruitment.JobService.ListJobOptions:output_type -> recruitment.ListJobOptionsResponse
+	216, // 487: recruitment.JobService.ListDepartmentLocations:output_type -> recruitment.ListDepartmentLocationsResponse
+	70,  // 488: recruitment.CandidateService.GetProfile:output_type -> recruitment.GetProfileResponse
+	70,  // 489: recruitment.CandidateService.UpdateProfile:output_type -> recruitment.GetProfileResponse
+	73,  // 490: recruitment.CandidateService.GetResume:output_type -> recruitment.GetResumeResponse
+	75,  // 491: recruitment.CandidateService.PresignResumeUpload:output_type -> recruitment.PresignResumeUploadResponse
+	77,  // 492: recruitment.CandidateService.ConfirmResumeUpload:output_type -> recruitment.ConfirmResumeUploadResponse
+	2,   // 493: recruitment.ApplicationService.ApplyJob:output_type -> recruitment.CommonResponse
+	81,  // 494: recruitment.ApplicationService.ListMyApplications:output_type -> recruitment.ListMyApplicationsResponse
+	84,  // 495: recruitment.ApplicationService.ListJobApplications:output_type -> recruitment.ListJobApplicationsResponse
+	2,   // 496: recruitment.ApplicationService.UpdateApplicationStatus:output_type -> recruitment.CommonResponse
+	88,  // 497: recruitment.ApplicationService.ListApplicationStatusTransitions:output_type -> recruitment.ListApplicationStatusTransitionsResponse
+	90,  // 498: recruitment.ApplicationOwnerService.GetApplicationSnapshot:output_type -> recruitment.GetApplicationSnapshotResponse
+	92,  // 499: recruitment.ApplicationOwnerService.ApplyApplicationLifecycleTransition:output_type -> recruitment.ApplyApplicationLifecycleTransitionResponse
+	156, // 500: recruitment.InterviewService.ScheduleInterview:output_type -> recruitment.ScheduleInterviewResponse
+	2,   // 501: recruitment.InterviewService.UpdateInterview:output_type -> recruitment.CommonResponse
+	2,   // 502: recruitment.InterviewService.CancelInterview:output_type -> recruitment.CommonResponse
+	160, // 503: recruitment.InterviewService.GetInterview:output_type -> recruitment.GetInterviewResponse
+	162, // 504: recruitment.InterviewService.ListInterviewers:output_type -> recruitment.ListInterviewersResponse
+	164, // 505: recruitment.InterviewService.ListApplicationInterviews:output_type -> recruitment.ListApplicationInterviewsResponse
+	166, // 506: recruitment.InterviewService.ListMyInterviews:output_type -> recruitment.ListMyInterviewsResponse
+	168, // 507: recruitment.InterviewService.ListCandidateInterviews:output_type -> recruitment.ListCandidateInterviewsResponse
+	2,   // 508: recruitment.InterviewService.SubmitFeedback:output_type -> recruitment.CommonResponse
+	172, // 509: recruitment.InterviewService.GetFeedback:output_type -> recruitment.GetFeedbackResponse
+	174, // 510: recruitment.InterviewService.BatchCancelInterviews:output_type -> recruitment.BatchCancelInterviewsResponse
+	177, // 511: recruitment.NotificationService.ListNotifications:output_type -> recruitment.ListNotificationsResponse
+	179, // 512: recruitment.NotificationService.UnreadNotificationCount:output_type -> recruitment.UnreadNotificationCountResponse
+	181, // 513: recruitment.NotificationService.NotificationSummary:output_type -> recruitment.NotificationSummaryResponse
+	2,   // 514: recruitment.NotificationService.MarkNotificationRead:output_type -> recruitment.CommonResponse
+	2,   // 515: recruitment.NotificationService.MarkAllNotificationsRead:output_type -> recruitment.CommonResponse
+	96,  // 516: recruitment.AIService.Chat:output_type -> recruitment.ChatResponse
+	99,  // 517: recruitment.AIService.ChatStream:output_type -> recruitment.ChatStreamResponse
+	102, // 518: recruitment.AIService.History:output_type -> recruitment.ChatHistoryResponse
+	104, // 519: recruitment.AIService.AnalyzeApplication:output_type -> recruitment.AnalyzeApplicationResponse
+	107, // 520: recruitment.AIService.ListChatSessions:output_type -> recruitment.ChatSessionListResponse
+	109, // 521: recruitment.AIService.CreateChatSession:output_type -> recruitment.CreateChatSessionResponse
+	102, // 522: recruitment.AIService.SessionMessages:output_type -> recruitment.ChatHistoryResponse
+	112, // 523: recruitment.AIService.CreateApplicationAnalysisSession:output_type -> recruitment.CreateApplicationAnalysisSessionResponse
+	489, // 524: recruitment.AIService.PreviewChatContext:output_type -> recruitment.PreviewChatContextResponse
+	2,   // 525: recruitment.AIService.UpdateSession:output_type -> recruitment.CommonResponse
+	2,   // 526: recruitment.AIService.DeleteSession:output_type -> recruitment.CommonResponse
+	99,  // 527: recruitment.AIService.CandidateChatStream:output_type -> recruitment.ChatStreamResponse
+	107, // 528: recruitment.AIService.CandidateListSessions:output_type -> recruitment.ChatSessionListResponse
+	109, // 529: recruitment.AIService.CandidateCreateSession:output_type -> recruitment.CreateChatSessionResponse
+	102, // 530: recruitment.AIService.CandidateSessionMessages:output_type -> recruitment.ChatHistoryResponse
+	2,   // 531: recruitment.AIService.CandidateUpdateSession:output_type -> recruitment.CommonResponse
+	2,   // 532: recruitment.AIService.CandidateDeleteSession:output_type -> recruitment.CommonResponse
+	123, // 533: recruitment.AIService.GetToolTraces:output_type -> recruitment.GetToolTracesResponse
+	127, // 534: recruitment.AIService.GetAgentRuns:output_type -> recruitment.GetAgentRunsResponse
+	133, // 535: recruitment.AIService.CreateAgentRun:output_type -> recruitment.CreateAgentRunResponse
+	135, // 536: recruitment.AIService.GetAgentRun:output_type -> recruitment.GetAgentRunResponse
+	137, // 537: recruitment.AIService.GetActiveAgentRun:output_type -> recruitment.GetActiveAgentRunResponse
+	131, // 538: recruitment.AIService.SubscribeAgentRunEvents:output_type -> recruitment.AgentRunEvent
+	140, // 539: recruitment.AIService.CancelAgentRun:output_type -> recruitment.CancelAgentRunResponse
+	142, // 540: recruitment.AIService.ConfirmAgentRun:output_type -> recruitment.ConfirmAgentRunResponse
+	145, // 541: recruitment.AIService.ListMemories:output_type -> recruitment.ListMemoriesResponse
+	147, // 542: recruitment.AIService.GetMemory:output_type -> recruitment.MemoryResponse
+	147, // 543: recruitment.AIService.CreateMemory:output_type -> recruitment.MemoryResponse
+	147, // 544: recruitment.AIService.UpdateMemory:output_type -> recruitment.MemoryResponse
+	147, // 545: recruitment.AIService.RevokeMemory:output_type -> recruitment.MemoryResponse
+	153, // 546: recruitment.AIService.RecallMemories:output_type -> recruitment.RecallMemoriesResponse
+	492, // 547: recruitment.BillingService.CheckAIAccess:output_type -> recruitment.CheckAIAccessResponse
+	494, // 548: recruitment.BillingService.ReserveAIUsage:output_type -> recruitment.ReserveAIUsageResponse
+	497, // 549: recruitment.BillingService.SettleAIUsage:output_type -> recruitment.SettleAIUsageResponse
+	499, // 550: recruitment.BillingService.CancelAIUsage:output_type -> recruitment.CancelAIUsageResponse
+	501, // 551: recruitment.BillingService.GetAICreditBalance:output_type -> recruitment.GetAICreditBalanceResponse
+	505, // 552: recruitment.BillingService.ListBillingCatalog:output_type -> recruitment.ListBillingCatalogResponse
+	508, // 553: recruitment.BillingService.GetBillingAccount:output_type -> recruitment.GetBillingAccountResponse
+	511, // 554: recruitment.BillingService.ListBillingOrders:output_type -> recruitment.ListBillingOrdersResponse
+	513, // 555: recruitment.BillingService.CreateBillingOrder:output_type -> recruitment.BillingOrderResponse
+	515, // 556: recruitment.BillingService.CreateAlipayPayment:output_type -> recruitment.CreateAlipayPaymentResponse
+	517, // 557: recruitment.BillingService.RequestBillingRefund:output_type -> recruitment.BillingRefundResponse
+	524, // 558: recruitment.BillingService.ProcessAlipayNotification:output_type -> recruitment.ProcessAlipayNotificationResponse
+	526, // 559: recruitment.BillingService.ResolveAlipayReturn:output_type -> recruitment.ResolveAlipayReturnResponse
+	515, // 560: recruitment.BillingService.SyncAlipayReturn:output_type -> recruitment.CreateAlipayPaymentResponse
+	520, // 561: recruitment.BillingService.ListBillingRefunds:output_type -> recruitment.ListBillingRefundsResponse
+	517, // 562: recruitment.BillingService.ReviewBillingRefund:output_type -> recruitment.BillingRefundResponse
+	505, // 563: recruitment.BillingService.ListBillingAdminCatalog:output_type -> recruitment.ListBillingCatalogResponse
+	502, // 564: recruitment.BillingService.SaveBillingPriceVersion:output_type -> recruitment.BillingPriceInfo
+	532, // 565: recruitment.BillingService.ListAIRateCards:output_type -> recruitment.ListAIRateCardsResponse
+	530, // 566: recruitment.BillingService.SaveAIRateCard:output_type -> recruitment.AIRateCardInfo
+	225, // 567: recruitment.OfferService.CreateOffer:output_type -> recruitment.CreateOfferResponse
+	2,   // 568: recruitment.OfferService.UpdateOffer:output_type -> recruitment.CommonResponse
+	228, // 569: recruitment.OfferService.GetOffer:output_type -> recruitment.GetOfferResponse
+	230, // 570: recruitment.OfferService.ListOffersByApplication:output_type -> recruitment.ListOffersByApplicationResponse
+	2,   // 571: recruitment.OfferService.SendOffer:output_type -> recruitment.CommonResponse
+	2,   // 572: recruitment.OfferService.WithdrawOffer:output_type -> recruitment.CommonResponse
+	2,   // 573: recruitment.OfferService.AcceptOffer:output_type -> recruitment.CommonResponse
+	2,   // 574: recruitment.OfferService.RejectOffer:output_type -> recruitment.CommonResponse
+	236, // 575: recruitment.OfferService.ListMyOffers:output_type -> recruitment.ListMyOffersResponse
+	239, // 576: recruitment.OfferService.ListOfferEvents:output_type -> recruitment.ListOfferEventsResponse
+	186, // 577: recruitment.AdminService.CreateInviteCode:output_type -> recruitment.CreateInviteCodeResponse
+	188, // 578: recruitment.AdminService.ListInviteCodes:output_type -> recruitment.ListInviteCodesResponse
+	2,   // 579: recruitment.AdminService.ExtendInviteCode:output_type -> recruitment.CommonResponse
+	2,   // 580: recruitment.AdminService.RevokeInviteCode:output_type -> recruitment.CommonResponse
+	2,   // 581: recruitment.AdminService.ReactivateInviteCode:output_type -> recruitment.CommonResponse
+	193, // 582: recruitment.AdminService.ValidateInviteCode:output_type -> recruitment.ValidateInviteCodeResponse
+	199, // 583: recruitment.AdminService.ListDepartments:output_type -> recruitment.ListDepartmentsResponse
+	204, // 584: recruitment.AdminService.CreateDepartment:output_type -> recruitment.DepartmentResponse
+	204, // 585: recruitment.AdminService.UpdateDepartment:output_type -> recruitment.DepartmentResponse
+	2,   // 586: recruitment.AdminService.UpdateDepartmentStatus:output_type -> recruitment.CommonResponse
+	2,   // 587: recruitment.AdminService.DeleteDepartment:output_type -> recruitment.CommonResponse
+	206, // 588: recruitment.AdminService.ListJobLocations:output_type -> recruitment.ListJobLocationsResponse
+	211, // 589: recruitment.AdminService.CreateJobLocation:output_type -> recruitment.JobLocationResponse
+	211, // 590: recruitment.AdminService.UpdateJobLocation:output_type -> recruitment.JobLocationResponse
+	2,   // 591: recruitment.AdminService.UpdateJobLocationStatus:output_type -> recruitment.CommonResponse
+	2,   // 592: recruitment.AdminService.DeleteJobLocation:output_type -> recruitment.CommonResponse
+	219, // 593: recruitment.AdminService.GetDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
+	219, // 594: recruitment.AdminService.UpdateDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
+	214, // 595: recruitment.AdminService.ListDepartmentsLocationMap:output_type -> recruitment.ListDepartmentsLocationMapResponse
+	222, // 596: recruitment.AdminService.QueryUsageLogs:output_type -> recruitment.QueryUsageLogsResponse
+	241, // 597: recruitment.AdminService.ListRoles:output_type -> recruitment.ListRolesResponse
+	244, // 598: recruitment.AdminService.ListPermissions:output_type -> recruitment.ListPermissionsResponse
+	247, // 599: recruitment.AdminService.GetUserRoles:output_type -> recruitment.GetUserRolesResponse
+	2,   // 600: recruitment.AdminService.AssignUserRole:output_type -> recruitment.CommonResponse
+	2,   // 601: recruitment.AdminService.RevokeUserRole:output_type -> recruitment.CommonResponse
+	2,   // 602: recruitment.AdminService.AssignDataScope:output_type -> recruitment.CommonResponse
+	2,   // 603: recruitment.AdminService.RevokeDataScope:output_type -> recruitment.CommonResponse
+	254, // 604: recruitment.AdminService.ListStaffUsers:output_type -> recruitment.ListStaffUsersResponse
+	257, // 605: recruitment.AdminService.CreateStaffUser:output_type -> recruitment.CreateStaffUserResponse
+	260, // 606: recruitment.AdminService.ListPlatformUsers:output_type -> recruitment.ListPlatformUsersResponse
+	262, // 607: recruitment.AdminService.CreatePlatformUser:output_type -> recruitment.CreatePlatformUserResponse
+	264, // 608: recruitment.AdminService.UpdatePlatformUser:output_type -> recruitment.PlatformUserResponse
+	298, // 609: recruitment.AdminService.QueryAuthAuditLogs:output_type -> recruitment.QueryAuthAuditLogsResponse
+	302, // 610: recruitment.AdminService.GetDashboardReport:output_type -> recruitment.GetDashboardReportResponse
+	305, // 611: recruitment.AdminService.GetFunnelReport:output_type -> recruitment.GetFunnelReportResponse
+	308, // 612: recruitment.AdminService.GetTimeInStageReport:output_type -> recruitment.GetTimeInStageReportResponse
+	310, // 613: recruitment.AdminService.GetInterviewOfferMetrics:output_type -> recruitment.GetInterviewOfferMetricsResponse
+	314, // 614: recruitment.AdminService.GetUsageStats:output_type -> recruitment.GetUsageStatsResponse
+	317, // 615: recruitment.AdminService.GetUsageTrend:output_type -> recruitment.GetUsageTrendResponse
+	270, // 616: recruitment.CollaborationService.GetCandidateWorkspace:output_type -> recruitment.GetCandidateWorkspaceResponse
+	273, // 617: recruitment.CollaborationService.CreateNote:output_type -> recruitment.CreateNoteResponse
+	275, // 618: recruitment.CollaborationService.ListNotes:output_type -> recruitment.ListNotesResponse
+	278, // 619: recruitment.CollaborationService.CreateTag:output_type -> recruitment.CreateTagResponse
+	280, // 620: recruitment.CollaborationService.ListTags:output_type -> recruitment.ListTagsResponse
+	2,   // 621: recruitment.CollaborationService.AssignTag:output_type -> recruitment.CommonResponse
+	2,   // 622: recruitment.CollaborationService.UnassignTag:output_type -> recruitment.CommonResponse
+	284, // 623: recruitment.CollaborationService.ListCandidateTags:output_type -> recruitment.ListCandidateTagsResponse
+	287, // 624: recruitment.CollaborationService.CreateFollowUpTask:output_type -> recruitment.CreateFollowUpTaskResponse
+	289, // 625: recruitment.CollaborationService.ListFollowUpTasks:output_type -> recruitment.ListFollowUpTasksResponse
+	2,   // 626: recruitment.CollaborationService.CompleteFollowUpTask:output_type -> recruitment.CommonResponse
+	292, // 627: recruitment.CollaborationService.GetFollowUpTask:output_type -> recruitment.GetFollowUpTaskResponse
+	295, // 628: recruitment.CollaborationService.ListTimelineEvents:output_type -> recruitment.ListTimelineEventsResponse
+	459, // 629: recruitment.RecruitingIntelligenceService.GetResumeProfile:output_type -> recruitment.GetResumeProfileResponse
+	459, // 630: recruitment.RecruitingIntelligenceService.ParseResumeProfile:output_type -> recruitment.GetResumeProfileResponse
+	465, // 631: recruitment.RecruitingIntelligenceService.EvaluateCandidateMatch:output_type -> recruitment.GetCandidateMatchEvaluationResponse
+	465, // 632: recruitment.RecruitingIntelligenceService.GetCandidateMatchEvaluation:output_type -> recruitment.GetCandidateMatchEvaluationResponse
+	468, // 633: recruitment.RecruitingIntelligenceService.CompareCandidatesForJob:output_type -> recruitment.CompareCandidatesForJobResponse
+	321, // 634: recruitment.PlatformAIControlPlaneService.ListPlatformAICapabilities:output_type -> recruitment.ListPlatformAICapabilitiesResponse
+	323, // 635: recruitment.PlatformAIControlPlaneService.ListPlatformAICapabilityVersions:output_type -> recruitment.ListPlatformAICapabilityVersionsResponse
+	327, // 636: recruitment.PlatformAIControlPlaneService.CreatePlatformAICapabilityDraft:output_type -> recruitment.PlatformAICapabilityVersionResponse
+	327, // 637: recruitment.PlatformAIControlPlaneService.UpdatePlatformAICapabilityDraft:output_type -> recruitment.PlatformAICapabilityVersionResponse
+	327, // 638: recruitment.PlatformAIControlPlaneService.PublishPlatformAICapabilityVersion:output_type -> recruitment.PlatformAICapabilityVersionResponse
+	330, // 639: recruitment.PlatformAIControlPlaneService.ListPlatformAIRuntimeModels:output_type -> recruitment.ListPlatformAIRuntimeModelsResponse
+	332, // 640: recruitment.PlatformAIControlPlaneService.ResolvePlatformAIRuntimeModel:output_type -> recruitment.ResolvePlatformAIRuntimeModelResponse
+	335, // 641: recruitment.PlatformAIControlPlaneService.QueryPlatformAIConfigAuditLogs:output_type -> recruitment.QueryPlatformAIConfigAuditLogsResponse
+	338, // 642: recruitment.MCPService.ListMCPServers:output_type -> recruitment.ListMCPServersResponse
+	342, // 643: recruitment.MCPService.CreateMCPServer:output_type -> recruitment.MCPServerResponse
+	342, // 644: recruitment.MCPService.UpdateMCPServer:output_type -> recruitment.MCPServerResponse
+	2,   // 645: recruitment.MCPService.DeleteMCPServer:output_type -> recruitment.CommonResponse
+	345, // 646: recruitment.MCPService.ListMCPToolPolicies:output_type -> recruitment.ListMCPToolPoliciesResponse
+	349, // 647: recruitment.MCPService.CreateMCPToolPolicy:output_type -> recruitment.MCPToolPolicyResponse
+	349, // 648: recruitment.MCPService.UpdateMCPToolPolicy:output_type -> recruitment.MCPToolPolicyResponse
+	2,   // 649: recruitment.MCPService.DeleteMCPToolPolicy:output_type -> recruitment.CommonResponse
+	352, // 650: recruitment.MCPService.ListMCPToolLogs:output_type -> recruitment.ListMCPToolLogsResponse
+	354, // 651: recruitment.MCPService.TestMCPConnection:output_type -> recruitment.TestMCPConnectionResponse
+	357, // 652: recruitment.MCPService.ListMCPTools:output_type -> recruitment.ListMCPToolsResponse
+	359, // 653: recruitment.MCPService.CallMCPTool:output_type -> recruitment.CallMCPToolResponse
+	362, // 654: recruitment.LlmConfigService.ListProviders:output_type -> recruitment.ListProvidersResponse
+	365, // 655: recruitment.LlmConfigService.CreateProvider:output_type -> recruitment.ProviderResponse
+	365, // 656: recruitment.LlmConfigService.UpdateProvider:output_type -> recruitment.ProviderResponse
+	2,   // 657: recruitment.LlmConfigService.DeleteProvider:output_type -> recruitment.CommonResponse
+	368, // 658: recruitment.LlmConfigService.TestProviderConnection:output_type -> recruitment.TestProviderConnectionResponse
+	373, // 659: recruitment.LlmConfigService.DiscoverProviderModels:output_type -> recruitment.DiscoverProviderModelsResponse
+	375, // 660: recruitment.LlmConfigService.GetProviderModelPreset:output_type -> recruitment.GetProviderModelPresetResponse
+	378, // 661: recruitment.LlmConfigService.ListModels:output_type -> recruitment.ListModelsResponse
+	381, // 662: recruitment.LlmConfigService.CreateModel:output_type -> recruitment.ModelResponse
+	381, // 663: recruitment.LlmConfigService.UpdateModel:output_type -> recruitment.ModelResponse
+	2,   // 664: recruitment.LlmConfigService.DeleteModel:output_type -> recruitment.CommonResponse
+	368, // 665: recruitment.LlmConfigService.TestModelConnection:output_type -> recruitment.TestProviderConnectionResponse
+	385, // 666: recruitment.PromptService.ListPromptTemplates:output_type -> recruitment.ListPromptTemplatesResponse
+	388, // 667: recruitment.PromptService.CreatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
+	388, // 668: recruitment.PromptService.UpdatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
+	2,   // 669: recruitment.PromptService.DeletePromptTemplate:output_type -> recruitment.CommonResponse
+	392, // 670: recruitment.PromptService.GetPromptVersionHistory:output_type -> recruitment.GetPromptVersionHistoryResponse
+	388, // 671: recruitment.PromptService.RollbackPromptVersion:output_type -> recruitment.PromptTemplateResponse
+	395, // 672: recruitment.PromptService.RenderPrompt:output_type -> recruitment.RenderPromptResponse
+	397, // 673: recruitment.PromptService.GetActivePromptByAgentType:output_type -> recruitment.GetActivePromptByAgentTypeResponse
+	405, // 674: recruitment.AgentConfigService.ListAgents:output_type -> recruitment.ListAgentsResponse
+	403, // 675: recruitment.AgentConfigService.ListCapabilities:output_type -> recruitment.ListCapabilitiesResponse
+	408, // 676: recruitment.AgentConfigService.CreateAgent:output_type -> recruitment.AgentConfigResponse
+	408, // 677: recruitment.AgentConfigService.UpdateAgent:output_type -> recruitment.AgentConfigResponse
+	2,   // 678: recruitment.AgentConfigService.DeleteAgent:output_type -> recruitment.CommonResponse
+	411, // 679: recruitment.AgentConfigService.GetAgentConfig:output_type -> recruitment.GetAgentConfigResponse
+	416, // 680: recruitment.SkillService.ListSkills:output_type -> recruitment.ListSkillsResponse
+	419, // 681: recruitment.SkillService.CreateSkill:output_type -> recruitment.SkillResponse
+	419, // 682: recruitment.SkillService.UpdateSkill:output_type -> recruitment.SkillResponse
+	421, // 683: recruitment.SkillService.CreateSkillVersion:output_type -> recruitment.SkillVersionResponse
+	423, // 684: recruitment.SkillService.ListSkillVersions:output_type -> recruitment.ListSkillVersionsResponse
+	419, // 685: recruitment.SkillService.ActivateSkillVersion:output_type -> recruitment.SkillResponse
+	426, // 686: recruitment.SkillService.ListSkillTools:output_type -> recruitment.ListSkillToolsResponse
+	428, // 687: recruitment.SkillService.UpdateSkillTool:output_type -> recruitment.SkillToolResponse
+	433, // 688: recruitment.AgentSkillService.ListAgentSkills:output_type -> recruitment.ListAgentSkillsResponse
+	437, // 689: recruitment.AgentSkillService.GetAgentSkill:output_type -> recruitment.AgentSkillResponse
+	437, // 690: recruitment.AgentSkillService.CreateAgentSkill:output_type -> recruitment.AgentSkillResponse
+	437, // 691: recruitment.AgentSkillService.UpdateAgentSkill:output_type -> recruitment.AgentSkillResponse
+	439, // 692: recruitment.AgentSkillService.CreateAgentSkillVersion:output_type -> recruitment.AgentSkillVersionResponse
+	441, // 693: recruitment.AgentSkillService.ListAgentSkillVersions:output_type -> recruitment.ListAgentSkillVersionsResponse
+	437, // 694: recruitment.AgentSkillService.ActivateAgentSkillVersion:output_type -> recruitment.AgentSkillResponse
+	437, // 695: recruitment.AgentSkillService.UpdateAgentSkillStatus:output_type -> recruitment.AgentSkillResponse
+	445, // 696: recruitment.AgentSkillService.PreviewAgentSkill:output_type -> recruitment.PreviewAgentSkillResponse
+	433, // 697: recruitment.AgentSkillService.ListAvailableAgentSkills:output_type -> recruitment.ListAgentSkillsResponse
+	449, // 698: recruitment.AgentSkillService.DebugSemanticRetrieval:output_type -> recruitment.DebugSemanticRetrievalResponse
+	471, // 699: recruitment.EmbeddingConfigService.ListEmbeddingProviders:output_type -> recruitment.ListEmbeddingProvidersResponse
+	474, // 700: recruitment.EmbeddingConfigService.CreateEmbeddingProvider:output_type -> recruitment.EmbeddingProviderResponse
+	474, // 701: recruitment.EmbeddingConfigService.UpdateEmbeddingProvider:output_type -> recruitment.EmbeddingProviderResponse
+	2,   // 702: recruitment.EmbeddingConfigService.DeleteEmbeddingProvider:output_type -> recruitment.CommonResponse
+	478, // 703: recruitment.EmbeddingConfigService.ListEmbeddingModels:output_type -> recruitment.ListEmbeddingModelsResponse
+	481, // 704: recruitment.EmbeddingConfigService.CreateEmbeddingModel:output_type -> recruitment.EmbeddingModelResponse
+	481, // 705: recruitment.EmbeddingConfigService.UpdateEmbeddingModel:output_type -> recruitment.EmbeddingModelResponse
+	2,   // 706: recruitment.EmbeddingConfigService.SetDefaultEmbeddingModel:output_type -> recruitment.CommonResponse
+	485, // 707: recruitment.EmbeddingConfigService.TestEmbeddingModel:output_type -> recruitment.TestEmbeddingModelResponse
+	487, // 708: recruitment.EmbeddingConfigService.BackfillEmbeddings:output_type -> recruitment.BackfillEmbeddingsResponse
+	453, // [453:709] is the sub-list for method output_type
+	197, // [197:453] is the sub-list for method input_type
+	197, // [197:197] is the sub-list for extension type_name
+	197, // [197:197] is the sub-list for extension extendee
+	0,   // [0:197] is the sub-list for field type_name
 }
 
 func init() { file_proto_recruitment_proto_init() }
@@ -47814,7 +49189,7 @@ func file_proto_recruitment_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_recruitment_proto_rawDesc), len(file_proto_recruitment_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   522,
+			NumMessages:   533,
 			NumExtensions: 0,
 			NumServices:   22,
 		},

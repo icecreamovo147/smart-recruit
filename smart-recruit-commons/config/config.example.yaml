@@ -78,6 +78,13 @@ agent:
   max_memory_chars: 1500
   max_prompt_chars: 20000
   max_memories: 10
+  memory:
+    enabled: true                       # AGENT_MEMORY_ENABLED
+    write_enabled: true                 # AGENT_MEMORY_WRITE_ENABLED
+    inject_enabled: true                # AGENT_MEMORY_INJECT_ENABLED
+    cleanup_interval: 15m               # AGENT_MEMORY_CLEANUP_INTERVAL
+    cleanup_timeout: 5m                 # AGENT_MEMORY_CLEANUP_TIMEOUT
+    revoked_retention: 720h             # AGENT_MEMORY_REVOKED_RETENTION
   features:
     planner: true                       # AGENT_FEATURE_PLANNER
     structured_resume_parse: true       # AGENT_FEATURE_STRUCTURED_RESUME_PARSE

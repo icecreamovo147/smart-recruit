@@ -24,6 +24,8 @@ import (
 	"gorm.io/gorm"
 
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
+	appmemory "smart-recruit-ai-agent-service/internal/application/memory"
+	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	aiagentpersistence "smart-recruit-ai-agent-service/internal/infrastructure/persistence"
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
@@ -187,6 +189,10 @@ func serveAIAgent(addr string) error {
 	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
 
 	nativeStore := aiagentpersistence.NewNativeStore(db)
+	memoryRepo := aiagentpersistence.NewMemoryRepositoryAdapter(nativeStore)
+	embeddingService := embeddinginfra.NewEmbeddingService(nativeStore, nil)
+	memoryCfg := appmemory.ConfigFromService(cfg)
+	memoryService := appmemory.NewService(memoryRepo, appmemory.NewExtractor(nil), embeddingService, memoryCfg)
 	catalogSyncCtx, cancelCatalogSync := context.WithTimeout(context.Background(), 15*time.Second)
 	if err := nativeStore.SyncBundledLlmModelCatalog(catalogSyncCtx); err != nil {
 		cancelCatalogSync()
@@ -219,6 +225,8 @@ func serveAIAgent(addr string) error {
 	runtime, err := aiagentruntime.New(aiagentgrpc.NewNativeRuntimeDeps(aiagentgrpc.RuntimeDeps{
 		Store:            nativeStore,
 		Provider:         nativeStore,
+		MemoryService:    memoryService,
+		EmbeddingService: embeddingService,
 		PlatformAI:       aiagentpersistence.NewPlatformAIControlPlaneServer(nativeStore),
 		RecruitingPolicy: recruitingRuntimePolicy(cfg),
 		EmbeddingWorker:  true,
@@ -274,6 +282,7 @@ func serveAIAgent(addr string) error {
 	outboxCtx, stopOutbox := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stopOutbox()
 	go nativeStore.RunBillingSettlementOutbox(outboxCtx, billingClient)
+	go runMemoryCleanupLoop(outboxCtx, log, memoryService, memoryCfg)
 	go stopOnSignal(grpcServer)
 
 	log.Info("ai-agent grpc server listening",
@@ -443,6 +452,56 @@ func envOrDefault(key string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func runMemoryCleanupLoop(ctx context.Context, log *zap.Logger, memoryService *appmemory.Service, cfg appmemory.Config) {
+	if memoryService == nil || !memoryService.Enabled() {
+		return
+	}
+	interval := cfg.CleanupInterval
+	if interval <= 0 {
+		interval = 15 * time.Minute
+	}
+	timeout := cfg.CleanupTimeout
+	if timeout <= 0 {
+		timeout = 5 * time.Minute
+	}
+	retention := cfg.RevokedRetention
+	if retention <= 0 {
+		retention = 30 * 24 * time.Hour
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	runCleanup := func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				log.Warn("memory cleanup panic recovered", zap.Any("panic", recovered))
+			}
+		}()
+		cleanupCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		result, err := memoryService.ExpireAndCleanup(cleanupCtx, retention)
+		if err != nil {
+			log.Warn("memory cleanup failed", zap.Error(err))
+			return
+		}
+		if result.ExpiredArchived > 0 || result.RevokedPurged > 0 || result.EmbeddingsInvalidated > 0 {
+			log.Info("memory cleanup completed",
+				zap.Int64("expired_archived", result.ExpiredArchived),
+				zap.Int64("revoked_purged", result.RevokedPurged),
+				zap.Int64("embeddings_invalidated", result.EmbeddingsInvalidated),
+			)
+		}
+	}
+	runCleanup()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			runCleanup()
+		}
+	}
 }
 
 type unavailableEmbeddingConfigService struct {

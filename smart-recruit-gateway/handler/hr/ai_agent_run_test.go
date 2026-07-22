@@ -155,6 +155,25 @@ func (m *mockAIServiceClient) ConfirmAgentRun(ctx context.Context, req *pb.Confi
 	}, nil
 }
 
+func (m *mockAIServiceClient) ListMemories(context.Context, *pb.ListMemoriesRequest, ...grpc.CallOption) (*pb.ListMemoriesResponse, error) {
+	return &pb.ListMemoriesResponse{Code: 0, Msg: "ok"}, nil
+}
+func (m *mockAIServiceClient) GetMemory(context.Context, *pb.GetMemoryRequest, ...grpc.CallOption) (*pb.MemoryResponse, error) {
+	return &pb.MemoryResponse{Code: 0, Msg: "ok"}, nil
+}
+func (m *mockAIServiceClient) CreateMemory(context.Context, *pb.CreateMemoryRequest, ...grpc.CallOption) (*pb.MemoryResponse, error) {
+	return &pb.MemoryResponse{Code: 0, Msg: "ok"}, nil
+}
+func (m *mockAIServiceClient) UpdateMemory(context.Context, *pb.UpdateMemoryRequest, ...grpc.CallOption) (*pb.MemoryResponse, error) {
+	return &pb.MemoryResponse{Code: 0, Msg: "ok"}, nil
+}
+func (m *mockAIServiceClient) RevokeMemory(context.Context, *pb.RevokeMemoryRequest, ...grpc.CallOption) (*pb.MemoryResponse, error) {
+	return &pb.MemoryResponse{Code: 0, Msg: "ok"}, nil
+}
+func (m *mockAIServiceClient) RecallMemories(context.Context, *pb.RecallMemoriesRequest, ...grpc.CallOption) (*pb.RecallMemoriesResponse, error) {
+	return &pb.RecallMemoriesResponse{Code: 0, Msg: "ok"}, nil
+}
+
 // mockAgentRunEventStream is a minimal gRPC server-streaming client for tests.
 type mockAgentRunEventStream struct {
 	ctx    context.Context

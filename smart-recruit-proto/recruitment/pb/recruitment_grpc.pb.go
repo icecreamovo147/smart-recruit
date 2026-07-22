@@ -2954,6 +2954,12 @@ const (
 	AIService_SubscribeAgentRunEvents_FullMethodName          = "/recruitment.AIService/SubscribeAgentRunEvents"
 	AIService_CancelAgentRun_FullMethodName                   = "/recruitment.AIService/CancelAgentRun"
 	AIService_ConfirmAgentRun_FullMethodName                  = "/recruitment.AIService/ConfirmAgentRun"
+	AIService_ListMemories_FullMethodName                     = "/recruitment.AIService/ListMemories"
+	AIService_GetMemory_FullMethodName                        = "/recruitment.AIService/GetMemory"
+	AIService_CreateMemory_FullMethodName                     = "/recruitment.AIService/CreateMemory"
+	AIService_UpdateMemory_FullMethodName                     = "/recruitment.AIService/UpdateMemory"
+	AIService_RevokeMemory_FullMethodName                     = "/recruitment.AIService/RevokeMemory"
+	AIService_RecallMemories_FullMethodName                   = "/recruitment.AIService/RecallMemories"
 )
 
 // AIServiceClient is the client API for AIService service.
@@ -2989,6 +2995,13 @@ type AIServiceClient interface {
 	SubscribeAgentRunEvents(ctx context.Context, in *SubscribeAgentRunEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AgentRunEvent], error)
 	CancelAgentRun(ctx context.Context, in *CancelAgentRunRequest, opts ...grpc.CallOption) (*CancelAgentRunResponse, error)
 	ConfirmAgentRun(ctx context.Context, in *ConfirmAgentRunRequest, opts ...grpc.CallOption) (*ConfirmAgentRunResponse, error)
+	// Durable agent memory lifecycle (owner-scoped long-term memory).
+	ListMemories(ctx context.Context, in *ListMemoriesRequest, opts ...grpc.CallOption) (*ListMemoriesResponse, error)
+	GetMemory(ctx context.Context, in *GetMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error)
+	CreateMemory(ctx context.Context, in *CreateMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error)
+	UpdateMemory(ctx context.Context, in *UpdateMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error)
+	RevokeMemory(ctx context.Context, in *RevokeMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error)
+	RecallMemories(ctx context.Context, in *RecallMemoriesRequest, opts ...grpc.CallOption) (*RecallMemoriesResponse, error)
 }
 
 type aIServiceClient struct {
@@ -3276,6 +3289,66 @@ func (c *aIServiceClient) ConfirmAgentRun(ctx context.Context, in *ConfirmAgentR
 	return out, nil
 }
 
+func (c *aIServiceClient) ListMemories(ctx context.Context, in *ListMemoriesRequest, opts ...grpc.CallOption) (*ListMemoriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMemoriesResponse)
+	err := c.cc.Invoke(ctx, AIService_ListMemories_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) GetMemory(ctx context.Context, in *GetMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemoryResponse)
+	err := c.cc.Invoke(ctx, AIService_GetMemory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) CreateMemory(ctx context.Context, in *CreateMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemoryResponse)
+	err := c.cc.Invoke(ctx, AIService_CreateMemory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) UpdateMemory(ctx context.Context, in *UpdateMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemoryResponse)
+	err := c.cc.Invoke(ctx, AIService_UpdateMemory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) RevokeMemory(ctx context.Context, in *RevokeMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemoryResponse)
+	err := c.cc.Invoke(ctx, AIService_RevokeMemory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) RecallMemories(ctx context.Context, in *RecallMemoriesRequest, opts ...grpc.CallOption) (*RecallMemoriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RecallMemoriesResponse)
+	err := c.cc.Invoke(ctx, AIService_RecallMemories_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AIServiceServer is the server API for AIService service.
 // All implementations must embed UnimplementedAIServiceServer
 // for forward compatibility.
@@ -3309,6 +3382,13 @@ type AIServiceServer interface {
 	SubscribeAgentRunEvents(*SubscribeAgentRunEventsRequest, grpc.ServerStreamingServer[AgentRunEvent]) error
 	CancelAgentRun(context.Context, *CancelAgentRunRequest) (*CancelAgentRunResponse, error)
 	ConfirmAgentRun(context.Context, *ConfirmAgentRunRequest) (*ConfirmAgentRunResponse, error)
+	// Durable agent memory lifecycle (owner-scoped long-term memory).
+	ListMemories(context.Context, *ListMemoriesRequest) (*ListMemoriesResponse, error)
+	GetMemory(context.Context, *GetMemoryRequest) (*MemoryResponse, error)
+	CreateMemory(context.Context, *CreateMemoryRequest) (*MemoryResponse, error)
+	UpdateMemory(context.Context, *UpdateMemoryRequest) (*MemoryResponse, error)
+	RevokeMemory(context.Context, *RevokeMemoryRequest) (*MemoryResponse, error)
+	RecallMemories(context.Context, *RecallMemoriesRequest) (*RecallMemoriesResponse, error)
 	mustEmbedUnimplementedAIServiceServer()
 }
 
@@ -3393,6 +3473,24 @@ func (UnimplementedAIServiceServer) CancelAgentRun(context.Context, *CancelAgent
 }
 func (UnimplementedAIServiceServer) ConfirmAgentRun(context.Context, *ConfirmAgentRunRequest) (*ConfirmAgentRunResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ConfirmAgentRun not implemented")
+}
+func (UnimplementedAIServiceServer) ListMemories(context.Context, *ListMemoriesRequest) (*ListMemoriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMemories not implemented")
+}
+func (UnimplementedAIServiceServer) GetMemory(context.Context, *GetMemoryRequest) (*MemoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMemory not implemented")
+}
+func (UnimplementedAIServiceServer) CreateMemory(context.Context, *CreateMemoryRequest) (*MemoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateMemory not implemented")
+}
+func (UnimplementedAIServiceServer) UpdateMemory(context.Context, *UpdateMemoryRequest) (*MemoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateMemory not implemented")
+}
+func (UnimplementedAIServiceServer) RevokeMemory(context.Context, *RevokeMemoryRequest) (*MemoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeMemory not implemented")
+}
+func (UnimplementedAIServiceServer) RecallMemories(context.Context, *RecallMemoriesRequest) (*RecallMemoriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RecallMemories not implemented")
 }
 func (UnimplementedAIServiceServer) mustEmbedUnimplementedAIServiceServer() {}
 func (UnimplementedAIServiceServer) testEmbeddedByValue()                   {}
@@ -3844,6 +3942,114 @@ func _AIService_ConfirmAgentRun_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AIService_ListMemories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMemoriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).ListMemories(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_ListMemories_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).ListMemories(ctx, req.(*ListMemoriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_GetMemory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMemoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).GetMemory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_GetMemory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).GetMemory(ctx, req.(*GetMemoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_CreateMemory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateMemoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).CreateMemory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_CreateMemory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).CreateMemory(ctx, req.(*CreateMemoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_UpdateMemory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMemoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).UpdateMemory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_UpdateMemory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).UpdateMemory(ctx, req.(*UpdateMemoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_RevokeMemory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeMemoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).RevokeMemory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_RevokeMemory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).RevokeMemory(ctx, req.(*RevokeMemoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_RecallMemories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecallMemoriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).RecallMemories(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_RecallMemories_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).RecallMemories(ctx, req.(*RecallMemoriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AIService_ServiceDesc is the grpc.ServiceDesc for AIService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -3938,6 +4144,30 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ConfirmAgentRun",
 			Handler:    _AIService_ConfirmAgentRun_Handler,
+		},
+		{
+			MethodName: "ListMemories",
+			Handler:    _AIService_ListMemories_Handler,
+		},
+		{
+			MethodName: "GetMemory",
+			Handler:    _AIService_GetMemory_Handler,
+		},
+		{
+			MethodName: "CreateMemory",
+			Handler:    _AIService_CreateMemory_Handler,
+		},
+		{
+			MethodName: "UpdateMemory",
+			Handler:    _AIService_UpdateMemory_Handler,
+		},
+		{
+			MethodName: "RevokeMemory",
+			Handler:    _AIService_RevokeMemory_Handler,
+		},
+		{
+			MethodName: "RecallMemories",
+			Handler:    _AIService_RecallMemories_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

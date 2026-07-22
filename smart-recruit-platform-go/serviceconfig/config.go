@@ -83,6 +83,14 @@ type Config struct {
 		MaxMemoryChars         int `yaml:"max_memory_chars"`
 		MaxPromptChars         int `yaml:"max_prompt_chars"`
 		MaxMemories            int `yaml:"max_memories"`
+		Memory                 struct {
+			Enabled           *bool    `yaml:"enabled"`
+			WriteEnabled      *bool    `yaml:"write_enabled"`
+			InjectEnabled     *bool    `yaml:"inject_enabled"`
+			CleanupInterval   Duration `yaml:"cleanup_interval"`
+			CleanupTimeout    Duration `yaml:"cleanup_timeout"`
+			RevokedRetention  Duration `yaml:"revoked_retention"`
+		} `yaml:"memory"`
 		Features               struct {
 			Planner                  *bool    `yaml:"planner"`
 			StructuredResumeParse    *bool    `yaml:"structured_resume_parse"`
@@ -291,6 +299,18 @@ func Load() (Config, error) {
 	if cfg.Agent.MaxMemories <= 0 {
 		cfg.Agent.MaxMemories = 10
 	}
+	defaultBool(&cfg.Agent.Memory.Enabled, true)
+	defaultBool(&cfg.Agent.Memory.WriteEnabled, true)
+	defaultBool(&cfg.Agent.Memory.InjectEnabled, true)
+	if cfg.Agent.Memory.CleanupInterval.Duration <= 0 {
+		cfg.Agent.Memory.CleanupInterval.Duration = 15 * time.Minute
+	}
+	if cfg.Agent.Memory.CleanupTimeout.Duration <= 0 {
+		cfg.Agent.Memory.CleanupTimeout.Duration = 5 * time.Minute
+	}
+	if cfg.Agent.Memory.RevokedRetention.Duration <= 0 {
+		cfg.Agent.Memory.RevokedRetention.Duration = 30 * 24 * time.Hour
+	}
 	defaultBool(&cfg.Agent.Features.Planner, true)
 	defaultBool(&cfg.Agent.Features.StructuredResumeParse, true)
 	defaultBool(&cfg.Agent.Features.CandidateMatch, true)
@@ -460,6 +480,12 @@ func applyEnvOverrides(cfg *Config) {
 	setInt(&cfg.Agent.MaxMemoryChars, "AGENT_MAX_MEMORY_CHARS")
 	setInt(&cfg.Agent.MaxPromptChars, "AGENT_MAX_PROMPT_CHARS")
 	setInt(&cfg.Agent.MaxMemories, "AGENT_MAX_MEMORIES")
+	setBoolPtr(&cfg.Agent.Memory.Enabled, "AGENT_MEMORY_ENABLED")
+	setBoolPtr(&cfg.Agent.Memory.WriteEnabled, "AGENT_MEMORY_WRITE_ENABLED")
+	setBoolPtr(&cfg.Agent.Memory.InjectEnabled, "AGENT_MEMORY_INJECT_ENABLED")
+	setDuration(&cfg.Agent.Memory.CleanupInterval, "AGENT_MEMORY_CLEANUP_INTERVAL")
+	setDuration(&cfg.Agent.Memory.CleanupTimeout, "AGENT_MEMORY_CLEANUP_TIMEOUT")
+	setDuration(&cfg.Agent.Memory.RevokedRetention, "AGENT_MEMORY_REVOKED_RETENTION")
 	setBoolPtr(&cfg.Agent.Features.Planner, "AGENT_FEATURE_PLANNER")
 	setBoolPtr(&cfg.Agent.Features.StructuredResumeParse, "AGENT_FEATURE_STRUCTURED_RESUME_PARSE")
 	setBoolPtr(&cfg.Agent.Features.CandidateMatch, "AGENT_FEATURE_CANDIDATE_MATCH")

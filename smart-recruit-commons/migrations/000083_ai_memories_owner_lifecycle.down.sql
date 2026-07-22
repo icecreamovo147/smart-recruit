@@ -1,0 +1,16 @@
+ALTER TABLE ai_memories
+  DROP KEY idx_ai_memories_content_hash_owner,
+  DROP KEY idx_ai_memories_expires_status,
+  DROP KEY idx_ai_memories_tenant_owner_status_scope,
+  DROP COLUMN revoke_reason,
+  DROP COLUMN revoked_by,
+  DROP COLUMN created_by,
+  DROP COLUMN source_run_id,
+  DROP COLUMN source_message_id,
+  DROP COLUMN source_session_id,
+  DROP COLUMN pii_level,
+  DROP COLUMN content_hash,
+  DROP COLUMN deleted_at,
+  DROP COLUMN status,
+  DROP COLUMN owner_id,
+  DROP COLUMN owner_role;

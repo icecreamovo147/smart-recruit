@@ -143,6 +143,8 @@ export const debugSemanticRetrieval = async (
       ...(params.job_id ? { job_id: params.job_id } : {}),
       ...(params.application_id ? { application_id: params.application_id } : {}),
       ...(params.limit ? { limit: params.limit } : {}),
+      ...(params.owner_role ? { owner_role: params.owner_role } : {}),
+      ...(params.owner_id ? { owner_id: params.owner_id } : {}),
     },
   })
   debugLog.skill.info('debugSemanticRetrieval_succeeded', { skill_count: (res.skills || []).length, memory_count: (res.memories || []).length })
