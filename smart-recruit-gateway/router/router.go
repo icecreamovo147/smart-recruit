@@ -142,7 +142,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 
 	normalTimeout := middleware.Timeout(10 * time.Second)
 	uploadTimeout := middleware.Timeout(20 * time.Second)
-	aiTimeout := middleware.Timeout(45 * time.Second)
+	aiTimeout := middleware.Timeout(90 * time.Second)
 	mcpTimeout := middleware.Timeout(120 * time.Second)
 
 	limiters := middleware.NewLimiterRegistry(
@@ -252,6 +252,8 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	candidateGroup := v1.Group("/candidate", jwtAuth, currentPrincipal, middleware.RequireAnyRole(authz.RoleCandidate))
 	candidateGroup.GET("/profile", normalTimeout, middleware.RequirePermission(authz.PermCandidateProfileManage), profileHandler.Get)
 	candidateGroup.PUT("/profile", normalTimeout, bodyProfile, middleware.RequirePermission(authz.PermCandidateProfileManage), profileHandler.Update)
+	candidateGroup.POST("/profile/fill-from-resume", aiTimeout, middleware.RequirePermission(authz.PermCandidateProfileManage), profileHandler.FillFromResume)
+	candidateGroup.POST("/profile/apply-fill", normalTimeout, bodyProfile, middleware.RequirePermission(authz.PermCandidateProfileManage), profileHandler.ApplyFill)
 	candidateGroup.GET("/resume", normalTimeout, middleware.RequirePermission(authz.PermCandidateResumeManage), resumeHandler.Get)
 	candidateGroup.POST("/resume/presign", riskBlock, resumePresignQuota, normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCandidateResumeManage), resumeHandler.Presign)
 	candidateGroup.POST("/resume/confirm", riskBlock, resumeConfirmQuota, uploadTimeout, bodyProfile, middleware.RequirePermission(authz.PermCandidateResumeManage), resumeHandler.Confirm)

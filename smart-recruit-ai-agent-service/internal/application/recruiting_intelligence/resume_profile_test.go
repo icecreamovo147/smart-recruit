@@ -47,20 +47,8 @@ func TestResumeProfileStrictDecodeRejectsInvalidJSONAndSchema(t *testing.T) {
 		content string
 		kind    ResumeExtractionErrorKind
 	}{
-		{name: "leading garbage", content: "prefix " + validResumeProfileJSON, kind: ResumeExtractionJSON},
-		{name: "trailing garbage", content: validResumeProfileJSON + " suffix", kind: ResumeExtractionJSON},
-		{name: "multiple values", content: validResumeProfileJSON + ` {}`, kind: ResumeExtractionJSON},
-		{name: "unknown field", content: strings.Replace(validResumeProfileJSON, `"phone":"",`, `"phone":"","unknown":true,`, 1), kind: ResumeExtractionSchema},
-		{name: "missing top-level scalar key", content: strings.Replace(validResumeProfileJSON, `  "phone":"",`+"\n", "", 1), kind: ResumeExtractionSchema},
-		{name: "missing top-level array key", content: strings.Replace(validResumeProfileJSON, `  "projects":[{"name":"Engine","role":"Builder","start_date":"2019","end_date":"2020","description":"Compute","technologies":[],"highlights":[]}],`+"\n", "", 1), kind: ResumeExtractionSchema},
-		{name: "missing education scalar key", content: strings.Replace(validResumeProfileJSON, `"degree":"BS",`, "", 1), kind: ResumeExtractionSchema},
-		{name: "missing experience scalar key", content: strings.Replace(validResumeProfileJSON, `"title":"Engineer",`, "", 1), kind: ResumeExtractionSchema},
-		{name: "missing experience boolean key", content: strings.Replace(validResumeProfileJSON, `"is_current":true,`, "", 1), kind: ResumeExtractionSchema},
-		{name: "missing experience array key", content: strings.Replace(validResumeProfileJSON, `,"achievements":[]`, "", 1), kind: ResumeExtractionSchema},
-		{name: "missing project scalar key", content: strings.Replace(validResumeProfileJSON, `"role":"Builder",`, "", 1), kind: ResumeExtractionSchema},
-		{name: "missing project array key", content: strings.Replace(validResumeProfileJSON, `,"technologies":[]`, "", 1), kind: ResumeExtractionSchema},
-		{name: "missing skill scalar key", content: strings.Replace(validResumeProfileJSON, `"level":"senior",`, "", 1), kind: ResumeExtractionSchema},
-		{name: "null scalar is not typed empty", content: strings.Replace(validResumeProfileJSON, `"phone":""`, `"phone":null`, 1), kind: ResumeExtractionSchema},
+		{name: "leading garbage without object", content: "prefix only", kind: ResumeExtractionJSON},
+		{name: "not json object", content: `["Go"]`, kind: ResumeExtractionJSON},
 		{name: "string skill", content: `{"full_name":"Ada","total_experience_years":1,"educations":[],"experiences":[],"projects":[],"skills":["Go"]}`, kind: ResumeExtractionSchema},
 		{name: "invalid date", content: strings.Replace(validResumeProfileJSON, `"start_date":"2020-01"`, `"start_date":"2020-13"`, 1), kind: ResumeExtractionSchema},
 		{name: "negative experience", content: strings.Replace(validResumeProfileJSON, `"total_experience_years":5`, `"total_experience_years":-1`, 1), kind: ResumeExtractionSchema},
@@ -74,6 +62,54 @@ func TestResumeProfileStrictDecodeRejectsInvalidJSONAndSchema(t *testing.T) {
 			var extractionErr *ResumeExtractionError
 			if !errors.As(err, &extractionErr) || extractionErr.Kind != tc.kind {
 				t.Fatalf("error = %v, want kind %s", err, tc.kind)
+			}
+		})
+	}
+}
+
+func TestResumeProfileCanonicalizeRepairsCommonLLMDrift(t *testing.T) {
+	fenced := "```json\n" + `{
+  "full_name":"Ada Lovelace",
+  "email":"ada@example.com",
+  "phone":"",
+  "location":"London",
+  "headline":"Engineer",
+  "summary":"Builds systems",
+  "total_experience_years":5,
+  "highest_degree":"BS",
+  "educations":[{"school":"University","degree":"BS","major":"Math","start_date":"2015.09","end_date":"2019.06","description":"Study"}],
+  "experiences":[{"company":"Engines","title":"Engineer","location":"London","start_date":"2020.01","end_date":"present","is_current":true,"description":"Services","achievements":[]}],
+  "projects":[{"name":"Engine","role":"Builder","start_date":"2019","end_date":"2020","description":"Compute","technologies":[],"highlights":[]}],
+  "skills":[{"name":"golang","category":"language","level":"senior","years":5,"evidence":"services"}],
+  "age":23,
+  "gender":"女"
+}` + "\n```"
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{name: "markdown fence unknown fields and dotted dates", content: fenced},
+		{
+			name:    "missing phone and null location",
+			content: strings.Replace(strings.Replace(validResumeProfileJSON, `  "phone":"",`+"\n", "", 1), `"location":"London"`, `"location":null`, 1),
+		},
+		{
+			name:    "email label prefix",
+			content: strings.Replace(validResumeProfileJSON, `"email":"ada@example.com"`, `"email":"邮箱：ada@example.com"`, 1),
+		},
+	}
+	policy := NewRuntimePolicy(RuntimePolicyConfig{StructuredResumeParse: true, Fallbacks: false})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := NewResumeProfileExtractor(resumeRuntime(&resumeStructuredProvider{content: tc.content}, validResumePrompt(), policy), policy).Extract(context.Background(), ResumeSource{ParsedText: "Ada uses Go."})
+			if err != nil {
+				t.Fatalf("Extract error = %v", err)
+			}
+			if result.FallbackUsed || result.ParserVersion != ResumeLLMParserVersion {
+				t.Fatalf("result = %+v", result)
+			}
+			if result.Profile.Email != "ada@example.com" {
+				t.Fatalf("email = %q", result.Profile.Email)
 			}
 		})
 	}

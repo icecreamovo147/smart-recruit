@@ -27,6 +27,7 @@ export default defineConfig({
           'vendor-vue': ['vue', 'vue-router', 'pinia'],
           'vendor-element': ['element-plus', '@element-plus/icons-vue'],
           'vendor-editor': ['@wangeditor/editor'],
+          'vendor-pdf': ['pdfjs-dist'],
         },
       },
     },

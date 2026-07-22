@@ -139,6 +139,14 @@ func (d *fakeRecruitmentDelegate) UpdateProfile(context.Context, *pb.UpdateProfi
 	d.mark("UpdateProfile")
 	return &pb.GetProfileResponse{Code: errs.OK}, nil
 }
+func (d *fakeRecruitmentDelegate) FillProfileFromResume(context.Context, *pb.FillProfileFromResumeRequest) (*pb.FillProfileFromResumeResponse, error) {
+	d.mark("FillProfileFromResume")
+	return &pb.FillProfileFromResumeResponse{Code: errs.OK}, nil
+}
+func (d *fakeRecruitmentDelegate) ApplyProfileFill(context.Context, *pb.ApplyProfileFillRequest) (*pb.GetProfileResponse, error) {
+	d.mark("ApplyProfileFill")
+	return &pb.GetProfileResponse{Code: errs.OK}, nil
+}
 func (d *fakeRecruitmentDelegate) GetResume(context.Context, *pb.GetResumeRequest) (*pb.GetResumeResponse, error) {
 	d.mark("GetResume")
 	return &pb.GetResumeResponse{Code: errs.OK}, nil

@@ -199,6 +199,14 @@ func (fakeCandidateAPI) UpdateProfile(context.Context, *pb.UpdateProfileRequest)
 	return &pb.GetProfileResponse{Code: errs.OK}, nil
 }
 
+func (fakeCandidateAPI) FillProfileFromResume(context.Context, *pb.FillProfileFromResumeRequest) (*pb.FillProfileFromResumeResponse, error) {
+	return &pb.FillProfileFromResumeResponse{Code: errs.OK}, nil
+}
+
+func (fakeCandidateAPI) ApplyProfileFill(context.Context, *pb.ApplyProfileFillRequest) (*pb.GetProfileResponse, error) {
+	return &pb.GetProfileResponse{Code: errs.OK}, nil
+}
+
 func (fakeCandidateAPI) GetResume(context.Context, *pb.GetResumeRequest) (*pb.GetResumeResponse, error) {
 	return &pb.GetResumeResponse{Code: errs.OK}, nil
 }

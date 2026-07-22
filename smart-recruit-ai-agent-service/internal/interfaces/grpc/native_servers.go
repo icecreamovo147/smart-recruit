@@ -6557,6 +6557,64 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 	return resp, nil
 }
 
+func (s nativeRecruitingIntelligenceService) ParseResumeProfileForCandidate(ctx context.Context, req *pb.ParseResumeProfileForCandidateRequest) (*pb.GetResumeProfileResponse, error) {
+	finalizer := newRecruitingOperationFinalizer(s, ctx, "resume_profile", "resume", req.GetResumeId())
+	defer finalizer.finalize()
+	if req.GetCandidateUserId() <= 0 || req.GetResumeId() <= 0 {
+		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "candidate_user_id and resume_id are required"}, nil
+	}
+	if s.store == nil {
+		finalizer.classify("configuration_failure", "error")
+		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "recruiting read store is not configured"}, nil
+	}
+	generationStore, ok := s.store.(recruitingResumeProfileGenerationStore)
+	if !ok {
+		finalizer.classify("configuration_failure", "error")
+		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "resume profile parser is not configured"}, nil
+	}
+	source, found, err := generationStore.GetRecruitingResumeSource(ctx, req.GetResumeId())
+	if err != nil {
+		finalizer.classify("source_failure", "error")
+		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+	}
+	if !found {
+		finalizer.classify("not_found", "error")
+		return &pb.GetResumeProfileResponse{Code: 404, Msg: "resume not found"}, nil
+	}
+	if source.UserID != req.GetCandidateUserId() {
+		finalizer.classify("forbidden", "error")
+		return &pb.GetResumeProfileResponse{Code: errs.ErrForbidden, Msg: "resume does not belong to candidate"}, nil
+	}
+	if strings.TrimSpace(source.ParsedText) == "" {
+		finalizer.classify("domain_validation_failure", "error")
+		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume parsed_text is empty"}, nil
+	}
+	totalCtx, parseCtx, cancel := s.policy.ResumeExecutionContexts(ctx)
+	defer cancel()
+	parseCtx = recruitingruntime.WithObservationMetadata(parseCtx, platformmetadata.GetRequestID(ctx), "resume", req.GetResumeId())
+	draft, err := s.generateResumeProfileDraft(parseCtx, source)
+	if err != nil {
+		finalizer.classify(recruitingruntime.ObservationCategoryForError(err), "error")
+		return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: err.Error()}, nil
+	}
+	if err := totalCtx.Err(); err != nil {
+		finalizer.classify("timeout", "error")
+		return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: "resume profile extraction failed (timeout)"}, nil
+	}
+	snapshot, err := generationStore.SaveRecruitingResumeProfileDraft(totalCtx, draft)
+	if err != nil {
+		finalizer.classify("persistence_failure", "error")
+		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+	}
+	finalizer.classify("success", "success")
+	finalizer.event.ParserVersion = draft.ParserVersion
+	finalizer.event.OutputCount = boundedRecruitingCount(1 + len(draft.Educations) + len(draft.Experiences) + len(draft.Projects) + len(draft.Skills))
+	if draft.ParserVersion == recruitingruntime.ResumeHeuristicParserVersion {
+		finalizer.event.Category, finalizer.event.Fallback = "fallback_success", "heuristic"
+	}
+	return &pb.GetResumeProfileResponse{Code: errs.OK, Msg: "success", Profile: recruitingResumeProfileSnapshotPB(snapshot)}, nil
+}
+
 func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.Context, req *pb.EvaluateCandidateMatchRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
 	finalizer := newRecruitingOperationFinalizer(s, ctx, "candidate_match", "application", req.GetApplicationId())
 	defer finalizer.finalize()

@@ -54,6 +54,8 @@ service JobService {
 service CandidateService {
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
   rpc UpdateProfile(UpdateProfileRequest) returns (GetProfileResponse);
+  rpc FillProfileFromResume(FillProfileFromResumeRequest) returns (FillProfileFromResumeResponse);
+  rpc ApplyProfileFill(ApplyProfileFillRequest) returns (GetProfileResponse);
   rpc GetResume(GetResumeRequest) returns (GetResumeResponse);
   rpc PresignResumeUpload(PresignResumeUploadRequest) returns (PresignResumeUploadResponse);
   rpc ConfirmResumeUpload(ConfirmResumeUploadRequest) returns (ConfirmResumeUploadResponse);
@@ -260,6 +262,7 @@ service CollaborationService {
 service RecruitingIntelligenceService {
   rpc GetResumeProfile(GetResumeProfileRequest) returns (GetResumeProfileResponse);
   rpc ParseResumeProfile(ParseResumeProfileRequest) returns (GetResumeProfileResponse);
+  rpc ParseResumeProfileForCandidate(ParseResumeProfileForCandidateRequest) returns (GetResumeProfileResponse);
   rpc EvaluateCandidateMatch(EvaluateCandidateMatchRequest) returns (GetCandidateMatchEvaluationResponse);
   rpc GetCandidateMatchEvaluation(GetCandidateMatchEvaluationRequest) returns (GetCandidateMatchEvaluationResponse);
   rpc CompareCandidatesForJob(CompareCandidatesForJobRequest) returns (CompareCandidatesForJobResponse);
@@ -835,6 +838,37 @@ message UpdateProfileRequest {
   string school = 5;
   string work_experience = 6;
   string skills = 7;
+  string city = 8;
+  double years_of_experience = 9;
+  string job_status = 10;
+  string expected_position = 11;
+  int32 expected_salary_min = 12;
+  int32 expected_salary_max = 13;
+  string available_from = 14;
+  string summary = 15;
+  repeated CandidateEducationInfo educations = 16;
+  repeated CandidateExperienceInfo experiences = 17;
+}
+
+message CandidateEducationInfo {
+  string school = 1;
+  string degree = 2;
+  string major = 3;
+  string start_date = 4;
+  string end_date = 5;
+  string description = 6;
+  int32 sort_order = 7;
+}
+
+message CandidateExperienceInfo {
+  string company = 1;
+  string title = 2;
+  string location = 3;
+  string start_date = 4;
+  string end_date = 5;
+  int32 is_current = 6;
+  string description = 7;
+  int32 sort_order = 8;
 }
 
 message CandidateProfile {
@@ -845,6 +879,54 @@ message CandidateProfile {
   string work_experience = 5;
   repeated string skills = 6;
   bool is_complete = 7;
+  string city = 8;
+  double years_of_experience = 9;
+  string job_status = 10;
+  string expected_position = 11;
+  int32 expected_salary_min = 12;
+  int32 expected_salary_max = 13;
+  string available_from = 14;
+  string summary = 15;
+  repeated CandidateEducationInfo educations = 16;
+  repeated CandidateExperienceInfo experiences = 17;
+}
+
+message ProfileFillFieldDiff {
+  string field = 1;
+  string label = 2;
+  string action = 3; // fill | overwrite | skip | unsupported
+  string before = 4;
+  string after = 5;
+}
+
+message ProfileFillDraft {
+  CandidateProfile draft = 1;
+  bool refreshed = 2;
+  string refresh_reason = 3; // missing | heuristic | input_changed | forced | reused
+  repeated ProfileFillFieldDiff field_diffs = 4;
+  repeated string warnings = 5;
+  int64 resume_id = 6;
+}
+
+message FillProfileFromResumeRequest {
+  int64 user_id = 1;
+  bool force_refresh = 2;
+  bool overwrite_existing = 3;
+}
+
+message FillProfileFromResumeResponse {
+  int32 code = 1;
+  string msg = 2;
+  ProfileFillDraft draft = 3;
+  bool needs_refresh = 4;
+  string refresh_reason = 5;
+  int64 resume_id = 6;
+}
+
+message ApplyProfileFillRequest {
+  int64 user_id = 1;
+  ProfileFillDraft draft = 2;
+  bool overwrite_existing = 3;
 }
 
 message GetProfileResponse {
@@ -900,6 +982,7 @@ message ConfirmResumeUploadResponse {
   int32 code = 1;
   string msg = 2;
   int64 resume_id = 3;
+  bool fill_suggested = 4;
 }
 
 message ApplyJobRequest {
@@ -2548,6 +2631,18 @@ message CandidateWorkspace {
   // Detailed interview and offer records
   repeated CandidateWorkspaceInterview interviews = 14;
   repeated CandidateWorkspaceOffer offers = 15;
+
+  // P0 screening fields
+  string city = 16;
+  double years_of_experience = 17;
+  string job_status = 18;
+  string expected_position = 19;
+  int32 expected_salary_min = 20;
+  int32 expected_salary_max = 21;
+  string available_from = 22;
+  string summary = 23;
+  repeated CandidateEducationInfo educations = 24;
+  repeated CandidateExperienceInfo experiences = 25;
 }
 
 message CandidateWorkspaceInterview {
@@ -4370,6 +4465,11 @@ message ParseResumeProfileRequest {
   int64 application_id = 3;
   int64 capability_version_id = 4;
   int64 model_id = 5;
+}
+
+message ParseResumeProfileForCandidateRequest {
+  int64 candidate_user_id = 1;
+  int64 resume_id = 2;
 }
 
 message ResumeParseRunInfo {

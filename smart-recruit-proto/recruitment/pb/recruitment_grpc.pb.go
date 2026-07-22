@@ -1544,11 +1544,13 @@ var JobService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	CandidateService_GetProfile_FullMethodName          = "/recruitment.CandidateService/GetProfile"
-	CandidateService_UpdateProfile_FullMethodName       = "/recruitment.CandidateService/UpdateProfile"
-	CandidateService_GetResume_FullMethodName           = "/recruitment.CandidateService/GetResume"
-	CandidateService_PresignResumeUpload_FullMethodName = "/recruitment.CandidateService/PresignResumeUpload"
-	CandidateService_ConfirmResumeUpload_FullMethodName = "/recruitment.CandidateService/ConfirmResumeUpload"
+	CandidateService_GetProfile_FullMethodName            = "/recruitment.CandidateService/GetProfile"
+	CandidateService_UpdateProfile_FullMethodName         = "/recruitment.CandidateService/UpdateProfile"
+	CandidateService_FillProfileFromResume_FullMethodName = "/recruitment.CandidateService/FillProfileFromResume"
+	CandidateService_ApplyProfileFill_FullMethodName      = "/recruitment.CandidateService/ApplyProfileFill"
+	CandidateService_GetResume_FullMethodName             = "/recruitment.CandidateService/GetResume"
+	CandidateService_PresignResumeUpload_FullMethodName   = "/recruitment.CandidateService/PresignResumeUpload"
+	CandidateService_ConfirmResumeUpload_FullMethodName   = "/recruitment.CandidateService/ConfirmResumeUpload"
 )
 
 // CandidateServiceClient is the client API for CandidateService service.
@@ -1557,6 +1559,8 @@ const (
 type CandidateServiceClient interface {
 	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
 	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
+	FillProfileFromResume(ctx context.Context, in *FillProfileFromResumeRequest, opts ...grpc.CallOption) (*FillProfileFromResumeResponse, error)
+	ApplyProfileFill(ctx context.Context, in *ApplyProfileFillRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
 	GetResume(ctx context.Context, in *GetResumeRequest, opts ...grpc.CallOption) (*GetResumeResponse, error)
 	PresignResumeUpload(ctx context.Context, in *PresignResumeUploadRequest, opts ...grpc.CallOption) (*PresignResumeUploadResponse, error)
 	ConfirmResumeUpload(ctx context.Context, in *ConfirmResumeUploadRequest, opts ...grpc.CallOption) (*ConfirmResumeUploadResponse, error)
@@ -1584,6 +1588,26 @@ func (c *candidateServiceClient) UpdateProfile(ctx context.Context, in *UpdatePr
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetProfileResponse)
 	err := c.cc.Invoke(ctx, CandidateService_UpdateProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *candidateServiceClient) FillProfileFromResume(ctx context.Context, in *FillProfileFromResumeRequest, opts ...grpc.CallOption) (*FillProfileFromResumeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FillProfileFromResumeResponse)
+	err := c.cc.Invoke(ctx, CandidateService_FillProfileFromResume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *candidateServiceClient) ApplyProfileFill(ctx context.Context, in *ApplyProfileFillRequest, opts ...grpc.CallOption) (*GetProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetProfileResponse)
+	err := c.cc.Invoke(ctx, CandidateService_ApplyProfileFill_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1626,6 +1650,8 @@ func (c *candidateServiceClient) ConfirmResumeUpload(ctx context.Context, in *Co
 type CandidateServiceServer interface {
 	GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error)
 	UpdateProfile(context.Context, *UpdateProfileRequest) (*GetProfileResponse, error)
+	FillProfileFromResume(context.Context, *FillProfileFromResumeRequest) (*FillProfileFromResumeResponse, error)
+	ApplyProfileFill(context.Context, *ApplyProfileFillRequest) (*GetProfileResponse, error)
 	GetResume(context.Context, *GetResumeRequest) (*GetResumeResponse, error)
 	PresignResumeUpload(context.Context, *PresignResumeUploadRequest) (*PresignResumeUploadResponse, error)
 	ConfirmResumeUpload(context.Context, *ConfirmResumeUploadRequest) (*ConfirmResumeUploadResponse, error)
@@ -1644,6 +1670,12 @@ func (UnimplementedCandidateServiceServer) GetProfile(context.Context, *GetProfi
 }
 func (UnimplementedCandidateServiceServer) UpdateProfile(context.Context, *UpdateProfileRequest) (*GetProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateProfile not implemented")
+}
+func (UnimplementedCandidateServiceServer) FillProfileFromResume(context.Context, *FillProfileFromResumeRequest) (*FillProfileFromResumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FillProfileFromResume not implemented")
+}
+func (UnimplementedCandidateServiceServer) ApplyProfileFill(context.Context, *ApplyProfileFillRequest) (*GetProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ApplyProfileFill not implemented")
 }
 func (UnimplementedCandidateServiceServer) GetResume(context.Context, *GetResumeRequest) (*GetResumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetResume not implemented")
@@ -1707,6 +1739,42 @@ func _CandidateService_UpdateProfile_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CandidateServiceServer).UpdateProfile(ctx, req.(*UpdateProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CandidateService_FillProfileFromResume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FillProfileFromResumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CandidateServiceServer).FillProfileFromResume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CandidateService_FillProfileFromResume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CandidateServiceServer).FillProfileFromResume(ctx, req.(*FillProfileFromResumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CandidateService_ApplyProfileFill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApplyProfileFillRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CandidateServiceServer).ApplyProfileFill(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CandidateService_ApplyProfileFill_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CandidateServiceServer).ApplyProfileFill(ctx, req.(*ApplyProfileFillRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1779,6 +1847,14 @@ var CandidateService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateProfile",
 			Handler:    _CandidateService_UpdateProfile_Handler,
+		},
+		{
+			MethodName: "FillProfileFromResume",
+			Handler:    _CandidateService_FillProfileFromResume_Handler,
+		},
+		{
+			MethodName: "ApplyProfileFill",
+			Handler:    _CandidateService_ApplyProfileFill_Handler,
 		},
 		{
 			MethodName: "GetResume",
@@ -7589,11 +7665,12 @@ var CollaborationService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	RecruitingIntelligenceService_GetResumeProfile_FullMethodName            = "/recruitment.RecruitingIntelligenceService/GetResumeProfile"
-	RecruitingIntelligenceService_ParseResumeProfile_FullMethodName          = "/recruitment.RecruitingIntelligenceService/ParseResumeProfile"
-	RecruitingIntelligenceService_EvaluateCandidateMatch_FullMethodName      = "/recruitment.RecruitingIntelligenceService/EvaluateCandidateMatch"
-	RecruitingIntelligenceService_GetCandidateMatchEvaluation_FullMethodName = "/recruitment.RecruitingIntelligenceService/GetCandidateMatchEvaluation"
-	RecruitingIntelligenceService_CompareCandidatesForJob_FullMethodName     = "/recruitment.RecruitingIntelligenceService/CompareCandidatesForJob"
+	RecruitingIntelligenceService_GetResumeProfile_FullMethodName               = "/recruitment.RecruitingIntelligenceService/GetResumeProfile"
+	RecruitingIntelligenceService_ParseResumeProfile_FullMethodName             = "/recruitment.RecruitingIntelligenceService/ParseResumeProfile"
+	RecruitingIntelligenceService_ParseResumeProfileForCandidate_FullMethodName = "/recruitment.RecruitingIntelligenceService/ParseResumeProfileForCandidate"
+	RecruitingIntelligenceService_EvaluateCandidateMatch_FullMethodName         = "/recruitment.RecruitingIntelligenceService/EvaluateCandidateMatch"
+	RecruitingIntelligenceService_GetCandidateMatchEvaluation_FullMethodName    = "/recruitment.RecruitingIntelligenceService/GetCandidateMatchEvaluation"
+	RecruitingIntelligenceService_CompareCandidatesForJob_FullMethodName        = "/recruitment.RecruitingIntelligenceService/CompareCandidatesForJob"
 )
 
 // RecruitingIntelligenceServiceClient is the client API for RecruitingIntelligenceService service.
@@ -7602,6 +7679,7 @@ const (
 type RecruitingIntelligenceServiceClient interface {
 	GetResumeProfile(ctx context.Context, in *GetResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error)
 	ParseResumeProfile(ctx context.Context, in *ParseResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error)
+	ParseResumeProfileForCandidate(ctx context.Context, in *ParseResumeProfileForCandidateRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error)
 	EvaluateCandidateMatch(ctx context.Context, in *EvaluateCandidateMatchRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error)
 	GetCandidateMatchEvaluation(ctx context.Context, in *GetCandidateMatchEvaluationRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error)
 	CompareCandidatesForJob(ctx context.Context, in *CompareCandidatesForJobRequest, opts ...grpc.CallOption) (*CompareCandidatesForJobResponse, error)
@@ -7629,6 +7707,16 @@ func (c *recruitingIntelligenceServiceClient) ParseResumeProfile(ctx context.Con
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetResumeProfileResponse)
 	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_ParseResumeProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) ParseResumeProfileForCandidate(ctx context.Context, in *ParseResumeProfileForCandidateRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetResumeProfileResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_ParseResumeProfileForCandidate_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -7671,6 +7759,7 @@ func (c *recruitingIntelligenceServiceClient) CompareCandidatesForJob(ctx contex
 type RecruitingIntelligenceServiceServer interface {
 	GetResumeProfile(context.Context, *GetResumeProfileRequest) (*GetResumeProfileResponse, error)
 	ParseResumeProfile(context.Context, *ParseResumeProfileRequest) (*GetResumeProfileResponse, error)
+	ParseResumeProfileForCandidate(context.Context, *ParseResumeProfileForCandidateRequest) (*GetResumeProfileResponse, error)
 	EvaluateCandidateMatch(context.Context, *EvaluateCandidateMatchRequest) (*GetCandidateMatchEvaluationResponse, error)
 	GetCandidateMatchEvaluation(context.Context, *GetCandidateMatchEvaluationRequest) (*GetCandidateMatchEvaluationResponse, error)
 	CompareCandidatesForJob(context.Context, *CompareCandidatesForJobRequest) (*CompareCandidatesForJobResponse, error)
@@ -7689,6 +7778,9 @@ func (UnimplementedRecruitingIntelligenceServiceServer) GetResumeProfile(context
 }
 func (UnimplementedRecruitingIntelligenceServiceServer) ParseResumeProfile(context.Context, *ParseResumeProfileRequest) (*GetResumeProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ParseResumeProfile not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) ParseResumeProfileForCandidate(context.Context, *ParseResumeProfileForCandidateRequest) (*GetResumeProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ParseResumeProfileForCandidate not implemented")
 }
 func (UnimplementedRecruitingIntelligenceServiceServer) EvaluateCandidateMatch(context.Context, *EvaluateCandidateMatchRequest) (*GetCandidateMatchEvaluationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method EvaluateCandidateMatch not implemented")
@@ -7753,6 +7845,24 @@ func _RecruitingIntelligenceService_ParseResumeProfile_Handler(srv interface{}, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RecruitingIntelligenceServiceServer).ParseResumeProfile(ctx, req.(*ParseResumeProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_ParseResumeProfileForCandidate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ParseResumeProfileForCandidateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).ParseResumeProfileForCandidate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_ParseResumeProfileForCandidate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).ParseResumeProfileForCandidate(ctx, req.(*ParseResumeProfileForCandidateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -7825,6 +7935,10 @@ var RecruitingIntelligenceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ParseResumeProfile",
 			Handler:    _RecruitingIntelligenceService_ParseResumeProfile_Handler,
+		},
+		{
+			MethodName: "ParseResumeProfileForCandidate",
+			Handler:    _RecruitingIntelligenceService_ParseResumeProfileForCandidate_Handler,
 		},
 		{
 			MethodName: "EvaluateCandidateMatch",

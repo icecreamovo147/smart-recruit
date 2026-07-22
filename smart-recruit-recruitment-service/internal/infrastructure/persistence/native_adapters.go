@@ -26,6 +26,7 @@ import (
 	"smart-recruit-recruitment-service/internal/application/service"
 	domainmodel "smart-recruit-recruitment-service/internal/domain/model"
 	domainpolicy "smart-recruit-recruitment-service/internal/domain/policy"
+	profilepkg "smart-recruit-recruitment-service/internal/domain/profile"
 )
 
 type NativeBundle struct {
@@ -96,6 +97,8 @@ type UsageStatsAPI interface {
 type CandidateAPI interface {
 	GetProfile(context.Context, *pb.GetProfileRequest) (*pb.GetProfileResponse, error)
 	UpdateProfile(context.Context, *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error)
+	FillProfileFromResume(context.Context, *pb.FillProfileFromResumeRequest) (*pb.FillProfileFromResumeResponse, error)
+	ApplyProfileFill(context.Context, *pb.ApplyProfileFillRequest) (*pb.GetProfileResponse, error)
 	GetResume(context.Context, *pb.GetResumeRequest) (*pb.GetResumeResponse, error)
 	PresignResumeUpload(context.Context, *pb.PresignResumeUploadRequest) (*pb.PresignResumeUploadResponse, error)
 	ConfirmResumeUpload(context.Context, *pb.ConfirmResumeUploadRequest) (*pb.ConfirmResumeUploadResponse, error)
@@ -237,17 +240,25 @@ type jobLocationRecord struct {
 func (jobLocationRecord) TableName() string { return "job_locations" }
 
 type candidateProfileRecord struct {
-	ID             int64 `gorm:"primaryKey"`
-	UserID         int64
-	RealName       string
-	Phone          string
-	Education      string
-	School         string
-	WorkExperience string
-	Skills         string
-	IsComplete     int32
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID                 int64 `gorm:"primaryKey"`
+	UserID             int64
+	RealName           string
+	Phone              string
+	Education          string
+	School             string
+	WorkExperience     string
+	Skills             string
+	City               string
+	YearsOfExperience  float64
+	JobStatus          string
+	ExpectedPosition   string
+	ExpectedSalaryMin  int32
+	ExpectedSalaryMax  int32
+	AvailableFrom      *time.Time
+	Summary            string
+	IsComplete         int32
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 func (candidateProfileRecord) TableName() string { return "candidate_profiles" }
@@ -724,40 +735,91 @@ func (a *candidateAdapter) GetProfile(ctx context.Context, req *pb.GetProfileReq
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetProfileResponse{Code: errs.OK, Msg: "success", Profile: profileToPB(profile)}, nil
-}
-
-func (a *candidateAdapter) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error) {
-	profile := candidateProfileRecord{
-		UserID:         req.UserId,
-		RealName:       req.RealName,
-		Phone:          req.Phone,
-		Education:      req.Education,
-		School:         req.School,
-		WorkExperience: req.WorkExperience,
-		Skills:         req.Skills,
-		IsComplete:     completeFlag(req.RealName, req.Phone, req.Education, req.School, req.WorkExperience, req.Skills),
+	if err := a.backfillLegacyStructuredRows(ctx, req.UserId, profile); err != nil {
+		return nil, err
 	}
-	err := a.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var existing candidateProfileRecord
-		err := tx.Where("user_id = ?", req.UserId).First(&existing).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return tx.Create(&profile).Error
-		}
-		if err != nil {
-			return err
-		}
-		profile.ID = existing.ID
-		return tx.Model(&candidateProfileRecord{}).Where("id = ?", existing.ID).Updates(map[string]any{
-			"real_name": profile.RealName, "phone": profile.Phone, "education": profile.Education,
-			"school": profile.School, "work_experience": profile.WorkExperience, "skills": profile.Skills,
-			"is_complete": profile.IsComplete,
-		}).Error
-	})
+	bundle, err := a.loadProfileBundle(ctx, req.UserId)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetProfileResponse{Code: errs.OK, Msg: "保存成功", Profile: profileToPB(profile)}, nil
+	return &pb.GetProfileResponse{Code: errs.OK, Msg: "success", Profile: profileBundleToPB(bundle)}, nil
+}
+
+func (a *candidateAdapter) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error) {
+	bundle := bundleFromUpdateRequest(req)
+	if err := a.saveProfileBundle(ctx, bundle); err != nil {
+		return nil, err
+	}
+	saved, err := a.loadProfileBundle(ctx, req.UserId)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetProfileResponse{Code: errs.OK, Msg: "保存成功", Profile: profileBundleToPB(saved)}, nil
+}
+
+func (a *candidateAdapter) FillProfileFromResume(ctx context.Context, req *pb.FillProfileFromResumeRequest) (*pb.FillProfileFromResumeResponse, error) {
+	resumeID, needsRefresh, reason, err := a.evaluateFillRefresh(ctx, req.UserId, req.GetForceRefresh())
+	if err != nil {
+		return nil, err
+	}
+	switch reason {
+	case profilepkg.RefreshReasonNoResume:
+		return &pb.FillProfileFromResumeResponse{Code: errs.ErrBadRequest, Msg: "请先上传简历"}, nil
+	case profilepkg.RefreshReasonNoParsedText:
+		return &pb.FillProfileFromResumeResponse{
+			Code: errs.ErrBadRequest, Msg: "简历文本尚未提取完成，请稍后重试", ResumeId: resumeID, RefreshReason: reason,
+		}, nil
+	}
+	if needsRefresh {
+		msg := "简历尚未解析，请稍后重试"
+		switch reason {
+		case profilepkg.RefreshReasonHeuristic:
+			msg = "当前画像为启发式结果，需要重新解析"
+		case profilepkg.RefreshReasonInputChanged:
+			msg = "简历文本已更新，需要重新解析"
+		case profilepkg.RefreshReasonForced:
+			msg = "已请求重新解析简历"
+		}
+		return &pb.FillProfileFromResumeResponse{
+			Code: 40402, Msg: msg, NeedsRefresh: true, RefreshReason: reason, ResumeId: resumeID,
+		}, nil
+	}
+	draft, err := a.buildFillDraftFromResumeProfile(ctx, req.UserId, req.GetOverwriteExisting())
+	if errors.Is(err, errNoResume) {
+		return &pb.FillProfileFromResumeResponse{Code: errs.ErrBadRequest, Msg: "请先上传简历"}, nil
+	}
+	if errors.Is(err, errNoParsedText) {
+		return &pb.FillProfileFromResumeResponse{
+			Code: errs.ErrBadRequest, Msg: "简历文本尚未提取完成，请稍后重试", ResumeId: resumeID, RefreshReason: profilepkg.RefreshReasonNoParsedText,
+		}, nil
+	}
+	if errors.Is(err, errNoResumeProfile) {
+		return &pb.FillProfileFromResumeResponse{
+			Code: 40402, Msg: "简历尚未解析，请稍后重试", NeedsRefresh: true, RefreshReason: profilepkg.RefreshReasonMissing, ResumeId: resumeID,
+		}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	draft.RefreshReason = profilepkg.RefreshReasonReused
+	draft.Refreshed = false
+	return &pb.FillProfileFromResumeResponse{Code: errs.OK, Msg: "success", Draft: draft, RefreshReason: profilepkg.RefreshReasonReused, ResumeId: resumeID}, nil
+}
+
+func (a *candidateAdapter) ApplyProfileFill(ctx context.Context, req *pb.ApplyProfileFillRequest) (*pb.GetProfileResponse, error) {
+	existing, err := a.loadProfileBundle(ctx, req.UserId)
+	if err != nil {
+		return nil, err
+	}
+	merged := mergeProfileFill(existing, req.GetDraft().GetDraft(), req.GetOverwriteExisting())
+	if err := a.saveProfileBundle(ctx, merged); err != nil {
+		return nil, err
+	}
+	saved, err := a.loadProfileBundle(ctx, req.UserId)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetProfileResponse{Code: errs.OK, Msg: "保存成功", Profile: profileBundleToPB(saved)}, nil
 }
 
 func (a *candidateAdapter) GetResume(ctx context.Context, req *pb.GetResumeRequest) (*pb.GetResumeResponse, error) {
@@ -849,7 +911,7 @@ func (a *candidateAdapter) ConfirmResumeUpload(ctx context.Context, req *pb.Conf
 		return nil, err
 	}
 	_ = a.writeUsageLog(ctx, usageLogRecord{UserID: req.UserId, Role: 1, ServiceType: "oss_confirm", Endpoint: "/candidate/resume/confirm", Provider: a.storage.ProviderName(), ObjectKey: req.OssKey, ObjectSize: req.FileSize, Status: "ok"})
-	return &pb.ConfirmResumeUploadResponse{Code: errs.OK, Msg: "success", ResumeId: resume.ID}, nil
+	return &pb.ConfirmResumeUploadResponse{Code: errs.OK, Msg: "success", ResumeId: resume.ID, FillSuggested: true}, nil
 }
 
 func validateCandidateActor(ctx context.Context, userID int64) (int32, string, bool) {
@@ -1727,6 +1789,23 @@ func (a *collaborationAdapter) GetCandidateWorkspace(ctx context.Context, req *p
 		workspace.School = profile.School
 		workspace.WorkExperience = profile.WorkExperience
 		workspace.Skills = splitSkills(profile.Skills)
+		workspace.City = profile.City
+		workspace.YearsOfExperience = profile.YearsOfExperience
+		workspace.JobStatus = profile.JobStatus
+		workspace.ExpectedPosition = profile.ExpectedPosition
+		workspace.ExpectedSalaryMin = profile.ExpectedSalaryMin
+		workspace.ExpectedSalaryMax = profile.ExpectedSalaryMax
+		workspace.AvailableFrom = formatOptionalDate(profile.AvailableFrom)
+		workspace.Summary = profile.Summary
+		if err := a.backfillLegacyStructuredRows(ctx, req.CandidateUserId, profile); err != nil {
+			return nil, err
+		}
+		bundle, err := a.loadProfileBundle(ctx, req.CandidateUserId)
+		if err != nil {
+			return nil, err
+		}
+		workspace.Educations = educationsPBFromInputs(bundle.Educations)
+		workspace.Experiences = experiencesPBFromInputs(bundle.Experiences)
 	}
 	var rows []applicationDetailRow
 	if err := a.applicationDetails().WithContext(ctx).Where("a.user_id = ?", req.CandidateUserId).Order("a.applied_at DESC, a.id DESC").Scan(&rows).Error; err != nil {
@@ -2613,7 +2692,7 @@ func followUpToPB(row followUpTaskRecord) *pb.FollowUpTaskInfo {
 }
 
 func profileToPB(row candidateProfileRecord) *pb.CandidateProfile {
-	return &pb.CandidateProfile{RealName: row.RealName, Phone: row.Phone, Education: row.Education, School: row.School, WorkExperience: row.WorkExperience, Skills: splitSkills(row.Skills), IsComplete: row.IsComplete == 1}
+	return profileBundleToPB(profilepkg.Bundle{Profile: modelCandidateProfileFromRecord(row)})
 }
 
 func rowsCommon(result *gorm.DB, okMsg, missingMsg string) (*pb.CommonResponse, error) {

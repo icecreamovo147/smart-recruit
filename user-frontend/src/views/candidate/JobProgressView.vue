@@ -295,9 +295,9 @@ onMounted(async () => {
 <template>
   <section class="job-progress">
     <div class="progress-workspace">
-      <header class="progress-header">
+      <header class="workspace-header">
         <div>
-          <span class="progress-eyebrow">CANDIDATE JOURNEY</span>
+          <span class="workspace-eyebrow">CANDIDATE JOURNEY</span>
           <h1 class="page-title">求职进展</h1>
           <p class="page-subtitle">集中查看你的投递状态、面试安排与录用通知。</p>
         </div>
@@ -610,33 +610,6 @@ onMounted(async () => {
   border-radius: 18px;
   background: var(--surface);
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
-}
-.progress-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 24px 28px 20px;
-  border-bottom: 1px solid var(--border);
-}
-.progress-eyebrow {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--brand-strong);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-}
-.progress-header .page-title {
-  margin-bottom: 8px;
-  font-size: 28px;
-  line-height: 1.2;
-}
-.progress-header .page-subtitle {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 1.6;
 }
 .progress-body {
   display: grid;
@@ -1100,11 +1073,11 @@ onMounted(async () => {
   .progress-workspace {
     border-radius: 14px;
   }
-  .progress-header {
+  .workspace-header {
     align-items: flex-start;
     padding: 20px 18px 18px;
   }
-  .progress-header .page-title {
+  .workspace-header .page-title {
     font-size: 26px;
   }
   .progress-summary {
@@ -1215,7 +1188,7 @@ onMounted(async () => {
 }
 
 @media (max-width: 480px) {
-  .progress-header .el-button {
+  .workspace-header .el-button {
     display: none;
   }
   .section-heading .el-button {

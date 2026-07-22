@@ -298,12 +298,13 @@ onMounted(async () => {
   <section class="job-list-page">
     <!-- Single surface: page header + filter/results board -->
     <div class="job-shell" v-loading="loading">
-      <header class="job-shell__header">
-        <h1 class="job-shell__title">正在招聘</h1>
-        <p class="job-shell__subtitle">发现最适合你的岗位与团队。</p>
+      <header class="workspace-header">
+        <div>
+          <span class="workspace-eyebrow">OPEN POSITIONS</span>
+          <h1 class="page-title">正在招聘</h1>
+          <p class="page-subtitle">发现最适合你的岗位与团队。</p>
+        </div>
       </header>
-
-      <div class="job-shell__rule" aria-hidden="true" />
 
       <div class="job-board">
         <aside class="job-board__filter" aria-label="筛选条件">
@@ -502,34 +503,6 @@ onMounted(async () => {
   border-radius: 16px;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
   overflow: hidden;
-}
-
-.job-shell__header {
-  flex: 0 0 auto;
-  padding: 22px 24px 18px;
-}
-
-.job-shell__title {
-  margin: 0;
-  font-size: clamp(1.75rem, 1.5rem + 0.6vw, 1.95rem); /* ~28–31px */
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--text-primary);
-  line-height: 1.25;
-}
-
-.job-shell__subtitle {
-  margin: 8px 0 0;
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--text-muted);
-}
-
-.job-shell__rule {
-  flex: 0 0 auto;
-  height: 1px;
-  margin: 0;
-  background: var(--border);
 }
 
 /* ── Filter + results body ──────────────────────────────────────── */
@@ -930,16 +903,13 @@ onMounted(async () => {
 
 /* Tablet / large phone: single column cards */
 @media (max-width: 768px) {
-  .job-shell__header {
-    padding: 16px 16px 14px;
+  .workspace-header {
+    align-items: flex-start;
+    padding: 20px 18px 18px;
   }
 
-  .job-shell__title {
-    font-size: 1.5rem;
-  }
-
-  .job-shell__subtitle {
-    font-size: 14px;
+  .workspace-header .page-title {
+    font-size: 26px;
   }
 
   .job-filter__body {
@@ -1005,10 +975,6 @@ onMounted(async () => {
 @media (max-width: 480px) {
   .job-shell {
     border-radius: 12px;
-  }
-
-  .job-shell__header {
-    padding: 14px 14px 12px;
   }
 
   .job-board__main {

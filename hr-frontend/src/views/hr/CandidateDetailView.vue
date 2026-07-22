@@ -50,6 +50,23 @@ const newTask = ref({
 
 const formatDateTime = (value: string): string => formatShanghaiDateTime(value, '-', false)
 
+const jobStatusLabel = (value?: string): string => {
+  switch (value) {
+    case 'employed': return '在职'
+    case 'resigned': return '离职'
+    case 'fresh_graduate': return '应届生'
+    case 'student': return '在校生'
+    default: return value || '-'
+  }
+}
+
+const formatSalaryRange = (min?: number, max?: number): string => {
+  if (min && max) return `${min}-${max} 元/月`
+  if (min) return `${min}+ 元/月`
+  if (max) return `≤${max} 元/月`
+  return '-'
+}
+
 const parseDimensionScores = (json: string): Array<{ key: string; label: string; score: number }> => {
   if (!json) return []
   try {
@@ -420,6 +437,48 @@ watch(activeSection, (section) => {
                 <div class="profile-field">
                   <span>毕业院校</span>
                   <strong>{{ workspace.school || '-' }}</strong>
+                </div>
+                <div class="profile-field">
+                  <span>所在城市</span>
+                  <strong>{{ workspace.city || '-' }}</strong>
+                </div>
+                <div class="profile-field">
+                  <span>求职状态</span>
+                  <strong>{{ jobStatusLabel(workspace.job_status) }}</strong>
+                </div>
+                <div class="profile-field">
+                  <span>期望岗位</span>
+                  <strong>{{ workspace.expected_position || '-' }}</strong>
+                </div>
+                <div class="profile-field">
+                  <span>工作年限</span>
+                  <strong>{{ workspace.years_of_experience ?? '-' }}</strong>
+                </div>
+                <div class="profile-field">
+                  <span>期望薪资</span>
+                  <strong>{{ formatSalaryRange(workspace.expected_salary_min, workspace.expected_salary_max) }}</strong>
+                </div>
+              </div>
+              <div v-if="workspace.summary" class="section-block">
+                <div class="section-block__label">个人简介</div>
+                <p>{{ workspace.summary }}</p>
+              </div>
+              <div v-if="workspace.educations?.length" class="section-block">
+                <div class="section-block__label">教育经历</div>
+                <div v-for="(edu, index) in workspace.educations" :key="`edu-${index}`" class="compact-row">
+                  <span>{{ edu.school }} · {{ edu.degree || '学历未填' }}</span>
+                  <span>{{ edu.start_date || '-' }} - {{ edu.end_date || '至今' }}</span>
+                </div>
+              </div>
+              <div v-if="workspace.experiences?.length" class="section-block">
+                <div class="section-block__label">工作经历</div>
+                <div v-for="(exp, index) in workspace.experiences" :key="`exp-${index}`" class="experience-item">
+                  <div class="compact-row">
+                    <span>{{ exp.company }} · {{ exp.title || '职位未填' }}</span>
+                    <span>{{ exp.start_date || '-' }} - {{ exp.is_current ? '至今' : (exp.end_date || '-') }}</span>
+                  </div>
+                  <div v-if="exp.location" class="experience-item__meta">{{ exp.location }}</div>
+                  <div v-if="exp.description" class="experience-item__desc rich-content" v-html="renderRichText(exp.description, '')" />
                 </div>
               </div>
               <div class="section-block">
@@ -1263,6 +1322,28 @@ watch(activeSection, (section) => {
   color: #64748b;
   font-size: 12px;
   font-style: normal;
+}
+
+.experience-item {
+  padding: 9px 0;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.experience-item:last-child {
+  border-bottom: 0;
+}
+
+.experience-item__meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.experience-item__desc {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.6;
 }
 
 .no-data {

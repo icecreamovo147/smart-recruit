@@ -704,6 +704,37 @@ export interface CandidateWorkspace {
   resume_url: string
   interviews: CandidateWorkspaceInterview[]
   offers: CandidateWorkspaceOffer[]
+  city?: string
+  years_of_experience?: number
+  job_status?: string
+  expected_position?: string
+  expected_salary_min?: number
+  expected_salary_max?: number
+  available_from?: string
+  summary?: string
+  educations?: CandidateEducationInfo[]
+  experiences?: CandidateExperienceInfo[]
+}
+
+export interface CandidateEducationInfo {
+  school: string
+  degree?: string
+  major?: string
+  start_date?: string
+  end_date?: string
+  description?: string
+  sort_order?: number
+}
+
+export interface CandidateExperienceInfo {
+  company: string
+  title?: string
+  location?: string
+  start_date?: string
+  end_date?: string
+  is_current?: number
+  description?: string
+  sort_order?: number
 }
 
 export interface CandidateWorkspaceApplication {

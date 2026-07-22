@@ -677,6 +677,40 @@ a {
   font-size: 14px;
 }
 
+.workspace-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.workspace-eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--brand-strong);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.workspace-header .page-title {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+}
+
+.workspace-header .page-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .content-surface {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1058,6 +1092,24 @@ a {
   background: var(--surface-muted);
 }
 
+.resume-panel {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-muted);
+}
+
+.resume-panel .resume-current {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.resume-panel .resume-current:hover {
+  border-color: transparent;
+  background: rgba(37, 99, 235, 0.04);
+}
+
 .resume-uploader {
   margin-top: 16px;
   border: 1px solid transparent;
@@ -1083,16 +1135,65 @@ a {
   background: var(--surface-muted);
 }
 
-.resume-preview iframe {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: var(--surface);
+.resume-panel .resume-preview {
+  margin-top: 0;
+  border: none;
+  border-radius: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
 }
 
 .resume-preview-active {
   height: 100%;
+}
+
+.resume-pdf-preview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface);
+}
+
+.resume-pdf-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-muted);
+  flex-shrink: 0;
+}
+
+.resume-pdf-toolbar__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.resume-pdf-toolbar__label {
+  min-width: 64px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.resume-pdf-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  background: #e8edf5;
+}
+
+.resume-pdf-canvas {
+  display: block;
+  margin: 0 auto;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
 }
 
 .resume-current__actions {
