@@ -32,6 +32,8 @@
 
     "jobs": {"owner": "recruitment", "access": {"recruitment": ["read", "write"], "analytics": ["read"], "identity": ["read"], "ai-agent": ["read"]}},
     "candidate_profiles": {"owner": "recruitment", "access": {"recruitment": ["read", "write"], "ai-agent": ["read"]}},
+    "candidate_educations": {"owner": "recruitment", "access": {"recruitment": ["read", "write"], "ai-agent": ["read"]}},
+    "candidate_experiences": {"owner": "recruitment", "access": {"recruitment": ["read", "write"], "ai-agent": ["read"]}},
     "resumes": {"owner": "recruitment", "access": {"recruitment": ["read", "write"], "ai-agent": ["read"], "worker": ["read", "write"]}},
     "resume_parse_runs": {"owner": "recruitment", "access": {"recruitment": ["read", "write"], "ai-agent": ["read", "write"]}},
     "resume_profiles": {"owner": "recruitment", "access": {"recruitment": ["read", "write"], "ai-agent": ["read"]}},

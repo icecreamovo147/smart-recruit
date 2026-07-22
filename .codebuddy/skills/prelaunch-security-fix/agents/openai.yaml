@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prelaunch Security Fix"
+  short_description: "Execute every security remediation task safely and serially"
+  default_prompt: "Use $prelaunch-security-fix to execute every task in the generated remediation plan serially, verify each fix, and prepare the repository for a fresh security audit."

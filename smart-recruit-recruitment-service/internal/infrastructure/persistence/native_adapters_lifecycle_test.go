@@ -310,6 +310,8 @@ func newLifecycleFixture(t *testing.T) *lifecycleFixture {
 	if err := db.AutoMigrate(
 		&jobRecord{},
 		&candidateProfileRecord{},
+		&candidateEducationRecord{},
+		&candidateExperienceRecord{},
 		&resumeRecord{},
 		&applicationRecord{},
 		&applicationTransitionRecord{},

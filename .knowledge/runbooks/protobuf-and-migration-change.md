@@ -29,10 +29,13 @@ source_refs:
   - smart-recruit-commons/migration/runner.go
   - smart-recruit-commons/migration/mysql_consistency_test.go
   - smart-recruit-commons/migrations/000053_add_analytics_projection_events.sql
+  - smart-recruit-commons/migrations/000084_candidate_profile_screening_fields.sql
+  - smart-recruit-commons/migrations/000085_candidate_profile_structured_history.sql
+  - smart-recruit-commons/migrations/000086_extend_profile_city_length.sql
   - smart-recruit-deploy/mysql-table-ownership.json
   - db.sql
-last_verified: 2026-07-19
-review_after: 2026-10-14
+last_verified: 2026-07-23
+review_after: 2026-10-21
 ---
 
 # Protobuf and Migration Change Runbook
@@ -41,4 +44,4 @@ For proto changes, edit `smart-recruit-proto/proto/recruitment.proto`, run `smar
 
 ## Verification
 
-Verified against current pinned protobuf tooling, generated contracts, CI regeneration checks, migration runner, ownership manifest, and baseline schema on 2026-07-19.
+Verified against current pinned protobuf tooling, generated contracts, CI regeneration checks, migration runner, ownership manifest, and baseline schema on 2026-07-23, including candidate-profile migrations `000084`-`000086`.

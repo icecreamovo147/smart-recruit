@@ -31,9 +31,13 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/recruiting_observability.go
   - smart-recruit-commons/ai/fallback.go
   - smart-recruit-commons/ai/anthropic_chatmodel.go
+  - smart-recruit-commons/ai/planner.go
+  - smart-recruit-proto/proto/recruitment.proto
   - hr-frontend/src/views/hr/AIChatView.vue
-last_verified: 2026-07-19
-review_after: 2026-10-14
+  - hr-frontend/src/api/ai.ts
+  - hr-frontend/src/utils/hrAgentRunReducer.ts
+last_verified: 2026-07-23
+review_after: 2026-10-21
 ---
 
 # Agent Runtime Architecture
@@ -60,6 +64,16 @@ Prompt and Agent Skill compilation is fail closed. HR Prompts must be active com
 
 Durable HR Agent Runs snapshot the effective persisted Agent ID, type, and name when the Run is created. Every successful Run emits a privacy-safe `run.result` whose raw governance evidence contains Prompt ID/version, Agent Skill ID/version, Tool name/status, and selection mode without Prompt/Skill bodies, Tool arguments/results, or recruiting personal data. Model-generated text chunks map to `assistant.delta`; planning, context, fallback, and generating statuses without text remain `process.delta`. When chunks were emitted, completion persists the final answer snapshot without appending a duplicate full-answer delta; non-streaming answers retain one assistant delta so consumers do not lose content. Tool Traces remain linked to their Run and Run Step with matching success/error state.
 
+### Suggested follow-up questions
+
+Successful HR chat and Agent Run completions may return `suggested_questions` as a repeated string field on `ChatResponse`, `ChatStreamResponse`, and `AgentRunResultMetadata`. Generation extracts a model-only JSON block from the reply, strips that block from user-visible streaming deltas, and normalizes to exactly three questions. Normalization fails closed to planner fallbacks when count, length, uniqueness, high-PII classification, or candidate/job-name leakage checks fail. Clients must consume the wire field rather than parsing hidden markers from assistant text. Candidate chat uses a separate extraction path and must not share HR privacy filters or copy.
+
+### Process snapshot persistence
+
+Near successful Agent Run completion the runtime appends a `process.snapshot` event whose payload includes `snapshot_text`: a privacy-safe multi-line display summary built from plan intent, tool-trace outcomes, context usage, and fallback flags—not raw tool arguments, resume text, or provider payloads. `NativeStore.AppendAgentRunEvent` mirrors a present `snapshot_text` onto `agent_runs.process_text` for reload. Gateway exposes `snapshot_text` on Agent Run events; the HR reducer treats `process.snapshot` as a full replacement of process text, while `process.delta` may replace when `snapshot_text` is present or otherwise append `delta`/`event_message`. Older clients that only read `process_text` or ignore `snapshot_text` remain compatible as long as the mirrored column stays populated.
+
+Agent Run failures that contain `insufficient_credits` map to a stable `error_type` of `insufficient_credits` and a fixed user-facing credit message; the transport must not surface provider or ledger internals.
+
 HR-wide application and candidate aggregation remains inside the AI Agent service and uses existing Recruitment RPCs. It sorts and limits the HR inventory to 100 jobs, fetches with at most four workers and ten 100-row pages per job, then sorts by job ID/application ID and returns at most 5,000 rows. Context cancellation stops the aggregation. Some failed jobs produce successful rows plus `partial`, bounded `failed_job_count`, and non-sensitive warnings; an all-job failure is a non-nil Tool error and contributes no useful facts.
 
 MCP pre-context execution requires an explicit `skill_capability_keys` selection intersected with enabled Agent MCP bindings. An empty selection executes no MCP tool. The MCP runner and policy path enforce configured policy, confirmation, argument redaction, and audit persistence before a selected call can succeed.
@@ -72,4 +86,4 @@ Recruiting stage diagnostics pass through an idempotent fail-closed normalizatio
 
 ## Verification
 
-Verified against current repository files and cumulative HR Tool, bounded aggregation, MCP, live-data evidence-gate, Prompt/Skill, durable Run, application-analysis message, Anthropic envelope, and recruiting runtime tests on 2026-07-19.
+Verified against current repository files and cumulative HR Tool, bounded aggregation, MCP, live-data evidence-gate, Prompt/Skill, durable Run, suggested-questions privacy filters, process.snapshot persistence, application-analysis message, Anthropic envelope, and recruiting runtime tests on 2026-07-23.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prelaunch Security Audit"
+  short_description: "Audit Smart Recruit before launch and generate three reports"
+  default_prompt: "Use $prelaunch-security-audit to audit this project before launch and generate the paired Markdown/HTML report plus an agent-ready remediation plan."

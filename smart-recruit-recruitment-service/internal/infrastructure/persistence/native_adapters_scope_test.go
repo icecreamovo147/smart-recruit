@@ -583,6 +583,8 @@ func newScopeFixture(t *testing.T) *scopeFixture {
 	if err := db.AutoMigrate(
 		&jobRecord{},
 		&candidateProfileRecord{},
+		&candidateEducationRecord{},
+		&candidateExperienceRecord{},
 		&resumeRecord{},
 		&applicationRecord{},
 		&applicationTransitionRecord{},

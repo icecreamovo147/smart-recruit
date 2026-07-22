@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
-import { compileGlob, findCaseConflicts, normalizeRepoPath, parseFrontmatter, parseManifest, scanKnowledge } from "./validate-knowledge.mjs";
+import { compileGlob, extractBodyVerificationDate, findCaseConflicts, normalizeRepoPath, parseFrontmatter, parseManifest, scanKnowledge } from "./validate-knowledge.mjs";
 import { collectChangedFiles, detectImpact } from "./detect-impact.mjs";
 import { checkReferences } from "./check-references.mjs";
 import { generateCatalog } from "./generate-catalog.mjs";
@@ -37,6 +37,10 @@ review_after: 2026-10-10
 ---
 
 # Test
+
+## Verification
+
+Verified against fixture sources on 2026-07-10.
 `;
 
 const manifest = `schema_version: 1
@@ -151,6 +155,15 @@ test("metadata types, uniqueness, and calendar dates fail closed", () => {
   assert.match(errors, /invalid review_after/);
 });
 
+test("Verification section date must match last_verified when present", () => {
+  assert.equal(extractBodyVerificationDate("## Verification\n\nVerified against sources on 2026-07-23.\n"), "2026-07-23");
+  const root = fixture();
+  const mismatched = validDoc("date-mismatch").replace("on 2026-07-10.", "on 2026-07-09.");
+  write(path.join(root, ".knowledge", "domains", "date-mismatch.md"), mismatched);
+  const errors = scanKnowledge(root).errors.join("\n");
+  assert.match(errors, /Verification section date 2026-07-09 does not match last_verified 2026-07-10/);
+});
+
 test("Inbox and archive status constraints fail closed", () => {
   const root = fixture();
   write(path.join(root, ".knowledge", "inbox", "bad.md"), validDoc("bad-inbox"));
@@ -253,6 +266,39 @@ test("catalog CLI supports JSON and usage errors return exit code 2", () => {
   assert.equal(path.isAbsolute(output.markdown), false);
   const bad = spawnSync(process.execPath, [script, "--bogus"], { encoding: "utf8" });
   assert.equal(bad.status, 2);
+});
+
+test("repository Manifest routes cover platform frontend, fingerprint, audit skill, and isolate legacy interviewer", () => {
+  const repoRoot = path.resolve(".");
+  const scanned = scanKnowledge(repoRoot);
+  assert.deepEqual(scanned.errors, []);
+  const routes = scanned.manifest.routes.map((route, index) => ({
+    index,
+    documents: new Set(route.documents),
+    patterns: route.match.map((pattern) => ({ pattern, regex: compileGlob(pattern) })),
+  }));
+  function matchedDocuments(file) {
+    const ids = new Set();
+    for (const route of routes) {
+      if (route.patterns.some(({ regex }) => regex.test(file))) {
+        for (const id of route.documents) ids.add(id);
+      }
+    }
+    return ids;
+  }
+  const platform = matchedDocuments("platform-frontend/src/views/PlanCatalogView.vue");
+  assert.equal(platform.has("frontend-apps"), true);
+  assert.equal(platform.has("frontend-validation"), true);
+  assert.equal(platform.has("frontend-menu-consistency"), true);
+  const fingerprint = matchedDocuments("scripts/dev-build-fingerprint.go");
+  assert.equal(fingerprint.has("local-development"), true);
+  const auditSkill = matchedDocuments(".agents/skills/knowledge-current-state-audit/SKILL.md");
+  assert.equal(auditSkill.has("knowledge-coverage-audit"), true);
+  const legacy = matchedDocuments("interviewer-frontend/src/stores/auth.ts");
+  assert.equal(legacy.has("frontend-apps"), true);
+  assert.equal(legacy.has("local-development"), true);
+  assert.equal(legacy.has("frontend-validation"), false);
+  assert.equal(legacy.has("auth-rbac-security"), false);
 });
 
 console.log(`knowledge-validator tests: PASS (${passed})`);

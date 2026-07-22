@@ -44,6 +44,8 @@ routes:
 
   - match:
       - .knowledge/**
+      - .agents/skills/knowledge-current-state-audit/**
+      - .agents/skills/knowledge-current-state-fix/**
     documents:
       - knowledge-coverage-audit
     triggers:
@@ -68,6 +70,8 @@ routes:
       - dev-log-viewer/**
       - start-dev.sh
       - stop-dev.sh
+      - scripts/dev-build-fingerprint.go
+      - scripts/dev-build-fingerprint_test.go
     documents:
       - system-overview
       - local-development
@@ -80,7 +84,6 @@ routes:
       - pnpm-workspace.yaml
       - hr-frontend/**
       - user-frontend/**
-      - interviewer-frontend/**
       - platform-frontend/**
       - packages/shared/**
       - smart-recruit-gateway/**
@@ -119,7 +122,7 @@ routes:
       - hr-frontend/src/views/hr/StaffUserManageView.vue
       - hr-frontend/src/views/hr/SecurityAuditView.vue
       - user-frontend/src/stores/auth.ts
-      - interviewer-frontend/src/stores/auth.ts
+      - platform-frontend/src/stores/auth.ts
     documents:
       - auth-rbac-security
       - debug-auth-permissions
@@ -200,7 +203,6 @@ routes:
       - db.sql
       - hr-frontend/src/views/hr/**
       - user-frontend/src/views/candidate/**
-      - interviewer-frontend/src/views/**
     documents:
       - recruitment
       - recruitment-lifecycle
@@ -283,7 +285,7 @@ routes:
   - match:
       - hr-frontend/**
       - user-frontend/**
-      - interviewer-frontend/**
+      - platform-frontend/**
       - packages/shared/**
     documents:
       - frontend-apps
@@ -292,6 +294,16 @@ routes:
       - system-overview
     triggers:
       - covered-path-changed
+
+  - match:
+      - interviewer-frontend/**
+    documents:
+      - frontend-apps
+      - local-development
+      - knowledge-coverage-audit
+    triggers:
+      - covered-path-changed
+      - configuration-changed
 
   - match:
       - smart-recruit-platform-go/servicebinary/**

@@ -27,10 +27,12 @@ source_refs:
   - .knowledge/domains/notification-outbox.md
   - .knowledge/domains/recruitment-lifecycle.md
   - .knowledge/runbooks/local-development.md
+  - interviewer-frontend/README.md
+  - pnpm-workspace.yaml
   - .spec/development-agent-knowledge-base/development-agent-knowledge-base-SPEC.md
   - .spec/knowledge-base-current-state-refresh/knowledge-base-current-state-refresh-SPEC.md
-last_verified: 2026-07-19
-review_after: 2026-10-08
+last_verified: 2026-07-23
+review_after: 2026-10-21
 ---
 
 # Knowledge Coverage Audit Runbook
@@ -54,12 +56,12 @@ Use this runbook when expanding or reviewing the coding-Agent knowledge layer. T
 | Gin gateway, handlers, middleware, gRPC clients | Covered by gateway/API architecture, service boundaries, and local-development routing | Recheck on route, middleware, metadata, or public contract changes |
 | Proto, generated code, migrations, model, repository | Covered by protobuf, persistence/migration architecture, runbook, and drift pitfalls | Recheck generated contracts, baseline schema, ownership, and adapters together |
 | Jobs, applications, interviews, offers | Covered by recruitment and lifecycle documents plus debugging/status pitfalls | Recheck cross-context transitions and frontend labels together |
-| Collaboration, notification, outbox, SSE, analytics | Notification/outbox and cross-context drift are covered; Analytics remains broad rather than having a dedicated active domain document | Add focused Analytics knowledge if projection work becomes frequent or high risk |
+| Collaboration, notification, outbox, SSE, analytics | Notification/outbox and cross-context drift are covered. **Accepted coverage gap (KREM-010 / KNO-010):** Analytics remains broad system/service-boundary coverage only; Inbox candidate `analytics-projection-knowledge` stays draft. Owner: `architecture-and-operations`. Revisit by `2026-10-21` or sooner if projection rebuild/consistency work becomes frequent. | Promote focused Analytics Active knowledge only after that revisit |
 | LLM providers/models, prompt templates, Agent config, MCP tools | Covered by AI configuration and MCP governance documents | Recheck secrets, policy, provenance, and runtime binding behavior |
 | Resume upload, parsing, structured profile, candidate matching | Covered by resume intelligence, diagnostics, and sensitive-data pitfall documents | Recheck privacy and source ownership on every data-flow change |
-| Three Vue apps and `packages/shared` | Covered by frontend architecture, validation, menu pitfall, and explicit shared-package routing | Validate every consuming app for shared-package changes |
+| Three active Vue apps (`hr`, `user`, `platform`) and `packages/shared` | Covered by frontend architecture, validation, menu pitfall, and explicit shared-package routing; `interviewer-frontend` is isolated to a legacy Manifest route that does not treat it as an active frontend validation target | Validate every consuming active app for shared-package changes; keep legacy interviewer routes from re-entering the active frontend matrix |
 | Deployment and infrastructure | Covered across system overview, local development, service-binary convention, and routes for `docker/`, `deploy/`, and `smart-recruit-deploy/` | Recheck service names, images, health, and configuration together |
-| Email delivery | Partially covered by notification/outbox knowledge | Add a focused delivery runbook if provider/retry operations expand |
+| Email delivery | **Accepted partial coverage gap (KREM-010 / KNO-010):** provider/retry/fault handling remains partially covered by notification/outbox knowledge only. Owner: `architecture-and-operations`. Revisit by `2026-10-21` or sooner if email operations expand. | Add a focused delivery runbook if provider/retry operations expand |
 | Command-line tools under `cmd/` directories | Migration command is explicitly routed; service binaries are covered by convention knowledge | Add focused routes for other operational commands when they gain independent workflows |
 
 ## Audit Procedure
@@ -81,6 +83,15 @@ Use `.knowledge/inbox/` when:
 - the current TASK scope does not allow modifying the formal document;
 - a coverage gap needs human prioritization before becoming active knowledge.
 
+## Accepted Coverage Gaps
+
+Recorded by KREM-010 on 2026-07-23 after explicit owner confirmation:
+
+| Gap | Decision | Owner | Review by |
+|---|---|---|---|
+| Analytics projection/rebuild knowledge | Accept broad coverage; keep Inbox candidate draft; do not promote yet | architecture-and-operations | 2026-10-21 |
+| Email delivery operations runbook | Accept partial notification/outbox coverage; defer dedicated runbook | architecture-and-operations | 2026-10-21 |
+
 ## Verification
 
 Run the standard knowledge checks after any coverage update:
@@ -92,6 +103,4 @@ node .knowledge/scripts/check-references.mjs --root .
 
 When the current work explicitly uses an active Harness feature and has a reliable TASK base tree, also run its task-scope and agent checks. Do not invoke `spec-harness` or create a feature contract solely because this coverage audit is being used.
 
-## Verification
-
-Verified against the active knowledge catalog, manifest routes, current frontend shared package, migration startup path, deployment roots, and current knowledge-validation workflow on 2026-07-19.
+Verified against the active knowledge catalog, manifest routes, current frontend shared package, `pnpm-workspace.yaml`, `interviewer-frontend/README.md`, migration startup path, deployment roots, accepted Analytics/email coverage-gap decision, and current knowledge-validation workflow on 2026-07-23.

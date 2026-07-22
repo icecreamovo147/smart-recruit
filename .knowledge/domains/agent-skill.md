@@ -22,8 +22,8 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/mcp_skill_store.go
   - platform-frontend/src/views/ai/AgentSkillManageView.vue
-last_verified: 2026-07-20
-review_after: 2026-10-14
+last_verified: 2026-07-23
+review_after: 2026-10-21
 ---
 
 # Agent Skill Domain
@@ -36,4 +36,4 @@ HR runtime selection admits only enabled, eligible Agent Skills whose positive `
 
 ## Verification
 
-Verified against cumulative Agent Skill selection, exact-version enrichment, durable audit, Tool-boundary, and HR runtime tests on 2026-07-16.
+Verified against capability policy/service, MCP/Skill gRPC and persistence adapters, and platform Agent Skill admin views on 2026-07-23.

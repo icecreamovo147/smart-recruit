@@ -21,12 +21,15 @@ source_refs:
   - smart-recruit-commons/migrations/000051_standardize_event_outbox.sql
   - smart-recruit-commons/migrations/000052_add_event_inbox.sql
   - smart-recruit-commons/migrations/000053_add_analytics_projection_events.sql
+  - smart-recruit-commons/migrations/000084_candidate_profile_screening_fields.sql
+  - smart-recruit-commons/migrations/000085_candidate_profile_structured_history.sql
+  - smart-recruit-commons/migrations/000086_extend_profile_city_length.sql
   - smart-recruit-notification-service/internal/infrastructure/persistence/notification_repository.go
   - smart-recruit-analytics-service/internal/infrastructure/projection/gorm_store.go
   - smart-recruit-deploy/mysql-table-ownership.json
   - db.sql
-last_verified: 2026-07-14
-review_after: 2026-10-14
+last_verified: 2026-07-23
+review_after: 2026-10-21
 ---
 
 # Migration and Model Drift Pitfall
@@ -35,4 +38,4 @@ Drift happens when migrations, `db.sql`, service persistence models, repositorie
 
 ## Verification
 
-Verified against current repository files on 2026-07-14.
+Verified against current repository files on 2026-07-23, including candidate-profile migrations `000084`-`000086` and matching `db.sql` / ownership surfaces.

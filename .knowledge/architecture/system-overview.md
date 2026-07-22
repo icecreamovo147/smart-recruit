@@ -15,7 +15,6 @@ applies_to:
   - dev-log-viewer/**
   - hr-frontend/**
   - user-frontend/**
-  - interviewer-frontend/**
   - platform-frontend/**
   - packages/shared/**
   - smart-recruit-gateway/**
@@ -33,14 +32,13 @@ source_refs:
   - platform-frontend/tsconfig.json
   - packages/shared/src/components/EmailSetupDialog.vue
   - packages/shared/src/types/domain.ts
-  - dev-log-viewer/README.md
-  - dev-log-viewer/cmd/dev-log-viewer/main.go
-  - dev-log-viewer/internal/server/server.go
+  - interviewer-frontend/README.md
   - start-dev.sh
   - stop-dev.sh
   - smart-recruit-gateway/router/router.go
   - smart-recruit-gateway/rpc/client.go
   - smart-recruit-gateway/config/config.go
+  - smart-recruit-billing-service/cmd/billing-service/main.go
   - smart-recruit-proto/proto/recruitment.proto
   - smart-recruit-proto/recruitment/pb/recruitment.pb.go
   - smart-recruit-platform-go/servicebinary/convention.go
@@ -49,15 +47,20 @@ source_refs:
   - deploy/k8s/README-service-binaries.md
   - smart-recruit-deploy/README.md
   - smart-recruit-deploy/docker-compose.microservices.yml
-last_verified: 2026-07-19
-review_after: 2026-10-14
+  - dev-log-viewer/README.md
+  - dev-log-viewer/cmd/dev-log-viewer/main.go
+  - dev-log-viewer/internal/server/server.go
+last_verified: 2026-07-23
+review_after: 2026-10-21
 ---
 
 # Smart Recruit System Overview
 
-Smart Recruit has four Vue frontends, an explicit `packages/shared/` frontend package, a Gin gateway, independent Go services, shared protobuf contracts, shared platform utilities, and shared Commons packages. The gateway owns HTTP routing, middleware, auth/RBAC enforcement, request limits, SSE endpoints, and generated gRPC clients. Tenant quota definitions are owned by Identity, while enforcement is shared through Commons and invoked at each owning service's write boundary.
+Smart Recruit has three active Vue frontends (`hr-frontend`, `user-frontend`, `platform-frontend`), an explicit `packages/shared/` frontend package, a Gin gateway, independent Go services, shared protobuf contracts, shared platform utilities, and shared Commons packages. The gateway owns HTTP routing, middleware, auth/RBAC enforcement, request limits, SSE endpoints, and generated gRPC clients. Tenant quota definitions are owned by Identity, while enforcement is shared through Commons and invoked at each owning service's write boundary.
 
-Backend responsibilities are split across Identity, Recruitment, Interview, Offer, Notification, AI Agent, Analytics, and Worker services. Shared protocol definitions live in `smart-recruit-proto/`; shared config, Nacos, gRPC, health, trace, metrics, metadata, and service binary conventions live in `smart-recruit-platform-go/`; shared migrations, MQ, OSS, email, authz/JWT helpers, resume parser, event envelope, and AI support live in `smart-recruit-commons/`.
+`interviewer-frontend/` is retained temporarily as a read-only rollback comparison tree. It is not part of the pnpm workspace, Docker Compose, or `start-dev.sh`/`stop-dev.sh` targets. Interviewer workflows now live in `hr-frontend` under `/hr/my-interviews`, and port `5175` is assigned to `platform-frontend`.
+
+Backend responsibilities are split across Identity, Recruitment, Interview, Offer, Notification, AI Agent, Analytics, Billing, and Worker services. Billing owns commercial entitlements, grants, reservations, Alipay payment lifecycle, rate cards, usage events, and ledger mutations; the Gateway dials it on `BILLING_GRPC_ADDR` (default `127.0.0.1:50069`), and AI Agent settles actual token usage through the billing settlement outbox. Shared protocol definitions live in `smart-recruit-proto/`; shared config, Nacos, gRPC, health, trace, metrics, metadata, and service binary conventions live in `smart-recruit-platform-go/`; shared migrations, MQ, OSS, email, authz/JWT helpers, resume parser, event envelope, and AI support live in `smart-recruit-commons/`.
 
 `dev-log-viewer/` is an independent local development utility. It is both a Go module and pnpm workspace package, serves a React UI, read-only service metadata API, and SSE log stream from `127.0.0.1:8090`, and is started only through the explicit `logs` or `log-viewer` target in `start-dev.sh`. It is not part of the default or `all` development stack.
 
@@ -65,4 +68,4 @@ Frontend apps keep app-specific behavior under their own roots and import delibe
 
 ## Verification
 
-Verified against current repository files on 2026-07-19.
+Verified against `pnpm-workspace.yaml`, `start-dev.sh` frontend/service targets and ports, `interviewer-frontend/README.md`, `smart-recruit-billing-service/cmd/billing-service/main.go`, Gateway billing client wiring, and microservice Compose on 2026-07-23.

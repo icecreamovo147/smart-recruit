@@ -26,12 +26,14 @@ applies_to:
   - smart-recruit-deploy/**
   - hr-frontend/**
   - user-frontend/**
-  - interviewer-frontend/**
+  - platform-frontend/**
 source_refs:
   - README.md
   - start-dev.sh
   - stop-dev.sh
+  - interviewer-frontend/README.md
   - scripts/dev-build-fingerprint.go
+  - pnpm-workspace.yaml
   - smart-recruit-commons/cmd/migrate/main.go
   - smart-recruit-commons/cmd/time-preflight/main.go
   - smart-recruit-platform-go/businessclock/clock.go
@@ -53,8 +55,8 @@ source_refs:
   - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json
   - scripts/backend-load-test.mjs
   - scripts/backend-final-readiness-audit.mjs
-last_verified: 2026-07-22
-review_after: 2026-10-08
+last_verified: 2026-07-23
+review_after: 2026-10-21
 ---
 
 # Local Development Runbook
@@ -79,9 +81,10 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 2. When any backend target is selected, `start-dev.sh` prepares `smart-recruit-commons/cmd/migrate`, verifies MySQL/Redis/RabbitMQ availability, and applies `smart-recruit-commons/migrations/` before starting services. Migration failure stops startup.
 3. Start the independent backend services before `smart-recruit-gateway` because the gateway depends on generated gRPC clients. The full `./start-dev.sh` target performs this ordering automatically.
 4. Start only the frontend package needed for the task:
-   - HR app: `pnpm --filter hr-frontend dev`
-   - candidate app: `pnpm --filter user-frontend dev`
-   - interviewer app: `pnpm --filter interviewer-frontend dev`
+   - HR app (`5173`): `pnpm --filter hr-frontend dev`
+   - candidate app (`5174`): `pnpm --filter user-frontend dev`
+   - platform app (`5175`): `pnpm --filter platform-frontend dev`
+   - Do not start `interviewer-frontend`; it is a legacy rollback tree outside the workspace. Interviewer workflows live in HR under `/hr/my-interviews`.
 5. Start the local log viewer only when explicitly needed with `./start-dev.sh logs` or `./start-dev.sh log-viewer`; it uses `127.0.0.1:8090`, `.dev/pids/dev-log-viewer.pid`, and `.dev/logs/dev-log-viewer.log`.
 6. Run targeted checks for touched services or apps before broad checks.
 
@@ -107,7 +110,7 @@ The production-tagged `dev-log-viewer` binary has a separate web-input fingerpri
 - Final readiness audit: `node scripts/backend-final-readiness-audit.mjs --feature-dir .spec/backend-ddd-microservices-evolution --allow-current-task TASK-BDME-052 --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json`.
 - HR frontend typecheck: `pnpm --filter hr-frontend typecheck`.
 - Candidate frontend typecheck: `pnpm --filter user-frontend typecheck`.
-- Interviewer frontend typecheck: `pnpm --filter interviewer-frontend typecheck`.
+- Platform frontend typecheck: `pnpm --filter platform-frontend typecheck`.
 - Dev log viewer frontend build: `pnpm --filter dev-log-viewer build`.
 - Dev log viewer production binary build: `dev-log-viewer/scripts/build-production.sh`.
 - Dev log viewer loopback smoke test: `dev-log-viewer/scripts/smoke-test.sh`.
@@ -126,4 +129,4 @@ Mark this document stale if startup scripts, frontend package commands, Docker s
 
 ## Verification
 
-Verified against `start-dev.sh`, the incremental fingerprint helper, the Commons migration command and runner, current workspace commands, Docker Compose assets, and dev-log-viewer scripts on 2026-07-22.
+Verified against `start-dev.sh`, `pnpm-workspace.yaml`, the incremental fingerprint helper, the Commons migration command and runner, current workspace frontend ports/commands, Docker Compose assets, `interviewer-frontend/README.md`, and dev-log-viewer scripts on 2026-07-23.

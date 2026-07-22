@@ -483,6 +483,14 @@ func (r *Runner) Baseline(ctx context.Context, targetVersion int) error {
 		{"users", "token_version"},
 		{"applications", "status_key"},
 		{"notifications", "receiver_account_type"},
+		{"candidate_profiles", "city"},
+		{"candidate_profiles", "years_of_experience"},
+		{"candidate_profiles", "job_status"},
+		{"candidate_profiles", "expected_position"},
+		{"candidate_profiles", "expected_salary_min"},
+		{"candidate_profiles", "expected_salary_max"},
+		{"candidate_profiles", "available_from"},
+		{"candidate_profiles", "summary"},
 	}
 	for _, cc := range criticalColumns {
 		exists, err := r.columnExists(ctx, conn, cc.table, cc.column)
@@ -498,7 +506,8 @@ func (r *Runner) Baseline(ctx context.Context, targetVersion int) error {
 	// ── Verify key Offer, interview, collaboration tables exist ────
 	offerTables := []string{"offers", "offer_events", "interview_schedules",
 		"interview_feedback", "candidate_notes", "candidate_tags",
-		"candidate_tag_assignments", "follow_up_tasks"}
+		"candidate_tag_assignments", "follow_up_tasks",
+		"candidate_educations", "candidate_experiences"}
 	existing, err := r.tablesExist(ctx, conn, offerTables)
 	if err != nil {
 		return fmt.Errorf("migration: baseline verification: %w", err)

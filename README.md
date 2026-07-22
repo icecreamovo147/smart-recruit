@@ -162,6 +162,7 @@ smart-recruit/
 ├── smart-recruit-notification-service/
 ├── smart-recruit-ai-agent-service/
 ├── smart-recruit-analytics-service/
+├── smart-recruit-billing-service/  # 账单、积分、支付与 AI 用量结算
 ├── smart-recruit-worker-service/
 ├── smart-recruit-commons/    # 领域服务、repository、model、migration、mq、oss、ai、email
 ├── smart-recruit-platform-go/  # Nacos、配置、日志、健康检查、metrics、trace、gRPC runtime helper
