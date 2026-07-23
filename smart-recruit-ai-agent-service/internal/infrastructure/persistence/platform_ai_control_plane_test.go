@@ -29,7 +29,12 @@ func TestPlatformAICapabilityPublishIsImmutableAndAudited(t *testing.T) {
 		t.Fatalf("unexpected draft: %+v", draft)
 	}
 
-	published, err := store.PublishPlatformAICapabilityVersion(context.Background(), draft.ID, 91, "req-publish")
+	updatedDraft, err := store.UpdatePlatformAICapabilityDraft(context.Background(), draft.ID, 91, snapshot, "update draft", "req-edit")
+	if err != nil {
+		t.Fatalf("update draft: %v", err)
+	}
+
+	published, err := store.PublishPlatformAICapabilityVersion(context.Background(), updatedDraft.ID, 91, "req-publish")
 	if err != nil {
 		t.Fatalf("publish: %v", err)
 	}
@@ -46,8 +51,104 @@ func TestPlatformAICapabilityPublishIsImmutableAndAudited(t *testing.T) {
 	if err := db.Model(&platformAIConfigAuditRecord{}).Count(&auditCount).Error; err != nil {
 		t.Fatalf("count audit rows: %v", err)
 	}
-	if auditCount != 2 {
-		t.Fatalf("audit count = %d, want 2", auditCount)
+	if auditCount != 3 {
+		t.Fatalf("audit count = %d, want 3", auditCount)
+	}
+
+	var audits []platformAIConfigAuditRecord
+	if err := db.Order("id ASC").Find(&audits).Error; err != nil {
+		t.Fatalf("load audit rows: %v", err)
+	}
+	if audits[0].BeforeSnapshot.Valid || audits[2].BeforeSnapshot.Valid {
+		t.Fatalf("create and publish audit before snapshots must be SQL NULL: %+v", audits)
+	}
+	if !audits[1].BeforeSnapshot.Valid || !json.Valid([]byte(audits[1].BeforeSnapshot.String)) {
+		t.Fatalf("draft update before snapshot must contain valid JSON: %+v", audits[1].BeforeSnapshot)
+	}
+	for _, audit := range audits {
+		if !audit.AfterSnapshot.Valid || !json.Valid([]byte(audit.AfterSnapshot.String)) {
+			t.Fatalf("audit %q after snapshot must contain valid JSON: %+v", audit.Action, audit.AfterSnapshot)
+		}
+	}
+}
+
+func TestNormalizeCapabilitySnapshotDropsRetiredAISkillReferences(t *testing.T) {
+	capability := platformAICapabilityRecord{CapabilityKey: "ai.chat", Audience: PlatformAIAudienceTenantHR}
+	legacySnapshot := map[string]any{}
+	if err := json.Unmarshal(mustCapabilitySnapshotJSON(t, capability, []int64{1}, 1), &legacySnapshot); err != nil {
+		t.Fatalf("decode snapshot: %v", err)
+	}
+	legacySnapshot["configuration_refs"].(map[string]any)["ai_skill_version_ids"] = []int64{101, 102}
+	raw, err := json.Marshal(legacySnapshot)
+	if err != nil {
+		t.Fatalf("encode legacy snapshot: %v", err)
+	}
+
+	normalized, hash, snapshot, err := normalizeCapabilitySnapshot(raw, capability)
+	if err != nil {
+		t.Fatalf("normalize legacy snapshot: %v", err)
+	}
+	if hash == "" || len(snapshot.ConfigurationRef.AgentSkillVersionIDs) != 0 {
+		t.Fatalf("unexpected normalized snapshot: hash=%q refs=%+v", hash, snapshot.ConfigurationRef)
+	}
+	var normalizedObject map[string]any
+	if err := json.Unmarshal([]byte(normalized), &normalizedObject); err != nil {
+		t.Fatalf("decode normalized snapshot: %v", err)
+	}
+	if _, exists := normalizedObject["configuration_refs"].(map[string]any)["ai_skill_version_ids"]; exists {
+		t.Fatalf("normalized snapshot retains retired ai_skill_version_ids: %s", normalized)
+	}
+}
+
+func TestPlatformAICapabilityDraftCanBeDeletedWithoutLosingAuditEvidence(t *testing.T) {
+	db := newPlatformAIControlPlaneTestDB(t)
+	store := NewNativeStore(db)
+	_, defaultModelID, _ := seedPlatformAIModels(t, db)
+	seedPlatformAIAgentPrompt(t, db, 10, 20, "hr_recruiting_agent", "hr_agent")
+	capability := seedPlatformAICapability(t, db, "ai.chat", PlatformAIAudienceTenantHR)
+	snapshot := mustCapabilitySnapshotJSON(t, capability, []int64{defaultModelID}, defaultModelID)
+
+	draft, err := store.CreatePlatformAICapabilityDraft(context.Background(), capability.ID, 91, snapshot, "discard me", "req-draft")
+	if err != nil {
+		t.Fatalf("create draft: %v", err)
+	}
+	if err := store.DeletePlatformAICapabilityDraft(context.Background(), draft.ID, 91, "req-delete"); err != nil {
+		t.Fatalf("delete draft: %v", err)
+	}
+
+	var versionCount int64
+	if err := db.Model(&platformAICapabilityVersionRecord{}).Where("id = ?", draft.ID).Count(&versionCount).Error; err != nil {
+		t.Fatalf("count deleted draft: %v", err)
+	}
+	if versionCount != 0 {
+		t.Fatalf("deleted draft still exists: count = %d", versionCount)
+	}
+
+	var audits []platformAIConfigAuditRecord
+	if err := db.Where("capability_id = ?", capability.ID).Order("id ASC").Find(&audits).Error; err != nil {
+		t.Fatalf("load audit rows: %v", err)
+	}
+	if len(audits) != 2 || audits[0].Action != "capability.release.draft.create" || audits[1].Action != "capability.release.draft.delete" {
+		t.Fatalf("unexpected draft audit trail: %+v", audits)
+	}
+	for _, audit := range audits {
+		if audit.CapabilityVersionID.Valid {
+			t.Fatalf("deleted draft audit must not retain a foreign-key version reference: %+v", audit)
+		}
+	}
+	if !audits[0].AfterSnapshot.Valid || !json.Valid([]byte(audits[0].AfterSnapshot.String)) || !audits[1].BeforeSnapshot.Valid || !json.Valid([]byte(audits[1].BeforeSnapshot.String)) {
+		t.Fatalf("deleted draft audit must preserve valid JSON snapshots: %+v", audits)
+	}
+
+	draft, err = store.CreatePlatformAICapabilityDraft(context.Background(), capability.ID, 91, snapshot, "publish me", "req-draft-2")
+	if err != nil {
+		t.Fatalf("create second draft: %v", err)
+	}
+	if _, err := store.PublishPlatformAICapabilityVersion(context.Background(), draft.ID, 91, "req-publish"); err != nil {
+		t.Fatalf("publish draft: %v", err)
+	}
+	if err := store.DeletePlatformAICapabilityDraft(context.Background(), draft.ID, 91, "req-delete-published"); !errors.Is(err, ErrCapabilityVersionChanged) {
+		t.Fatalf("delete published version error = %v, want ErrCapabilityVersionChanged", err)
 	}
 }
 

@@ -23,10 +23,10 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
-	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
 	appmemory "smart-recruit-ai-agent-service/internal/application/memory"
-	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
+	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
 	aiagentpersistence "smart-recruit-ai-agent-service/internal/infrastructure/persistence"
+	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
 	"smart-recruit-commons/mq"
@@ -84,7 +84,6 @@ func checkRuntime() error {
 		Prompt:                 noopPromptService{},
 		AgentConfig:            noopAgentConfigService{},
 		MCP:                    noopMCPService{},
-		Skill:                  noopSkillService{},
 		AgentSkill:             noopAgentSkillService{},
 		RecruitingIntelligence: noopRecruitingIntelligenceService{},
 		EmbeddingConfig:        noopEmbeddingConfigService{},
@@ -524,9 +523,6 @@ type noopAgentConfigService struct {
 }
 type noopMCPService struct {
 	pb.UnimplementedMCPServiceServer
-}
-type noopSkillService struct {
-	pb.UnimplementedSkillServiceServer
 }
 type noopAgentSkillService struct {
 	pb.UnimplementedAgentSkillServiceServer

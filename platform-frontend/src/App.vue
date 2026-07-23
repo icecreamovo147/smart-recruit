@@ -51,7 +51,6 @@ const aiSections = computed(() => [
     children: [
       { path: '/ai/agents', label: 'Agent', permission: PLATFORM_PERMISSIONS.AI_CONFIG_READ },
       { path: '/ai/prompts', label: 'Prompt', permission: PLATFORM_PERMISSIONS.AI_CONFIG_READ },
-      { path: '/ai/skills', label: 'Skill', permission: PLATFORM_PERMISSIONS.AI_CONFIG_READ },
       { path: '/ai/agent-skills', label: 'Agent Skill', permission: PLATFORM_PERMISSIONS.AI_CONFIG_READ },
     ],
   },

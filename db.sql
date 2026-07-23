@@ -1869,7 +1869,7 @@ CREATE TABLE IF NOT EXISTS `mcp_tool_policies` (
 CREATE TABLE IF NOT EXISTS `agent_capability_bindings` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `agent_id` BIGINT NOT NULL COMMENT 'FK to agent_configs.id',
-  `capability_source` VARCHAR(32) NOT NULL COMMENT 'builtin / mcp / skill',
+  `capability_source` VARCHAR(32) NOT NULL COMMENT 'builtin / mcp',
   `capability_key` VARCHAR(256) NOT NULL COMMENT 'builtin: tool_name; mcp: server_id:tool_name',
   `is_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether the capability is enabled for this agent',
   `priority` INT NOT NULL DEFAULT 0 COMMENT 'Capability ordering hint',
@@ -1882,55 +1882,6 @@ CREATE TABLE IF NOT EXISTS `agent_capability_bindings` (
   KEY `idx_agent_capability_key` (`capability_key`),
   CONSTRAINT `fk_agent_capability_bindings_agent` FOREIGN KEY (`agent_id`) REFERENCES `agent_configs` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent to unified capability binding assignments';
-
-CREATE TABLE IF NOT EXISTS `ai_skills` (
-  `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(128) NOT NULL COMMENT 'Stable skill key used in capability keys',
-  `display_name` VARCHAR(256) NOT NULL,
-  `description` TEXT,
-  `source_type` VARCHAR(32) NOT NULL DEFAULT 'local' COMMENT 'local / git / http / mcp / builtin',
-  `source_uri` TEXT,
-  `current_version_id` BIGINT NULL COMMENT 'FK to ai_skill_versions.id, nullable until first version',
-  `is_enabled` TINYINT(1) NOT NULL DEFAULT 1,
-  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_ai_skills_name` (`name`),
-  KEY `idx_ai_skills_enabled` (`is_enabled`),
-  KEY `idx_ai_skills_current_version` (`current_version_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Versioned SKILL registry';
-
-CREATE TABLE IF NOT EXISTS `ai_skill_versions` (
-  `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `skill_id` BIGINT NOT NULL,
-  `version` VARCHAR(64) NOT NULL,
-  `manifest_json` JSON NOT NULL,
-  `instruction` TEXT,
-  `input_schema_json` JSON NULL,
-  `output_schema_json` JSON NULL,
-  `runtime_type` VARCHAR(32) NOT NULL DEFAULT 'prompt' COMMENT 'prompt / tool / workflow / http',
-  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_ai_skill_versions_skill_version` (`skill_id`, `version`),
-  KEY `idx_ai_skill_versions_skill` (`skill_id`),
-  CONSTRAINT `fk_ai_skill_versions_skill` FOREIGN KEY (`skill_id`) REFERENCES `ai_skills` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Immutable SKILL versions';
-
-CREATE TABLE IF NOT EXISTS `ai_skill_tools` (
-  `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `skill_version_id` BIGINT NOT NULL,
-  `tool_name` VARCHAR(128) NOT NULL,
-  `description` TEXT,
-  `input_schema_json` JSON NULL,
-  `runtime_config_json` JSON NULL,
-  `is_enabled` TINYINT(1) NOT NULL DEFAULT 1,
-  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_ai_skill_tools_version_tool` (`skill_version_id`, `tool_name`),
-  KEY `idx_ai_skill_tools_enabled` (`is_enabled`),
-  CONSTRAINT `fk_ai_skill_tools_version` FOREIGN KEY (`skill_version_id`) REFERENCES `ai_skill_versions` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Executable tools declared by SKILL versions';
 
 CREATE TABLE IF NOT EXISTS `agent_skills` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
@@ -2013,7 +1964,7 @@ CREATE TABLE IF NOT EXISTS `platform_ai_capability_versions` (
   `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_platform_ai_capability_versions_number` (`capability_id`, `version`),
-  UNIQUE KEY `uk_platform_ai_capability_versions_hash` (`capability_id`, `snapshot_hash`),
+  KEY `idx_platform_ai_capability_versions_hash` (`capability_id`, `snapshot_hash`),
   KEY `idx_platform_ai_capability_versions_status` (`status`, `published_at`),
   CONSTRAINT `fk_platform_ai_capability_versions_capability` FOREIGN KEY (`capability_id`) REFERENCES `platform_ai_capabilities` (`id`),
   CONSTRAINT `chk_platform_ai_capability_versions_status` CHECK (`status` IN ('draft', 'published', 'retired'))
@@ -2042,10 +1993,6 @@ CREATE TABLE IF NOT EXISTS `platform_ai_config_audit_logs` (
   CONSTRAINT `fk_platform_ai_config_audit_capability` FOREIGN KEY (`capability_id`) REFERENCES `platform_ai_capabilities` (`id`),
   CONSTRAINT `fk_platform_ai_config_audit_version` FOREIGN KEY (`capability_version_id`) REFERENCES `platform_ai_capability_versions` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Atomic audit trail for platform AI configuration and releases';
-
-ALTER TABLE `ai_skills`
-  ADD CONSTRAINT `fk_ai_skills_current_version`
-  FOREIGN KEY (`current_version_id`) REFERENCES `ai_skill_versions` (`id`) ON DELETE SET NULL;
 
 -- Runtime and business evidence remains tenant-scoped. Technical AI
 -- configuration tables are platform-global and intentionally have no tenant_id.
@@ -2750,7 +2697,6 @@ JOIN LATERAL (
         OR (capability.capability_key = 'ai.match_evaluation' AND prompt.agent_type IN ('job_requirement_extractor', 'candidate_match_evaluator'))
       )), JSON_ARRAY()),
       'agent_skill_version_ids', CASE WHEN capability.audience = 'tenant_hr' AND capability.capability_key IN ('ai.chat', 'ai.agent_run') THEN COALESCE((SELECT JSON_ARRAYAGG(skill.current_version_id) FROM agent_skills skill WHERE skill.is_enabled = 1 AND skill.current_version_id IS NOT NULL), JSON_ARRAY()) ELSE JSON_ARRAY() END,
-      'ai_skill_version_ids', CASE WHEN capability.audience = 'tenant_hr' AND capability.capability_key IN ('ai.chat', 'ai.agent_run') THEN COALESCE((SELECT JSON_ARRAYAGG(skill.current_version_id) FROM ai_skills skill WHERE skill.is_enabled = 1 AND skill.current_version_id IS NOT NULL), JSON_ARRAY()) ELSE JSON_ARRAY() END,
       'mcp_policy_ids', CASE WHEN capability.audience = 'tenant_hr' AND capability.capability_key IN ('ai.chat', 'ai.agent_run') THEN COALESCE((SELECT JSON_ARRAYAGG(policy.id) FROM mcp_tool_policies policy WHERE policy.is_enabled = 1), JSON_ARRAY()) ELSE JSON_ARRAY() END
     )
   ) AS snapshot_json

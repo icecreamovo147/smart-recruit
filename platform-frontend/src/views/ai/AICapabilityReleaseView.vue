@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   createPlatformAICapabilityDraft,
+	deletePlatformAICapabilityDraft,
   listPlatformAICapabilities,
   listPlatformAICapabilityVersions,
   publishPlatformAICapabilityVersion,
@@ -16,7 +17,6 @@ import { listModels } from '@/api/llm'
 import { listEmbeddingModels } from '@/api/embedding'
 import { listAgentConfigs } from '@/api/agent'
 import { listPromptTemplates } from '@/api/prompt'
-import { listSkills, listSkillVersions } from '@/api/skill'
 import { listAgentSkills, listAgentSkillVersions } from '@/api/agentSkill'
 import { listMcpToolPolicies } from '@/api/mcp'
 import { formatShanghaiDateTime } from '@shared/utils/format'
@@ -34,14 +34,17 @@ const editingVersion = ref<PlatformAICapabilityVersion | null>(null)
 const canManage = computed(() => auth.can(PLATFORM_PERMISSIONS.AI_RELEASE_MANAGE))
 const canPublish = computed(() => auth.can(PLATFORM_PERMISSIONS.AI_RELEASE_PUBLISH))
 type SelectOption = { value: number; label: string }
-const options = reactive({ llm: [] as SelectOption[], embedding: [] as SelectOption[], agents: [] as SelectOption[], prompts: [] as SelectOption[], agentSkillVersions: [] as SelectOption[], aiSkillVersions: [] as SelectOption[], mcpPolicies: [] as SelectOption[] })
-const form = reactive({ change_note: '', allowed_llm_model_ids: [] as number[], default_llm_model_id: 0, allowed_embedding_model_ids: [] as number[], default_embedding_model_id: 0, agent_ids: [] as number[], prompt_template_ids: [] as number[], agent_skill_version_ids: [] as number[], ai_skill_version_ids: [] as number[], mcp_policy_ids: [] as number[] })
+const options = reactive({ llm: [] as SelectOption[], embedding: [] as SelectOption[], agents: [] as SelectOption[], prompts: [] as SelectOption[], agentSkillVersions: [] as SelectOption[], mcpPolicies: [] as SelectOption[] })
+const form = reactive({ change_note: '', allowed_llm_model_ids: [] as number[], default_llm_model_id: undefined as number | undefined, allowed_embedding_model_ids: [] as number[], default_embedding_model_id: undefined as number | undefined, agent_ids: [] as number[], prompt_template_ids: [] as number[], agent_skill_version_ids: [] as number[], mcp_policy_ids: [] as number[] })
 
 const audienceLabel = (value: string) => value === 'candidate' ? '候选人端' : '企业招聘端'
+const capabilityStatusLabel = (value: string) => ({ active: '已启用', retired: '已停用' }[value] || value)
+const versionStatusLabel = (value: string) => ({ draft: '草稿', published: '已发布', retired: '已停用' }[value] || value)
+const versionStatusType = (value: string) => value === 'published' ? 'success' : value === 'draft' ? 'warning' : 'info'
 const formatTime = (value?: string) => formatShanghaiDateTime(value)
 type CapabilitySnapshot = {
   model_policy?: { allowed_llm_model_ids?: number[]; default_llm_model_id?: number; allowed_embedding_model_ids?: number[]; default_embedding_model_id?: number }
-  configuration_refs?: { agent_ids?: number[]; prompt_template_ids?: number[]; agent_skill_version_ids?: number[]; ai_skill_version_ids?: number[]; mcp_policy_ids?: number[] }
+  configuration_refs?: { agent_ids?: number[]; prompt_template_ids?: number[]; agent_skill_version_ids?: number[]; mcp_policy_ids?: number[] }
 }
 const snapshotOf = (value: string): CapabilitySnapshot => {
   try { return JSON.parse(value) as CapabilitySnapshot } catch { return {} }
@@ -59,7 +62,7 @@ const snapshotStats = (value: string) => {
     embedding: policy.allowed_embedding_model_ids?.length || 0,
     agents: refs.agent_ids?.length || 0,
     prompts: refs.prompt_template_ids?.length || 0,
-    skills: (refs.agent_skill_version_ids?.length || 0) + (refs.ai_skill_version_ids?.length || 0),
+    skills: refs.agent_skill_version_ids?.length || 0,
     mcp: refs.mcp_policy_ids?.length || 0,
   }
 }
@@ -81,18 +84,14 @@ const loadConfigurationOptions = async () => {
   if (configurationLoaded.value || configurationLoading.value) return
   configurationLoading.value = true
   try {
-  const [llm, embedding, agents, prompts, skills, agentSkills, policies] = await Promise.all([
-    listModels(1, 500), listEmbeddingModels(1, 500), listAgentConfigs(1, 500), listPromptTemplates(1, 500), listSkills(1, 500), listAgentSkills({ page: 1, page_size: 500 }), listMcpToolPolicies({ page: 1, page_size: 500 }),
+  const [llm, embedding, agents, prompts, agentSkills, policies] = await Promise.all([
+    listModels(1, 500), listEmbeddingModels(1, 500), listAgentConfigs(1, 500), listPromptTemplates(1, 500), listAgentSkills({ page: 1, page_size: 500 }), listMcpToolPolicies({ page: 1, page_size: 500 }),
   ])
   options.llm = (llm.list || []).filter(row => row.is_enabled).map(row => option(row.id, row.display_name || row.model_name))
   options.embedding = (embedding.list || []).filter(row => row.is_enabled).map(row => option(row.id, row.display_name || row.model_name))
   options.agents = (agents.list || []).filter(row => row.is_enabled).map(row => option(row.id, row.display_name || row.name))
   options.prompts = (prompts.list || []).filter(row => row.is_active).map(row => option(row.id, row.name))
   options.mcpPolicies = (policies.list || []).filter(row => row.is_enabled).map(row => option(row.id, `${row.server_name || row.server_id} / ${row.tool_name}`))
-  options.aiSkillVersions = (await Promise.all((skills.list || []).filter(row => row.is_enabled).map(async row => {
-    const result = await listSkillVersions(row.id)
-    return (result.list || []).map(version => option(version.id, `${row.display_name || row.name} · ${version.version}`))
-  }))).flat()
   options.agentSkillVersions = (await Promise.all((agentSkills.list || []).filter(row => row.is_enabled).map(async row => {
     const result = await listAgentSkillVersions(row.id)
     return (result.list || []).map(version => option(version.id, `${row.display_name || row.name} · ${version.version}`))
@@ -118,6 +117,14 @@ const load = async () => {
   } finally { loading.value = false }
 }
 
+const syncDefaultLlmModel = () => {
+  if (!form.allowed_llm_model_ids.includes(form.default_llm_model_id || 0)) form.default_llm_model_id = form.allowed_llm_model_ids[0]
+}
+
+const syncDefaultEmbeddingModel = () => {
+  if (!form.allowed_embedding_model_ids.includes(form.default_embedding_model_id || 0)) form.default_embedding_model_id = form.allowed_embedding_model_ids[0]
+}
+
 const openEditor = async (version?: PlatformAICapabilityVersion) => {
 	try {
 		await loadConfigurationOptions()
@@ -126,24 +133,26 @@ const openEditor = async (version?: PlatformAICapabilityVersion) => {
 		return
 	}
 	editingVersion.value = version || null
-	const snapshot = version ? snapshotOf(version.snapshot_json) : { model_policy: {}, configuration_refs: {} }
+	const baseline = versions.value.find((item) => item.id === selected.value?.current_published_version_id) || versions.value.find((item) => item.status === 'published')
+	const snapshot = snapshotOf((version || baseline)?.snapshot_json || '')
 	form.allowed_llm_model_ids = snapshot.model_policy?.allowed_llm_model_ids || []
-	form.default_llm_model_id = snapshot.model_policy?.default_llm_model_id || 0
+	form.default_llm_model_id = snapshot.model_policy?.default_llm_model_id
 	form.allowed_embedding_model_ids = snapshot.model_policy?.allowed_embedding_model_ids || []
-	form.default_embedding_model_id = snapshot.model_policy?.default_embedding_model_id || 0
+	form.default_embedding_model_id = snapshot.model_policy?.default_embedding_model_id
 	form.agent_ids = snapshot.configuration_refs?.agent_ids || []
 	form.prompt_template_ids = snapshot.configuration_refs?.prompt_template_ids || []
 	form.agent_skill_version_ids = snapshot.configuration_refs?.agent_skill_version_ids || []
-	form.ai_skill_version_ids = snapshot.configuration_refs?.ai_skill_version_ids || []
 	form.mcp_policy_ids = snapshot.configuration_refs?.mcp_policy_ids || []
   form.change_note = version?.change_note || ''
+  syncDefaultLlmModel()
+  syncDefaultEmbeddingModel()
   editorVisible.value = true
 }
 
 const submitDraft = async () => {
   if (!selected.value || !form.change_note.trim()) { ElMessage.warning('请填写版本变更说明'); return }
 	if (!form.allowed_llm_model_ids.length || !form.default_llm_model_id || !form.allowed_llm_model_ids.includes(form.default_llm_model_id)) { ElMessage.warning('请选择模型池，并确保默认模型属于模型池'); return }
-	const normalized = JSON.stringify({ schema_version: 1, capability_key: selected.value.capability_key, audience: selected.value.audience, model_policy: { allowed_llm_model_ids: form.allowed_llm_model_ids, default_llm_model_id: form.default_llm_model_id, allowed_embedding_model_ids: form.allowed_embedding_model_ids, default_embedding_model_id: form.default_embedding_model_id || 0 }, configuration_refs: { agent_ids: form.agent_ids, prompt_template_ids: form.prompt_template_ids, agent_skill_version_ids: form.agent_skill_version_ids, ai_skill_version_ids: form.ai_skill_version_ids, mcp_policy_ids: form.mcp_policy_ids } })
+	const normalized = JSON.stringify({ schema_version: 1, capability_key: selected.value.capability_key, audience: selected.value.audience, model_policy: { allowed_llm_model_ids: form.allowed_llm_model_ids, default_llm_model_id: form.default_llm_model_id, allowed_embedding_model_ids: form.allowed_embedding_model_ids, default_embedding_model_id: form.default_embedding_model_id || 0 }, configuration_refs: { agent_ids: form.agent_ids, prompt_template_ids: form.prompt_template_ids, agent_skill_version_ids: form.agent_skill_version_ids, mcp_policy_ids: form.mcp_policy_ids } })
   if (editingVersion.value) {
     await updatePlatformAICapabilityDraft(editingVersion.value.id, { snapshot_json: normalized, change_note: form.change_note.trim() })
   } else {
@@ -173,6 +182,25 @@ const publish = async (version: PlatformAICapabilityVersion) => {
   capabilities.value = result.list || []
 }
 
+const deleteDraft = async (version: PlatformAICapabilityVersion) => {
+	try {
+		await ElMessageBox.confirm(
+			`确认删除 V${version.version} 草稿？删除后无法恢复。`,
+			'删除能力版本草稿',
+			{ type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' },
+		)
+	} catch {
+		return
+	}
+	try {
+		await deletePlatformAICapabilityDraft(version.id)
+		ElMessage.success('能力版本草稿已删除')
+		if (selected.value) await loadVersions(selected.value)
+	} catch (error) {
+		ElMessage.error((error as { message?: string }).message || '删除能力版本草稿失败')
+	}
+}
+
 onMounted(load)
 </script>
 
@@ -198,9 +226,9 @@ onMounted(load)
         </aside>
 
         <main class="surface-card version-panel">
-          <header v-if="selected"><div><h2>{{ selected.name }}</h2><p>{{ selected.description || '暂无能力说明' }} · {{ audienceLabel(selected.audience) }}</p></div><el-tag>{{ selected.status }}</el-tag></header>
+          <header v-if="selected"><div><h2>{{ selected.name }}</h2><p>{{ selected.description || '暂无能力说明' }} · {{ audienceLabel(selected.audience) }}</p></div><el-tag>{{ capabilityStatusLabel(selected.status) }}</el-tag></header>
           <section v-for="version in versions" :key="version.id" class="version-card">
-            <div class="version-title"><div><strong>V{{ version.version }}</strong><small>{{ version.change_note || '暂无变更说明' }}</small></div><el-tag :type="version.status === 'published' ? 'success' : version.status === 'draft' ? 'warning' : 'info'">{{ version.status }}</el-tag></div>
+            <div class="version-title"><div><strong>V{{ version.version }}</strong><small>{{ version.change_note || '暂无变更说明' }}</small></div><div class="version-statuses"><el-tag v-if="version.id === selected?.current_published_version_id" type="primary">当前生效</el-tag><el-tag :type="versionStatusType(version.status)">{{ versionStatusLabel(version.status) }}</el-tag></div></div>
             <div class="snapshot-summary">
               <div><span>LLM 模型池</span><strong>{{ snapshotStats(version.snapshot_json).llm }}</strong><small>默认 #{{ snapshotStats(version.snapshot_json).defaultLlm || '-' }}</small></div>
               <div><span>Embedding</span><strong>{{ snapshotStats(version.snapshot_json).embedding }}</strong><small>允许模型</small></div>
@@ -209,26 +237,25 @@ onMounted(load)
             </div>
             <el-alert v-if="validateSnapshot(version.snapshot_json).errors.length" :title="validateSnapshot(version.snapshot_json).errors.join('；')" type="error" :closable="false" show-icon />
             <details><summary>查看原始发布快照</summary><pre>{{ prettySnapshot(version.snapshot_json) }}</pre></details>
-            <footer><span>快照 {{ version.snapshot_hash ? version.snapshot_hash.slice(0, 12) : '-' }} · 发布 {{ formatTime(version.published_at) }}</span><div><el-button v-if="canManage && version.status === 'draft'" link type="primary" @click="openEditor(version)">编辑草稿</el-button><el-button v-if="canPublish && version.status === 'draft'" link type="success" @click="publish(version)">发布并冻结</el-button></div></footer>
+            <footer><span>快照 {{ version.snapshot_hash ? version.snapshot_hash.slice(0, 12) : '-' }} · 发布 {{ formatTime(version.published_at) }}</span><div><el-button v-if="canManage && version.status === 'draft'" link type="primary" @click="openEditor(version)">编辑草稿</el-button><el-button v-if="canManage && version.status === 'draft'" link type="danger" @click="deleteDraft(version)">删除草稿</el-button><el-button v-if="canPublish && version.status === 'draft'" link type="success" @click="publish(version)">发布并冻结</el-button></div></footer>
           </section>
           <el-empty v-if="selected && !versions.length" description="尚未创建能力版本" />
         </main>
       </div>
     </PagePanel>
 
-    <el-dialog v-model="editorVisible" :title="`${selected?.name || ''} · ${editingVersion ? `编辑 V${editingVersion.version}` : '新建版本'}`" width="760px">
+    <el-dialog v-model="editorVisible" class="capability-release-dialog" :title="`${selected?.name || ''} · ${editingVersion ? `编辑 V${editingVersion.version}` : '新建版本'}`" width="760px" top="6vh">
       <el-alert title="模型池只应引用平台已启用的模型；发布后版本不可修改，企业与候选人的选择范围以该快照为准。" type="info" :closable="false" show-icon />
       <el-form class="editor-form" label-position="top">
         <el-form-item label="变更说明" required><el-input v-model="form.change_note" maxlength="500" show-word-limit /></el-form-item>
-        <el-form-item label="允许调用的 LLM 模型" required><el-select v-model="form.allowed_llm_model_ids" multiple filterable class="full-width"><el-option v-for="item in options.llm" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
-        <el-form-item label="默认 LLM 模型" required><el-select v-model="form.default_llm_model_id" filterable class="full-width"><el-option v-for="item in options.llm.filter(option => form.allowed_llm_model_ids.includes(option.value))" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
-        <el-form-item label="允许调用的 Embedding 模型"><el-select v-model="form.allowed_embedding_model_ids" multiple filterable class="full-width"><el-option v-for="item in options.embedding" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
-        <el-form-item label="默认 Embedding 模型"><el-select v-model="form.default_embedding_model_id" clearable filterable class="full-width"><el-option v-for="item in options.embedding.filter(option => form.allowed_embedding_model_ids.includes(option.value))" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
+        <el-form-item label="允许调用的 LLM 模型" required><el-select v-model="form.allowed_llm_model_ids" multiple filterable class="full-width" @change="syncDefaultLlmModel"><el-option v-for="item in options.llm" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
+        <el-form-item label="默认 LLM 模型" required><el-select v-model="form.default_llm_model_id" filterable class="full-width" placeholder="请选择默认 LLM 模型"><el-option v-for="item in options.llm.filter(option => form.allowed_llm_model_ids.includes(option.value))" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
+        <el-form-item label="允许调用的 Embedding 模型"><el-select v-model="form.allowed_embedding_model_ids" multiple filterable class="full-width" @change="syncDefaultEmbeddingModel"><el-option v-for="item in options.embedding" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
+        <el-form-item label="默认 Embedding 模型"><el-select v-model="form.default_embedding_model_id" clearable filterable class="full-width" placeholder="请选择默认 Embedding 模型"><el-option v-for="item in options.embedding.filter(option => form.allowed_embedding_model_ids.includes(option.value))" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
         <el-divider content-position="left">固定配置引用</el-divider>
         <el-form-item label="Agent"><el-select v-model="form.agent_ids" multiple filterable class="full-width"><el-option v-for="item in options.agents" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
         <el-form-item label="Prompt 模板"><el-select v-model="form.prompt_template_ids" multiple filterable class="full-width"><el-option v-for="item in options.prompts" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
         <el-form-item label="Agent Skill 版本"><el-select v-model="form.agent_skill_version_ids" multiple filterable class="full-width"><el-option v-for="item in options.agentSkillVersions" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
-        <el-form-item label="AI Skill 版本"><el-select v-model="form.ai_skill_version_ids" multiple filterable class="full-width"><el-option v-for="item in options.aiSkillVersions" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
         <el-form-item label="MCP 策略"><el-select v-model="form.mcp_policy_ids" multiple filterable class="full-width"><el-option v-for="item in options.mcpPolicies" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
       </el-form>
       <template #footer><el-button @click="editorVisible = false">取消</el-button><el-button type="primary" @click="submitDraft">保存草稿</el-button></template>
@@ -275,6 +302,8 @@ onMounted(load)
 }
 
 .capability-list {
+  display: grid;
+  gap: 8px;
   padding: 10px;
   height: max-content;
   border: 1px solid var(--surface-soft-border);
@@ -290,23 +319,40 @@ onMounted(load)
   align-items: center;
   gap: 10px;
   padding: 14px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 10px;
   background: transparent;
   text-align: left;
   color: inherit;
   cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
 }
 
-.capability-list button:hover,
+.capability-list button:hover:not(.active) {
+  border-color: var(--surface-soft-border);
+  background: var(--control-hover-bg);
+}
+
 .capability-list button.active {
-  background: var(--el-fill-color-light);
+  border-color: color-mix(in srgb, var(--brand) 32%, var(--surface-soft-border));
+  background: var(--el-color-primary-light-9);
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+
+.capability-list button.active:hover {
+  background: var(--el-color-primary-light-9);
 }
 
 .capability-list span,
 .version-title > div {
   display: grid;
   gap: 4px;
+}
+
+.version-title > .version-statuses {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .capability-list small,
@@ -385,6 +431,42 @@ onMounted(load)
 
 .editor-form :deep(textarea) {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:global(.el-overlay-dialog .el-dialog.capability-release-dialog),
+:global(.capability-release-dialog .el-dialog__header),
+:global(.capability-release-dialog .el-dialog__body),
+:global(.capability-release-dialog .el-dialog__footer) {
+  background: var(--surface-solid-bg);
+}
+
+:global(.capability-release-dialog .el-dialog__body) {
+  max-height: calc(88vh - 132px);
+  overflow-y: auto;
+}
+
+:global(.capability-release-dialog .el-dialog__headerbtn) {
+  top: 14px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: transparent;
+  transition: color .15s ease, border-color .15s ease, background-color .15s ease;
+}
+
+:global(.capability-release-dialog .el-dialog__headerbtn:hover) {
+  color: var(--brand);
+  border-color: var(--control-border);
+  background: var(--control-hover-bg);
+}
+
+:global(.capability-release-dialog .el-dialog__close) {
+  font-size: 16px;
 }
 
 @media (max-width: 1100px) {

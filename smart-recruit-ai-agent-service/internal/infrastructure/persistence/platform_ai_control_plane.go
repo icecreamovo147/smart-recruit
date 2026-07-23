@@ -55,7 +55,6 @@ type PlatformAIConfigurationRefs struct {
 	AgentIDs             []int64 `json:"agent_ids"`
 	PromptTemplateIDs    []int64 `json:"prompt_template_ids"`
 	AgentSkillVersionIDs []int64 `json:"agent_skill_version_ids"`
-	AISkillVersionIDs    []int64 `json:"ai_skill_version_ids"`
 	MCPPolicyIDs         []int64 `json:"mcp_policy_ids"`
 }
 
@@ -329,6 +328,34 @@ func (s *NativeStore) UpdatePlatformAICapabilityDraft(ctx context.Context, versi
 	return result, err
 }
 
+func (s *NativeStore) DeletePlatformAICapabilityDraft(ctx context.Context, versionID, actorID int64, requestID string) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var version platformAICapabilityVersionRecord
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&version, versionID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrCapabilityNotFound
+			}
+			return err
+		}
+		if version.Status != PlatformAIReleaseDraft {
+			return ErrCapabilityVersionChanged
+		}
+
+		// Keep the audit evidence, but remove the foreign-key reference before
+		// deleting the draft version. resource_id and capability_id retain the
+		// deleted version's identity for audit queries.
+		if err := tx.Model(&platformAIConfigAuditRecord{}).
+			Where("capability_version_id = ?", version.ID).
+			Update("capability_version_id", nil).Error; err != nil {
+			return err
+		}
+		if err := createPlatformAIConfigAudit(tx, actorID, "capability.release.draft.delete", "platform_ai_capability_version", version.ID, version.CapabilityID, 0, version.SnapshotJSON, "", requestID); err != nil {
+			return err
+		}
+		return tx.Delete(&version).Error
+	})
+}
+
 func (s *NativeStore) PublishPlatformAICapabilityVersion(ctx context.Context, versionID, actorID int64, requestID string) (PlatformAICapabilityVersion, error) {
 	var result PlatformAICapabilityVersion
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -446,7 +473,6 @@ func (s *NativeStore) ResolveCapabilityRuntimeModel(ctx context.Context, capabil
 			AgentIDs:             append([]int64(nil), snapshot.ConfigurationRef.AgentIDs...),
 			PromptTemplateIDs:    append([]int64(nil), snapshot.ConfigurationRef.PromptTemplateIDs...),
 			AgentSkillVersionIDs: append([]int64(nil), snapshot.ConfigurationRef.AgentSkillVersionIDs...),
-			AISkillVersionIDs:    append([]int64(nil), snapshot.ConfigurationRef.AISkillVersionIDs...),
 			MCPPolicyIDs:         append([]int64(nil), snapshot.ConfigurationRef.MCPPolicyIDs...),
 		},
 	}, nil
@@ -556,7 +582,6 @@ func normalizeCapabilitySnapshot(raw []byte, capability platformAICapabilityReco
 		"agent IDs":               &refs.AgentIDs,
 		"prompt template IDs":     &refs.PromptTemplateIDs,
 		"agent skill version IDs": &refs.AgentSkillVersionIDs,
-		"AI skill version IDs":    &refs.AISkillVersionIDs,
 		"MCP policy IDs":          &refs.MCPPolicyIDs,
 	} {
 		normalized, normalizeErr := normalizeIDs(*ids)
@@ -622,7 +647,6 @@ func validatePublishedConfigurationRefs(tx *gorm.DB, snapshot PlatformAICapabili
 		{"agents", "agent_configs", "agent_configs", refs.AgentIDs, "is_enabled = 1"},
 		{"prompt templates", "prompt_templates", "prompt_templates", refs.PromptTemplateIDs, "is_active = 1"},
 		{"agent skill versions", "agent_skill_versions v JOIN agent_skills s ON s.id = v.skill_id", "agent_skill_versions", refs.AgentSkillVersionIDs, "s.is_enabled = 1"},
-		{"AI skill versions", "ai_skill_versions v JOIN ai_skills s ON s.id = v.skill_id", "ai_skill_versions", refs.AISkillVersionIDs, "s.is_enabled = 1"},
 		{"MCP policies", "mcp_tool_policies p JOIN mcp_servers s ON s.id = p.server_id", "mcp_tool_policies", refs.MCPPolicyIDs, "p.is_enabled = 1 AND s.is_enabled = 1"},
 	}
 	for _, check := range checks {
@@ -632,7 +656,7 @@ func validatePublishedConfigurationRefs(tx *gorm.DB, snapshot PlatformAICapabili
 		var count int64
 		query := tx.Table(check.table)
 		switch check.label {
-		case "agent skill versions", "AI skill versions":
+		case "agent skill versions":
 			query = query.Where("v.id IN ?", check.ids)
 		case "MCP policies":
 			query = query.Where("p.id IN ?", check.ids)
@@ -699,9 +723,12 @@ func createPlatformAIConfigAudit(tx *gorm.DB, actorID int64, action, resourceTyp
 		ResourceID:          nullInt64From(resourceID),
 		CapabilityID:        nullInt64From(capabilityID),
 		CapabilityVersionID: nullInt64From(versionID),
-		BeforeSnapshot:      nullStringFrom(before, true),
-		AfterSnapshot:       nullStringFrom(after, true),
-		RequestID:           nullStringFrom(requestID, true),
+		// JSON columns must receive SQL NULL when a snapshot is absent. An empty
+		// string is not valid JSON in MySQL and causes Error 3140 on draft create
+		// and publish audit records.
+		BeforeSnapshot: nullableJSONText(before),
+		AfterSnapshot:  nullableJSONText(after),
+		RequestID:      nullStringFrom(requestID, true),
 	}
 	return tx.Create(&row).Error
 }

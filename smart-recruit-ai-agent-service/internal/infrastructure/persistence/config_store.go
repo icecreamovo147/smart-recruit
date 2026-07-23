@@ -12,8 +12,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	domainmemory "smart-recruit-ai-agent-service/internal/domain/memory"
+	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -1381,7 +1381,11 @@ func replaceAgentBindings(tx *gorm.DB, agentID int64, toolNames []string, caps [
 			if cap == nil || strings.TrimSpace(cap.GetCapabilitySource()) == "" || strings.TrimSpace(cap.GetCapabilityKey()) == "" {
 				continue
 			}
-			if err := tx.Create(&agentCapabilityBindingRecord{AgentID: agentID, CapabilitySource: strings.TrimSpace(cap.GetCapabilitySource()), CapabilityKey: strings.TrimSpace(cap.GetCapabilityKey()), IsEnabled: cap.GetIsEnabled(), Priority: int(cap.GetPriority()), PolicyJSON: nullableJSONText(cap.GetPolicyJson())}).Error; err != nil {
+			source := strings.ToLower(strings.TrimSpace(cap.GetCapabilitySource()))
+			if source != "builtin" && source != "mcp" {
+				return fmt.Errorf("unsupported capability source %q", cap.GetCapabilitySource())
+			}
+			if err := tx.Create(&agentCapabilityBindingRecord{AgentID: agentID, CapabilitySource: source, CapabilityKey: strings.TrimSpace(cap.GetCapabilityKey()), IsEnabled: cap.GetIsEnabled(), Priority: int(cap.GetPriority()), PolicyJSON: nullableJSONText(cap.GetPolicyJson())}).Error; err != nil {
 				return err
 			}
 		}

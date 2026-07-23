@@ -90,3 +90,34 @@ func TestAgentPromptBindingValidationOnCreateAndUpdate(t *testing.T) {
 		t.Fatalf("pinned runtime Agent = %#v, found=%v", pinned, found)
 	}
 }
+
+func TestReplaceAgentBindingsRejectsRetiredSkillSource(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&agentCapabilityBindingRecord{}); err != nil {
+		t.Fatalf("migrate Agent Capability bindings: %v", err)
+	}
+
+	err = db.Transaction(func(tx *gorm.DB) error {
+		return replaceAgentBindings(tx, 7, nil, []*pb.AgentCapabilityBindingInfo{{
+			AgentId:          7,
+			CapabilitySource: "skill",
+			CapabilityKey:    "legacy:tool",
+			IsEnabled:        true,
+			Priority:         1,
+		}}, false, true)
+	})
+	if err == nil {
+		t.Fatal("replaceAgentBindings accepted retired skill capability source")
+	}
+
+	var count int64
+	if err := db.Model(&agentCapabilityBindingRecord{}).Count(&count).Error; err != nil {
+		t.Fatalf("count capability bindings: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("retired skill binding persisted: %d", count)
+	}
+}

@@ -7962,6 +7962,7 @@ const (
 	PlatformAIControlPlaneService_ListPlatformAICapabilityVersions_FullMethodName   = "/recruitment.PlatformAIControlPlaneService/ListPlatformAICapabilityVersions"
 	PlatformAIControlPlaneService_CreatePlatformAICapabilityDraft_FullMethodName    = "/recruitment.PlatformAIControlPlaneService/CreatePlatformAICapabilityDraft"
 	PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_FullMethodName    = "/recruitment.PlatformAIControlPlaneService/UpdatePlatformAICapabilityDraft"
+	PlatformAIControlPlaneService_DeletePlatformAICapabilityDraft_FullMethodName    = "/recruitment.PlatformAIControlPlaneService/DeletePlatformAICapabilityDraft"
 	PlatformAIControlPlaneService_PublishPlatformAICapabilityVersion_FullMethodName = "/recruitment.PlatformAIControlPlaneService/PublishPlatformAICapabilityVersion"
 	PlatformAIControlPlaneService_ListPlatformAIRuntimeModels_FullMethodName        = "/recruitment.PlatformAIControlPlaneService/ListPlatformAIRuntimeModels"
 	PlatformAIControlPlaneService_ResolvePlatformAIRuntimeModel_FullMethodName      = "/recruitment.PlatformAIControlPlaneService/ResolvePlatformAIRuntimeModel"
@@ -7981,6 +7982,7 @@ type PlatformAIControlPlaneServiceClient interface {
 	ListPlatformAICapabilityVersions(ctx context.Context, in *ListPlatformAICapabilityVersionsRequest, opts ...grpc.CallOption) (*ListPlatformAICapabilityVersionsResponse, error)
 	CreatePlatformAICapabilityDraft(ctx context.Context, in *CreatePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error)
 	UpdatePlatformAICapabilityDraft(ctx context.Context, in *UpdatePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error)
+	DeletePlatformAICapabilityDraft(ctx context.Context, in *DeletePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	PublishPlatformAICapabilityVersion(ctx context.Context, in *PublishPlatformAICapabilityVersionRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error)
 	ListPlatformAIRuntimeModels(ctx context.Context, in *ListPlatformAIRuntimeModelsRequest, opts ...grpc.CallOption) (*ListPlatformAIRuntimeModelsResponse, error)
 	ResolvePlatformAIRuntimeModel(ctx context.Context, in *ResolvePlatformAIRuntimeModelRequest, opts ...grpc.CallOption) (*ResolvePlatformAIRuntimeModelResponse, error)
@@ -8029,6 +8031,16 @@ func (c *platformAIControlPlaneServiceClient) UpdatePlatformAICapabilityDraft(ct
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PlatformAICapabilityVersionResponse)
 	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) DeletePlatformAICapabilityDraft(ctx context.Context, in *DeletePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_DeletePlatformAICapabilityDraft_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -8088,6 +8100,7 @@ type PlatformAIControlPlaneServiceServer interface {
 	ListPlatformAICapabilityVersions(context.Context, *ListPlatformAICapabilityVersionsRequest) (*ListPlatformAICapabilityVersionsResponse, error)
 	CreatePlatformAICapabilityDraft(context.Context, *CreatePlatformAICapabilityDraftRequest) (*PlatformAICapabilityVersionResponse, error)
 	UpdatePlatformAICapabilityDraft(context.Context, *UpdatePlatformAICapabilityDraftRequest) (*PlatformAICapabilityVersionResponse, error)
+	DeletePlatformAICapabilityDraft(context.Context, *DeletePlatformAICapabilityDraftRequest) (*CommonResponse, error)
 	PublishPlatformAICapabilityVersion(context.Context, *PublishPlatformAICapabilityVersionRequest) (*PlatformAICapabilityVersionResponse, error)
 	ListPlatformAIRuntimeModels(context.Context, *ListPlatformAIRuntimeModelsRequest) (*ListPlatformAIRuntimeModelsResponse, error)
 	ResolvePlatformAIRuntimeModel(context.Context, *ResolvePlatformAIRuntimeModelRequest) (*ResolvePlatformAIRuntimeModelResponse, error)
@@ -8113,6 +8126,9 @@ func (UnimplementedPlatformAIControlPlaneServiceServer) CreatePlatformAICapabili
 }
 func (UnimplementedPlatformAIControlPlaneServiceServer) UpdatePlatformAICapabilityDraft(context.Context, *UpdatePlatformAICapabilityDraftRequest) (*PlatformAICapabilityVersionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdatePlatformAICapabilityDraft not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) DeletePlatformAICapabilityDraft(context.Context, *DeletePlatformAICapabilityDraftRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeletePlatformAICapabilityDraft not implemented")
 }
 func (UnimplementedPlatformAIControlPlaneServiceServer) PublishPlatformAICapabilityVersion(context.Context, *PublishPlatformAICapabilityVersionRequest) (*PlatformAICapabilityVersionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PublishPlatformAICapabilityVersion not implemented")
@@ -8220,6 +8236,24 @@ func _PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_Handler(srv 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PlatformAIControlPlaneService_DeletePlatformAICapabilityDraft_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeletePlatformAICapabilityDraftRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).DeletePlatformAICapabilityDraft(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_DeletePlatformAICapabilityDraft_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).DeletePlatformAICapabilityDraft(ctx, req.(*DeletePlatformAICapabilityDraftRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PlatformAIControlPlaneService_PublishPlatformAICapabilityVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PublishPlatformAICapabilityVersionRequest)
 	if err := dec(in); err != nil {
@@ -8314,6 +8348,10 @@ var PlatformAIControlPlaneService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdatePlatformAICapabilityDraft",
 			Handler:    _PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_Handler,
+		},
+		{
+			MethodName: "DeletePlatformAICapabilityDraft",
+			Handler:    _PlatformAIControlPlaneService_DeletePlatformAICapabilityDraft_Handler,
 		},
 		{
 			MethodName: "PublishPlatformAICapabilityVersion",
@@ -10036,374 +10074,6 @@ var AgentConfigService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAgentConfig",
 			Handler:    _AgentConfigService_GetAgentConfig_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
-}
-
-const (
-	SkillService_ListSkills_FullMethodName           = "/recruitment.SkillService/ListSkills"
-	SkillService_CreateSkill_FullMethodName          = "/recruitment.SkillService/CreateSkill"
-	SkillService_UpdateSkill_FullMethodName          = "/recruitment.SkillService/UpdateSkill"
-	SkillService_CreateSkillVersion_FullMethodName   = "/recruitment.SkillService/CreateSkillVersion"
-	SkillService_ListSkillVersions_FullMethodName    = "/recruitment.SkillService/ListSkillVersions"
-	SkillService_ActivateSkillVersion_FullMethodName = "/recruitment.SkillService/ActivateSkillVersion"
-	SkillService_ListSkillTools_FullMethodName       = "/recruitment.SkillService/ListSkillTools"
-	SkillService_UpdateSkillTool_FullMethodName      = "/recruitment.SkillService/UpdateSkillTool"
-)
-
-// SkillServiceClient is the client API for SkillService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type SkillServiceClient interface {
-	ListSkills(ctx context.Context, in *ListSkillsRequest, opts ...grpc.CallOption) (*ListSkillsResponse, error)
-	CreateSkill(ctx context.Context, in *CreateSkillRequest, opts ...grpc.CallOption) (*SkillResponse, error)
-	UpdateSkill(ctx context.Context, in *UpdateSkillRequest, opts ...grpc.CallOption) (*SkillResponse, error)
-	CreateSkillVersion(ctx context.Context, in *CreateSkillVersionRequest, opts ...grpc.CallOption) (*SkillVersionResponse, error)
-	ListSkillVersions(ctx context.Context, in *ListSkillVersionsRequest, opts ...grpc.CallOption) (*ListSkillVersionsResponse, error)
-	ActivateSkillVersion(ctx context.Context, in *ActivateSkillVersionRequest, opts ...grpc.CallOption) (*SkillResponse, error)
-	ListSkillTools(ctx context.Context, in *ListSkillToolsRequest, opts ...grpc.CallOption) (*ListSkillToolsResponse, error)
-	UpdateSkillTool(ctx context.Context, in *UpdateSkillToolRequest, opts ...grpc.CallOption) (*SkillToolResponse, error)
-}
-
-type skillServiceClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewSkillServiceClient(cc grpc.ClientConnInterface) SkillServiceClient {
-	return &skillServiceClient{cc}
-}
-
-func (c *skillServiceClient) ListSkills(ctx context.Context, in *ListSkillsRequest, opts ...grpc.CallOption) (*ListSkillsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListSkillsResponse)
-	err := c.cc.Invoke(ctx, SkillService_ListSkills_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) CreateSkill(ctx context.Context, in *CreateSkillRequest, opts ...grpc.CallOption) (*SkillResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SkillResponse)
-	err := c.cc.Invoke(ctx, SkillService_CreateSkill_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) UpdateSkill(ctx context.Context, in *UpdateSkillRequest, opts ...grpc.CallOption) (*SkillResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SkillResponse)
-	err := c.cc.Invoke(ctx, SkillService_UpdateSkill_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) CreateSkillVersion(ctx context.Context, in *CreateSkillVersionRequest, opts ...grpc.CallOption) (*SkillVersionResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SkillVersionResponse)
-	err := c.cc.Invoke(ctx, SkillService_CreateSkillVersion_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) ListSkillVersions(ctx context.Context, in *ListSkillVersionsRequest, opts ...grpc.CallOption) (*ListSkillVersionsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListSkillVersionsResponse)
-	err := c.cc.Invoke(ctx, SkillService_ListSkillVersions_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) ActivateSkillVersion(ctx context.Context, in *ActivateSkillVersionRequest, opts ...grpc.CallOption) (*SkillResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SkillResponse)
-	err := c.cc.Invoke(ctx, SkillService_ActivateSkillVersion_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) ListSkillTools(ctx context.Context, in *ListSkillToolsRequest, opts ...grpc.CallOption) (*ListSkillToolsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListSkillToolsResponse)
-	err := c.cc.Invoke(ctx, SkillService_ListSkillTools_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) UpdateSkillTool(ctx context.Context, in *UpdateSkillToolRequest, opts ...grpc.CallOption) (*SkillToolResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SkillToolResponse)
-	err := c.cc.Invoke(ctx, SkillService_UpdateSkillTool_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// SkillServiceServer is the server API for SkillService service.
-// All implementations must embed UnimplementedSkillServiceServer
-// for forward compatibility.
-type SkillServiceServer interface {
-	ListSkills(context.Context, *ListSkillsRequest) (*ListSkillsResponse, error)
-	CreateSkill(context.Context, *CreateSkillRequest) (*SkillResponse, error)
-	UpdateSkill(context.Context, *UpdateSkillRequest) (*SkillResponse, error)
-	CreateSkillVersion(context.Context, *CreateSkillVersionRequest) (*SkillVersionResponse, error)
-	ListSkillVersions(context.Context, *ListSkillVersionsRequest) (*ListSkillVersionsResponse, error)
-	ActivateSkillVersion(context.Context, *ActivateSkillVersionRequest) (*SkillResponse, error)
-	ListSkillTools(context.Context, *ListSkillToolsRequest) (*ListSkillToolsResponse, error)
-	UpdateSkillTool(context.Context, *UpdateSkillToolRequest) (*SkillToolResponse, error)
-	mustEmbedUnimplementedSkillServiceServer()
-}
-
-// UnimplementedSkillServiceServer must be embedded to have
-// forward compatible implementations.
-//
-// NOTE: this should be embedded by value instead of pointer to avoid a nil
-// pointer dereference when methods are called.
-type UnimplementedSkillServiceServer struct{}
-
-func (UnimplementedSkillServiceServer) ListSkills(context.Context, *ListSkillsRequest) (*ListSkillsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListSkills not implemented")
-}
-func (UnimplementedSkillServiceServer) CreateSkill(context.Context, *CreateSkillRequest) (*SkillResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method CreateSkill not implemented")
-}
-func (UnimplementedSkillServiceServer) UpdateSkill(context.Context, *UpdateSkillRequest) (*SkillResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpdateSkill not implemented")
-}
-func (UnimplementedSkillServiceServer) CreateSkillVersion(context.Context, *CreateSkillVersionRequest) (*SkillVersionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method CreateSkillVersion not implemented")
-}
-func (UnimplementedSkillServiceServer) ListSkillVersions(context.Context, *ListSkillVersionsRequest) (*ListSkillVersionsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListSkillVersions not implemented")
-}
-func (UnimplementedSkillServiceServer) ActivateSkillVersion(context.Context, *ActivateSkillVersionRequest) (*SkillResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ActivateSkillVersion not implemented")
-}
-func (UnimplementedSkillServiceServer) ListSkillTools(context.Context, *ListSkillToolsRequest) (*ListSkillToolsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListSkillTools not implemented")
-}
-func (UnimplementedSkillServiceServer) UpdateSkillTool(context.Context, *UpdateSkillToolRequest) (*SkillToolResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpdateSkillTool not implemented")
-}
-func (UnimplementedSkillServiceServer) mustEmbedUnimplementedSkillServiceServer() {}
-func (UnimplementedSkillServiceServer) testEmbeddedByValue()                      {}
-
-// UnsafeSkillServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to SkillServiceServer will
-// result in compilation errors.
-type UnsafeSkillServiceServer interface {
-	mustEmbedUnimplementedSkillServiceServer()
-}
-
-func RegisterSkillServiceServer(s grpc.ServiceRegistrar, srv SkillServiceServer) {
-	// If the following call panics, it indicates UnimplementedSkillServiceServer was
-	// embedded by pointer and is nil.  This will cause panics if an
-	// unimplemented method is ever invoked, so we test this at initialization
-	// time to prevent it from happening at runtime later due to I/O.
-	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
-		t.testEmbeddedByValue()
-	}
-	s.RegisterService(&SkillService_ServiceDesc, srv)
-}
-
-func _SkillService_ListSkills_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListSkillsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).ListSkills(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_ListSkills_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).ListSkills(ctx, req.(*ListSkillsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_CreateSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateSkillRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).CreateSkill(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_CreateSkill_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).CreateSkill(ctx, req.(*CreateSkillRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_UpdateSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateSkillRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).UpdateSkill(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_UpdateSkill_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).UpdateSkill(ctx, req.(*UpdateSkillRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_CreateSkillVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateSkillVersionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).CreateSkillVersion(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_CreateSkillVersion_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).CreateSkillVersion(ctx, req.(*CreateSkillVersionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_ListSkillVersions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListSkillVersionsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).ListSkillVersions(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_ListSkillVersions_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).ListSkillVersions(ctx, req.(*ListSkillVersionsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_ActivateSkillVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ActivateSkillVersionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).ActivateSkillVersion(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_ActivateSkillVersion_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).ActivateSkillVersion(ctx, req.(*ActivateSkillVersionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_ListSkillTools_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListSkillToolsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).ListSkillTools(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_ListSkillTools_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).ListSkillTools(ctx, req.(*ListSkillToolsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_UpdateSkillTool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateSkillToolRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).UpdateSkillTool(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_UpdateSkillTool_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).UpdateSkillTool(ctx, req.(*UpdateSkillToolRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// SkillService_ServiceDesc is the grpc.ServiceDesc for SkillService service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var SkillService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "recruitment.SkillService",
-	HandlerType: (*SkillServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "ListSkills",
-			Handler:    _SkillService_ListSkills_Handler,
-		},
-		{
-			MethodName: "CreateSkill",
-			Handler:    _SkillService_CreateSkill_Handler,
-		},
-		{
-			MethodName: "UpdateSkill",
-			Handler:    _SkillService_UpdateSkill_Handler,
-		},
-		{
-			MethodName: "CreateSkillVersion",
-			Handler:    _SkillService_CreateSkillVersion_Handler,
-		},
-		{
-			MethodName: "ListSkillVersions",
-			Handler:    _SkillService_ListSkillVersions_Handler,
-		},
-		{
-			MethodName: "ActivateSkillVersion",
-			Handler:    _SkillService_ActivateSkillVersion_Handler,
-		},
-		{
-			MethodName: "ListSkillTools",
-			Handler:    _SkillService_ListSkillTools_Handler,
-		},
-		{
-			MethodName: "UpdateSkillTool",
-			Handler:    _SkillService_UpdateSkillTool_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

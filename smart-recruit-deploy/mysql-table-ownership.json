@@ -105,9 +105,6 @@
     "mcp_tool_logs": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
     "mcp_tool_policies": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
     "agent_capability_bindings": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
-    "ai_skills": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
-    "ai_skill_versions": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
-    "ai_skill_tools": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
     "agent_skills": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
     "agent_skill_versions": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}}
   }

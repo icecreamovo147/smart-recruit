@@ -185,7 +185,6 @@ const bindingLabel = (binding: AgentCapabilityBindingInfo) => {
   const sourceLabel: Record<string, string> = {
     builtin: '内置',
     mcp: 'MCP',
-    skill: 'SKILL',
   }
   return `${sourceLabel[binding.capability_source] || binding.capability_source} / ${binding.capability_key}`
 }
@@ -221,7 +220,7 @@ const openDetail = (row: AgentConfigInfo) => {
 }
 
 const currentToolOptions = computed(() => {
-  const configurableCapabilities = capabilityList.value.filter((cap) => cap.source !== 'skill')
+  const configurableCapabilities = capabilityList.value
   if (configurableCapabilities.length > 0) {
     return configurableCapabilities.map((cap) => ({
       id: capabilitySelectID(cap.source, cap.key),
@@ -271,11 +270,7 @@ const capabilityFromSelectID = (id: string): AgentCapabilityBindingInfo | null =
 const capabilityIDFromBinding = (binding: AgentCapabilityBindingInfo) =>
   capabilitySelectID(binding.capability_source, binding.capability_key)
 
-const configurableBindings = (bindings: AgentCapabilityBindingInfo[] = []) =>
-  bindings.filter((binding) => binding.capability_source !== 'skill')
-
-const legacySkillBindings = (bindings: AgentCapabilityBindingInfo[] = []) =>
-  bindings.filter((binding) => binding.capability_source === 'skill')
+const configurableBindings = (bindings: AgentCapabilityBindingInfo[] = []) => bindings
 
 const handleAgentTypeChange = async () => {
   dialogForm.capability_ids = []
@@ -724,21 +719,6 @@ onMounted(() => {
           </el-tag>
         </div>
         <el-empty v-else description="暂无绑定能力" :image-size="72" />
-
-        <template v-if="legacySkillBindings(detailAgent.capability_bindings || []).length">
-          <h3 class="detail-title">历史工具能力（只读）</h3>
-          <div class="binding-list">
-            <el-tag
-              v-for="binding in legacySkillBindings(detailAgent.capability_bindings || [])"
-              :key="bindingLabel(binding)"
-              effect="plain"
-              type="info"
-            >
-              {{ binding.capability_key }}
-            </el-tag>
-          </div>
-          <div class="form-help-text">这些旧系统级 Skill 绑定仅用于历史展示，编辑保存时不会混入可配置工具能力。</div>
-        </template>
 
         <h3 class="detail-title">额外指令</h3>
         <pre class="instruction-preview">{{ detailAgent.instruction || '暂无额外指令' }}</pre>

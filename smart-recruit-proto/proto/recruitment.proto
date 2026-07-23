@@ -3088,6 +3088,7 @@ service PlatformAIControlPlaneService {
   rpc ListPlatformAICapabilityVersions(ListPlatformAICapabilityVersionsRequest) returns (ListPlatformAICapabilityVersionsResponse);
   rpc CreatePlatformAICapabilityDraft(CreatePlatformAICapabilityDraftRequest) returns (PlatformAICapabilityVersionResponse);
   rpc UpdatePlatformAICapabilityDraft(UpdatePlatformAICapabilityDraftRequest) returns (PlatformAICapabilityVersionResponse);
+  rpc DeletePlatformAICapabilityDraft(DeletePlatformAICapabilityDraftRequest) returns (CommonResponse);
   rpc PublishPlatformAICapabilityVersion(PublishPlatformAICapabilityVersionRequest) returns (PlatformAICapabilityVersionResponse);
   rpc ListPlatformAIRuntimeModels(ListPlatformAIRuntimeModelsRequest) returns (ListPlatformAIRuntimeModelsResponse);
   rpc ResolvePlatformAIRuntimeModel(ResolvePlatformAIRuntimeModelRequest) returns (ResolvePlatformAIRuntimeModelResponse);
@@ -3938,7 +3939,7 @@ message AgentToolBindingInfo {
 message AgentCapabilityBindingInfo {
   int64 id = 1;
   int64 agent_id = 2;
-  string capability_source = 3; // builtin / mcp / skill
+  string capability_source = 3; // builtin / mcp
   string capability_key = 4;    // builtin tool name or mcp server_id:tool_name
   bool is_enabled = 5;
   int32 priority = 6;
@@ -3948,7 +3949,7 @@ message AgentCapabilityBindingInfo {
 }
 
 message CapabilityInfo {
-  string source = 1;       // builtin / mcp / skill
+  string source = 1;       // builtin / mcp
   string key = 2;          // stable capability key
   string name = 3;         // runtime tool name
   string display_name = 4;
@@ -4040,152 +4041,6 @@ message GetAgentConfigResponse {
   int32 code = 1;
   string msg = 2;
   AgentConfigInfo agent = 3;
-}
-
-// ══════════════════════════════════════════════════════════════════════
-// SKILL Registry Management
-// ══════════════════════════════════════════════════════════════════════
-
-service SkillService {
-  rpc ListSkills(ListSkillsRequest) returns (ListSkillsResponse);
-  rpc CreateSkill(CreateSkillRequest) returns (SkillResponse);
-  rpc UpdateSkill(UpdateSkillRequest) returns (SkillResponse);
-  rpc CreateSkillVersion(CreateSkillVersionRequest) returns (SkillVersionResponse);
-  rpc ListSkillVersions(ListSkillVersionsRequest) returns (ListSkillVersionsResponse);
-  rpc ActivateSkillVersion(ActivateSkillVersionRequest) returns (SkillResponse);
-  rpc ListSkillTools(ListSkillToolsRequest) returns (ListSkillToolsResponse);
-  rpc UpdateSkillTool(UpdateSkillToolRequest) returns (SkillToolResponse);
-}
-
-message SkillInfo {
-  int64 id = 1;
-  string name = 2;
-  string display_name = 3;
-  string description = 4;
-  string source_type = 5;
-  string source_uri = 6;
-  int64 current_version_id = 7;
-  bool is_enabled = 8;
-  string created_at = 9;
-  string updated_at = 10;
-}
-
-message SkillVersionInfo {
-  int64 id = 1;
-  int64 skill_id = 2;
-  string version = 3;
-  string manifest_json = 4;
-  string instruction = 5;
-  string input_schema_json = 6;
-  string output_schema_json = 7;
-  string runtime_type = 8;
-  string created_at = 9;
-}
-
-message SkillToolInfo {
-  int64 id = 1;
-  int64 skill_version_id = 2;
-  string tool_name = 3;
-  string description = 4;
-  string input_schema_json = 5;
-  string runtime_config_json = 6;
-  bool is_enabled = 7;
-  string capability_key = 8; // <skill_name>:<tool_name>
-  string runtime_tool_name = 9; // skill_<skill_name>_<tool_name>
-  string created_at = 10;
-  string updated_at = 11;
-}
-
-message ListSkillsRequest {
-  int32 page = 1;
-  int32 page_size = 2;
-}
-
-message ListSkillsResponse {
-  int32 code = 1;
-  string msg = 2;
-  int64 total = 3;
-  repeated SkillInfo list = 4;
-}
-
-message CreateSkillRequest {
-  string name = 1;
-  string display_name = 2;
-  string description = 3;
-  string source_type = 4;
-  string source_uri = 5;
-  bool is_enabled = 6;
-  bool is_enabled_set = 7;
-}
-
-message UpdateSkillRequest {
-  int64 id = 1;
-  string display_name = 2;
-  string description = 3;
-  string source_type = 4;
-  string source_uri = 5;
-  bool is_enabled = 6;
-  bool is_enabled_set = 7;
-}
-
-message SkillResponse {
-  int32 code = 1;
-  string msg = 2;
-  SkillInfo skill = 3;
-}
-
-message CreateSkillVersionRequest {
-  int64 skill_id = 1;
-  string manifest_json = 2;
-  bool activate = 3;
-}
-
-message SkillVersionResponse {
-  int32 code = 1;
-  string msg = 2;
-  SkillVersionInfo version = 3;
-  repeated SkillToolInfo tools = 4;
-}
-
-message ListSkillVersionsRequest {
-  int64 skill_id = 1;
-}
-
-message ListSkillVersionsResponse {
-  int32 code = 1;
-  string msg = 2;
-  repeated SkillVersionInfo list = 3;
-}
-
-message ActivateSkillVersionRequest {
-  int64 skill_id = 1;
-  int64 version_id = 2;
-}
-
-message ListSkillToolsRequest {
-  int64 skill_id = 1;
-  int64 skill_version_id = 2;
-  bool enabled_only = 3;
-}
-
-message ListSkillToolsResponse {
-  int32 code = 1;
-  string msg = 2;
-  repeated SkillToolInfo list = 3;
-}
-
-message UpdateSkillToolRequest {
-  int64 tool_id = 1;
-  string description = 2;
-  string runtime_config_json = 3;
-  bool is_enabled = 4;
-  bool is_enabled_set = 5;
-}
-
-message SkillToolResponse {
-  int32 code = 1;
-  string msg = 2;
-  SkillToolInfo tool = 3;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -5196,4 +5051,10 @@ message SaveAIRateCardRequest {
   int64 cached_input_micros_per_1k_tokens = 5;
   int64 credit_micros = 6;
   bool publish = 7;
+}
+
+message DeletePlatformAICapabilityDraftRequest {
+  int64 version_id = 1;
+  int64 actor_user_id = 2;
+  string request_id = 3;
 }

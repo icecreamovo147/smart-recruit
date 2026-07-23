@@ -33,5 +33,8 @@ export const createPlatformAICapabilityDraft = (capabilityId: number, payload: {
 export const updatePlatformAICapabilityDraft = (versionId: number, payload: { snapshot_json: string; change_note: string }) =>
   http.put<{ version: PlatformAICapabilityVersion }>(`/api/v1/platform/ai/capability-versions/${versionId}`, payload)
 
+export const deletePlatformAICapabilityDraft = (versionId: number) =>
+  http.delete(`/api/v1/platform/ai/capability-versions/${versionId}`)
+
 export const publishPlatformAICapabilityVersion = (versionId: number) =>
   http.post<{ version: PlatformAICapabilityVersion }>(`/api/v1/platform/ai/capability-versions/${versionId}/publish`)

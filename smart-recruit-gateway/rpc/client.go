@@ -96,7 +96,6 @@ type Clients struct {
 	Prompt                 pb.PromptServiceClient
 	AgentConfig            pb.AgentConfigServiceClient
 	MCP                    pb.MCPServiceClient
-	Skill                  pb.SkillServiceClient
 	AgentSkill             pb.AgentSkillServiceClient
 	RecruitingIntelligence pb.RecruitingIntelligenceServiceClient
 	EmbeddingConfig        pb.EmbeddingConfigServiceClient
@@ -480,7 +479,6 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		Prompt:                 pb.NewPromptServiceClient(aiAgentConn),
 		AgentConfig:            pb.NewAgentConfigServiceClient(aiAgentConn),
 		MCP:                    pb.NewMCPServiceClient(aiAgentConn),
-		Skill:                  pb.NewSkillServiceClient(aiAgentConn),
 		AgentSkill:             pb.NewAgentSkillServiceClient(aiAgentConn),
 		RecruitingIntelligence: pb.NewRecruitingIntelligenceServiceClient(aiAgentConn),
 		EmbeddingConfig:        pb.NewEmbeddingConfigServiceClient(aiAgentConn),

@@ -16,8 +16,6 @@
     "ai_credit_grants": "Owner type and owner id encode either tenant or candidate ownership.",
     "ai_credit_ledger": "Scope is inherited from the polymorphic owner and related credit grant.",
     "ai_credit_reservations": "Owner type and owner id encode either tenant or candidate ownership.",
-    "ai_skill_tools": "Scope is inherited through the mandatory parent AI skill version.",
-    "ai_skill_versions": "Scope is inherited through the mandatory parent AI skill.",
     "billing_orders": "Owner type and owner id encode either tenant or candidate ownership.",
     "billing_payments": "Scope is inherited through the mandatory owning Billing order.",
     "billing_refunds": "Scope is inherited through the mandatory owning Billing order and payment.",
@@ -127,9 +125,6 @@
     "mcp_tool_logs": {"scope": "mixed_scope", "reason": "Tool execution log inherits the invoking principal scope."},
     "mcp_tool_policies": {"scope": "mixed_scope", "reason": "Platform policies coexist with tenant policy overrides."},
     "agent_capability_bindings": {"scope": "mixed_scope", "reason": "Inherits the scope of the owning agent configuration."},
-    "ai_skills": {"scope": "mixed_scope", "reason": "Platform skill catalog entries coexist with tenant-created skills."},
-    "ai_skill_versions": {"scope": "mixed_scope", "reason": "Inherits the scope of its AI skill."},
-    "ai_skill_tools": {"scope": "mixed_scope", "reason": "Inherits the scope of its AI skill."},
     "agent_skills": {"scope": "mixed_scope", "reason": "Platform agent skills coexist with tenant customizations."},
     "agent_skill_versions": {"scope": "mixed_scope", "reason": "Inherits the scope of its agent skill."}
   }

@@ -45,8 +45,6 @@ func (s *NativeStore) assertNotReleasedConfiguration(ctx context.Context, kind s
 			released = ref.PromptTemplateIDs
 		case "agent_skill_version":
 			released = ref.AgentSkillVersionIDs
-		case "ai_skill_version":
-			released = ref.AISkillVersionIDs
 		case "mcp_policy":
 			released = ref.MCPPolicyIDs
 		}
@@ -65,14 +63,6 @@ func (s *NativeStore) assertAgentSkillNotReleased(ctx context.Context, skillID i
 		return err
 	}
 	return s.assertNotReleasedConfiguration(ctx, "agent_skill_version", ids...)
-}
-
-func (s *NativeStore) assertAISkillNotReleased(ctx context.Context, skillID int64) error {
-	var ids []int64
-	if err := s.db.WithContext(ctx).Table("ai_skill_versions").Where("skill_id = ?", skillID).Pluck("id", &ids).Error; err != nil {
-		return err
-	}
-	return s.assertNotReleasedConfiguration(ctx, "ai_skill_version", ids...)
 }
 
 func (s *NativeStore) assertMCPServerNotReleased(ctx context.Context, serverID int64) error {

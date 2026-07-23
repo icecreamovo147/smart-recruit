@@ -97,6 +97,24 @@ func (h *PlatformAIHandler) UpdateCapabilityDraft(c *gin.Context) {
 	From(c, resp.GetCode(), resp.GetMsg(), gin.H{"version": resp.GetVersion()})
 }
 
+func (h *PlatformAIHandler) DeleteCapabilityDraft(c *gin.Context) {
+	versionID, err := strconv.ParseInt(c.Param("version_id"), 10, 64)
+	if err != nil || versionID <= 0 {
+		BadRequest(c, "invalid version id")
+		return
+	}
+	resp, err := h.clients.PlatformAI.DeletePlatformAICapabilityDraft(c.Request.Context(), &pb.DeletePlatformAICapabilityDraftRequest{
+		VersionId:   versionID,
+		ActorUserId: middleware.UserID(c),
+		RequestId:   RequestID(c),
+	})
+	if err != nil {
+		Internal(c, err)
+		return
+	}
+	From(c, resp.GetCode(), resp.GetMsg(), nil)
+}
+
 func (h *PlatformAIHandler) PublishCapabilityVersion(c *gin.Context) {
 	versionID, err := strconv.ParseInt(c.Param("version_id"), 10, 64)
 	if err != nil || versionID <= 0 {

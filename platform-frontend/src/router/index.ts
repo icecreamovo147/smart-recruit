@@ -52,7 +52,6 @@ const router = createRouter({
     { path: '/ai/embedding/models', component: () => import('@/views/ai/EmbeddingModelConfigView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: 'Embedding Model' } },
     { path: '/ai/prompts', component: () => import('@/views/ai/PromptManageView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: 'Prompt 管理' } },
     { path: '/ai/agents', component: () => import('@/views/ai/AgentManageView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: 'Agent 管理' } },
-    { path: '/ai/skills', component: () => import('@/views/ai/SkillManageView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: '高级 Skill' } },
     { path: '/ai/agent-skills', component: () => import('@/views/ai/AgentSkillManageView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: 'Agent Skill' } },
     { path: '/ai/mcp', component: () => import('@/views/ai/McpManageView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: 'MCP 工具治理' } },
     { path: '/ai/semantic-retrieval', component: () => import('@/views/ai/SemanticRetrievalDebugView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_DIAGNOSTICS_READ, title: '语义召回诊断' } },

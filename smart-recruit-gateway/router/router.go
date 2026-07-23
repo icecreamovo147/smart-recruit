@@ -120,7 +120,6 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	llmConfigHandler := hr.NewLlmConfigHandler(clients)
 	hrInterviewHandler := hr.NewInterviewHandler(clients)
 	hrOfferHandler := hr.NewOfferHandler(clients)
-	hrCapabilityHandler := hr.NewCapabilityHandler(clients)
 	embeddingConfigHandler := hr.NewEmbeddingConfigHandler(clients)
 	agentSkillHandler := hr.NewAgentSkillHandler(clients)
 	memoryHandler := hr.NewMemoryHandler(clients)
@@ -244,6 +243,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	platformAIGroup.GET("/capabilities/:capability_id/versions", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIReleaseRead), platformAIHandler.ListCapabilityVersions)
 	platformAIGroup.POST("/capabilities/:capability_id/versions", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformAIReleaseManage), platformAIHandler.CreateCapabilityDraft)
 	platformAIGroup.PUT("/capability-versions/:version_id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformAIReleaseManage), platformAIHandler.UpdateCapabilityDraft)
+	platformAIGroup.DELETE("/capability-versions/:version_id", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIReleaseManage), platformAIHandler.DeleteCapabilityDraft)
 	platformAIGroup.POST("/capability-versions/:version_id/publish", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformAIReleasePublish), platformAIHandler.PublishCapabilityVersion)
 	platformAIGroup.GET("/audit-logs", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIDiagnosticsRead), platformAIHandler.AuditLogs)
 
@@ -357,9 +357,6 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.GET("/ai/models", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), llmConfigHandler.ListAvailableModels)
 	staffGroup.GET("/ai/skill-capabilities", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ListSkillCapabilities)
 	staffGroup.GET("/agent-skills/available", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), agentSkillHandler.ListAvailable)
-	staffGroup.GET("/capabilities", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrCapabilityHandler.List)
-	staffGroup.GET("/capabilities/:id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrCapabilityHandler.Get)
-	staffGroup.POST("/capabilities/from-template", normalTimeout, bodyAdmin, middleware.RequireAnyRole(authz.RoleRecruitingAdmin, authz.RoleSystemAdmin), hrCapabilityHandler.CreateFromTemplate)
 	staffGroup.POST("/ai/application-analysis-sessions", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.CreateApplicationAnalysisSession)
 	staffGroup.POST("/ai/chat", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.Chat)
 	staffGroup.POST("/ai/chat/stream", riskBlock, aiLimit, hrAIQuota, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ChatStream)
@@ -522,17 +519,6 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	platformAIGroup.GET("/mcp-servers/:id/tools", mcpTimeout, middleware.RequirePermission(authz.PermPlatformAIDiagnosticsExec), mcpHandler.ListMCPTools)
 	platformAIGroup.GET("/mcp-servers/:id/logs", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIDiagnosticsRead), mcpHandler.ListMCPToolLogs)
 	platformAIGroup.POST("/mcp-servers/:id/call-tool", mcpTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformAIDiagnosticsExec), mcpHandler.CallMCPTool)
-
-	// SKILL registry management
-	skillHandler := hr.NewSkillHandler(clients)
-	platformAIGroup.GET("/skills", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIConfigRead), skillHandler.ListSkills)
-	platformAIGroup.POST("/skills", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformAIConfigManage), skillHandler.CreateSkill)
-	platformAIGroup.PUT("/skills/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformAIConfigManage), skillHandler.UpdateSkill)
-	platformAIGroup.GET("/skills/:id/versions", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIConfigRead), skillHandler.ListSkillVersions)
-	platformAIGroup.POST("/skills/:id/versions", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformAIConfigManage), skillHandler.CreateSkillVersion)
-	platformAIGroup.POST("/skills/:id/versions/:version_id/activate", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIConfigManage), skillHandler.ActivateSkillVersion)
-	platformAIGroup.GET("/skills/:id/tools", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIConfigRead), skillHandler.ListSkillTools)
-	platformAIGroup.PUT("/skills/:id/tools/:tool_id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformAIConfigManage), skillHandler.UpdateSkillTool)
 
 	// Agent SKILL.md management — requires AI business permission
 	platformAIGroup.GET("/agent-skills", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIConfigRead), agentSkillHandler.List)

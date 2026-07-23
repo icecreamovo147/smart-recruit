@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { listPlatformAuditLogs } from '@/api/audit'
 import { getTenantSubscription, getTenantUsage, listPlans, updateTenantEntitlementOverride, updateTenantSubscription } from '@/api/control'
 import { getTenant, listMemberships, updateMembershipStatus, updateTenantStatus } from '@/api/tenant'
+import { DataTableCard, PageHeader, PagePanel } from '@/components/admin-console'
 import { PLATFORM_PERMISSIONS, roleLabel } from '@/permissions'
 import { useAuthStore } from '@/stores/auth'
 import type { Membership, PlatformAuditLog, PlatformPlan, Tenant, TenantSubscription, TenantUsageMetric } from '@/types'
@@ -30,6 +31,15 @@ const subscription = ref<TenantSubscription | null>(null)
 const usageMetrics = ref<TenantUsageMetric[]>([])
 const plans = ref<PlatformPlan[]>([])
 const activeTab = ref('overview')
+const detailSections = computed(() => {
+  const items = [
+    { name: 'overview', label: '概览' },
+    { name: 'members', label: `成员 (${membershipTotal.value})` },
+    { name: 'subscription', label: '套餐与用量' },
+  ]
+  if (canReadAudit.value) items.push({ name: 'audit', label: '操作记录' })
+  return items
+})
 const memberQuery = reactive({ page: 1, page_size: 20 })
 const statusVisible = ref(false)
 const statusTarget = ref<{ kind: 'tenant' | 'membership'; status: string; membership?: Membership } | null>(null)
@@ -102,6 +112,11 @@ const statusMeta = (status: string) => ({
   active: { label: '正常', type: 'success' }, suspended: { label: '已暂停', type: 'warning' }, disabled: { label: '已停用', type: 'info' },
 }[status] || { label: status, type: 'info' })
 
+const subscriptionStatusMeta = (status: string) => ({
+  active: { label: '生效中', type: 'success' }, scheduled: { label: '待生效', type: 'warning' },
+  expired: { label: '已过期', type: 'info' }, cancelled: { label: '已取消', type: 'info' },
+}[status] || { label: status, type: 'info' })
+
 const actionLabel = (action: string) => ({
   'tenant.create': '创建租户', 'tenant.status.update': '变更租户状态', 'tenant.membership.status.update': '变更成员状态',
   'tenant.subscription.update': '变更租户套餐', 'tenant.entitlement.override': '设置租户权益覆盖',
@@ -157,50 +172,59 @@ onMounted(load)
 
 <template>
   <section class="console-page tenant-detail" v-loading="loading">
-    <button class="back-link" type="button" @click="router.push('/tenants')"><el-icon><ArrowLeft /></el-icon>返回租户列表</button>
-    <header class="detail-hero">
-      <div class="detail-identity"><span class="tenant-avatar tenant-avatar--large">{{ tenant?.name?.slice(0, 1) || '-' }}</span><div><div class="detail-title-row"><h1>{{ tenant?.name || '租户详情' }}</h1><el-tag v-if="tenant" :type="statusMeta(tenant.status).type">{{ statusMeta(tenant.status).label }}</el-tag><el-tag v-if="tenant?.is_default" type="info">默认租户</el-tag></div><p>{{ tenant?.slug }} · {{ tenant?.tenant_key }}</p></div></div>
-      <div class="page-actions"><el-button :icon="Refresh" @click="load">刷新</el-button><template v-if="canManageTenant && tenant && !tenant.is_default"><el-button v-if="tenant.status !== 'suspended'" type="warning" plain @click="openTenantStatus('suspended')">暂停租户</el-button><el-button v-if="tenant.status !== 'active'" type="success" plain @click="openTenantStatus('active')">恢复租户</el-button></template></div>
-    </header>
+    <PagePanel class="tenant-detail-panel">
+      <header class="tenant-detail__toolbar">
+        <el-button text :icon="ArrowLeft" @click="router.push('/tenants')">返回租户列表</el-button>
+        <div class="tenant-detail__toolbar-actions"><el-button :icon="Refresh" @click="load">刷新</el-button><template v-if="canManageTenant && tenant && !tenant.is_default"><el-button v-if="tenant.status !== 'suspended'" type="warning" plain @click="openTenantStatus('suspended')">暂停租户</el-button><el-button v-if="tenant.status !== 'active'" type="success" plain @click="openTenantStatus('active')">恢复租户</el-button></template></div>
+      </header>
+      <PageHeader :title="tenant?.name || '租户详情'" kicker="TENANT CONTROL" :description="tenant ? `${tenant.slug} · ${tenant.tenant_key}` : '查看企业租户的身份信息、成员、订阅与平台操作记录'">
+        <template #prefix><span class="tenant-avatar tenant-avatar--large">{{ tenant?.name?.slice(0, 1) || '-' }}</span></template>
+        <div v-if="tenant" class="tenant-detail__badges"><el-tag :type="statusMeta(tenant.status).type">{{ statusMeta(tenant.status).label }}</el-tag><el-tag v-if="tenant.is_default" type="info">默认租户</el-tag></div>
+      </PageHeader>
 
-    <article class="surface-card detail-tabs">
-      <el-tabs v-model="activeTab">
-        <el-tab-pane label="概览" name="overview">
+      <nav class="ai-subnav tenant-detail-subnav" aria-label="租户详情导航">
+        <button v-for="item in detailSections" :key="item.name" type="button" :class="{ 'is-active': activeTab === item.name }" @click="activeTab = item.name">{{ item.label }}</button>
+      </nav>
+
+      <article class="tenant-detail-content">
+        <section v-if="activeTab === 'overview'">
           <div class="overview-grid">
             <section><h2>企业身份</h2><dl class="description-list"><div><dt>企业名称</dt><dd>{{ tenant?.name || '-' }}</dd></div><div><dt>企业标识</dt><dd>{{ tenant?.slug || '-' }}</dd></div><div><dt>Tenant Key</dt><dd class="mono">{{ tenant?.tenant_key || '-' }}</dd></div><div><dt>生命周期状态</dt><dd>{{ statusMeta(tenant?.status || '').label }}</dd></div></dl></section>
             <section><h2>本地化与记录</h2><dl class="description-list"><div><dt>时区</dt><dd>{{ tenant?.timezone || '-' }}</dd></div><div><dt>语言</dt><dd>{{ tenant?.locale || '-' }}</dd></div><div><dt>创建时间</dt><dd>{{ formatTime(tenant?.created_at) }}</dd></div><div><dt>更新时间</dt><dd>{{ formatTime(tenant?.updated_at) }}</dd></div></dl></section>
           </div>
           <div class="summary-strip"><div><span>成员关系</span><strong>{{ membershipTotal }}</strong><small>包含正常与暂停成员</small></div><div><span>有效成员</span><strong>{{ memberships.filter((item) => item.membership_status === 'active').length }}</strong><small>当前页内有效成员</small></div><div><span>招聘管理员</span><strong>{{ memberships.filter((item) => item.membership_status === 'active' && item.roles.includes('recruiting_admin')).length }}</strong><small>当前页内有效管理员</small></div></div>
-        </el-tab-pane>
+        </section>
 
-        <el-tab-pane :label="`成员 (${membershipTotal})`" name="members">
+        <section v-if="activeTab === 'members'">
           <div class="tab-heading"><div><h2>企业成员</h2><p>平台仅处理准入和紧急状态治理，企业内部业务权限仍由租户管理员负责。</p></div></div>
-          <el-table :data="memberships" stripe class="console-table">
+          <DataTableCard :result-count="membershipTotal" :result-label="`共 ${membershipTotal} 名成员`">
+            <el-table :data="memberships" stripe class="console-table">
             <el-table-column label="成员" min-width="220"><template #default="{ row }"><div class="user-cell"><span>{{ row.username.slice(0, 1).toUpperCase() }}</span><div><strong>{{ row.username }}</strong><small>{{ row.email || `用户 ID ${row.user_id}` }}</small></div></div></template></el-table-column>
             <el-table-column label="租户角色" min-width="200"><template #default="{ row }"><div class="tag-list"><el-tag v-for="role in row.roles" :key="role" type="info" size="small">{{ roleLabel(role) }}</el-tag><span v-if="!row.roles.length">-</span></div></template></el-table-column>
             <el-table-column label="状态" width="110"><template #default="{ row }"><el-tag :type="statusMeta(row.membership_status).type">{{ statusMeta(row.membership_status).label }}</el-tag></template></el-table-column>
             <el-table-column label="加入时间" width="180"><template #default="{ row }">{{ formatTime(row.joined_at) }}</template></el-table-column>
             <el-table-column v-if="canManageMembers" label="操作" width="120" align="center"><template #default="{ row }"><el-button v-if="row.membership_status === 'active'" link type="warning" @click="openMemberStatus(row, 'suspended')">暂停</el-button><el-button v-else link type="success" @click="openMemberStatus(row, 'active')">恢复</el-button></template></el-table-column>
-          </el-table>
-          <footer class="table-footer"><span>共 {{ membershipTotal }} 名成员</span><el-pagination v-model:current-page="memberQuery.page" v-model:page-size="memberQuery.page_size" :total="membershipTotal" layout="prev, pager, next, sizes" :page-sizes="[10, 20, 50, 100]" @current-change="loadMembers" @size-change="loadMembers" /></footer>
-        </el-tab-pane>
+            </el-table>
+            <template #footer><el-pagination v-model:current-page="memberQuery.page" v-model:page-size="memberQuery.page_size" :total="membershipTotal" layout="prev, pager, next, sizes" :page-sizes="[10, 20, 50, 100]" @current-change="loadMembers" @size-change="loadMembers" /></template>
+          </DataTableCard>
+        </section>
 
-        <el-tab-pane label="套餐与用量" name="subscription">
+        <section v-if="activeTab === 'subscription'">
           <div class="tab-heading"><div><h2>订阅与配额</h2><p>查看当前生效权益、实时用量和阈值风险。</p></div><el-button v-if="canManageSubscription" type="primary" @click="openSubscription">变更套餐</el-button></div>
           <el-empty v-if="!subscription" :image-size="72" description="当前租户尚未配置套餐"><el-button v-if="canManageSubscription" type="primary" @click="openSubscription">配置首个套餐</el-button></el-empty>
           <template v-else>
-            <div class="subscription-summary"><div><span>当前套餐</span><strong>{{ subscription.plan_name }} <small>V{{ subscription.plan_version }}</small></strong></div><div><span>订阅状态</span><el-tag type="success">{{ subscription.status }}</el-tag></div><div><span>开始时间</span><strong>{{ formatTime(subscription.starts_at) }}</strong></div><div><span>结束时间</span><strong>{{ formatTime(subscription.ends_at) }}</strong></div></div>
+            <div class="subscription-summary"><div><span>当前套餐</span><strong>{{ subscription.plan_name }} <small>V{{ subscription.plan_version }}</small></strong></div><div><span>订阅状态</span><el-tag :type="subscriptionStatusMeta(subscription.status).type">{{ subscriptionStatusMeta(subscription.status).label }}</el-tag></div><div><span>开始时间</span><strong>{{ formatTime(subscription.starts_at) }}</strong></div><div><span>结束时间</span><strong>{{ formatTime(subscription.ends_at) }}</strong></div></div>
             <div v-if="canReadUsage" class="usage-grid"><article v-for="metric in usageMetrics" :key="metric.key" class="usage-card"><div><span>{{ metricLabels[metric.key] || metric.key }}</span><el-tag size="small" :type="metric.usage_percent >= 100 ? 'danger' : metric.usage_percent >= 80 ? 'warning' : 'success'">{{ metric.enforcement_mode === 'hard' ? '硬限制' : metric.enforcement_mode }}</el-tag></div><strong>{{ metric.usage_value.toLocaleString() }} <small>/ {{ metric.quota_value.toLocaleString() }}</small></strong><el-progress :percentage="Math.min(100, metric.usage_percent)" :status="metric.usage_percent >= 100 ? 'exception' : metric.usage_percent >= 80 ? 'warning' : 'success'" /><footer><p>采集于 {{ formatTime(metric.measured_at) }}</p><el-button v-if="canManagePlan" link type="primary" @click="openOverride(metric)">设置租户覆盖</el-button></footer></article></div>
           </template>
-        </el-tab-pane>
+        </section>
 
-        <el-tab-pane v-if="canReadAudit" label="操作记录" name="audit">
+        <section v-if="canReadAudit && activeTab === 'audit'">
           <div class="tab-heading"><div><h2>租户操作时间线</h2><p>记录平台侧对该租户执行的生命周期和成员治理操作。</p></div><el-button link type="primary" @click="router.push({ path: '/audit-logs', query: { tenant_id: tenantId } })">查看完整审计</el-button></div>
           <el-timeline class="audit-timeline"><el-timeline-item v-for="item in auditLogs" :key="item.id" :timestamp="formatTime(item.created_at)" placement="top"><div class="timeline-card"><strong>{{ actionLabel(item.action) }}</strong><p>{{ item.actor_username || `用户 ${item.actor_user_id}` }} · {{ item.client_ip || '未知 IP' }}</p><code v-if="item.request_id">{{ item.request_id }}</code></div></el-timeline-item></el-timeline>
           <el-empty v-if="!auditLogs.length" :image-size="72" description="暂无平台操作记录" />
-        </el-tab-pane>
-      </el-tabs>
-    </article>
+        </section>
+      </article>
+    </PagePanel>
 
     <el-dialog v-model="statusVisible" title="确认状态变更" width="520px">
       <el-alert type="warning" :title="statusTarget?.kind === 'tenant' ? '租户状态变更会影响企业整体访问' : '成员状态变更会立即影响该账号访问'" :closable="false" show-icon />
@@ -211,3 +235,74 @@ onMounted(load)
     <el-dialog v-model="overrideVisible" title="设置租户专属配额" width="560px"><el-alert title="专属配额会覆盖当前套餐中的同名权益；到期后自动恢复套餐值。" type="warning" :closable="false" show-icon /><el-form class="dialog-form" label-position="top"><el-form-item label="权益项"><el-input :model-value="metricLabels[overrideForm.entitlement_key] || overrideForm.entitlement_key" disabled /></el-form-item><div class="two-columns"><el-form-item label="配额值" required><el-input-number v-model="overrideForm.quota_value" :min="1" :step="1" step-strictly controls-position="right" style="width:100%" /></el-form-item><el-form-item label="失效时间"><el-date-picker v-model="overrideForm.expires_at" type="datetime" :disabled-date="(date: Date) => date.getTime() < Date.now() - 86400000" style="width:100%" placeholder="不填则长期生效" /></el-form-item></div><el-form-item label="变更原因" required><el-input v-model="overrideForm.reason" type="textarea" :rows="4" maxlength="500" show-word-limit placeholder="填写审批依据、客户需求或临时扩容背景" /></el-form-item></el-form><template #footer><el-button @click="overrideVisible = false">取消</el-button><el-button type="primary" @click="submitOverride">确认覆盖</el-button></template></el-dialog>
   </section>
 </template>
+
+<style scoped>
+.tenant-detail__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tenant-detail__toolbar,
+.tenant-detail__toolbar-actions {
+  display: flex;
+  align-items: center;
+}
+
+.tenant-detail__toolbar {
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px var(--page-inset);
+  border-bottom: 1px solid var(--surface-soft-border);
+}
+
+.tenant-detail__toolbar-actions {
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.tenant-detail-subnav {
+  margin: 0;
+  padding: 10px var(--page-inset);
+  border: 0;
+  border-bottom: 1px solid var(--surface-soft-border);
+  border-radius: 0;
+  box-shadow: none;
+  overflow-x: auto;
+}
+
+.tenant-detail-content {
+  padding: 28px var(--page-inset) var(--page-inset);
+}
+
+.tenant-detail-panel :deep(.admin-table-card) {
+  border: 1px solid var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius);
+}
+
+.tenant-detail-panel :deep(.admin-table-card__footer) {
+  border-top-color: var(--surface-soft-border);
+}
+
+.tenant-detail-content :deep(.subscription-summary .el-tag) {
+  align-self: flex-start;
+}
+
+@media (max-width: 760px) {
+  .tenant-detail-content {
+    padding-inline: 16px;
+  }
+
+  .tenant-detail__toolbar {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tenant-detail__toolbar-actions {
+    justify-content: flex-start;
+  }
+}
+</style>

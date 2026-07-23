@@ -495,7 +495,6 @@ const skillGovernanceWarnings = (skill?: AgentSkillInfo | null) => [
 const selectedScenario = computed(() => SCENARIO_OPTIONS.find((item) => item.value === form.scenario) || null)
 
 const capabilitySelectOptions = computed(() => capabilityList.value
-  .filter((item) => item.source !== 'skill')
   .map((item) => ({
     value: `${item.source}:${item.key}`,
     label: capabilityDisplayLabel(item),
@@ -503,7 +502,7 @@ const capabilitySelectOptions = computed(() => capabilityList.value
   })))
 
 const capabilityDisplayLabel = (capability: CapabilityInfo) => {
-  const sourceLabel: Record<string, string> = { builtin: '内置', mcp: 'MCP', skill: 'Skill' }
+  const sourceLabel: Record<string, string> = { builtin: '内置', mcp: 'MCP' }
   const title = capability.display_name || capability.name || capability.key
   return `${sourceLabel[capability.source] || capability.source} / ${title}`
 }

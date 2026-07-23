@@ -67,49 +67,6 @@ type mcpToolLogRecord struct {
 
 func (mcpToolLogRecord) TableName() string { return "mcp_tool_logs" }
 
-type aiSkillRecord struct {
-	ID               int64          `gorm:"primaryKey"`
-	Name             string         `gorm:"column:name"`
-	DisplayName      string         `gorm:"column:display_name"`
-	Description      sql.NullString `gorm:"column:description"`
-	SourceType       string         `gorm:"column:source_type"`
-	SourceURI        sql.NullString `gorm:"column:source_uri"`
-	CurrentVersionID sql.NullInt64  `gorm:"column:current_version_id"`
-	IsEnabled        bool           `gorm:"column:is_enabled"`
-	CreatedAt        time.Time      `gorm:"column:created_at"`
-	UpdatedAt        time.Time      `gorm:"column:updated_at"`
-}
-
-func (aiSkillRecord) TableName() string { return "ai_skills" }
-
-type aiSkillVersionRecord struct {
-	ID               int64          `gorm:"primaryKey"`
-	SkillID          int64          `gorm:"column:skill_id"`
-	Version          string         `gorm:"column:version"`
-	ManifestJSON     string         `gorm:"column:manifest_json"`
-	Instruction      sql.NullString `gorm:"column:instruction"`
-	InputSchemaJSON  sql.NullString `gorm:"column:input_schema_json"`
-	OutputSchemaJSON sql.NullString `gorm:"column:output_schema_json"`
-	RuntimeType      string         `gorm:"column:runtime_type"`
-	CreatedAt        time.Time      `gorm:"column:created_at"`
-}
-
-func (aiSkillVersionRecord) TableName() string { return "ai_skill_versions" }
-
-type aiSkillToolRecord struct {
-	ID                int64          `gorm:"primaryKey"`
-	SkillVersionID    int64          `gorm:"column:skill_version_id"`
-	ToolName          string         `gorm:"column:tool_name"`
-	Description       sql.NullString `gorm:"column:description"`
-	InputSchemaJSON   sql.NullString `gorm:"column:input_schema_json"`
-	RuntimeConfigJSON sql.NullString `gorm:"column:runtime_config_json"`
-	IsEnabled         bool           `gorm:"column:is_enabled"`
-	CreatedAt         time.Time      `gorm:"column:created_at"`
-	UpdatedAt         time.Time      `gorm:"column:updated_at"`
-}
-
-func (aiSkillToolRecord) TableName() string { return "ai_skill_tools" }
-
 type agentSkillVersionRecord struct {
 	ID              int64          `gorm:"primaryKey"`
 	SkillID         int64          `gorm:"column:skill_id"`
@@ -387,159 +344,6 @@ func (s *NativeStore) AppendMCPToolLog(ctx context.Context, log mcpinfra.ToolLog
 	return s.db.WithContext(ctx).Create(&row).Error
 }
 
-func (s *NativeStore) ListSkills(ctx context.Context, req *pb.ListSkillsRequest) (*pb.ListSkillsResponse, error) {
-	page, pageSize := pageDefaults(req.GetPage(), req.GetPageSize())
-	var total int64
-	query := s.db.WithContext(ctx).Model(&aiSkillRecord{})
-	if err := query.Count(&total).Error; err != nil {
-		return nil, err
-	}
-	var rows []aiSkillRecord
-	if err := query.Order("id ASC").Offset(offset(page, pageSize)).Limit(int(pageSize)).Find(&rows).Error; err != nil {
-		return nil, err
-	}
-	items := make([]*pb.SkillInfo, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, aiSkillToPB(row))
-	}
-	return &pb.ListSkillsResponse{Code: governanceOK, Msg: "success", Total: total, List: items}, nil
-}
-
-func (s *NativeStore) CreateSkill(ctx context.Context, req *pb.CreateSkillRequest) (*pb.SkillResponse, error) {
-	if strings.TrimSpace(req.GetName()) == "" || strings.TrimSpace(req.GetDisplayName()) == "" {
-		return &pb.SkillResponse{Code: governanceBadRequest, Msg: "name and display_name are required"}, nil
-	}
-	row := aiSkillRecord{Name: strings.TrimSpace(req.GetName()), DisplayName: strings.TrimSpace(req.GetDisplayName()), Description: nullStringFrom(req.GetDescription(), true), SourceType: defaultString(strings.TrimSpace(req.GetSourceType()), "local"), SourceURI: nullStringFrom(req.GetSourceUri(), true), IsEnabled: true}
-	if req.GetIsEnabledSet() {
-		row.IsEnabled = req.GetIsEnabled()
-	}
-	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
-		return nil, err
-	}
-	return s.getSkillResponse(ctx, row.ID)
-}
-
-func (s *NativeStore) UpdateSkill(ctx context.Context, req *pb.UpdateSkillRequest) (*pb.SkillResponse, error) {
-	if err := s.assertAISkillNotReleased(ctx, req.GetId()); err != nil {
-		return &pb.SkillResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
-	}
-	updates := map[string]any{}
-	putString(updates, "display_name", req.GetDisplayName())
-	putString(updates, "description", req.GetDescription())
-	putString(updates, "source_type", req.GetSourceType())
-	putString(updates, "source_uri", req.GetSourceUri())
-	if req.GetIsEnabledSet() {
-		updates["is_enabled"] = req.GetIsEnabled()
-	}
-	if len(updates) > 0 {
-		result := s.db.WithContext(ctx).Model(&aiSkillRecord{}).Where("id = ?", req.GetId()).Updates(updates)
-		if result.Error != nil {
-			return nil, result.Error
-		}
-		if result.RowsAffected == 0 {
-			return &pb.SkillResponse{Code: governanceNotFound, Msg: "skill not found"}, nil
-		}
-	}
-	return s.getSkillResponse(ctx, req.GetId())
-}
-
-func (s *NativeStore) CreateSkillVersion(ctx context.Context, req *pb.CreateSkillVersionRequest) (*pb.SkillVersionResponse, error) {
-	manifest, err := parseSkillManifest(req.GetManifestJson())
-	if err != nil {
-		return &pb.SkillVersionResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
-	}
-	row := aiSkillVersionRecord{SkillID: req.GetSkillId(), Version: defaultString(manifest.Version, fmt.Sprintf("v%d", time.Now().Unix())), ManifestJSON: req.GetManifestJson(), Instruction: nullStringFrom(manifest.Instruction, true), InputSchemaJSON: nullStringFrom(manifest.InputSchemaJSON, true), OutputSchemaJSON: nullStringFrom(manifest.OutputSchemaJSON, true), RuntimeType: defaultString(manifest.RuntimeType, model.SkillRuntimePrompt)}
-	var tools []*pb.SkillToolInfo
-	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&row).Error; err != nil {
-			return err
-		}
-		for _, tool := range manifest.Tools {
-			if strings.TrimSpace(tool.Name) == "" {
-				continue
-			}
-			toolRow := aiSkillToolRecord{SkillVersionID: row.ID, ToolName: strings.TrimSpace(tool.Name), Description: nullStringFrom(tool.Description, true), InputSchemaJSON: nullStringFrom(tool.InputSchemaJSON, true), RuntimeConfigJSON: nullStringFrom(tool.RuntimeConfigJSON, true), IsEnabled: true}
-			if err := tx.Create(&toolRow).Error; err != nil {
-				return err
-			}
-			tools = append(tools, skillToolToPB(toolRow, ""))
-		}
-		if req.GetActivate() {
-			return tx.Model(&aiSkillRecord{}).Where("id = ?", req.GetSkillId()).Update("current_version_id", row.ID).Error
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &pb.SkillVersionResponse{Code: governanceOK, Msg: "success", Version: skillVersionToPB(row), Tools: tools}, nil
-}
-
-func (s *NativeStore) ListSkillVersions(ctx context.Context, req *pb.ListSkillVersionsRequest) (*pb.ListSkillVersionsResponse, error) {
-	var rows []aiSkillVersionRecord
-	if err := s.db.WithContext(ctx).Where("skill_id = ?", req.GetSkillId()).Order("created_at DESC, id DESC").Find(&rows).Error; err != nil {
-		return nil, err
-	}
-	items := make([]*pb.SkillVersionInfo, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, skillVersionToPB(row))
-	}
-	return &pb.ListSkillVersionsResponse{Code: governanceOK, Msg: "success", List: items}, nil
-}
-
-func (s *NativeStore) ActivateSkillVersion(ctx context.Context, req *pb.ActivateSkillVersionRequest) (*pb.SkillResponse, error) {
-	result := s.db.WithContext(ctx).Model(&aiSkillRecord{}).Where("id = ?", req.GetSkillId()).Update("current_version_id", req.GetVersionId())
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	if result.RowsAffected == 0 {
-		return &pb.SkillResponse{Code: governanceNotFound, Msg: "skill not found"}, nil
-	}
-	return s.getSkillResponse(ctx, req.GetSkillId())
-}
-
-func (s *NativeStore) ListSkillTools(ctx context.Context, req *pb.ListSkillToolsRequest) (*pb.ListSkillToolsResponse, error) {
-	query := s.db.WithContext(ctx).Model(&aiSkillToolRecord{})
-	if req.GetSkillVersionId() > 0 {
-		query = query.Where("skill_version_id = ?", req.GetSkillVersionId())
-	} else if req.GetSkillId() > 0 {
-		query = query.Joins("JOIN ai_skill_versions v ON v.id = ai_skill_tools.skill_version_id").Where("v.skill_id = ?", req.GetSkillId())
-	}
-	if req.GetEnabledOnly() {
-		query = query.Where("ai_skill_tools.is_enabled = ?", true)
-	}
-	var rows []aiSkillToolRecord
-	if err := query.Order("ai_skill_tools.id ASC").Find(&rows).Error; err != nil {
-		return nil, err
-	}
-	items := make([]*pb.SkillToolInfo, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, skillToolToPB(row, ""))
-	}
-	return &pb.ListSkillToolsResponse{Code: governanceOK, Msg: "success", List: items}, nil
-}
-
-func (s *NativeStore) UpdateSkillTool(ctx context.Context, req *pb.UpdateSkillToolRequest) (*pb.SkillToolResponse, error) {
-	updates := map[string]any{}
-	putString(updates, "description", req.GetDescription())
-	if strings.TrimSpace(req.GetRuntimeConfigJson()) != "" {
-		updates["runtime_config_json"] = nullStringFrom(req.GetRuntimeConfigJson(), true)
-	}
-	if req.GetIsEnabledSet() {
-		updates["is_enabled"] = req.GetIsEnabled()
-	}
-	if len(updates) > 0 {
-		result := s.db.WithContext(ctx).Model(&aiSkillToolRecord{}).Where("id = ?", req.GetToolId()).Updates(updates)
-		if result.Error != nil {
-			return nil, result.Error
-		}
-		if result.RowsAffected == 0 {
-			return &pb.SkillToolResponse{Code: governanceNotFound, Msg: "skill tool not found"}, nil
-		}
-	}
-	return s.getSkillToolResponse(ctx, req.GetToolId())
-}
-
 func (s *NativeStore) GetAgentSkill(ctx context.Context, req *pb.GetAgentSkillRequest) (*pb.AgentSkillResponse, error) {
 	return s.getAgentSkillResponse(ctx, req.GetId())
 }
@@ -719,28 +523,6 @@ func (s *NativeStore) getMCPPolicyResponse(ctx context.Context, id int64) (*pb.M
 	return &pb.MCPToolPolicyResponse{Code: governanceOK, Msg: "success", Policy: mcpPolicyToPB(row)}, nil
 }
 
-func (s *NativeStore) getSkillResponse(ctx context.Context, id int64) (*pb.SkillResponse, error) {
-	var row aiSkillRecord
-	if err := s.db.WithContext(ctx).First(&row, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return &pb.SkillResponse{Code: governanceNotFound, Msg: "skill not found"}, nil
-		}
-		return nil, err
-	}
-	return &pb.SkillResponse{Code: governanceOK, Msg: "success", Skill: aiSkillToPB(row)}, nil
-}
-
-func (s *NativeStore) getSkillToolResponse(ctx context.Context, id int64) (*pb.SkillToolResponse, error) {
-	var row aiSkillToolRecord
-	if err := s.db.WithContext(ctx).First(&row, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return &pb.SkillToolResponse{Code: governanceNotFound, Msg: "skill tool not found"}, nil
-		}
-		return nil, err
-	}
-	return &pb.SkillToolResponse{Code: governanceOK, Msg: "success", Tool: skillToolToPB(row, "")}, nil
-}
-
 func (s *NativeStore) getAgentSkillResponse(ctx context.Context, id int64) (*pb.AgentSkillResponse, error) {
 	var row agentSkillRecord
 	if err := s.db.WithContext(ctx).First(&row, id).Error; err != nil {
@@ -794,57 +576,12 @@ func mcpLogToPB(row mcpToolLogRecord) *pb.MCPToolLogInfo {
 	return &pb.MCPToolLogInfo{Id: row.ID, ServerId: row.ServerID, ToolName: row.ToolName, ArgsJson: redactSensitiveJSON(nullString(row.ArgsJSON)), ResultContent: truncateForLog(redactSensitiveText(nullString(row.ResultContent))), DurationMs: int32(row.DurationMs), ErrorMsg: redactSensitiveText(nullString(row.ErrorMsg)), CalledByHrId: nullInt64(row.CalledByHRID), SessionId: nullInt64(row.SessionID), PolicyId: nullInt64(row.PolicyID), PolicyDecision: row.PolicyDecision, PolicyReason: redactSensitiveText(nullString(row.PolicyReason)), CreatedAt: formatTime(row.CreatedAt)}
 }
 
-func aiSkillToPB(row aiSkillRecord) *pb.SkillInfo {
-	return &pb.SkillInfo{Id: row.ID, Name: row.Name, DisplayName: row.DisplayName, Description: nullString(row.Description), SourceType: row.SourceType, SourceUri: nullString(row.SourceURI), CurrentVersionId: nullInt64(row.CurrentVersionID), IsEnabled: row.IsEnabled, CreatedAt: formatTime(row.CreatedAt), UpdatedAt: formatTime(row.UpdatedAt)}
-}
-
-func skillVersionToPB(row aiSkillVersionRecord) *pb.SkillVersionInfo {
-	return &pb.SkillVersionInfo{Id: row.ID, SkillId: row.SkillID, Version: row.Version, ManifestJson: row.ManifestJSON, Instruction: nullString(row.Instruction), InputSchemaJson: nullString(row.InputSchemaJSON), OutputSchemaJson: nullString(row.OutputSchemaJSON), RuntimeType: row.RuntimeType, CreatedAt: formatTime(row.CreatedAt)}
-}
-
-func skillToolToPB(row aiSkillToolRecord, skillName string) *pb.SkillToolInfo {
-	key := row.ToolName
-	runtimeName := row.ToolName
-	if strings.TrimSpace(skillName) != "" {
-		key = skillName + ":" + row.ToolName
-		runtimeName = "skill_" + skillName + "_" + row.ToolName
-	}
-	return &pb.SkillToolInfo{Id: row.ID, SkillVersionId: row.SkillVersionID, ToolName: row.ToolName, Description: nullString(row.Description), InputSchemaJson: nullString(row.InputSchemaJSON), RuntimeConfigJson: redactSensitiveJSON(nullString(row.RuntimeConfigJSON)), IsEnabled: row.IsEnabled, CapabilityKey: key, RuntimeToolName: runtimeName, CreatedAt: formatTime(row.CreatedAt), UpdatedAt: formatTime(row.UpdatedAt)}
-}
-
 func agentSkillToPB(row agentSkillRecord) *pb.AgentSkillInfo {
 	return &pb.AgentSkillInfo{Id: row.ID, Name: row.Name, DisplayName: row.DisplayName, Description: nullString(row.Description), CurrentVersionId: nullInt64(row.CurrentVersionID), IsEnabled: row.IsEnabled, IsManualInvocable: row.IsManualInvocable, TriggerKeywords: jsonStringList(row.TriggerKeywords), CreatedAt: formatTime(row.CreatedAt), UpdatedAt: formatTime(row.UpdatedAt), AgentType: row.AgentType, Category: row.Category, Scenario: row.Scenario, Priority: int32(row.Priority), RiskLevel: row.RiskLevel, RequiredCapabilities: jsonStringList(row.RequiredCapabilities), OutputSchema: nullString(row.OutputSchema), EvaluationCriteria: jsonStringList(row.EvaluationCriteria), SemanticTags: jsonStringList(row.SemanticTags)}
 }
 
 func agentSkillVersionToPB(row agentSkillVersionRecord) *pb.AgentSkillVersionInfo {
 	return &pb.AgentSkillVersionInfo{Id: row.ID, SkillId: row.SkillID, Version: row.Version, FlowJson: nullString(row.FlowJSON), SkillMd: row.SkillMD, FrontmatterJson: nullString(row.FrontmatterJSON), BodyMarkdown: nullString(row.BodyMarkdown), ChangeNote: nullString(row.ChangeNote), CreatedAt: formatTime(row.CreatedAt)}
-}
-
-type parsedSkillManifest struct {
-	Version          string            `json:"version"`
-	Instruction      string            `json:"instruction"`
-	InputSchemaJSON  string            `json:"input_schema_json"`
-	OutputSchemaJSON string            `json:"output_schema_json"`
-	RuntimeType      string            `json:"runtime_type"`
-	Tools            []parsedSkillTool `json:"tools"`
-}
-
-type parsedSkillTool struct {
-	Name              string `json:"name"`
-	Description       string `json:"description"`
-	InputSchemaJSON   string `json:"input_schema_json"`
-	RuntimeConfigJSON string `json:"runtime_config_json"`
-}
-
-func parseSkillManifest(value string) (parsedSkillManifest, error) {
-	if strings.TrimSpace(value) == "" {
-		return parsedSkillManifest{}, fmt.Errorf("manifest_json is required")
-	}
-	var manifest parsedSkillManifest
-	if err := json.Unmarshal([]byte(value), &manifest); err != nil {
-		return parsedSkillManifest{}, fmt.Errorf("manifest_json is invalid: %w", err)
-	}
-	return manifest, nil
 }
 
 func putMCPJSON(updates map[string]any, key, value string) {

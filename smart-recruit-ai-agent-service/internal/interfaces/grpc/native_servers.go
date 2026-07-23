@@ -83,7 +83,6 @@ type CapabilityConfigurationRefs struct {
 	AgentIDs             []int64
 	PromptTemplateIDs    []int64
 	AgentSkillVersionIDs []int64
-	AISkillVersionIDs    []int64
 	MCPPolicyIDs         []int64
 }
 
@@ -840,7 +839,6 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 		Prompt:                 nativePromptService{store: deps.Store},
 		AgentConfig:            nativeAgentConfigService{store: deps.Store},
 		MCP:                    nativeMCPService{store: deps.Store, runner: mcpRunner},
-		Skill:                  nativeSkillService{store: deps.Store},
 		AgentSkill:             nativeAgentSkillService{store: deps.Store, embedding: embeddingService},
 		RecruitingIntelligence: nativeRecruitingIntelligenceService{store: recruitingStore, provider: deps.Provider, structured: newRecruitingStructuredRuntime(deps.Store, deps.Provider, deps.RecruitingPolicy), policy: deps.RecruitingPolicy, auth: deps.Auth, applications: deps.Applications, jobs: deps.Jobs, meter: ai},
 		EmbeddingConfig:        embedding,
@@ -7758,10 +7756,6 @@ type nativeMCPService struct {
 	store  AIStore
 	runner mcpinfra.Runner
 }
-type nativeSkillService struct {
-	pb.UnimplementedSkillServiceServer
-	store AIStore
-}
 type nativeAgentSkillService struct {
 	pb.UnimplementedAgentSkillServiceServer
 	store     AIStore
@@ -7839,13 +7833,6 @@ func (s nativeMCPService) ListMCPToolLogs(ctx context.Context, req *pb.ListMCPTo
 		return &pb.ListMCPToolLogsResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
 	}
 	return store.ListMCPToolLogs(ctx, req)
-}
-func (s nativeSkillService) ListSkills(ctx context.Context, req *pb.ListSkillsRequest) (*pb.ListSkillsResponse, error) {
-	store, ok := s.store.(skillGovernanceStore)
-	if !ok {
-		return &pb.ListSkillsResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
-	}
-	return store.ListSkills(ctx, req)
 }
 func (s nativeAgentSkillService) ListAgentSkills(ctx context.Context, req *pb.ListAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
 	if s.store == nil {

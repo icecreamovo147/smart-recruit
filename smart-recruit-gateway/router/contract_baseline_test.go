@@ -47,10 +47,10 @@ func TestCoreHTTPRouteGroupsRemainRegistered(t *testing.T) {
 		"PATCH /api/v1/platform/users/:user_id",
 		"GET /api/v1/platform/ai/capabilities",
 		"POST /api/v1/platform/ai/capabilities/:capability_id/versions",
+		"DELETE /api/v1/platform/ai/capability-versions/:version_id",
 		"POST /api/v1/platform/ai/capability-versions/:version_id/publish",
 		"GET /api/v1/platform/ai/llm-providers",
 		"GET /api/v1/platform/ai/mcp-servers",
-		"GET /api/v1/platform/ai/skills",
 		"GET /api/v1/jobs",
 		"GET /api/v1/jobs/:job_id",
 		"GET /api/v1/candidate/profile",
@@ -93,6 +93,25 @@ func TestCoreHTTPRouteGroupsRemainRegistered(t *testing.T) {
 	for _, route := range removedTenantTechnicalRoutes {
 		if registered[route] {
 			t.Fatalf("tenant technical AI route must be removed after one-time cutover: %s", route)
+		}
+	}
+
+	removedLegacySkillRoutes := []string{
+		"GET /api/v1/platform/ai/skills",
+		"POST /api/v1/platform/ai/skills",
+		"PUT /api/v1/platform/ai/skills/:id",
+		"GET /api/v1/platform/ai/skills/:id/versions",
+		"POST /api/v1/platform/ai/skills/:id/versions",
+		"POST /api/v1/platform/ai/skills/:id/versions/:version_id/activate",
+		"GET /api/v1/platform/ai/skills/:id/tools",
+		"PUT /api/v1/platform/ai/skills/:id/tools/:tool_id",
+		"GET /api/v1/hr/capabilities",
+		"GET /api/v1/hr/capabilities/:id",
+		"POST /api/v1/hr/capabilities/from-template",
+	}
+	for _, route := range removedLegacySkillRoutes {
+		if registered[route] {
+			t.Fatalf("legacy Skill route must be absent after the registry retirement: %s", route)
 		}
 	}
 }

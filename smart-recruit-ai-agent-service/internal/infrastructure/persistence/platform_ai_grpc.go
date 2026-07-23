@@ -65,6 +65,14 @@ func (s *platformAIControlPlaneServer) UpdatePlatformAICapabilityDraft(ctx conte
 	return &pb.PlatformAICapabilityVersionResponse{Code: 0, Msg: "ok", Version: platformAICapabilityVersionProto(row)}, nil
 }
 
+func (s *platformAIControlPlaneServer) DeletePlatformAICapabilityDraft(ctx context.Context, req *pb.DeletePlatformAICapabilityDraftRequest) (*pb.CommonResponse, error) {
+	if err := s.store.DeletePlatformAICapabilityDraft(ctx, req.GetVersionId(), req.GetActorUserId(), req.GetRequestId()); err != nil {
+		code, msg := platformAIErrorCode(err)
+		return &pb.CommonResponse{Code: code, Msg: msg}, nil
+	}
+	return &pb.CommonResponse{Code: 0, Msg: "ok"}, nil
+}
+
 func (s *platformAIControlPlaneServer) PublishPlatformAICapabilityVersion(ctx context.Context, req *pb.PublishPlatformAICapabilityVersionRequest) (*pb.PlatformAICapabilityVersionResponse, error) {
 	row, err := s.store.PublishPlatformAICapabilityVersion(ctx, req.GetVersionId(), req.GetActorUserId(), req.GetRequestId())
 	if err != nil {
