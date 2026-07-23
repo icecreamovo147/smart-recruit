@@ -6,6 +6,7 @@ import (
 	"smart-recruit-notification-service/internal/application/command"
 	"smart-recruit-notification-service/internal/application/query"
 	"smart-recruit-notification-service/internal/domain/model"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -106,7 +107,7 @@ func formatTime(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
-	return t.Format(time.RFC3339)
+	return businessclock.FormatRFC3339(t)
 }
 
 func formatOptionalTime(t *time.Time) string {

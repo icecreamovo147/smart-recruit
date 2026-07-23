@@ -2,6 +2,7 @@
 import { reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createOffer } from '@/api/offer'
+import { toShanghaiRFC3339 } from '@shared/utils/format'
 
 const props = defineProps<{
   visible: boolean
@@ -54,7 +55,7 @@ const handleSubmit = async () => {
     if (form.work_location) data.work_location = form.work_location
     if (form.start_date) data.start_date = form.start_date
     if (form.expires_at) {
-      data.expires_at = new Date(form.expires_at).toISOString()
+      data.expires_at = toShanghaiRFC3339(form.expires_at)
     }
     if (form.terms_json) data.terms_json = form.terms_json
 

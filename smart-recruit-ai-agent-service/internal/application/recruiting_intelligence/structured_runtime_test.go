@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/cloudwego/eino/schema"
 )
 
 type runtimePromptStore struct {
@@ -19,15 +21,50 @@ func (s *runtimePromptStore) LoadActiveRecruitingPrompt(_ context.Context, agent
 }
 
 type runtimeProvider struct {
-	system string
-	user   string
-	err    error
+	system       string
+	user         string
+	err          error
+	withoutUsage bool
 }
 
 func (p *runtimeProvider) CompleteStructured(_ context.Context, systemPrompt, userPrompt string) (StructuredCompletionResult, error) {
 	p.system = systemPrompt
 	p.user = userPrompt
-	return StructuredCompletionResult{Content: `{"ok":true}`, ModelName: "model-a"}, p.err
+	result := StructuredCompletionResult{Content: `{"ok":true}`, ProviderKey: "provider-a", ModelName: "model-a"}
+	if !p.withoutUsage {
+		result.TokenUsage = &schema.TokenUsage{PromptTokens: 12, CompletionTokens: 3, TotalTokens: 15}
+	}
+	return result, p.err
+}
+
+func TestRuntimeCollectsEstimatedUsageWhenProviderOmitsTokenCounts(t *testing.T) {
+	store := &runtimePromptStore{prompt: PromptDescriptor{ID: 10, Name: "resume", Version: 1, AgentType: AgentTypeResumeProfileExtractor, Role: PromptRoleSystem, Content: "system"}}
+	runtime := NewRuntime(NewPromptLoader(store), &runtimeProvider{withoutUsage: true})
+	ctx, collector := WithBillingUsageCollector(context.Background())
+	if _, err := runtime.Complete(ctx, AgentTypeResumeProfileExtractor, "user"); err != nil {
+		t.Fatal(err)
+	}
+	usages := collector.Usages()
+	if len(usages) != 1 || usages[0].TokenUsage != nil || usages[0].EstimatedInputTokens <= 0 || usages[0].EstimatedOutputTokens <= 0 {
+		t.Fatalf("usages=%+v", usages)
+	}
+}
+
+func TestRuntimeCollectsStructuredProviderUsageForBilling(t *testing.T) {
+	store := &runtimePromptStore{prompt: PromptDescriptor{ID: 10, Name: "resume", Version: 1, AgentType: AgentTypeResumeProfileExtractor, Role: PromptRoleSystem, Content: "system"}}
+	runtime := NewRuntime(NewPromptLoader(store), &runtimeProvider{})
+	ctx, collector := WithBillingUsageCollector(context.Background())
+	result, err := runtime.Complete(ctx, AgentTypeResumeProfileExtractor, "user")
+	if err != nil {
+		t.Fatal(err)
+	}
+	usages := collector.Usages()
+	if result.ProviderKey != "provider-a" || result.TokenUsage == nil || len(usages) != 1 {
+		t.Fatalf("result=%+v usages=%+v", result, usages)
+	}
+	if usages[0].ProviderKey != "provider-a" || usages[0].ModelName != "model-a" || usages[0].TokenUsage.TotalTokens != 15 {
+		t.Fatalf("usage=%+v", usages[0])
+	}
 }
 
 func TestRuntimeReloadsExactActiveSystemPromptPerRequest(t *testing.T) {

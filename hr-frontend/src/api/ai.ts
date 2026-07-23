@@ -4,7 +4,7 @@ import { clearLocalAuthCache } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
 import { BusinessError } from '@/types/api'
 import type { StreamHandlers, StreamPayload, ChatSessionListItem, ToolTraceItem, AgentRunItem, ChatMessage, ContextUsageInfo } from '@/types/ai'
-import type { CapabilityInfo } from '@/types/agent'
+import type { CapabilityInfo } from '@shared/types/agent'
 import request from './request'
 import { silentRefresh } from './authRefresh'
 import { contextGuardCodeFrom, contextGuardMessage } from '@/utils/contextUsage'
@@ -31,6 +31,7 @@ export const sendMessage = (data: ChatRequestPayload): Promise<{
   status?: number
   session_id?: number
   context_usage?: ContextUsageInfo | null
+  suggested_questions?: string[]
 }> => request.post('/api/v1/hr/ai/chat', data)
 
 export const getHistory = (params: { page: number; page_size: number }): Promise<{
@@ -92,6 +93,7 @@ export const listSkillCapabilities = (): Promise<{
 export const friendlyStreamMsg = (code: number, msg: string): string => {
   const guardMessage = contextGuardMessage(contextGuardCodeFrom(msg))
   if (guardMessage) return guardMessage
+  if (code === 40201) return msg || 'AI 套餐额度不足，请购买套餐或加量包后重试'
   if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
   if (code === 42902) return msg || 'AI 请求太频繁，请稍后再试'
   if (code === 429) return msg || '请求过于频繁，请稍后再试'

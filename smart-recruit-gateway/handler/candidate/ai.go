@@ -52,6 +52,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		SourceTitle: req.SourceTitle,
 	})
 	if err != nil {
+		middleware.MarkAIQuotaFailed(c)
 		base.Internal(c, err)
 		return
 	}
@@ -63,14 +64,25 @@ func (h *AIHandler) Chat(c *gin.Context) {
 	var suggestedQuestions []string
 	code := int32(0)
 	msg := "success"
+	streamStarted := false
 	for {
 		chunk, err := stream.Recv()
 		if err == io.EOF {
+			if !streamStarted {
+				middleware.MarkAIQuotaFailed(c)
+			}
 			break
 		}
 		if err != nil {
+			if !streamStarted {
+				middleware.MarkAIQuotaFailed(c)
+			}
 			base.Internal(c, err)
 			return
+		}
+		if !streamStarted {
+			streamStarted = true
+			middleware.MarkAIQuotaConsumed(c)
 		}
 		if chunk.GetCode() != 0 {
 			base.From(c, chunk.GetCode(), chunk.GetMsg(), nil)
@@ -135,6 +147,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		SourceTitle: req.SourceTitle,
 	})
 	if err != nil {
+		middleware.MarkAIQuotaFailed(c)
 		base.Internal(c, err)
 		return
 	}
@@ -149,6 +162,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		err   error
 	}
 	recvCh := make(chan recvResult, 1)
+	streamStarted := false
 	ctx := c.Request.Context()
 	go func() {
 		defer close(recvCh)
@@ -174,11 +188,17 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				return
 			}
 			if result.err == io.EOF {
+				if !streamStarted {
+					middleware.MarkAIQuotaFailed(c)
+				}
 				return
 			}
 			if result.err != nil {
 				if c.Request.Context().Err() != nil {
 					return
+				}
+				if !streamStarted {
+					middleware.MarkAIQuotaFailed(c)
 				}
 				info := base.PublicError(result.err)
 				payload := fmt.Sprintf("event: message\ndata: %s\n\n", mustMarshal(gin.H{
@@ -194,6 +214,10 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 					return
 				}
 				return
+			}
+			if !streamStarted {
+				streamStarted = true
+				middleware.MarkAIQuotaConsumed(c)
 			}
 			payload := gin.H{
 				"code":                result.chunk.Code,
@@ -341,32 +365,44 @@ func (h *AIHandler) DeleteSession(c *gin.Context) {
 
 // ListAvailableModels returns enabled LLM models for candidate AI chat selection.
 func (h *AIHandler) ListAvailableModels(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "200"))
-	if pageSize <= 0 || pageSize > 200 {
-		pageSize = 200
+	access, err := h.clients.Billing.CheckAIAccess(c.Request.Context(), &pb.CheckAIAccessRequest{
+		Owner:            &pb.BillingOwner{Type: pb.BillingOwnerType_BILLING_OWNER_TYPE_USER, Id: middleware.UserID(c)},
+		UserId:           middleware.UserID(c),
+		Capability:       "ai.chat",
+		EstimatedCredits: 0,
+	})
+	if err != nil {
+		logger.L().Error("resolve candidate AI model entitlement failed", zap.Error(err))
+		base.Internal(c, err)
+		return
 	}
-
-	resp, err := h.clients.LlmConfig.ListModels(c.Request.Context(), &pb.ListModelsRequest{
-		Page:     int32(page),
-		PageSize: int32(pageSize),
+	if access.GetCode() != 0 || !access.GetAllowed() {
+		base.From(c, 403, access.GetReason(), nil)
+		return
+	}
+	if access.GetCapabilityVersionId() <= 0 {
+		base.From(c, 503, "AI capability release is unavailable", nil)
+		return
+	}
+	resp, err := h.clients.PlatformAI.ListPlatformAIRuntimeModels(c.Request.Context(), &pb.ListPlatformAIRuntimeModelsRequest{
+		CapabilityKey:       "ai.chat",
+		Audience:            "candidate",
+		CapabilityVersionId: access.GetCapabilityVersionId(),
 	})
 	if err != nil {
 		logger.L().Error("ListAvailableModels failed", zap.Error(err))
 		base.Internal(c, err)
 		return
 	}
-
-	list := make([]gin.H, 0, len(resp.List))
-	for _, model := range resp.List {
-		if model == nil || !model.GetIsEnabled() {
-			continue
-		}
+	list := make([]gin.H, 0, len(resp.GetList()))
+	for _, model := range resp.GetList() {
 		list = append(list, gin.H{
 			"id":                    model.GetId(),
 			"model_name":            model.GetModelName(),
 			"display_name":          model.GetDisplayName(),
-			"is_enabled":            model.GetIsEnabled(),
+			"provider_id":           model.GetProviderId(),
+			"provider_name":         model.GetProviderName(),
+			"is_enabled":            true,
 			"is_default":            model.GetIsDefault(),
 			"max_tokens":            model.GetMaxTokens(),
 			"context_window_tokens": model.GetContextWindowTokens(),
@@ -374,8 +410,10 @@ func (h *AIHandler) ListAvailableModels(c *gin.Context) {
 	}
 
 	base.From(c, resp.Code, resp.Msg, gin.H{
-		"total": int64(len(list)),
-		"list":  list,
+		"total":                 int64(len(list)),
+		"list":                  list,
+		"capability_version_id": resp.GetCapabilityVersionId(),
+		"snapshot_hash":         resp.GetSnapshotHash(),
 	})
 }
 
@@ -429,6 +467,11 @@ func mapContextUsage(cu *pb.ContextUsageInfo) map[string]any {
 	return gin.H{
 		"model_id":                   cu.GetModelId(),
 		"model_name":                 cu.GetModelName(),
+		"requested_model_id":         cu.GetRequestedModelId(),
+		"effective_model_id":         cu.GetEffectiveModelId(),
+		"model_fallback_reason":      cu.GetModelFallbackReason(),
+		"capability_version_id":      cu.GetCapabilityVersionId(),
+		"capability_snapshot_hash":   cu.GetCapabilitySnapshotHash(),
 		"context_window_tokens":      cu.GetContextWindowTokens(),
 		"max_output_tokens":          cu.GetMaxOutputTokens(),
 		"prompt_tokens_estimated":    cu.GetPromptTokensEstimated(),
@@ -448,5 +491,6 @@ func mapContextUsage(cu *pb.ContextUsageInfo) map[string]any {
 		"included_message_count":     cu.GetIncludedMessageCount(),
 		"omitted_message_count":      cu.GetOmittedMessageCount(),
 		"summary_applied":            cu.GetSummaryApplied(),
+		"memory_applied":             cu.GetMemoryApplied(),
 	}
 }

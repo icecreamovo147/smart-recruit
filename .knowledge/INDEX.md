@@ -13,6 +13,8 @@ Read this file after `AGENTS.md`, the active feature contract, and `.knowledge/R
 | Auth, RBAC, and security audit | `architecture/auth-rbac-security.md`, `runbooks/debug-auth-permissions.md`, `pitfalls/auth-permission-alignment.md` |
 | Gateway and API contracts | `architecture/api-contracts-and-gateway.md`, `pitfalls/protobuf-synchronization.md` |
 | Persistence and migrations | `architecture/persistence-and-migrations.md`, `runbooks/protobuf-and-migration-change.md`, `pitfalls/migration-model-drift.md` |
+| Billing and Alipay operations | `runbooks/alipay-payment-operations.md` |
+| AI credits and usage settlement | `domains/ai-credit-lifecycle.md` |
 | Agent runtime | `architecture/agent-runtime.md` |
 | AI platform governance | `domains/ai-configuration-governance.md`, `domains/mcp-tool-governance.md`, `runbooks/debug-ai-configuration.md`, `pitfalls/mcp-policy-audit.md` |
 | Skill, Memory, or Embedding | `architecture/semantic-retrieval.md`, `domains/agent-skill.md`, `domains/memory-and-context.md`, `domains/ai-configuration-governance.md` |

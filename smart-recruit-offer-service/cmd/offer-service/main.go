@@ -29,8 +29,10 @@ import (
 	offerpersistence "smart-recruit-offer-service/internal/infrastructure/persistence"
 	offergrpc "smart-recruit-offer-service/internal/interfaces/grpc"
 	offerruntime "smart-recruit-offer-service/internal/runtime"
+	"smart-recruit-platform-go/businessclock"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"
+	"smart-recruit-platform-go/mysqltime"
 	"smart-recruit-platform-go/nacos"
 	logicobservability "smart-recruit-platform-go/observability"
 	platformobs "smart-recruit-platform-go/observability"
@@ -43,6 +45,7 @@ import (
 const nacosServiceName = "offer"
 
 func main() {
+	businessclock.Configure()
 	check := flag.Bool("check", false, "validate Offer service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start Offer gRPC runtime")
 	addr := flag.String("addr", envOrDefault("GRPC_ADDR", ":50064"), "Offer gRPC listen address")
@@ -108,7 +111,11 @@ func serveOffer(addr string) error {
 	log := logger.L()
 	logicobservability.DefaultMetrics = logicobservability.NewRegistry(offerruntime.ServiceName)
 
-	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{
+	dsn, err := mysqltime.NormalizeDSN(cfg.MySQL.DSN)
+	if err != nil {
+		return err
+	}
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		TranslateError: true,
 		Logger:         logger.NewGormLogger(&cfg.Logging.Gorm),
 	})
@@ -124,6 +131,9 @@ func serveOffer(addr string) error {
 	sqlDB.SetMaxIdleConns(cfg.MySQL.MaxIdleConns)
 	sqlDB.SetConnMaxLifetime(cfg.MySQL.ConnMaxLifetime.Duration)
 	sqlDB.SetConnMaxIdleTime(cfg.MySQL.ConnMaxIdleTime.Duration)
+	if err := mysqltime.ValidateSession(context.Background(), sqlDB); err != nil {
+		return err
+	}
 
 	var redisClient *redis.Client
 	if cfg.Redis.Addr != "" {

@@ -1,17 +1,14 @@
 <script setup lang="ts">
 import type { InterviewFeedback } from '@/types/domain'
 import { RECOMMENDATION_LABEL } from '@/types/domain'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 defineProps<{
   feedback: InterviewFeedback
   dimensionScores: Array<{ label: string; score: number }>
 }>()
 
-const formatDateTime = (iso: string): string => {
-  if (!iso) return '-'
-  const d = new Date(iso)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
+const formatDateTime = (iso: string): string => formatShanghaiDateTime(iso, '-', false)
 </script>
 
 <template>

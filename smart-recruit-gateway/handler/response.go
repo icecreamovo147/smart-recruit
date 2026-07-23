@@ -99,6 +99,8 @@ func PublicError(err error) ErrorInfo {
 			return ErrorInfo{Code: 404, Msg: "请求的资源不存在或已失效"}
 		case codes.AlreadyExists:
 			return ErrorInfo{Code: 409, Msg: st.Message()}
+		case codes.FailedPrecondition:
+			return ErrorInfo{Code: 409, Msg: st.Message()}
 		case codes.Internal:
 			msg := st.Message()
 			if info, ok := classifyAIError(msg); ok {
@@ -111,6 +113,8 @@ func PublicError(err error) ErrorInfo {
 		case codes.ResourceExhausted:
 			msg := st.Message()
 			switch {
+			case strings.Contains(msg, "insufficient_credits"):
+				return ErrorInfo{Code: 40201, Msg: "AI 套餐额度不足，请购买套餐或加量包后重试"}
 			case strings.HasPrefix(msg, "quota:ai_daily:"):
 				return ErrorInfo{Code: 42901, Msg: "今日 AI 使用次数已达上限，请明天再试"}
 			case strings.HasPrefix(msg, "quota:resume_presign:"):

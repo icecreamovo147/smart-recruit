@@ -3,9 +3,38 @@ package main
 import (
 	"context"
 	"testing"
+	"time"
 
 	platformconfig "smart-recruit-platform-go/config"
 )
+
+type recordingQuotaRefresher struct{ calls chan struct{} }
+
+func (r recordingQuotaRefresher) RefreshQuotaUsage(context.Context) error {
+	r.calls <- struct{}{}
+	return nil
+}
+
+func TestRefreshQuotaUsageRunsImmediatelyAndStopsWithContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	refresher := recordingQuotaRefresher{calls: make(chan struct{}, 1)}
+	go func() {
+		refreshQuotaUsage(ctx, refresher, time.Hour)
+		close(done)
+	}()
+	select {
+	case <-refresher.calls:
+	case <-time.After(time.Second):
+		t.Fatal("quota refresh did not run immediately")
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("quota refresh loop did not stop after cancellation")
+	}
+}
 
 func TestInstanceFromAddrUsesIdentityDiscoveryName(t *testing.T) {
 	instance, err := instanceFromAddr("127.0.0.1:50061", platformconfig.Bootstrap{

@@ -1,0 +1,154 @@
+/* Platform console design tokens.
+ * Layers: Glass Chrome / Soft Workspace / Solid Dense
+ */
+
+:root {
+  color-scheme: light;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--text);
+  background: var(--shell-bg);
+
+  /* Brand & text */
+  --brand: #0a70f5;
+  --brand-deep: #0755c7;
+  --text: #101a30;
+  --text-primary: var(--text);
+  --text-secondary: #425473;
+  --text-muted: #6d7f9c;
+  --text-faint: #8a9bb4;
+  --border: rgba(115, 138, 174, .22);
+
+  /* Legacy surface aliases (pre-recipe) */
+  --surface: rgba(255, 255, 255, .88);
+  --surface-strong: rgba(255, 255, 255, .96);
+  --surface-muted: rgba(239, 244, 251, .92);
+
+  /* Glass chrome recipe */
+  --glass-border: rgba(255, 255, 255, .72);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, .82);
+  --glass-shadow: 0 14px 36px rgba(45, 73, 113, .10), 0 2px 6px rgba(45, 73, 113, .07);
+  --glass-shadow-strong: 0 16px 42px rgba(29, 71, 132, .18), 0 3px 9px rgba(29, 71, 132, .12);
+  --surface-glass-bg: rgba(255, 255, 255, .66);
+  --surface-glass-border: var(--glass-border);
+  --surface-glass-blur: blur(28px) saturate(145%);
+  --surface-glass-shadow: var(--glass-highlight), 0 6px 18px rgba(45, 73, 113, .07);
+
+  /* Soft workspace recipe (default content chrome; no strong blur) */
+  --surface-soft-bg: rgba(255, 255, 255, .92);
+  --surface-soft-border: rgba(115, 138, 174, .20);
+  --surface-soft-shadow: 0 8px 22px rgba(45, 73, 113, .06);
+  --surface-soft-radius: 12px;
+
+  /* Solid dense recipe (tables / code / dialog body) */
+  --surface-solid-bg: #ffffff;
+  --surface-solid-border: rgba(115, 138, 174, .18);
+  --surface-solid-shadow: none;
+
+  /* Shell / workspace */
+  --shell-bg: #eaf0f8;
+  --workspace-bg: #f3f6fb;
+  --sidebar-bg: rgba(26, 68, 119, .82);
+  --topbar-bg: rgba(255, 255, 255, .66);
+  --toolbar-bg: var(--surface-soft-bg);
+  /* Inner page chrome inset (PageHeader / toolbar / section edges). */
+  --page-inset: 16px;
+
+  /* Controls (workspace soft; no blur) */
+  --control-bg: #ffffff;
+  --control-hover-bg: #f5f8fd;
+  --control-border: rgba(115, 138, 174, .28);
+  --control-radius: 8px;
+  --control-height: 32px;
+  --control-height-sm: 28px;
+  --control-shadow: inset 0 0 0 1px var(--control-border);
+
+  /* Table dense */
+  --table-header-bg: #edf3fb;
+  --table-header-solid: #edf3fb;
+  --table-fixed-bg: #ffffff;
+  --table-striped-bg: #f7f9fc;
+  --table-fixed-striped-bg: #f6f8fc;
+  --table-hover-bg: #ebf3ff;
+
+  --avatar-bg: rgba(220, 235, 255, .86);
+  --track-bg: rgba(212, 221, 234, .72);
+
+  /* Admin-console aliases */
+  --admin-console-surface: var(--surface-soft-bg);
+  --admin-console-border: var(--surface-soft-border);
+  --admin-console-header-bg: var(--surface-soft-bg);
+  --admin-console-card-shadow: var(--surface-soft-shadow);
+
+  /* Overlay / dialog */
+  --overlay-mask: rgba(16, 26, 48, .42);
+  --dialog-shell-bg: rgba(255, 255, 255, .94);
+  --dialog-body-bg: var(--surface-solid-bg);
+
+  --motion-theme: 500ms;
+  --ease-theme: cubic-bezier(.4, 0, .2, 1);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Calm steel blue — readable accents without neon primary fills. */
+  --brand: #4a86c7;
+  --brand-deep: #3a72b0;
+  --brand-soft: #8fb4db;
+  --text: #e8eef8;
+  --text-primary: var(--text);
+  --text-secondary: #b8c5d8;
+  --text-muted: #8797af;
+  --text-faint: #6d7f96;
+  --border: rgba(137, 158, 190, .24);
+
+  --surface: rgba(18, 28, 43, .88);
+  --surface-strong: rgba(24, 36, 54, .96);
+  --surface-muted: rgba(31, 45, 65, .88);
+
+  --glass-border: rgba(201, 222, 248, .13);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, .08);
+  --glass-shadow: 0 14px 36px rgba(0, 0, 0, .25), 0 2px 6px rgba(0, 0, 0, .18);
+  --glass-shadow-strong: 0 18px 46px rgba(0, 0, 0, .34), 0 3px 10px rgba(0, 0, 0, .24);
+  --surface-glass-bg: rgba(18, 29, 45, .82);
+  --surface-glass-border: var(--glass-border);
+  --surface-glass-blur: blur(28px) saturate(145%);
+  --surface-glass-shadow: var(--glass-highlight), 0 6px 18px rgba(0, 0, 0, .22);
+
+  --surface-soft-bg: rgba(22, 34, 52, .96);
+  --surface-soft-border: rgba(137, 158, 190, .22);
+  --surface-soft-shadow: 0 10px 28px rgba(0, 0, 0, .28);
+
+  --surface-solid-bg: #111c2b;
+  --surface-solid-border: rgba(137, 158, 190, .20);
+
+  --shell-bg: #09111d;
+  --workspace-bg: #0f1826;
+  --sidebar-bg: rgba(12, 34, 60, .92);
+  --topbar-bg: rgba(18, 29, 45, .82);
+  --toolbar-bg: var(--surface-soft-bg);
+
+  --control-bg: #1b2a3e;
+  --control-hover-bg: #24364f;
+  --control-border: rgba(137, 158, 190, .28);
+  --control-shadow: inset 0 0 0 1px var(--control-border);
+
+  --table-header-bg: #1b293c;
+  --table-header-solid: #1b293c;
+  --table-fixed-bg: #111c2b;
+  --table-striped-bg: rgba(27, 41, 60, .55);
+  --table-fixed-striped-bg: #142033;
+  --table-hover-bg: #192b43;
+
+  --avatar-bg: rgba(45, 89, 145, .38);
+  --track-bg: rgba(55, 72, 96, .66);
+
+  --admin-console-surface: var(--surface-soft-bg);
+  --admin-console-border: var(--surface-soft-border);
+  --admin-console-header-bg: var(--surface-soft-bg);
+  --admin-console-card-shadow: var(--surface-soft-shadow);
+
+  --overlay-mask: rgba(0, 0, 0, .55);
+  --dialog-shell-bg: rgba(24, 36, 54, .96);
+  --dialog-body-bg: var(--surface-solid-bg);
+}

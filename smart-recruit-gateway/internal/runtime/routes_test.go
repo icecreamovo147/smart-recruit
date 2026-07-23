@@ -42,6 +42,7 @@ routeModes:
   notification: notification
   aiAgent: ai-agent
   analytics: analytics
+  billing: billing
 `))
 	if err != nil {
 		t.Fatalf("ParseRouteTable returned error: %v", err)
@@ -54,6 +55,7 @@ routeModes:
 		"notification": "notification:50065",
 		"ai-agent":     "ai-agent:50066",
 		"analytics":    "analytics:50067",
+		"billing":      "billing:50069",
 	})
 	if err != nil {
 		t.Fatalf("ResolveTargets returned error: %v", err)
@@ -76,6 +78,7 @@ func TestReadyTargetsCoversOnlyDirectTargetsByDefault(t *testing.T) {
 	table, err := NewRouteTable(map[string]string{
 		"identity":  "identity",
 		"analytics": "analytics",
+		"billing":   "billing",
 	})
 	if err != nil {
 		t.Fatalf("NewRouteTable returned error: %v", err)
@@ -88,6 +91,7 @@ func TestReadyTargetsCoversOnlyDirectTargetsByDefault(t *testing.T) {
 		"notification": "notification:50065",
 		"ai-agent":     "ai-agent:50066",
 		"analytics":    "analytics:50067",
+		"billing":      "billing:50069",
 	})
 	if err != nil {
 		t.Fatalf("ResolveTargets returned error: %v", err)

@@ -11,7 +11,7 @@ import type {
   AgentRunSkillCandidate,
   ConfirmAgentRunRequest,
   CreateAgentRunRequest,
-} from '@/types/agentRun'
+} from '@shared/types/agentRun'
 import type { AgentSkillSelectionCandidate, AgentSkillSelectionPayload, CandidateOption, ContextUsageInfo } from '@/types/ai'
 import type { HrAgentRunState } from '@/utils/hrAgentRunReducer'
 
@@ -33,6 +33,16 @@ export interface DurableChatUiBinder {
   onCandidateOptions?: (options: CandidateOption[]) => void
   onResultMetadata?: (meta: AgentRunResultMetadata | null) => void
   onRunError?: (errorType: string, errorMessage: string) => void
+}
+
+export const insufficientCreditsMessage = 'AI 套餐额度不足，请购买套餐或加量包后重试'
+
+export function friendlyDurableRunErrorMessage(errorType = '', errorMessage = ''): string {
+  const combined = `${errorType} ${errorMessage}`.toLowerCase()
+  if (combined.includes('insufficient_credits')) {
+    return insufficientCreditsMessage
+  }
+  return errorMessage || errorType || '运行失败'
 }
 
 export function createClientRequestId(): string {
@@ -248,7 +258,7 @@ export function bindRunStateToChatUi(
 }
 
 function mapSettlement(
-  settlement: 'terminal' | 'waiting_confirmation' | 'aborted',
+  settlement: 'terminal' | 'waiting_confirmation' | 'timed_out' | 'aborted',
   state: HrAgentRunState,
 ): DurableChatFlowResult {
   if (settlement === 'aborted') {
@@ -257,11 +267,18 @@ function mapSettlement(
   if (settlement === 'waiting_confirmation') {
     return { outcome: 'waiting_confirmation', state }
   }
+  if (settlement === 'timed_out') {
+    return {
+      outcome: 'failed',
+      state,
+      error: new Error('AI 服务响应超时，请稍后重试'),
+    }
+  }
   if (state.status === 'failed' && (state.errorMessage || state.errorType)) {
     return {
       outcome: 'failed',
       state,
-      error: new Error(state.errorMessage || state.errorType || '运行失败'),
+      error: new Error(friendlyDurableRunErrorMessage(state.errorType, state.errorMessage)),
     }
   }
   return { outcome: 'terminal', state }

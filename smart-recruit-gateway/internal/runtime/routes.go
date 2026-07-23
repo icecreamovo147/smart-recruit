@@ -17,6 +17,7 @@ var GatewayRouteServices = []string{
 	"notification",
 	"ai-agent",
 	"analytics",
+	"billing",
 }
 
 type TargetResolver interface {

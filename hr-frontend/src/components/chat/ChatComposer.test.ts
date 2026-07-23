@@ -126,4 +126,13 @@ describe('ChatComposer Context indicator', () => {
     expect(wrapper.get('.chat-composer__context-unknown').text()).toBe('计算中 / 128K')
     expect(wrapper.get('.chat-composer__context-indicator').attributes('aria-label')).toBe('Context 计算中 / 128K')
   })
+
+  it('disables message composition and sending when AI access is blocked', async () => {
+    const wrapper = mountComposer(null)
+    await wrapper.setProps({ input: '继续分析', disabled: true })
+
+    expect(wrapper.get('.chat-composer').classes()).toContain('chat-composer--disabled')
+    expect(wrapper.get('el-input-stub').attributes('disabled')).toBe('true')
+    expect(wrapper.get('.chat-composer__send-btn').attributes('disabled')).toBe('true')
+  })
 })

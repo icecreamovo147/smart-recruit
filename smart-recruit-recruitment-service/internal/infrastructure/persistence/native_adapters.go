@@ -18,12 +18,15 @@ import (
 	"gorm.io/gorm/clause"
 
 	"smart-recruit-commons/oss"
+	commonsquota "smart-recruit-commons/quota"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-platform-go/metadata"
 	"smart-recruit-proto/recruitment/pb"
 	"smart-recruit-recruitment-service/internal/application/service"
 	domainmodel "smart-recruit-recruitment-service/internal/domain/model"
 	domainpolicy "smart-recruit-recruitment-service/internal/domain/policy"
+	profilepkg "smart-recruit-recruitment-service/internal/domain/profile"
 )
 
 type NativeBundle struct {
@@ -94,6 +97,8 @@ type UsageStatsAPI interface {
 type CandidateAPI interface {
 	GetProfile(context.Context, *pb.GetProfileRequest) (*pb.GetProfileResponse, error)
 	UpdateProfile(context.Context, *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error)
+	FillProfileFromResume(context.Context, *pb.FillProfileFromResumeRequest) (*pb.FillProfileFromResumeResponse, error)
+	ApplyProfileFill(context.Context, *pb.ApplyProfileFillRequest) (*pb.GetProfileResponse, error)
 	GetResume(context.Context, *pb.GetResumeRequest) (*pb.GetResumeResponse, error)
 	PresignResumeUpload(context.Context, *pb.PresignResumeUploadRequest) (*pb.PresignResumeUploadResponse, error)
 	ConfirmResumeUpload(context.Context, *pb.ConfirmResumeUploadRequest) (*pb.ConfirmResumeUploadResponse, error)
@@ -118,7 +123,7 @@ func NewNativeBundle(options NativeOptions) (*NativeBundle, error) {
 	if now == nil {
 		now = time.Now
 	}
-	store := &nativeStore{db: options.DB, storage: options.OSS, redis: options.Redis, now: now}
+	store := &nativeStore{db: options.DB, storage: options.OSS, redis: options.Redis, now: now, quota: commonsquota.NewChecker(options.DB)}
 	application := &applicationAdapter{nativeStore: store}
 	return &NativeBundle{
 		Job:                      &jobAdapter{nativeStore: store},
@@ -138,6 +143,7 @@ type nativeStore struct {
 	storage oss.Storage
 	redis   *redis.Client
 	now     func() time.Time
+	quota   *commonsquota.Checker
 }
 
 type jobAdapter struct{ *nativeStore }
@@ -234,17 +240,25 @@ type jobLocationRecord struct {
 func (jobLocationRecord) TableName() string { return "job_locations" }
 
 type candidateProfileRecord struct {
-	ID             int64 `gorm:"primaryKey"`
-	UserID         int64
-	RealName       string
-	Phone          string
-	Education      string
-	School         string
-	WorkExperience string
-	Skills         string
-	IsComplete     int32
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID                 int64 `gorm:"primaryKey"`
+	UserID             int64
+	RealName           string
+	Phone              string
+	Education          string
+	School             string
+	WorkExperience     string
+	Skills             string
+	City               string
+	YearsOfExperience  float64
+	JobStatus          string
+	ExpectedPosition   string
+	ExpectedSalaryMin  int32
+	ExpectedSalaryMax  int32
+	AvailableFrom      *time.Time
+	Summary            string
+	IsComplete         int32
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 func (candidateProfileRecord) TableName() string { return "candidate_profiles" }
@@ -484,6 +498,12 @@ func (a *jobAdapter) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*
 	if req.HrId == 0 || strings.TrimSpace(req.Title) == "" {
 		return &pb.CreateJobResponse{Code: errs.ErrBadRequest, Msg: "岗位名称不能为空"}, nil
 	}
+	if _, err := a.quota.Check(ctx, metadata.GetAuthTenantID(ctx), "jobs.published.max", 1); err != nil {
+		if errors.Is(err, commonsquota.ErrLimitExceeded) {
+			return &pb.CreateJobResponse{Code: errs.ErrForbidden, Msg: "已达到当前套餐的在线岗位上限"}, nil
+		}
+		return nil, err
+	}
 	department, location := strings.TrimSpace(req.Department), strings.TrimSpace(req.Location)
 	if req.DepartmentId > 0 {
 		dep, _ := a.lookupDepartment(ctx, req.DepartmentId)
@@ -587,6 +607,25 @@ func (a *jobAdapter) setJobStatus(ctx context.Context, hrID, jobID int64, status
 	}
 	if !scope.allowed() {
 		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作该岗位"}, nil
+	}
+	if status == 1 && a.quota != nil {
+		var job jobRecord
+		query := applyRecruitmentScopeToJobsQuery(a.db.WithContext(ctx).Model(&jobRecord{}).Where("id = ?", jobID), scope)
+		if err := query.First(&job).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作该岗位"}, nil
+			}
+			return nil, err
+		}
+		if job.Status == 1 {
+			return &pb.CommonResponse{Code: errs.OK, Msg: msg}, nil
+		}
+		if _, err := a.quota.Check(ctx, job.TenantID, "jobs.published.max", 1); err != nil {
+			if errors.Is(err, commonsquota.ErrLimitExceeded) {
+				return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "已达到当前套餐的在线岗位上限"}, nil
+			}
+			return nil, err
+		}
 	}
 	query := a.db.WithContext(ctx).Model(&jobRecord{}).Where("id = ?", jobID)
 	query = applyRecruitmentScopeToJobMutationQuery(query, scope)
@@ -696,40 +735,91 @@ func (a *candidateAdapter) GetProfile(ctx context.Context, req *pb.GetProfileReq
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetProfileResponse{Code: errs.OK, Msg: "success", Profile: profileToPB(profile)}, nil
-}
-
-func (a *candidateAdapter) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error) {
-	profile := candidateProfileRecord{
-		UserID:         req.UserId,
-		RealName:       req.RealName,
-		Phone:          req.Phone,
-		Education:      req.Education,
-		School:         req.School,
-		WorkExperience: req.WorkExperience,
-		Skills:         req.Skills,
-		IsComplete:     completeFlag(req.RealName, req.Phone, req.Education, req.School, req.WorkExperience, req.Skills),
+	if err := a.backfillLegacyStructuredRows(ctx, req.UserId, profile); err != nil {
+		return nil, err
 	}
-	err := a.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var existing candidateProfileRecord
-		err := tx.Where("user_id = ?", req.UserId).First(&existing).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return tx.Create(&profile).Error
-		}
-		if err != nil {
-			return err
-		}
-		profile.ID = existing.ID
-		return tx.Model(&candidateProfileRecord{}).Where("id = ?", existing.ID).Updates(map[string]any{
-			"real_name": profile.RealName, "phone": profile.Phone, "education": profile.Education,
-			"school": profile.School, "work_experience": profile.WorkExperience, "skills": profile.Skills,
-			"is_complete": profile.IsComplete,
-		}).Error
-	})
+	bundle, err := a.loadProfileBundle(ctx, req.UserId)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetProfileResponse{Code: errs.OK, Msg: "保存成功", Profile: profileToPB(profile)}, nil
+	return &pb.GetProfileResponse{Code: errs.OK, Msg: "success", Profile: profileBundleToPB(bundle)}, nil
+}
+
+func (a *candidateAdapter) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error) {
+	bundle := bundleFromUpdateRequest(req)
+	if err := a.saveProfileBundle(ctx, bundle); err != nil {
+		return nil, err
+	}
+	saved, err := a.loadProfileBundle(ctx, req.UserId)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetProfileResponse{Code: errs.OK, Msg: "保存成功", Profile: profileBundleToPB(saved)}, nil
+}
+
+func (a *candidateAdapter) FillProfileFromResume(ctx context.Context, req *pb.FillProfileFromResumeRequest) (*pb.FillProfileFromResumeResponse, error) {
+	resumeID, needsRefresh, reason, err := a.evaluateFillRefresh(ctx, req.UserId, req.GetForceRefresh())
+	if err != nil {
+		return nil, err
+	}
+	switch reason {
+	case profilepkg.RefreshReasonNoResume:
+		return &pb.FillProfileFromResumeResponse{Code: errs.ErrBadRequest, Msg: "请先上传简历"}, nil
+	case profilepkg.RefreshReasonNoParsedText:
+		return &pb.FillProfileFromResumeResponse{
+			Code: errs.ErrBadRequest, Msg: "简历文本尚未提取完成，请稍后重试", ResumeId: resumeID, RefreshReason: reason,
+		}, nil
+	}
+	if needsRefresh {
+		msg := "简历尚未解析，请稍后重试"
+		switch reason {
+		case profilepkg.RefreshReasonHeuristic:
+			msg = "当前画像为启发式结果，需要重新解析"
+		case profilepkg.RefreshReasonInputChanged:
+			msg = "简历文本已更新，需要重新解析"
+		case profilepkg.RefreshReasonForced:
+			msg = "已请求重新解析简历"
+		}
+		return &pb.FillProfileFromResumeResponse{
+			Code: 40402, Msg: msg, NeedsRefresh: true, RefreshReason: reason, ResumeId: resumeID,
+		}, nil
+	}
+	draft, err := a.buildFillDraftFromResumeProfile(ctx, req.UserId, req.GetOverwriteExisting())
+	if errors.Is(err, errNoResume) {
+		return &pb.FillProfileFromResumeResponse{Code: errs.ErrBadRequest, Msg: "请先上传简历"}, nil
+	}
+	if errors.Is(err, errNoParsedText) {
+		return &pb.FillProfileFromResumeResponse{
+			Code: errs.ErrBadRequest, Msg: "简历文本尚未提取完成，请稍后重试", ResumeId: resumeID, RefreshReason: profilepkg.RefreshReasonNoParsedText,
+		}, nil
+	}
+	if errors.Is(err, errNoResumeProfile) {
+		return &pb.FillProfileFromResumeResponse{
+			Code: 40402, Msg: "简历尚未解析，请稍后重试", NeedsRefresh: true, RefreshReason: profilepkg.RefreshReasonMissing, ResumeId: resumeID,
+		}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	draft.RefreshReason = profilepkg.RefreshReasonReused
+	draft.Refreshed = false
+	return &pb.FillProfileFromResumeResponse{Code: errs.OK, Msg: "success", Draft: draft, RefreshReason: profilepkg.RefreshReasonReused, ResumeId: resumeID}, nil
+}
+
+func (a *candidateAdapter) ApplyProfileFill(ctx context.Context, req *pb.ApplyProfileFillRequest) (*pb.GetProfileResponse, error) {
+	existing, err := a.loadProfileBundle(ctx, req.UserId)
+	if err != nil {
+		return nil, err
+	}
+	merged := mergeProfileFill(existing, req.GetDraft().GetDraft(), req.GetOverwriteExisting())
+	if err := a.saveProfileBundle(ctx, merged); err != nil {
+		return nil, err
+	}
+	saved, err := a.loadProfileBundle(ctx, req.UserId)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetProfileResponse{Code: errs.OK, Msg: "保存成功", Profile: profileBundleToPB(saved)}, nil
 }
 
 func (a *candidateAdapter) GetResume(ctx context.Context, req *pb.GetResumeRequest) (*pb.GetResumeResponse, error) {
@@ -821,7 +911,7 @@ func (a *candidateAdapter) ConfirmResumeUpload(ctx context.Context, req *pb.Conf
 		return nil, err
 	}
 	_ = a.writeUsageLog(ctx, usageLogRecord{UserID: req.UserId, Role: 1, ServiceType: "oss_confirm", Endpoint: "/candidate/resume/confirm", Provider: a.storage.ProviderName(), ObjectKey: req.OssKey, ObjectSize: req.FileSize, Status: "ok"})
-	return &pb.ConfirmResumeUploadResponse{Code: errs.OK, Msg: "success", ResumeId: resume.ID}, nil
+	return &pb.ConfirmResumeUploadResponse{Code: errs.OK, Msg: "success", ResumeId: resume.ID, FillSuggested: true}, nil
 }
 
 func validateCandidateActor(ctx context.Context, userID int64) (int32, string, bool) {
@@ -861,6 +951,24 @@ func (a *applicationAdapter) ApplyJob(ctx context.Context, req *pb.ApplyJobReque
 	var job jobRecord
 	if err := a.db.WithContext(ctx).Where("id = ? AND status = ?", req.JobId, 1).First(&job).Error; err != nil {
 		return &pb.CommonResponse{Code: errs.ErrJobNotAvailable, Msg: "该岗位已下架或不存在，无法投递"}, nil
+	}
+	if _, err := a.quota.Check(ctx, job.TenantID, "applications.monthly.max", 1); err != nil {
+		if errors.Is(err, commonsquota.ErrLimitExceeded) {
+			return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该企业已达到当前套餐的月投递上限"}, nil
+		}
+		return nil, err
+	}
+	var resumeAlreadyCounted int64
+	if err := a.db.WithContext(ctx).Table("applications").Where("tenant_id = ? AND resume_id = ?", job.TenantID, resume.ID).Count(&resumeAlreadyCounted).Error; err != nil {
+		return nil, err
+	}
+	if resumeAlreadyCounted == 0 {
+		if _, err := a.quota.Check(ctx, job.TenantID, "resumes.storage.max", 1); err != nil {
+			if errors.Is(err, commonsquota.ErrLimitExceeded) {
+				return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该企业已达到当前套餐的简历存储上限"}, nil
+			}
+			return nil, err
+		}
 	}
 	now := a.now()
 	app := &applicationRecord{TenantID: job.TenantID, UserID: req.UserId, JobID: req.JobId, ResumeID: resume.ID, Status: 0, StatusKey: domainmodel.StatusKeyApplied, RoundNo: 1, IsCurrent: 1, AppliedAt: now, UpdatedAt: now}
@@ -1563,13 +1671,17 @@ func (a *usageStatsAdapter) GetUsageStats(ctx context.Context, req *pb.GetUsageS
 		return nil, err
 	}
 	summary := &pb.UsageStatsSummary{
-		TotalTokens:   summaryRow.TotalTokens,
-		CallCount:     summaryRow.CallCount,
-		SuccessCount:  summaryRow.SuccessCount,
-		FailedCount:   summaryRow.FailedCount,
-		AvgCostMs:     summaryRow.AvgCostMs,
-		EstimatedCost: estimateCost(summaryRow.TotalTokens),
+		TotalTokens:  summaryRow.TotalTokens,
+		CallCount:    summaryRow.CallCount,
+		SuccessCount: summaryRow.SuccessCount,
+		FailedCount:  summaryRow.FailedCount,
+		AvgCostMs:    summaryRow.AvgCostMs,
 	}
+	var totalSupplierCostMicros int64
+	if err := a.billingUsageQuery(ctx, req.GetStartTime(), req.GetEndTime()).Select("COALESCE(SUM(supplier_cost_micros), 0)").Scan(&totalSupplierCostMicros).Error; err != nil {
+		return nil, err
+	}
+	summary.EstimatedCost = supplierMicrosToCurrency(totalSupplierCostMicros)
 	if summaryRow.CallCount > 0 {
 		summary.SuccessRate = float64(summaryRow.SuccessCount) * 100 / float64(summaryRow.CallCount)
 	}
@@ -1597,6 +1709,10 @@ func (a *usageStatsAdapter) GetUsageStats(ctx context.Context, req *pb.GetUsageS
 		return nil, err
 	}
 	list := make([]*pb.UsageStatsItem, 0, len(rows))
+	costByDimension, err := a.billingCostByDimension(ctx, req.GetStartTime(), req.GetEndTime(), req.GetDimension())
+	if err != nil {
+		return nil, err
+	}
 	for _, row := range rows {
 		name := strings.TrimSpace(row.DimKey)
 		if name == "" {
@@ -1607,7 +1723,7 @@ func (a *usageStatsAdapter) GetUsageStats(ctx context.Context, req *pb.GetUsageS
 			TotalTokens:   row.TotalTokens,
 			CallCount:     row.CallCount,
 			AvgCostMs:     row.AvgCostMs,
-			EstimatedCost: estimateCost(row.TotalTokens),
+			EstimatedCost: supplierMicrosToCurrency(costByDimension[row.DimKey]),
 			SuccessCount:  row.SuccessCount,
 			FailedCount:   row.FailedCount,
 		})
@@ -1637,8 +1753,12 @@ func (a *usageStatsAdapter) GetUsageTrend(ctx context.Context, req *pb.GetUsageT
 		return nil, err
 	}
 	list := make([]*pb.UsageTrendPoint, 0, len(rows))
+	costByDate, err := a.billingCostTrend(ctx, req.StartTime, req.EndTime, req.Granularity)
+	if err != nil {
+		return nil, err
+	}
 	for _, row := range rows {
-		list = append(list, &pb.UsageTrendPoint{Date: row.Date, TotalTokens: row.TotalTokens, CallCount: row.CallCount, AvgCostMs: row.AvgCostMs, EstimatedCost: estimateCost(row.TotalTokens)})
+		list = append(list, &pb.UsageTrendPoint{Date: row.Date, TotalTokens: row.TotalTokens, CallCount: row.CallCount, AvgCostMs: row.AvgCostMs, EstimatedCost: supplierMicrosToCurrency(costByDate[row.Date])})
 	}
 	return &pb.GetUsageTrendResponse{Code: errs.OK, Msg: "success", List: list}, nil
 }
@@ -1669,6 +1789,23 @@ func (a *collaborationAdapter) GetCandidateWorkspace(ctx context.Context, req *p
 		workspace.School = profile.School
 		workspace.WorkExperience = profile.WorkExperience
 		workspace.Skills = splitSkills(profile.Skills)
+		workspace.City = profile.City
+		workspace.YearsOfExperience = profile.YearsOfExperience
+		workspace.JobStatus = profile.JobStatus
+		workspace.ExpectedPosition = profile.ExpectedPosition
+		workspace.ExpectedSalaryMin = profile.ExpectedSalaryMin
+		workspace.ExpectedSalaryMax = profile.ExpectedSalaryMax
+		workspace.AvailableFrom = formatOptionalDate(profile.AvailableFrom)
+		workspace.Summary = profile.Summary
+		if err := a.backfillLegacyStructuredRows(ctx, req.CandidateUserId, profile); err != nil {
+			return nil, err
+		}
+		bundle, err := a.loadProfileBundle(ctx, req.CandidateUserId)
+		if err != nil {
+			return nil, err
+		}
+		workspace.Educations = educationsPBFromInputs(bundle.Educations)
+		workspace.Experiences = experiencesPBFromInputs(bundle.Experiences)
 	}
 	var rows []applicationDetailRow
 	if err := a.applicationDetails().WithContext(ctx).Where("a.user_id = ?", req.CandidateUserId).Order("a.applied_at DESC, a.id DESC").Scan(&rows).Error; err != nil {
@@ -2555,7 +2692,7 @@ func followUpToPB(row followUpTaskRecord) *pb.FollowUpTaskInfo {
 }
 
 func profileToPB(row candidateProfileRecord) *pb.CandidateProfile {
-	return &pb.CandidateProfile{RealName: row.RealName, Phone: row.Phone, Education: row.Education, School: row.School, WorkExperience: row.WorkExperience, Skills: splitSkills(row.Skills), IsComplete: row.IsComplete == 1}
+	return profileBundleToPB(profilepkg.Bundle{Profile: modelCandidateProfileFromRecord(row)})
 }
 
 func rowsCommon(result *gorm.DB, okMsg, missingMsg string) (*pb.CommonResponse, error) {
@@ -2650,7 +2787,7 @@ func formatTime(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
-	return t.Format(time.RFC3339)
+	return businessclock.FormatRFC3339(t)
 }
 
 func formatOptionalTime(t *time.Time) string {
@@ -2665,14 +2802,11 @@ func parseOptionalTime(value string) (*time.Time, error) {
 	if value == "" {
 		return nil, nil
 	}
-	// Accept browser ISO strings with fractional seconds (toISOString) and local forms.
-	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05", "2006-01-02"} {
-		if parsed, err := time.Parse(layout, value); err == nil {
-			return &parsed, nil
-		}
-		if parsed, err := time.ParseInLocation(layout, value, time.Local); err == nil {
-			return &parsed, nil
-		}
+	if parsed, err := businessclock.Parse(value); err == nil {
+		return &parsed, nil
+	}
+	if parsed, err := time.ParseInLocation("2006-01-02", value, businessclock.Location); err == nil {
+		return &parsed, nil
 	}
 	return nil, fmt.Errorf("invalid time: %s", value)
 }
@@ -2717,8 +2851,67 @@ func usageDimension(value string) string {
 	}
 }
 
-func estimateCost(tokens int64) float64 {
-	return float64(tokens) * 0.000002
+func supplierMicrosToCurrency(value int64) float64 { return float64(value) / 1_000_000 }
+
+func (a *nativeStore) billingUsageQuery(ctx context.Context, start, end string) *gorm.DB {
+	query := a.db.WithContext(ctx).Table("ai_usage_events")
+	if tenantID := metadata.GetAuthTenantID(ctx); tenantID > 0 {
+		query = query.Where("owner_type = ? AND owner_id = ?", "tenant", tenantID)
+	}
+	if t, err := parseOptionalTime(start); err == nil && t != nil {
+		query = query.Where("occurred_at >= ?", *t)
+	}
+	if t, err := parseOptionalTime(end); err == nil && t != nil {
+		query = query.Where("occurred_at <= ?", *t)
+	}
+	return query
+}
+
+func (a *nativeStore) billingCostByDimension(ctx context.Context, start, end, dimension string) (map[string]int64, error) {
+	column := "CAST(user_id AS CHAR)"
+	switch strings.TrimSpace(dimension) {
+	case "model":
+		column = "model_key"
+	case "provider":
+		column = "provider_key"
+	case "service_type":
+		column = "operation"
+	case "session":
+		column = "provider_request_id"
+	}
+	var rows []struct {
+		Key  string `gorm:"column:dim_key"`
+		Cost int64  `gorm:"column:cost_micros"`
+	}
+	if err := a.billingUsageQuery(ctx, start, end).Select(fmt.Sprintf("%s dim_key, COALESCE(SUM(supplier_cost_micros), 0) cost_micros", column)).Group(column).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		result[row.Key] = row.Cost
+	}
+	return result, nil
+}
+
+func (a *nativeStore) billingCostTrend(ctx context.Context, start, end, granularity string) (map[string]int64, error) {
+	expression := "DATE(occurred_at)"
+	if granularity == "month" {
+		expression = "DATE_FORMAT(occurred_at, '%Y-%m')"
+	} else if granularity == "week" {
+		expression = "YEARWEEK(occurred_at, 3)"
+	}
+	var rows []struct {
+		Date string `gorm:"column:date"`
+		Cost int64  `gorm:"column:cost_micros"`
+	}
+	if err := a.billingUsageQuery(ctx, start, end).Select(fmt.Sprintf("%s date, COALESCE(SUM(supplier_cost_micros), 0) cost_micros", expression)).Group("date").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		result[row.Date] = row.Cost
+	}
+	return result, nil
 }
 
 func completeFlag(values ...string) int32 {

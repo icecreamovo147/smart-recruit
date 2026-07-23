@@ -11,43 +11,73 @@ tags:
   - context
   - agent
 applies_to:
-  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
+  - smart-recruit-ai-agent-service/internal/application/memory/service.go
+  - smart-recruit-ai-agent-service/internal/application/contextbudget/controller.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_memory_runtime.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/hr_context_budget.go
-  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_memory.go
+  - smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go
   - smart-recruit-proto/proto/recruitment.proto
-  - smart-recruit-gateway/handler/hr/ai.go
-  - hr-frontend/src/components/chat/ChatComposer.vue
-  - hr-frontend/src/utils/contextUsage.ts
+  - smart-recruit-gateway/handler/hr/memory.go
+  - smart-recruit-gateway/handler/candidate/memory.go
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000083_ai_memories_owner_lifecycle.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000088_harden_memory_billing_integrity.sql
 source_refs:
-  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
+  - smart-recruit-ai-agent-service/internal/application/memory/service.go
+  - smart-recruit-ai-agent-service/internal/application/memory/config.go
+  - smart-recruit-ai-agent-service/internal/domain/memory/ranking.go
+  - smart-recruit-ai-agent-service/internal/domain/memory/pii.go
+  - smart-recruit-ai-agent-service/internal/application/contextbudget/controller.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_memory_runtime.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/hr_context_budget.go
-  - smart-recruit-ai-agent-service/internal/interfaces/grpc/hr_context_budget_test.go
-  - smart-recruit-ai-agent-service/internal/interfaces/grpc/context_usage_test.go
-  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
-  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_session_summary.go
-  - smart-recruit-commons/migrations/000038_persist_chat_context_usage.sql
-  - smart-recruit-commons/migrations/000057_add_ai_chat_session_selected_model.sql
-  - smart-recruit-commons/migrations/000045_add_ai_memory_importance.sql
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_memory.go
+  - smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go
   - smart-recruit-proto/proto/recruitment.proto
-  - smart-recruit-gateway/handler/hr/ai.go
-  - hr-frontend/src/components/chat/ChatComposer.vue
-  - hr-frontend/src/utils/contextUsage.ts
-last_verified: 2026-07-18
+  - smart-recruit-gateway/handler/hr/memory.go
+  - smart-recruit-gateway/handler/candidate/memory.go
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000083_ai_memories_owner_lifecycle.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000088_harden_memory_billing_integrity.sql
+  - smart-recruit-commons/config/config.example.yaml
+last_verified: 2026-07-23
 review_after: 2026-10-14
 ---
 
 # Memory and Agent Context Domain
 
-Agent context assembly combines recent messages, summaries, memories, selected skills, tool traces, and business records under configured limits. Keep candidate/staff data boundaries, prompt size limits, memory importance, context usage persistence, and fallback behavior intact.
+Agent context assembly combines recent messages, rolling summaries, long-term memories, Prompt/Agent/Skill governance, Tool schemas, and business records under a shared short-term context (STM) budget. HR and candidate chat both share the same `contextbudget` controller; memories are injected as a dedicated system section (`[Long-term memories]`) and metered separately in `ContextUsageInfo.memory_tokens`.
 
-HR chat reports the current effective conversation footprint, not cumulative session billing. After each assistant reply, the runtime reuses the next-call context assembler to estimate the retained user/assistant messages, summaries, Prompt/Agent/Skill instructions, applicable Tool context, and protocol framing under the active model. Provider-reported usage remains available for the completed model call and billing audit, but the persisted assistant/session snapshot uses `stage=post_turn` so the latest reply and deterministic responses are represented in the visible conversation footprint. The conservative estimator counts non-ASCII runes by rune. Context snapshots are persisted on assistant messages and as the session's latest snapshot; cumulative billing usage remains audit data.
+## Long-term memory (LTM)
 
-HR sessions persist the model requested for the next turn independently from the model recorded on each completed message. Changing that selection invokes a model-relative, side-effect-free context compilation: it reads persisted history and any existing rolling summary, reloads current Prompt/Agent/Skill governance, applies the selected model's window and output reservation, and includes the Agent's authorized Tool schemas without calling a provider, executing Tools, or generating a new summary. The resulting `stage=model_preview` snapshot and requested selection are then persisted on the session. While this preview is pending, the composer shows `calculating / selected model window`; it never treats a configuration-only zero-token event as real conversation usage. Normal generation and `stage=post_turn` continue to use the same context budget controller.
+**Owner model** (`000083` + `000088`): each row has `owner_role` (1=candidate, 2=HR) and `owner_id`. HR ownership is the composite key `(tenant_id, owner_role, owner_id)` and requires a non-null tenant; candidate ownership is global to the user and requires `tenant_id IS NULL`. Scopes are role-specific — HR uses `hr`, `application`, `job`, `candidate`; candidates use `user`, `application`, `job`. CRUD, deduplication, lexical recall, semantic recall, embedding metadata, and asynchronous extraction all preserve this same owner key.
 
-For a configured model, context governance uses `W` (context window), `O` (maximum output reservation), `S` (safety margin), and `B` (available input budget): `S = clamp(5% of W, 256, 2048)` and `B = W - O - S`. The normal target is 75% of `B`. Assembly preserves fixed system/current-call content, prefers the newest history that fits, restores chronological order, and can apply a rolling summary for covered older messages. At 60% of `B` it requests summary refresh asynchronously; an already over-budget envelope attempts synchronous refresh and then trims history. Summary failure degrades to safe trimming. If fixed content alone exceeds `B`, or `W/O/S` is invalid, the provider is not called and transports expose `AI_CONTEXT_BUDGET_EXCEEDED` or `AI_CONTEXT_CONFIGURATION_INVALID`.
+**Write path**: `memory.Service.Write` validates scope, classifies PII, rejects high-PII content unless `ConfirmHighPII`, deduplicates by normalized `content_hash`, and optionally upserts `ai_memory` embeddings. Post-turn extraction (`WriteFromExtractor`) runs asynchronously for HR and candidate chats when `write_enabled` is true.
 
-When the model context window is unknown, the runtime does not invent a window or ratio. It applies an existing summary when present and retains at most the most recent 20 history messages plus the current fixed envelope. The HR composer displays `current conversation footprint / total context window`; its detail popover separately retains the safe input budget `B`, `W`, `O`, `S`, window and safety-budget ratios, source/stage, breakdown, included/omitted counts, and summary state. Unknown configuration displays an unavailable denominator and explains the summary-plus-recent-message fallback.
+**Recall path**: loads active, non-expired memories for owner+scopes, ranks with hybrid/lexical scoring (`RankingConfig` from service config), filters high-PII from injectables, truncates by `max_memories` / `max_memory_chars`, and formats inject text. Semantic vector scores are merged when embedding runtime is available; otherwise relevance mode falls back to lexical+metadata (`fallback`).
+
+**Inject path**: HR injects via prompt variable `memory_section` and context-budget memory block; candidate injects via system prompt append. High-PII memories are never injected even if stored with explicit confirmation.
+
+**Lifecycle**: statuses `active` → `archived` (TTL expiry) or `revoked` (soft delete). Background cleanup loop in `main.go` archives expired rows and purges revoked rows older than `revoked_retention`, invalidating embeddings.
+
+## Feature flags (`agent.memory`)
+
+| Flag | Default | Effect |
+|------|---------|--------|
+| `enabled` | true | Master switch for recall/inject/cleanup |
+| `write_enabled` | true | Persist writes; false = dry-run |
+| `inject_enabled` | true | Include recalled text in prompts |
+
+Related limits: `max_memories` (10), `max_memory_chars` (1500). Cleanup: `cleanup_interval` 15m, `cleanup_timeout` 5m, `revoked_retention` 720h.
+
+## PII policy
+
+High PII (phone, email, ID card, salary, bank card patterns) is rejected on create unless confirmed. Stored high-PII rows are excluded from inject via `FilterInjectables`. Classification runs at write time and is persisted in `pii_level`.
+
+## STM context budget (shared with memories)
+
+For a configured model, `W` = context window, `O` = max output reservation, `S` = safety margin (`clamp(5% of W, 256, 2048)`), `B` = `W - O - S`. Assembly preserves fixed system/current-call content, prefers newest history, optionally applies rolling summary, and injects memory section when it fits. **Under tight budget, the memory section is dropped before history trimming** so fixed content never exceeds `B`. Unknown window falls back to summary + recent 20 messages.
+
+HR chat persists `stage=post_turn` context snapshots including `memory_applied` and `memory_tokens` breakdown. Model-switch preview uses `stage=model_preview` without provider calls.
 
 ## Verification
 
-Verified against the context budget controller, model-switch preview and session persistence paths, persisted snapshots and summaries, additive protobuf/gateway mappings, HR composer utilities, full module tests, focused race tests, and repeated context tests on 2026-07-18.
+Verified against memory domain/service/persistence tests, tenant-aware semantic retrieval, gateway Memory RPC handlers, migration `000083`, generated Proto Memory RPCs, and main wiring (`memoryService` + `runMemoryCleanupLoop`) on 2026-07-23.

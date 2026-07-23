@@ -56,6 +56,8 @@ type UsageStatsAPI interface {
 type CandidateAPI interface {
 	GetProfile(context.Context, *pb.GetProfileRequest) (*pb.GetProfileResponse, error)
 	UpdateProfile(context.Context, *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error)
+	FillProfileFromResume(context.Context, *pb.FillProfileFromResumeRequest) (*pb.FillProfileFromResumeResponse, error)
+	ApplyProfileFill(context.Context, *pb.ApplyProfileFillRequest) (*pb.GetProfileResponse, error)
 	GetResume(context.Context, *pb.GetResumeRequest) (*pb.GetResumeResponse, error)
 	PresignResumeUpload(context.Context, *pb.PresignResumeUploadRequest) (*pb.PresignResumeUploadResponse, error)
 	ConfirmResumeUpload(context.Context, *pb.ConfirmResumeUploadRequest) (*pb.ConfirmResumeUploadResponse, error)
@@ -226,6 +228,12 @@ func (a *CandidateAdapter) GetProfile(ctx context.Context, req *pb.GetProfileReq
 }
 func (a *CandidateAdapter) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error) {
 	return a.delegate.UpdateProfile(ctx, req)
+}
+func (a *CandidateAdapter) FillProfileFromResume(ctx context.Context, req *pb.FillProfileFromResumeRequest) (*pb.FillProfileFromResumeResponse, error) {
+	return a.delegate.FillProfileFromResume(ctx, req)
+}
+func (a *CandidateAdapter) ApplyProfileFill(ctx context.Context, req *pb.ApplyProfileFillRequest) (*pb.GetProfileResponse, error) {
+	return a.delegate.ApplyProfileFill(ctx, req)
 }
 func (a *CandidateAdapter) GetResume(ctx context.Context, req *pb.GetResumeRequest) (*pb.GetResumeResponse, error) {
 	return a.delegate.GetResume(ctx, req)

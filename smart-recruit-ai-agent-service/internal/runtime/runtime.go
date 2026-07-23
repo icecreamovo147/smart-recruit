@@ -16,10 +16,10 @@ type Deps struct {
 	Prompt                 pb.PromptServiceServer
 	AgentConfig            pb.AgentConfigServiceServer
 	MCP                    pb.MCPServiceServer
-	Skill                  pb.SkillServiceServer
 	AgentSkill             pb.AgentSkillServiceServer
 	RecruitingIntelligence pb.RecruitingIntelligenceServiceServer
 	EmbeddingConfig        pb.EmbeddingConfigServiceServer
+	PlatformAIControlPlane pb.PlatformAIControlPlaneServiceServer
 	LongTasks              LongTaskControls
 }
 
@@ -29,10 +29,10 @@ type Runtime struct {
 	Prompt                 pb.PromptServiceServer
 	AgentConfig            pb.AgentConfigServiceServer
 	MCP                    pb.MCPServiceServer
-	Skill                  pb.SkillServiceServer
 	AgentSkill             pb.AgentSkillServiceServer
 	RecruitingIntelligence pb.RecruitingIntelligenceServiceServer
 	EmbeddingConfig        pb.EmbeddingConfigServiceServer
+	PlatformAIControlPlane pb.PlatformAIControlPlaneServiceServer
 	LongTasks              LongTaskControls
 }
 
@@ -59,9 +59,6 @@ func New(deps Deps) (*Runtime, error) {
 	if deps.MCP == nil {
 		return nil, fmt.Errorf("mcp service is required")
 	}
-	if deps.Skill == nil {
-		return nil, fmt.Errorf("skill service is required")
-	}
 	if deps.AgentSkill == nil {
 		return nil, fmt.Errorf("agent skill service is required")
 	}
@@ -70,6 +67,9 @@ func New(deps Deps) (*Runtime, error) {
 	}
 	if deps.EmbeddingConfig == nil {
 		return nil, fmt.Errorf("embedding config service is required")
+	}
+	if deps.PlatformAIControlPlane == nil {
+		return nil, fmt.Errorf("platform AI control plane service is required")
 	}
 	longTasks := deps.LongTasks
 	if !longTasks.Configured() {
@@ -85,10 +85,10 @@ func New(deps Deps) (*Runtime, error) {
 		Prompt:                 deps.Prompt,
 		AgentConfig:            deps.AgentConfig,
 		MCP:                    deps.MCP,
-		Skill:                  deps.Skill,
 		AgentSkill:             deps.AgentSkill,
 		RecruitingIntelligence: deps.RecruitingIntelligence,
 		EmbeddingConfig:        deps.EmbeddingConfig,
+		PlatformAIControlPlane: deps.PlatformAIControlPlane,
 		LongTasks:              longTasks,
 	}, nil
 }
@@ -122,9 +122,9 @@ func (r *Runtime) RegisterGRPC(registrar grpc.ServiceRegistrar) error {
 	pb.RegisterPromptServiceServer(registrar, r.Prompt)
 	pb.RegisterAgentConfigServiceServer(registrar, r.AgentConfig)
 	pb.RegisterMCPServiceServer(registrar, r.MCP)
-	pb.RegisterSkillServiceServer(registrar, r.Skill)
 	pb.RegisterAgentSkillServiceServer(registrar, r.AgentSkill)
 	pb.RegisterRecruitingIntelligenceServiceServer(registrar, r.RecruitingIntelligence)
 	pb.RegisterEmbeddingConfigServiceServer(registrar, r.EmbeddingConfig)
+	pb.RegisterPlatformAIControlPlaneServiceServer(registrar, r.PlatformAIControlPlane)
 	return nil
 }

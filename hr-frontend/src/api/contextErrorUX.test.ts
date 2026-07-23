@@ -24,4 +24,11 @@ describe('Context guard error UX', () => {
     expect(nonStream).toContain(expected)
     expect(nonStream).not.toContain('private prompt')
   })
+
+  it('uses purchase guidance for exhausted AI credits on every HR transport', () => {
+    const expected = 'AI 套餐额度不足，请购买套餐或加量包后重试'
+    expect(friendlyStreamMsg(40201, '')).toBe(expected)
+    expect(friendlyAgentRunStreamMsg(40201, '')).toBe(expected)
+    expect(friendlyBusinessMessage(40201, '')).toBe(expected)
+  })
 })

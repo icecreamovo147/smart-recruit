@@ -23,14 +23,18 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
+	appmemory "smart-recruit-ai-agent-service/internal/application/memory"
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
 	aiagentpersistence "smart-recruit-ai-agent-service/internal/infrastructure/persistence"
+	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
 	"smart-recruit-commons/mq"
 	"smart-recruit-commons/pkg/crypto"
+	"smart-recruit-platform-go/businessclock"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"
+	"smart-recruit-platform-go/mysqltime"
 	"smart-recruit-platform-go/nacos"
 	logicobservability "smart-recruit-platform-go/observability"
 	platformobs "smart-recruit-platform-go/observability"
@@ -42,7 +46,13 @@ import (
 
 const nacosServiceName = "ai-agent"
 
+var (
+	aiAgentTenantOwnedTables = []string{"candidate_match_evaluations", "candidate_match_evidence", "jobs", "applications", "application_status_transitions", "interview_schedules", "interview_feedback", "offers", "offer_events"}
+	aiAgentMixedScopeTables  = []string{"ai_chat_sessions", "ai_chat_history", "ai_session_summaries", "ai_tool_traces", "agent_runs", "agent_run_events", "agent_run_steps", "ai_memories", "ai_embeddings", "third_party_usage_logs", "ai_usage_auth_contexts", "mcp_tool_logs"}
+)
+
 func main() {
+	businessclock.Configure()
 	check := flag.Bool("check", false, "validate AI Agent service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start AI Agent gRPC runtime")
 	addr := flag.String("addr", envOrDefault("GRPC_ADDR", ":50066"), "AI Agent gRPC listen address")
@@ -74,10 +84,10 @@ func checkRuntime() error {
 		Prompt:                 noopPromptService{},
 		AgentConfig:            noopAgentConfigService{},
 		MCP:                    noopMCPService{},
-		Skill:                  noopSkillService{},
 		AgentSkill:             noopAgentSkillService{},
 		RecruitingIntelligence: noopRecruitingIntelligenceService{},
 		EmbeddingConfig:        noopEmbeddingConfigService{},
+		PlatformAIControlPlane: noopPlatformAIControlPlaneService{},
 	})
 	if err != nil {
 		return err
@@ -118,17 +128,18 @@ func serveAIAgent(addr string) error {
 	log := logger.L()
 	logicobservability.DefaultMetrics = logicobservability.NewRegistry(aiagentruntime.ServiceName)
 
-	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{
+	dsn, err := mysqltime.NormalizeDSN(cfg.MySQL.DSN)
+	if err != nil {
+		return err
+	}
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		TranslateError: true,
 		Logger:         logger.NewGormLogger(&cfg.Logging.Gorm),
 	})
 	if err != nil {
 		return fmt.Errorf("connect mysql: %w", err)
 	}
-	if err := db.Use(tenantgorm.NewWithMixed(
-		[]string{"candidate_match_evaluations", "candidate_match_evidence", "jobs", "applications", "application_status_transitions", "interview_schedules", "interview_feedback", "offers", "offer_events"},
-		[]string{"ai_chat_sessions", "ai_chat_history", "ai_session_summaries", "ai_tool_traces", "agent_runs", "agent_run_events", "agent_run_steps", "ai_memories", "ai_embeddings", "third_party_usage_logs", "ai_usage_auth_contexts", "llm_providers", "llm_models", "embedding_providers", "embedding_models", "prompt_templates", "prompt_versions", "agent_configs", "agent_tool_bindings", "mcp_servers", "mcp_tool_logs", "mcp_tool_policies", "agent_capability_bindings", "ai_skills", "ai_skill_versions", "ai_skill_tools", "agent_skills", "agent_skill_versions"},
-	)); err != nil {
+	if err := db.Use(tenantgorm.NewWithMixed(aiAgentTenantOwnedTables, aiAgentMixedScopeTables)); err != nil {
 		return err
 	}
 	sqlDB, err := db.DB()
@@ -140,6 +151,9 @@ func serveAIAgent(addr string) error {
 	sqlDB.SetMaxIdleConns(cfg.MySQL.MaxIdleConns)
 	sqlDB.SetConnMaxLifetime(cfg.MySQL.ConnMaxLifetime.Duration)
 	sqlDB.SetConnMaxIdleTime(cfg.MySQL.ConnMaxIdleTime.Duration)
+	if err := mysqltime.ValidateSession(context.Background(), sqlDB); err != nil {
+		return err
+	}
 
 	var redisClient *redis.Client
 	if cfg.Redis.Addr != "" {
@@ -161,6 +175,11 @@ func serveAIAgent(addr string) error {
 		return fmt.Errorf("dial recruitment grpc: %w", err)
 	}
 	defer recruitmentConn.Close()
+	billingConn, err := dialInternalGRPC(envOrDefault("BILLING_GRPC_ADDR", "127.0.0.1:50069"))
+	if err != nil {
+		return fmt.Errorf("dial billing grpc: %w", err)
+	}
+	defer billingConn.Close()
 
 	metricsServer, err := server.StartMetricsServer(cfg.Observability.MetricsAddr)
 	if err != nil {
@@ -169,6 +188,10 @@ func serveAIAgent(addr string) error {
 	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
 
 	nativeStore := aiagentpersistence.NewNativeStore(db)
+	memoryRepo := aiagentpersistence.NewMemoryRepositoryAdapter(nativeStore)
+	embeddingService := embeddinginfra.NewEmbeddingService(nativeStore, nil)
+	memoryCfg := appmemory.ConfigFromService(cfg)
+	memoryService := appmemory.NewService(memoryRepo, appmemory.NewExtractor(nil), embeddingService, memoryCfg)
 	catalogSyncCtx, cancelCatalogSync := context.WithTimeout(context.Background(), 15*time.Second)
 	if err := nativeStore.SyncBundledLlmModelCatalog(catalogSyncCtx); err != nil {
 		cancelCatalogSync()
@@ -197,14 +220,21 @@ func serveAIAgent(addr string) error {
 		RetryBaseDelay:          cfg.AI.RetryBaseDelay.Duration,
 		SlowResponseThreshold:   cfg.AI.SlowResponseThreshold.Duration,
 	})
+	billingClient := pb.NewBillingServiceClient(billingConn)
 	runtime, err := aiagentruntime.New(aiagentgrpc.NewNativeRuntimeDeps(aiagentgrpc.RuntimeDeps{
 		Store:            nativeStore,
 		Provider:         nativeStore,
+		MemoryService:    memoryService,
+		EmbeddingService: embeddingService,
+		PlatformAI:       aiagentpersistence.NewPlatformAIControlPlaneServer(nativeStore),
 		RecruitingPolicy: recruitingRuntimePolicy(cfg),
 		EmbeddingWorker:  true,
 		AgentRunWorker:   true,
 		RuntimeName:      cfg.AI.AgentRuntime,
 		Auth:             pb.NewAuthServiceClient(identityConn),
+		Billing:          billingClient,
+		BillingRequired:  strings.EqualFold(envOrDefault("AI_BILLING_MODE", "shadow"), "enforce"),
+		AgentRunTimeout:  cfg.AI.TotalTimeout.Duration,
 		Applications:     pb.NewApplicationOwnerServiceClient(recruitmentConn),
 		AppList:          pb.NewApplicationServiceClient(recruitmentConn),
 		Jobs:             pb.NewJobServiceClient(recruitmentConn),
@@ -248,6 +278,10 @@ func serveAIAgent(addr string) error {
 		return err
 	}
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, redisClient, mqConn))
+	outboxCtx, stopOutbox := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stopOutbox()
+	go nativeStore.RunBillingSettlementOutbox(outboxCtx, billingClient)
+	go runMemoryCleanupLoop(outboxCtx, log, memoryService, memoryCfg)
 	go stopOnSignal(grpcServer)
 
 	log.Info("ai-agent grpc server listening",
@@ -419,6 +453,56 @@ func envOrDefault(key string, fallback string) string {
 	return value
 }
 
+func runMemoryCleanupLoop(ctx context.Context, log *zap.Logger, memoryService *appmemory.Service, cfg appmemory.Config) {
+	if memoryService == nil || !memoryService.Enabled() {
+		return
+	}
+	interval := cfg.CleanupInterval
+	if interval <= 0 {
+		interval = 15 * time.Minute
+	}
+	timeout := cfg.CleanupTimeout
+	if timeout <= 0 {
+		timeout = 5 * time.Minute
+	}
+	retention := cfg.RevokedRetention
+	if retention <= 0 {
+		retention = 30 * 24 * time.Hour
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	runCleanup := func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				log.Warn("memory cleanup panic recovered", zap.Any("panic", recovered))
+			}
+		}()
+		cleanupCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		result, err := memoryService.ExpireAndCleanup(cleanupCtx, retention)
+		if err != nil {
+			log.Warn("memory cleanup failed", zap.Error(err))
+			return
+		}
+		if result.ExpiredArchived > 0 || result.RevokedPurged > 0 || result.EmbeddingsInvalidated > 0 {
+			log.Info("memory cleanup completed",
+				zap.Int64("expired_archived", result.ExpiredArchived),
+				zap.Int64("revoked_purged", result.RevokedPurged),
+				zap.Int64("embeddings_invalidated", result.EmbeddingsInvalidated),
+			)
+		}
+	}
+	runCleanup()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			runCleanup()
+		}
+	}
+}
+
 type unavailableEmbeddingConfigService struct {
 	pb.UnimplementedEmbeddingConfigServiceServer
 }
@@ -440,9 +524,6 @@ type noopAgentConfigService struct {
 type noopMCPService struct {
 	pb.UnimplementedMCPServiceServer
 }
-type noopSkillService struct {
-	pb.UnimplementedSkillServiceServer
-}
 type noopAgentSkillService struct {
 	pb.UnimplementedAgentSkillServiceServer
 }
@@ -451,4 +532,7 @@ type noopRecruitingIntelligenceService struct {
 }
 type noopEmbeddingConfigService struct {
 	pb.UnimplementedEmbeddingConfigServiceServer
+}
+type noopPlatformAIControlPlaneService struct {
+	pb.UnimplementedPlatformAIControlPlaneServiceServer
 }

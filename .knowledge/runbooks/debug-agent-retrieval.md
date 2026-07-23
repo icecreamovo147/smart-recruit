@@ -13,14 +13,14 @@ tags:
 applies_to:
   - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
-  - hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue
+  - platform-frontend/src/views/ai/SemanticRetrievalDebugView.vue
 source_refs:
   - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
   - smart-recruit-ai-agent-service/internal/domain/policy/capability.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
-  - hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue
-last_verified: 2026-07-14
-review_after: 2026-10-14
+  - platform-frontend/src/views/ai/SemanticRetrievalDebugView.vue
+last_verified: 2026-07-23
+review_after: 2026-10-21
 ---
 
 # Debug Agent Skill and Memory Retrieval
@@ -29,4 +29,4 @@ Check embedding runtime state, Agent Skill eligibility/current version/status, m
 
 ## Verification
 
-Verified against current repository files on 2026-07-14.
+Verified against capability policy/service, native AI gRPC entrypoints, and `SemanticRetrievalDebugView` on 2026-07-23.

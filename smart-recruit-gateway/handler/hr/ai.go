@@ -45,16 +45,17 @@ func (h *AIHandler) Chat(c *gin.Context) {
 	}
 	contextUsage := mapHRContextUsage(resp.GetContextUsage())
 	base.From(c, resp.Code, resp.Msg, gin.H{
-		"reply":          resp.Reply,
-		"created_at":     resp.CreatedAt,
-		"action":         resp.Action,
-		"application_id": resp.ApplicationId,
-		"action_status":  resp.ActionStatus,
-		"candidate_name": resp.CandidateName,
-		"job_title":      resp.JobTitle,
-		"status":         resp.Status,
-		"session_id":     resp.SessionId,
-		"context_usage":  contextUsage,
+		"reply":               resp.Reply,
+		"created_at":          resp.CreatedAt,
+		"action":              resp.Action,
+		"application_id":      resp.ApplicationId,
+		"action_status":       resp.ActionStatus,
+		"candidate_name":      resp.CandidateName,
+		"job_title":           resp.JobTitle,
+		"status":              resp.Status,
+		"session_id":          resp.SessionId,
+		"context_usage":       contextUsage,
+		"suggested_questions": resp.GetSuggestedQuestions(),
 	})
 }
 
@@ -146,6 +147,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				"session_id":            result.chunk.SessionId,
 				"created_at":            result.chunk.CreatedAt,
 				"candidate_options":     result.chunk.CandidateOptions,
+				"suggested_questions":   result.chunk.GetSuggestedQuestions(),
 				"event_type":            result.chunk.EventType,
 				"event_message":         result.chunk.EventMessage,
 				"error_type":            result.chunk.ErrorType,
@@ -314,6 +316,10 @@ func (h *AIHandler) CreateApplicationAnalysisSession(c *gin.Context) {
 		base.BadRequest(c, "投递记录 ID 不能为空")
 		return
 	}
+	releaseVersionID := resolveTenantAICapabilityVersion(c, h.clients, "ai.application_analysis")
+	if releaseVersionID <= 0 {
+		return
+	}
 	resp, err := h.clients.AI.CreateApplicationAnalysisSession(c.Request.Context(), &pb.CreateApplicationAnalysisSessionRequest{HrId: middleware.UserID(c), ApplicationId: int64(req.ApplicationID), ModelId: int64(req.ModelID)})
 	if err != nil {
 		base.Internal(c, err)
@@ -331,7 +337,11 @@ func (h *AIHandler) AnalyzeApplication(c *gin.Context) {
 		base.BadRequest(c, "投递记录 ID 不能为空")
 		return
 	}
-	resp, err := h.clients.AI.AnalyzeApplication(c.Request.Context(), &pb.AnalyzeApplicationRequest{HrId: middleware.UserID(c), ApplicationId: int64(req.ApplicationID), ModelId: int64(req.ModelID)})
+	releaseVersionID := resolveTenantAICapabilityVersion(c, h.clients, "ai.application_analysis")
+	if releaseVersionID <= 0 {
+		return
+	}
+	resp, err := h.clients.AI.AnalyzeApplication(c.Request.Context(), &pb.AnalyzeApplicationRequest{HrId: middleware.UserID(c), ApplicationId: int64(req.ApplicationID), ModelId: int64(req.ModelID), CapabilityVersionId: releaseVersionID})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -342,6 +352,7 @@ func (h *AIHandler) AnalyzeApplication(c *gin.Context) {
 		"job_title":      resp.JobTitle,
 		"status":         resp.Status,
 		"round_no":       resp.RoundNo,
+		"context_usage":  resp.ContextUsage,
 	})
 }
 
@@ -778,6 +789,11 @@ func mapHRContextUsage(cu *pb.ContextUsageInfo) map[string]any {
 	return gin.H{
 		"model_id":                   cu.GetModelId(),
 		"model_name":                 cu.GetModelName(),
+		"requested_model_id":         cu.GetRequestedModelId(),
+		"effective_model_id":         cu.GetEffectiveModelId(),
+		"model_fallback_reason":      cu.GetModelFallbackReason(),
+		"capability_version_id":      cu.GetCapabilityVersionId(),
+		"capability_snapshot_hash":   cu.GetCapabilitySnapshotHash(),
 		"context_window_tokens":      cu.GetContextWindowTokens(),
 		"max_output_tokens":          cu.GetMaxOutputTokens(),
 		"prompt_tokens_estimated":    cu.GetPromptTokensEstimated(),
@@ -797,6 +813,7 @@ func mapHRContextUsage(cu *pb.ContextUsageInfo) map[string]any {
 		"included_message_count":     cu.GetIncludedMessageCount(),
 		"omitted_message_count":      cu.GetOmittedMessageCount(),
 		"summary_applied":            cu.GetSummaryApplied(),
+		"memory_applied":             cu.GetMemoryApplied(),
 	}
 }
 

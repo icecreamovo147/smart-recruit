@@ -32,6 +32,25 @@ func TestLoadAuthCookieSecure(t *testing.T) {
 	}
 }
 
+func TestLoadBillingReturnURLDefaultsMatchFrontendRoutes(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", testJWTSecret())
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("BILLING_HR_RETURN_URL", "")
+	t.Setenv("BILLING_CANDIDATE_RETURN_URL", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.BillingHRReturnURL != "http://localhost:5173/hr/billing" {
+		t.Fatalf("BillingHRReturnURL = %q", cfg.BillingHRReturnURL)
+	}
+	if cfg.BillingCandidateReturnURL != "http://localhost:5174/billing" {
+		t.Fatalf("BillingCandidateReturnURL = %q", cfg.BillingCandidateReturnURL)
+	}
+}
+
 // TASK-FU-009: verify gateway ranking env loading stays aligned with backend scoring knobs.
 func TestLoadRankingConfig(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")

@@ -10,7 +10,7 @@ x-runtime-env-file: &runtime-env-file
 x-service-env: &service-env
   TZ: ${TZ:-Asia/Shanghai}
   CONFIG_PATH: /app/config/config.example.yaml
-  MYSQL_DSN: root:${MYSQL_ROOT_PASSWORD:-smart_recruit_local_root}@tcp(mysql:3306)/${MYSQL_DATABASE:-recruitment}?charset=utf8mb4&parseTime=True&loc=Local
+  MYSQL_DSN: root:${MYSQL_ROOT_PASSWORD:-smart_recruit_local_root}@tcp(mysql:3306)/${MYSQL_DATABASE:-recruitment}?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai&time_zone=%27%2B08%3A00%27
   REDIS_ADDR: redis:6379
   RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672/
   NACOS_ADDR: http://nacos:8848
@@ -42,7 +42,7 @@ services:
     image: mysql:8.0
     container_name: smart-recruit-mysql
     profiles: ["infra"]
-    command: --default-authentication-plugin=mysql_native_password
+    command: --default-authentication-plugin=mysql_native_password --default-time-zone=+08:00
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-smart_recruit_local_root}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-recruitment}
@@ -100,6 +100,7 @@ services:
       - "9090:9090"
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
 
   grafana:
@@ -170,6 +171,9 @@ services:
       AI_AGENT_GRPC_ADDR: smart-recruit-ai-agent-service:50066
       ANALYTICS_ROUTE_MODE: analytics
       ANALYTICS_GRPC_ADDR: smart-recruit-analytics-service:50067
+      BILLING_GRPC_ADDR: smart-recruit-billing-service:50069
+      BILLING_HR_RETURN_URL: ${BILLING_HR_RETURN_URL:-http://localhost:5173/hr/billing}
+      BILLING_CANDIDATE_RETURN_URL: ${BILLING_CANDIDATE_RETURN_URL:-http://localhost:5174/billing}
     depends_on:
       redis:
         condition: service_healthy
@@ -186,6 +190,8 @@ services:
       smart-recruit-ai-agent-service:
         condition: service_started
       smart-recruit-analytics-service:
+        condition: service_started
+      smart-recruit-billing-service:
         condition: service_started
 
   smart-recruit-identity-service:
@@ -320,6 +326,8 @@ services:
       <<: *service-env
       SERVICE_NAME: ai-agent
       GRPC_ADDR: :50066
+      BILLING_GRPC_ADDR: smart-recruit-billing-service:50069
+      AI_BILLING_MODE: ${AI_BILLING_MODE:-shadow}
     depends_on:
       nacos:
         condition: service_healthy
@@ -345,6 +353,42 @@ services:
       <<: *service-env
       SERVICE_NAME: analytics
       GRPC_ADDR: :50067
+    depends_on:
+      nacos:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  smart-recruit-billing-service:
+    image: smart-recruit/smart-recruit-billing-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    env_file: *runtime-env-file
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-billing-service
+        CMD_PATH: ./cmd/billing-service
+        BINARY_NAME: billing-service
+    command: ["--serve", "--addr", ":50069"]
+    environment:
+      <<: *service-env
+      SERVICE_NAME: billing
+      GRPC_ADDR: :50069
+      AI_BILLING_MODE: ${AI_BILLING_MODE:-shadow}
+      ALIPAY_ENV: sandbox
+      ALIPAY_REQUIRED: ${ALIPAY_REQUIRED:-false}
+      ALIPAY_GATEWAY_URL: ${ALIPAY_GATEWAY_URL:-https://openapi-sandbox.dl.alipaydev.com/gateway.do}
+      ALIPAY_APP_ID: ${ALIPAY_APP_ID:-}
+      ALIPAY_PRIVATE_KEY: ${ALIPAY_PRIVATE_KEY:-}
+      ALIPAY_VERIFY_PUBLIC_KEY: ${ALIPAY_VERIFY_PUBLIC_KEY:-}
+      ALIPAY_SELLER_ID: ${ALIPAY_SELLER_ID:-}
+      ALIPAY_NOTIFY_URL: ${ALIPAY_NOTIFY_URL:-}
+      ALIPAY_RETURN_URL: ${ALIPAY_RETURN_URL:-}
+      ALIPAY_DESKTOP_ENABLED: "true"
+      ALIPAY_WAP_ENABLED: "true"
+      METRICS_ADDR: ":9099"
     depends_on:
       nacos:
         condition: service_healthy

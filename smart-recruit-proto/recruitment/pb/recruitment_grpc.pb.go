@@ -428,10 +428,23 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	PlatformTenantService_CreateTenant_FullMethodName          = "/recruitment.PlatformTenantService/CreateTenant"
-	PlatformTenantService_ListTenants_FullMethodName           = "/recruitment.PlatformTenantService/ListTenants"
-	PlatformTenantService_UpdateTenantStatus_FullMethodName    = "/recruitment.PlatformTenantService/UpdateTenantStatus"
-	PlatformTenantService_ListTenantMemberships_FullMethodName = "/recruitment.PlatformTenantService/ListTenantMemberships"
+	PlatformTenantService_CreateTenant_FullMethodName                    = "/recruitment.PlatformTenantService/CreateTenant"
+	PlatformTenantService_ListTenants_FullMethodName                     = "/recruitment.PlatformTenantService/ListTenants"
+	PlatformTenantService_GetTenant_FullMethodName                       = "/recruitment.PlatformTenantService/GetTenant"
+	PlatformTenantService_UpdateTenantStatus_FullMethodName              = "/recruitment.PlatformTenantService/UpdateTenantStatus"
+	PlatformTenantService_ListTenantMemberships_FullMethodName           = "/recruitment.PlatformTenantService/ListTenantMemberships"
+	PlatformTenantService_UpdateTenantMembershipStatus_FullMethodName    = "/recruitment.PlatformTenantService/UpdateTenantMembershipStatus"
+	PlatformTenantService_GetPlatformDashboard_FullMethodName            = "/recruitment.PlatformTenantService/GetPlatformDashboard"
+	PlatformTenantService_QueryPlatformAuditLogs_FullMethodName          = "/recruitment.PlatformTenantService/QueryPlatformAuditLogs"
+	PlatformTenantService_ListPlatformPlans_FullMethodName               = "/recruitment.PlatformTenantService/ListPlatformPlans"
+	PlatformTenantService_SavePlatformPlanVersion_FullMethodName         = "/recruitment.PlatformTenantService/SavePlatformPlanVersion"
+	PlatformTenantService_PublishPlatformPlanVersion_FullMethodName      = "/recruitment.PlatformTenantService/PublishPlatformPlanVersion"
+	PlatformTenantService_GetTenantSubscription_FullMethodName           = "/recruitment.PlatformTenantService/GetTenantSubscription"
+	PlatformTenantService_UpdateTenantSubscription_FullMethodName        = "/recruitment.PlatformTenantService/UpdateTenantSubscription"
+	PlatformTenantService_UpdateTenantEntitlementOverride_FullMethodName = "/recruitment.PlatformTenantService/UpdateTenantEntitlementOverride"
+	PlatformTenantService_GetTenantUsage_FullMethodName                  = "/recruitment.PlatformTenantService/GetTenantUsage"
+	PlatformTenantService_ListQuotaAlerts_FullMethodName                 = "/recruitment.PlatformTenantService/ListQuotaAlerts"
+	PlatformTenantService_UpdateQuotaAlert_FullMethodName                = "/recruitment.PlatformTenantService/UpdateQuotaAlert"
 )
 
 // PlatformTenantServiceClient is the client API for PlatformTenantService service.
@@ -440,8 +453,21 @@ const (
 type PlatformTenantServiceClient interface {
 	CreateTenant(ctx context.Context, in *CreateTenantRequest, opts ...grpc.CallOption) (*TenantResponse, error)
 	ListTenants(ctx context.Context, in *ListTenantsRequest, opts ...grpc.CallOption) (*ListTenantsResponse, error)
+	GetTenant(ctx context.Context, in *GetTenantRequest, opts ...grpc.CallOption) (*TenantResponse, error)
 	UpdateTenantStatus(ctx context.Context, in *UpdateTenantStatusRequest, opts ...grpc.CallOption) (*TenantResponse, error)
 	ListTenantMemberships(ctx context.Context, in *ListTenantMembershipsRequest, opts ...grpc.CallOption) (*ListTenantMembershipsResponse, error)
+	UpdateTenantMembershipStatus(ctx context.Context, in *UpdateTenantMembershipStatusRequest, opts ...grpc.CallOption) (*TenantMembershipResponse, error)
+	GetPlatformDashboard(ctx context.Context, in *GetPlatformDashboardRequest, opts ...grpc.CallOption) (*GetPlatformDashboardResponse, error)
+	QueryPlatformAuditLogs(ctx context.Context, in *QueryPlatformAuditLogsRequest, opts ...grpc.CallOption) (*QueryPlatformAuditLogsResponse, error)
+	ListPlatformPlans(ctx context.Context, in *ListPlatformPlansRequest, opts ...grpc.CallOption) (*ListPlatformPlansResponse, error)
+	SavePlatformPlanVersion(ctx context.Context, in *SavePlatformPlanVersionRequest, opts ...grpc.CallOption) (*PlatformPlanVersionResponse, error)
+	PublishPlatformPlanVersion(ctx context.Context, in *PublishPlatformPlanVersionRequest, opts ...grpc.CallOption) (*PlatformPlanVersionResponse, error)
+	GetTenantSubscription(ctx context.Context, in *GetTenantSubscriptionRequest, opts ...grpc.CallOption) (*TenantSubscriptionResponse, error)
+	UpdateTenantSubscription(ctx context.Context, in *UpdateTenantSubscriptionRequest, opts ...grpc.CallOption) (*TenantSubscriptionResponse, error)
+	UpdateTenantEntitlementOverride(ctx context.Context, in *UpdateTenantEntitlementOverrideRequest, opts ...grpc.CallOption) (*TenantSubscriptionResponse, error)
+	GetTenantUsage(ctx context.Context, in *GetTenantUsageRequest, opts ...grpc.CallOption) (*GetTenantUsageResponse, error)
+	ListQuotaAlerts(ctx context.Context, in *ListQuotaAlertsRequest, opts ...grpc.CallOption) (*ListQuotaAlertsResponse, error)
+	UpdateQuotaAlert(ctx context.Context, in *UpdateQuotaAlertRequest, opts ...grpc.CallOption) (*QuotaAlertResponse, error)
 }
 
 type platformTenantServiceClient struct {
@@ -472,6 +498,16 @@ func (c *platformTenantServiceClient) ListTenants(ctx context.Context, in *ListT
 	return out, nil
 }
 
+func (c *platformTenantServiceClient) GetTenant(ctx context.Context, in *GetTenantRequest, opts ...grpc.CallOption) (*TenantResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_GetTenant_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *platformTenantServiceClient) UpdateTenantStatus(ctx context.Context, in *UpdateTenantStatusRequest, opts ...grpc.CallOption) (*TenantResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TenantResponse)
@@ -492,14 +528,147 @@ func (c *platformTenantServiceClient) ListTenantMemberships(ctx context.Context,
 	return out, nil
 }
 
+func (c *platformTenantServiceClient) UpdateTenantMembershipStatus(ctx context.Context, in *UpdateTenantMembershipStatusRequest, opts ...grpc.CallOption) (*TenantMembershipResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantMembershipResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_UpdateTenantMembershipStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) GetPlatformDashboard(ctx context.Context, in *GetPlatformDashboardRequest, opts ...grpc.CallOption) (*GetPlatformDashboardResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPlatformDashboardResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_GetPlatformDashboard_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) QueryPlatformAuditLogs(ctx context.Context, in *QueryPlatformAuditLogsRequest, opts ...grpc.CallOption) (*QueryPlatformAuditLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryPlatformAuditLogsResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_QueryPlatformAuditLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) ListPlatformPlans(ctx context.Context, in *ListPlatformPlansRequest, opts ...grpc.CallOption) (*ListPlatformPlansResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPlatformPlansResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_ListPlatformPlans_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) SavePlatformPlanVersion(ctx context.Context, in *SavePlatformPlanVersionRequest, opts ...grpc.CallOption) (*PlatformPlanVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlatformPlanVersionResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_SavePlatformPlanVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) PublishPlatformPlanVersion(ctx context.Context, in *PublishPlatformPlanVersionRequest, opts ...grpc.CallOption) (*PlatformPlanVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlatformPlanVersionResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_PublishPlatformPlanVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) GetTenantSubscription(ctx context.Context, in *GetTenantSubscriptionRequest, opts ...grpc.CallOption) (*TenantSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantSubscriptionResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_GetTenantSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) UpdateTenantSubscription(ctx context.Context, in *UpdateTenantSubscriptionRequest, opts ...grpc.CallOption) (*TenantSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantSubscriptionResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_UpdateTenantSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) UpdateTenantEntitlementOverride(ctx context.Context, in *UpdateTenantEntitlementOverrideRequest, opts ...grpc.CallOption) (*TenantSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantSubscriptionResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_UpdateTenantEntitlementOverride_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) GetTenantUsage(ctx context.Context, in *GetTenantUsageRequest, opts ...grpc.CallOption) (*GetTenantUsageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTenantUsageResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_GetTenantUsage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) ListQuotaAlerts(ctx context.Context, in *ListQuotaAlertsRequest, opts ...grpc.CallOption) (*ListQuotaAlertsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListQuotaAlertsResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_ListQuotaAlerts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) UpdateQuotaAlert(ctx context.Context, in *UpdateQuotaAlertRequest, opts ...grpc.CallOption) (*QuotaAlertResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QuotaAlertResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_UpdateQuotaAlert_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PlatformTenantServiceServer is the server API for PlatformTenantService service.
 // All implementations must embed UnimplementedPlatformTenantServiceServer
 // for forward compatibility.
 type PlatformTenantServiceServer interface {
 	CreateTenant(context.Context, *CreateTenantRequest) (*TenantResponse, error)
 	ListTenants(context.Context, *ListTenantsRequest) (*ListTenantsResponse, error)
+	GetTenant(context.Context, *GetTenantRequest) (*TenantResponse, error)
 	UpdateTenantStatus(context.Context, *UpdateTenantStatusRequest) (*TenantResponse, error)
 	ListTenantMemberships(context.Context, *ListTenantMembershipsRequest) (*ListTenantMembershipsResponse, error)
+	UpdateTenantMembershipStatus(context.Context, *UpdateTenantMembershipStatusRequest) (*TenantMembershipResponse, error)
+	GetPlatformDashboard(context.Context, *GetPlatformDashboardRequest) (*GetPlatformDashboardResponse, error)
+	QueryPlatformAuditLogs(context.Context, *QueryPlatformAuditLogsRequest) (*QueryPlatformAuditLogsResponse, error)
+	ListPlatformPlans(context.Context, *ListPlatformPlansRequest) (*ListPlatformPlansResponse, error)
+	SavePlatformPlanVersion(context.Context, *SavePlatformPlanVersionRequest) (*PlatformPlanVersionResponse, error)
+	PublishPlatformPlanVersion(context.Context, *PublishPlatformPlanVersionRequest) (*PlatformPlanVersionResponse, error)
+	GetTenantSubscription(context.Context, *GetTenantSubscriptionRequest) (*TenantSubscriptionResponse, error)
+	UpdateTenantSubscription(context.Context, *UpdateTenantSubscriptionRequest) (*TenantSubscriptionResponse, error)
+	UpdateTenantEntitlementOverride(context.Context, *UpdateTenantEntitlementOverrideRequest) (*TenantSubscriptionResponse, error)
+	GetTenantUsage(context.Context, *GetTenantUsageRequest) (*GetTenantUsageResponse, error)
+	ListQuotaAlerts(context.Context, *ListQuotaAlertsRequest) (*ListQuotaAlertsResponse, error)
+	UpdateQuotaAlert(context.Context, *UpdateQuotaAlertRequest) (*QuotaAlertResponse, error)
 	mustEmbedUnimplementedPlatformTenantServiceServer()
 }
 
@@ -516,11 +685,50 @@ func (UnimplementedPlatformTenantServiceServer) CreateTenant(context.Context, *C
 func (UnimplementedPlatformTenantServiceServer) ListTenants(context.Context, *ListTenantsRequest) (*ListTenantsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTenants not implemented")
 }
+func (UnimplementedPlatformTenantServiceServer) GetTenant(context.Context, *GetTenantRequest) (*TenantResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTenant not implemented")
+}
 func (UnimplementedPlatformTenantServiceServer) UpdateTenantStatus(context.Context, *UpdateTenantStatusRequest) (*TenantResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateTenantStatus not implemented")
 }
 func (UnimplementedPlatformTenantServiceServer) ListTenantMemberships(context.Context, *ListTenantMembershipsRequest) (*ListTenantMembershipsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTenantMemberships not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) UpdateTenantMembershipStatus(context.Context, *UpdateTenantMembershipStatusRequest) (*TenantMembershipResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTenantMembershipStatus not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) GetPlatformDashboard(context.Context, *GetPlatformDashboardRequest) (*GetPlatformDashboardResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPlatformDashboard not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) QueryPlatformAuditLogs(context.Context, *QueryPlatformAuditLogsRequest) (*QueryPlatformAuditLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method QueryPlatformAuditLogs not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) ListPlatformPlans(context.Context, *ListPlatformPlansRequest) (*ListPlatformPlansResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPlatformPlans not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) SavePlatformPlanVersion(context.Context, *SavePlatformPlanVersionRequest) (*PlatformPlanVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SavePlatformPlanVersion not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) PublishPlatformPlanVersion(context.Context, *PublishPlatformPlanVersionRequest) (*PlatformPlanVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PublishPlatformPlanVersion not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) GetTenantSubscription(context.Context, *GetTenantSubscriptionRequest) (*TenantSubscriptionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTenantSubscription not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) UpdateTenantSubscription(context.Context, *UpdateTenantSubscriptionRequest) (*TenantSubscriptionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTenantSubscription not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) UpdateTenantEntitlementOverride(context.Context, *UpdateTenantEntitlementOverrideRequest) (*TenantSubscriptionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTenantEntitlementOverride not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) GetTenantUsage(context.Context, *GetTenantUsageRequest) (*GetTenantUsageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTenantUsage not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) ListQuotaAlerts(context.Context, *ListQuotaAlertsRequest) (*ListQuotaAlertsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListQuotaAlerts not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) UpdateQuotaAlert(context.Context, *UpdateQuotaAlertRequest) (*QuotaAlertResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateQuotaAlert not implemented")
 }
 func (UnimplementedPlatformTenantServiceServer) mustEmbedUnimplementedPlatformTenantServiceServer() {}
 func (UnimplementedPlatformTenantServiceServer) testEmbeddedByValue()                               {}
@@ -579,6 +787,24 @@ func _PlatformTenantService_ListTenants_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PlatformTenantService_GetTenant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTenantRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).GetTenant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_GetTenant_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).GetTenant(ctx, req.(*GetTenantRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PlatformTenantService_UpdateTenantStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateTenantStatusRequest)
 	if err := dec(in); err != nil {
@@ -615,6 +841,222 @@ func _PlatformTenantService_ListTenantMemberships_Handler(srv interface{}, ctx c
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PlatformTenantService_UpdateTenantMembershipStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTenantMembershipStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).UpdateTenantMembershipStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_UpdateTenantMembershipStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).UpdateTenantMembershipStatus(ctx, req.(*UpdateTenantMembershipStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_GetPlatformDashboard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPlatformDashboardRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).GetPlatformDashboard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_GetPlatformDashboard_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).GetPlatformDashboard(ctx, req.(*GetPlatformDashboardRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_QueryPlatformAuditLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryPlatformAuditLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).QueryPlatformAuditLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_QueryPlatformAuditLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).QueryPlatformAuditLogs(ctx, req.(*QueryPlatformAuditLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_ListPlatformPlans_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPlatformPlansRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).ListPlatformPlans(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_ListPlatformPlans_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).ListPlatformPlans(ctx, req.(*ListPlatformPlansRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_SavePlatformPlanVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SavePlatformPlanVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).SavePlatformPlanVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_SavePlatformPlanVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).SavePlatformPlanVersion(ctx, req.(*SavePlatformPlanVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_PublishPlatformPlanVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublishPlatformPlanVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).PublishPlatformPlanVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_PublishPlatformPlanVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).PublishPlatformPlanVersion(ctx, req.(*PublishPlatformPlanVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_GetTenantSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTenantSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).GetTenantSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_GetTenantSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).GetTenantSubscription(ctx, req.(*GetTenantSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_UpdateTenantSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTenantSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).UpdateTenantSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_UpdateTenantSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).UpdateTenantSubscription(ctx, req.(*UpdateTenantSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_UpdateTenantEntitlementOverride_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTenantEntitlementOverrideRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).UpdateTenantEntitlementOverride(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_UpdateTenantEntitlementOverride_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).UpdateTenantEntitlementOverride(ctx, req.(*UpdateTenantEntitlementOverrideRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_GetTenantUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTenantUsageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).GetTenantUsage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_GetTenantUsage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).GetTenantUsage(ctx, req.(*GetTenantUsageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_ListQuotaAlerts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListQuotaAlertsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).ListQuotaAlerts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_ListQuotaAlerts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).ListQuotaAlerts(ctx, req.(*ListQuotaAlertsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_UpdateQuotaAlert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateQuotaAlertRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).UpdateQuotaAlert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_UpdateQuotaAlert_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).UpdateQuotaAlert(ctx, req.(*UpdateQuotaAlertRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PlatformTenantService_ServiceDesc is the grpc.ServiceDesc for PlatformTenantService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -631,12 +1073,64 @@ var PlatformTenantService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PlatformTenantService_ListTenants_Handler,
 		},
 		{
+			MethodName: "GetTenant",
+			Handler:    _PlatformTenantService_GetTenant_Handler,
+		},
+		{
 			MethodName: "UpdateTenantStatus",
 			Handler:    _PlatformTenantService_UpdateTenantStatus_Handler,
 		},
 		{
 			MethodName: "ListTenantMemberships",
 			Handler:    _PlatformTenantService_ListTenantMemberships_Handler,
+		},
+		{
+			MethodName: "UpdateTenantMembershipStatus",
+			Handler:    _PlatformTenantService_UpdateTenantMembershipStatus_Handler,
+		},
+		{
+			MethodName: "GetPlatformDashboard",
+			Handler:    _PlatformTenantService_GetPlatformDashboard_Handler,
+		},
+		{
+			MethodName: "QueryPlatformAuditLogs",
+			Handler:    _PlatformTenantService_QueryPlatformAuditLogs_Handler,
+		},
+		{
+			MethodName: "ListPlatformPlans",
+			Handler:    _PlatformTenantService_ListPlatformPlans_Handler,
+		},
+		{
+			MethodName: "SavePlatformPlanVersion",
+			Handler:    _PlatformTenantService_SavePlatformPlanVersion_Handler,
+		},
+		{
+			MethodName: "PublishPlatformPlanVersion",
+			Handler:    _PlatformTenantService_PublishPlatformPlanVersion_Handler,
+		},
+		{
+			MethodName: "GetTenantSubscription",
+			Handler:    _PlatformTenantService_GetTenantSubscription_Handler,
+		},
+		{
+			MethodName: "UpdateTenantSubscription",
+			Handler:    _PlatformTenantService_UpdateTenantSubscription_Handler,
+		},
+		{
+			MethodName: "UpdateTenantEntitlementOverride",
+			Handler:    _PlatformTenantService_UpdateTenantEntitlementOverride_Handler,
+		},
+		{
+			MethodName: "GetTenantUsage",
+			Handler:    _PlatformTenantService_GetTenantUsage_Handler,
+		},
+		{
+			MethodName: "ListQuotaAlerts",
+			Handler:    _PlatformTenantService_ListQuotaAlerts_Handler,
+		},
+		{
+			MethodName: "UpdateQuotaAlert",
+			Handler:    _PlatformTenantService_UpdateQuotaAlert_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1050,11 +1544,13 @@ var JobService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	CandidateService_GetProfile_FullMethodName          = "/recruitment.CandidateService/GetProfile"
-	CandidateService_UpdateProfile_FullMethodName       = "/recruitment.CandidateService/UpdateProfile"
-	CandidateService_GetResume_FullMethodName           = "/recruitment.CandidateService/GetResume"
-	CandidateService_PresignResumeUpload_FullMethodName = "/recruitment.CandidateService/PresignResumeUpload"
-	CandidateService_ConfirmResumeUpload_FullMethodName = "/recruitment.CandidateService/ConfirmResumeUpload"
+	CandidateService_GetProfile_FullMethodName            = "/recruitment.CandidateService/GetProfile"
+	CandidateService_UpdateProfile_FullMethodName         = "/recruitment.CandidateService/UpdateProfile"
+	CandidateService_FillProfileFromResume_FullMethodName = "/recruitment.CandidateService/FillProfileFromResume"
+	CandidateService_ApplyProfileFill_FullMethodName      = "/recruitment.CandidateService/ApplyProfileFill"
+	CandidateService_GetResume_FullMethodName             = "/recruitment.CandidateService/GetResume"
+	CandidateService_PresignResumeUpload_FullMethodName   = "/recruitment.CandidateService/PresignResumeUpload"
+	CandidateService_ConfirmResumeUpload_FullMethodName   = "/recruitment.CandidateService/ConfirmResumeUpload"
 )
 
 // CandidateServiceClient is the client API for CandidateService service.
@@ -1063,6 +1559,8 @@ const (
 type CandidateServiceClient interface {
 	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
 	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
+	FillProfileFromResume(ctx context.Context, in *FillProfileFromResumeRequest, opts ...grpc.CallOption) (*FillProfileFromResumeResponse, error)
+	ApplyProfileFill(ctx context.Context, in *ApplyProfileFillRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
 	GetResume(ctx context.Context, in *GetResumeRequest, opts ...grpc.CallOption) (*GetResumeResponse, error)
 	PresignResumeUpload(ctx context.Context, in *PresignResumeUploadRequest, opts ...grpc.CallOption) (*PresignResumeUploadResponse, error)
 	ConfirmResumeUpload(ctx context.Context, in *ConfirmResumeUploadRequest, opts ...grpc.CallOption) (*ConfirmResumeUploadResponse, error)
@@ -1090,6 +1588,26 @@ func (c *candidateServiceClient) UpdateProfile(ctx context.Context, in *UpdatePr
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetProfileResponse)
 	err := c.cc.Invoke(ctx, CandidateService_UpdateProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *candidateServiceClient) FillProfileFromResume(ctx context.Context, in *FillProfileFromResumeRequest, opts ...grpc.CallOption) (*FillProfileFromResumeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FillProfileFromResumeResponse)
+	err := c.cc.Invoke(ctx, CandidateService_FillProfileFromResume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *candidateServiceClient) ApplyProfileFill(ctx context.Context, in *ApplyProfileFillRequest, opts ...grpc.CallOption) (*GetProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetProfileResponse)
+	err := c.cc.Invoke(ctx, CandidateService_ApplyProfileFill_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1132,6 +1650,8 @@ func (c *candidateServiceClient) ConfirmResumeUpload(ctx context.Context, in *Co
 type CandidateServiceServer interface {
 	GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error)
 	UpdateProfile(context.Context, *UpdateProfileRequest) (*GetProfileResponse, error)
+	FillProfileFromResume(context.Context, *FillProfileFromResumeRequest) (*FillProfileFromResumeResponse, error)
+	ApplyProfileFill(context.Context, *ApplyProfileFillRequest) (*GetProfileResponse, error)
 	GetResume(context.Context, *GetResumeRequest) (*GetResumeResponse, error)
 	PresignResumeUpload(context.Context, *PresignResumeUploadRequest) (*PresignResumeUploadResponse, error)
 	ConfirmResumeUpload(context.Context, *ConfirmResumeUploadRequest) (*ConfirmResumeUploadResponse, error)
@@ -1150,6 +1670,12 @@ func (UnimplementedCandidateServiceServer) GetProfile(context.Context, *GetProfi
 }
 func (UnimplementedCandidateServiceServer) UpdateProfile(context.Context, *UpdateProfileRequest) (*GetProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateProfile not implemented")
+}
+func (UnimplementedCandidateServiceServer) FillProfileFromResume(context.Context, *FillProfileFromResumeRequest) (*FillProfileFromResumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FillProfileFromResume not implemented")
+}
+func (UnimplementedCandidateServiceServer) ApplyProfileFill(context.Context, *ApplyProfileFillRequest) (*GetProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ApplyProfileFill not implemented")
 }
 func (UnimplementedCandidateServiceServer) GetResume(context.Context, *GetResumeRequest) (*GetResumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetResume not implemented")
@@ -1213,6 +1739,42 @@ func _CandidateService_UpdateProfile_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CandidateServiceServer).UpdateProfile(ctx, req.(*UpdateProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CandidateService_FillProfileFromResume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FillProfileFromResumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CandidateServiceServer).FillProfileFromResume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CandidateService_FillProfileFromResume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CandidateServiceServer).FillProfileFromResume(ctx, req.(*FillProfileFromResumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CandidateService_ApplyProfileFill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApplyProfileFillRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CandidateServiceServer).ApplyProfileFill(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CandidateService_ApplyProfileFill_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CandidateServiceServer).ApplyProfileFill(ctx, req.(*ApplyProfileFillRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1285,6 +1847,14 @@ var CandidateService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateProfile",
 			Handler:    _CandidateService_UpdateProfile_Handler,
+		},
+		{
+			MethodName: "FillProfileFromResume",
+			Handler:    _CandidateService_FillProfileFromResume_Handler,
+		},
+		{
+			MethodName: "ApplyProfileFill",
+			Handler:    _CandidateService_ApplyProfileFill_Handler,
 		},
 		{
 			MethodName: "GetResume",
@@ -2460,6 +3030,12 @@ const (
 	AIService_SubscribeAgentRunEvents_FullMethodName          = "/recruitment.AIService/SubscribeAgentRunEvents"
 	AIService_CancelAgentRun_FullMethodName                   = "/recruitment.AIService/CancelAgentRun"
 	AIService_ConfirmAgentRun_FullMethodName                  = "/recruitment.AIService/ConfirmAgentRun"
+	AIService_ListMemories_FullMethodName                     = "/recruitment.AIService/ListMemories"
+	AIService_GetMemory_FullMethodName                        = "/recruitment.AIService/GetMemory"
+	AIService_CreateMemory_FullMethodName                     = "/recruitment.AIService/CreateMemory"
+	AIService_UpdateMemory_FullMethodName                     = "/recruitment.AIService/UpdateMemory"
+	AIService_RevokeMemory_FullMethodName                     = "/recruitment.AIService/RevokeMemory"
+	AIService_RecallMemories_FullMethodName                   = "/recruitment.AIService/RecallMemories"
 )
 
 // AIServiceClient is the client API for AIService service.
@@ -2495,6 +3071,13 @@ type AIServiceClient interface {
 	SubscribeAgentRunEvents(ctx context.Context, in *SubscribeAgentRunEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AgentRunEvent], error)
 	CancelAgentRun(ctx context.Context, in *CancelAgentRunRequest, opts ...grpc.CallOption) (*CancelAgentRunResponse, error)
 	ConfirmAgentRun(ctx context.Context, in *ConfirmAgentRunRequest, opts ...grpc.CallOption) (*ConfirmAgentRunResponse, error)
+	// Durable agent memory lifecycle (owner-scoped long-term memory).
+	ListMemories(ctx context.Context, in *ListMemoriesRequest, opts ...grpc.CallOption) (*ListMemoriesResponse, error)
+	GetMemory(ctx context.Context, in *GetMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error)
+	CreateMemory(ctx context.Context, in *CreateMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error)
+	UpdateMemory(ctx context.Context, in *UpdateMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error)
+	RevokeMemory(ctx context.Context, in *RevokeMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error)
+	RecallMemories(ctx context.Context, in *RecallMemoriesRequest, opts ...grpc.CallOption) (*RecallMemoriesResponse, error)
 }
 
 type aIServiceClient struct {
@@ -2782,6 +3365,66 @@ func (c *aIServiceClient) ConfirmAgentRun(ctx context.Context, in *ConfirmAgentR
 	return out, nil
 }
 
+func (c *aIServiceClient) ListMemories(ctx context.Context, in *ListMemoriesRequest, opts ...grpc.CallOption) (*ListMemoriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMemoriesResponse)
+	err := c.cc.Invoke(ctx, AIService_ListMemories_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) GetMemory(ctx context.Context, in *GetMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemoryResponse)
+	err := c.cc.Invoke(ctx, AIService_GetMemory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) CreateMemory(ctx context.Context, in *CreateMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemoryResponse)
+	err := c.cc.Invoke(ctx, AIService_CreateMemory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) UpdateMemory(ctx context.Context, in *UpdateMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemoryResponse)
+	err := c.cc.Invoke(ctx, AIService_UpdateMemory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) RevokeMemory(ctx context.Context, in *RevokeMemoryRequest, opts ...grpc.CallOption) (*MemoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemoryResponse)
+	err := c.cc.Invoke(ctx, AIService_RevokeMemory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) RecallMemories(ctx context.Context, in *RecallMemoriesRequest, opts ...grpc.CallOption) (*RecallMemoriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RecallMemoriesResponse)
+	err := c.cc.Invoke(ctx, AIService_RecallMemories_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AIServiceServer is the server API for AIService service.
 // All implementations must embed UnimplementedAIServiceServer
 // for forward compatibility.
@@ -2815,6 +3458,13 @@ type AIServiceServer interface {
 	SubscribeAgentRunEvents(*SubscribeAgentRunEventsRequest, grpc.ServerStreamingServer[AgentRunEvent]) error
 	CancelAgentRun(context.Context, *CancelAgentRunRequest) (*CancelAgentRunResponse, error)
 	ConfirmAgentRun(context.Context, *ConfirmAgentRunRequest) (*ConfirmAgentRunResponse, error)
+	// Durable agent memory lifecycle (owner-scoped long-term memory).
+	ListMemories(context.Context, *ListMemoriesRequest) (*ListMemoriesResponse, error)
+	GetMemory(context.Context, *GetMemoryRequest) (*MemoryResponse, error)
+	CreateMemory(context.Context, *CreateMemoryRequest) (*MemoryResponse, error)
+	UpdateMemory(context.Context, *UpdateMemoryRequest) (*MemoryResponse, error)
+	RevokeMemory(context.Context, *RevokeMemoryRequest) (*MemoryResponse, error)
+	RecallMemories(context.Context, *RecallMemoriesRequest) (*RecallMemoriesResponse, error)
 	mustEmbedUnimplementedAIServiceServer()
 }
 
@@ -2899,6 +3549,24 @@ func (UnimplementedAIServiceServer) CancelAgentRun(context.Context, *CancelAgent
 }
 func (UnimplementedAIServiceServer) ConfirmAgentRun(context.Context, *ConfirmAgentRunRequest) (*ConfirmAgentRunResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ConfirmAgentRun not implemented")
+}
+func (UnimplementedAIServiceServer) ListMemories(context.Context, *ListMemoriesRequest) (*ListMemoriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMemories not implemented")
+}
+func (UnimplementedAIServiceServer) GetMemory(context.Context, *GetMemoryRequest) (*MemoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMemory not implemented")
+}
+func (UnimplementedAIServiceServer) CreateMemory(context.Context, *CreateMemoryRequest) (*MemoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateMemory not implemented")
+}
+func (UnimplementedAIServiceServer) UpdateMemory(context.Context, *UpdateMemoryRequest) (*MemoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateMemory not implemented")
+}
+func (UnimplementedAIServiceServer) RevokeMemory(context.Context, *RevokeMemoryRequest) (*MemoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeMemory not implemented")
+}
+func (UnimplementedAIServiceServer) RecallMemories(context.Context, *RecallMemoriesRequest) (*RecallMemoriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RecallMemories not implemented")
 }
 func (UnimplementedAIServiceServer) mustEmbedUnimplementedAIServiceServer() {}
 func (UnimplementedAIServiceServer) testEmbeddedByValue()                   {}
@@ -3350,6 +4018,114 @@ func _AIService_ConfirmAgentRun_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AIService_ListMemories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMemoriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).ListMemories(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_ListMemories_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).ListMemories(ctx, req.(*ListMemoriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_GetMemory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMemoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).GetMemory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_GetMemory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).GetMemory(ctx, req.(*GetMemoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_CreateMemory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateMemoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).CreateMemory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_CreateMemory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).CreateMemory(ctx, req.(*CreateMemoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_UpdateMemory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMemoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).UpdateMemory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_UpdateMemory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).UpdateMemory(ctx, req.(*UpdateMemoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_RevokeMemory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeMemoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).RevokeMemory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_RevokeMemory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).RevokeMemory(ctx, req.(*RevokeMemoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_RecallMemories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecallMemoriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).RecallMemories(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_RecallMemories_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).RecallMemories(ctx, req.(*RecallMemoriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AIService_ServiceDesc is the grpc.ServiceDesc for AIService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -3445,6 +4221,30 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "ConfirmAgentRun",
 			Handler:    _AIService_ConfirmAgentRun_Handler,
 		},
+		{
+			MethodName: "ListMemories",
+			Handler:    _AIService_ListMemories_Handler,
+		},
+		{
+			MethodName: "GetMemory",
+			Handler:    _AIService_GetMemory_Handler,
+		},
+		{
+			MethodName: "CreateMemory",
+			Handler:    _AIService_CreateMemory_Handler,
+		},
+		{
+			MethodName: "UpdateMemory",
+			Handler:    _AIService_UpdateMemory_Handler,
+		},
+		{
+			MethodName: "RevokeMemory",
+			Handler:    _AIService_RevokeMemory_Handler,
+		},
+		{
+			MethodName: "RecallMemories",
+			Handler:    _AIService_RecallMemories_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -3463,6 +4263,838 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
+	BillingService_CheckAIAccess_FullMethodName             = "/recruitment.BillingService/CheckAIAccess"
+	BillingService_ReserveAIUsage_FullMethodName            = "/recruitment.BillingService/ReserveAIUsage"
+	BillingService_SettleAIUsage_FullMethodName             = "/recruitment.BillingService/SettleAIUsage"
+	BillingService_CancelAIUsage_FullMethodName             = "/recruitment.BillingService/CancelAIUsage"
+	BillingService_GetAICreditBalance_FullMethodName        = "/recruitment.BillingService/GetAICreditBalance"
+	BillingService_ListBillingCatalog_FullMethodName        = "/recruitment.BillingService/ListBillingCatalog"
+	BillingService_GetBillingAccount_FullMethodName         = "/recruitment.BillingService/GetBillingAccount"
+	BillingService_ListBillingOrders_FullMethodName         = "/recruitment.BillingService/ListBillingOrders"
+	BillingService_CreateBillingOrder_FullMethodName        = "/recruitment.BillingService/CreateBillingOrder"
+	BillingService_CreateAlipayPayment_FullMethodName       = "/recruitment.BillingService/CreateAlipayPayment"
+	BillingService_RequestBillingRefund_FullMethodName      = "/recruitment.BillingService/RequestBillingRefund"
+	BillingService_ProcessAlipayNotification_FullMethodName = "/recruitment.BillingService/ProcessAlipayNotification"
+	BillingService_ResolveAlipayReturn_FullMethodName       = "/recruitment.BillingService/ResolveAlipayReturn"
+	BillingService_SyncAlipayReturn_FullMethodName          = "/recruitment.BillingService/SyncAlipayReturn"
+	BillingService_ListBillingRefunds_FullMethodName        = "/recruitment.BillingService/ListBillingRefunds"
+	BillingService_ReviewBillingRefund_FullMethodName       = "/recruitment.BillingService/ReviewBillingRefund"
+	BillingService_ListBillingAdminCatalog_FullMethodName   = "/recruitment.BillingService/ListBillingAdminCatalog"
+	BillingService_SaveBillingPriceVersion_FullMethodName   = "/recruitment.BillingService/SaveBillingPriceVersion"
+	BillingService_ListAIRateCards_FullMethodName           = "/recruitment.BillingService/ListAIRateCards"
+	BillingService_SaveAIRateCard_FullMethodName            = "/recruitment.BillingService/SaveAIRateCard"
+)
+
+// BillingServiceClient is the client API for BillingService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// BillingService is an internal authority for AI entitlements, credit reservations,
+// immutable usage settlement, and owner balances. Public commerce APIs are exposed
+// by the gateway and never trust owner identifiers supplied by browsers.
+type BillingServiceClient interface {
+	CheckAIAccess(ctx context.Context, in *CheckAIAccessRequest, opts ...grpc.CallOption) (*CheckAIAccessResponse, error)
+	ReserveAIUsage(ctx context.Context, in *ReserveAIUsageRequest, opts ...grpc.CallOption) (*ReserveAIUsageResponse, error)
+	SettleAIUsage(ctx context.Context, in *SettleAIUsageRequest, opts ...grpc.CallOption) (*SettleAIUsageResponse, error)
+	CancelAIUsage(ctx context.Context, in *CancelAIUsageRequest, opts ...grpc.CallOption) (*CancelAIUsageResponse, error)
+	GetAICreditBalance(ctx context.Context, in *GetAICreditBalanceRequest, opts ...grpc.CallOption) (*GetAICreditBalanceResponse, error)
+	ListBillingCatalog(ctx context.Context, in *ListBillingCatalogRequest, opts ...grpc.CallOption) (*ListBillingCatalogResponse, error)
+	GetBillingAccount(ctx context.Context, in *GetBillingAccountRequest, opts ...grpc.CallOption) (*GetBillingAccountResponse, error)
+	ListBillingOrders(ctx context.Context, in *ListBillingOrdersRequest, opts ...grpc.CallOption) (*ListBillingOrdersResponse, error)
+	CreateBillingOrder(ctx context.Context, in *CreateBillingOrderRequest, opts ...grpc.CallOption) (*BillingOrderResponse, error)
+	CreateAlipayPayment(ctx context.Context, in *CreateAlipayPaymentRequest, opts ...grpc.CallOption) (*CreateAlipayPaymentResponse, error)
+	RequestBillingRefund(ctx context.Context, in *RequestBillingRefundRequest, opts ...grpc.CallOption) (*BillingRefundResponse, error)
+	ProcessAlipayNotification(ctx context.Context, in *ProcessAlipayNotificationRequest, opts ...grpc.CallOption) (*ProcessAlipayNotificationResponse, error)
+	ResolveAlipayReturn(ctx context.Context, in *ResolveAlipayReturnRequest, opts ...grpc.CallOption) (*ResolveAlipayReturnResponse, error)
+	SyncAlipayReturn(ctx context.Context, in *SyncAlipayReturnRequest, opts ...grpc.CallOption) (*CreateAlipayPaymentResponse, error)
+	ListBillingRefunds(ctx context.Context, in *ListBillingRefundsRequest, opts ...grpc.CallOption) (*ListBillingRefundsResponse, error)
+	ReviewBillingRefund(ctx context.Context, in *ReviewBillingRefundRequest, opts ...grpc.CallOption) (*BillingRefundResponse, error)
+	ListBillingAdminCatalog(ctx context.Context, in *ListBillingAdminCatalogRequest, opts ...grpc.CallOption) (*ListBillingCatalogResponse, error)
+	SaveBillingPriceVersion(ctx context.Context, in *SaveBillingPriceVersionRequest, opts ...grpc.CallOption) (*BillingPriceInfo, error)
+	ListAIRateCards(ctx context.Context, in *ListAIRateCardsRequest, opts ...grpc.CallOption) (*ListAIRateCardsResponse, error)
+	SaveAIRateCard(ctx context.Context, in *SaveAIRateCardRequest, opts ...grpc.CallOption) (*AIRateCardInfo, error)
+}
+
+type billingServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewBillingServiceClient(cc grpc.ClientConnInterface) BillingServiceClient {
+	return &billingServiceClient{cc}
+}
+
+func (c *billingServiceClient) CheckAIAccess(ctx context.Context, in *CheckAIAccessRequest, opts ...grpc.CallOption) (*CheckAIAccessResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CheckAIAccessResponse)
+	err := c.cc.Invoke(ctx, BillingService_CheckAIAccess_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ReserveAIUsage(ctx context.Context, in *ReserveAIUsageRequest, opts ...grpc.CallOption) (*ReserveAIUsageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReserveAIUsageResponse)
+	err := c.cc.Invoke(ctx, BillingService_ReserveAIUsage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) SettleAIUsage(ctx context.Context, in *SettleAIUsageRequest, opts ...grpc.CallOption) (*SettleAIUsageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SettleAIUsageResponse)
+	err := c.cc.Invoke(ctx, BillingService_SettleAIUsage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) CancelAIUsage(ctx context.Context, in *CancelAIUsageRequest, opts ...grpc.CallOption) (*CancelAIUsageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelAIUsageResponse)
+	err := c.cc.Invoke(ctx, BillingService_CancelAIUsage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) GetAICreditBalance(ctx context.Context, in *GetAICreditBalanceRequest, opts ...grpc.CallOption) (*GetAICreditBalanceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAICreditBalanceResponse)
+	err := c.cc.Invoke(ctx, BillingService_GetAICreditBalance_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ListBillingCatalog(ctx context.Context, in *ListBillingCatalogRequest, opts ...grpc.CallOption) (*ListBillingCatalogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBillingCatalogResponse)
+	err := c.cc.Invoke(ctx, BillingService_ListBillingCatalog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) GetBillingAccount(ctx context.Context, in *GetBillingAccountRequest, opts ...grpc.CallOption) (*GetBillingAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBillingAccountResponse)
+	err := c.cc.Invoke(ctx, BillingService_GetBillingAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ListBillingOrders(ctx context.Context, in *ListBillingOrdersRequest, opts ...grpc.CallOption) (*ListBillingOrdersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBillingOrdersResponse)
+	err := c.cc.Invoke(ctx, BillingService_ListBillingOrders_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) CreateBillingOrder(ctx context.Context, in *CreateBillingOrderRequest, opts ...grpc.CallOption) (*BillingOrderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BillingOrderResponse)
+	err := c.cc.Invoke(ctx, BillingService_CreateBillingOrder_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) CreateAlipayPayment(ctx context.Context, in *CreateAlipayPaymentRequest, opts ...grpc.CallOption) (*CreateAlipayPaymentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateAlipayPaymentResponse)
+	err := c.cc.Invoke(ctx, BillingService_CreateAlipayPayment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) RequestBillingRefund(ctx context.Context, in *RequestBillingRefundRequest, opts ...grpc.CallOption) (*BillingRefundResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BillingRefundResponse)
+	err := c.cc.Invoke(ctx, BillingService_RequestBillingRefund_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ProcessAlipayNotification(ctx context.Context, in *ProcessAlipayNotificationRequest, opts ...grpc.CallOption) (*ProcessAlipayNotificationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProcessAlipayNotificationResponse)
+	err := c.cc.Invoke(ctx, BillingService_ProcessAlipayNotification_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ResolveAlipayReturn(ctx context.Context, in *ResolveAlipayReturnRequest, opts ...grpc.CallOption) (*ResolveAlipayReturnResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResolveAlipayReturnResponse)
+	err := c.cc.Invoke(ctx, BillingService_ResolveAlipayReturn_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) SyncAlipayReturn(ctx context.Context, in *SyncAlipayReturnRequest, opts ...grpc.CallOption) (*CreateAlipayPaymentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateAlipayPaymentResponse)
+	err := c.cc.Invoke(ctx, BillingService_SyncAlipayReturn_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ListBillingRefunds(ctx context.Context, in *ListBillingRefundsRequest, opts ...grpc.CallOption) (*ListBillingRefundsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBillingRefundsResponse)
+	err := c.cc.Invoke(ctx, BillingService_ListBillingRefunds_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ReviewBillingRefund(ctx context.Context, in *ReviewBillingRefundRequest, opts ...grpc.CallOption) (*BillingRefundResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BillingRefundResponse)
+	err := c.cc.Invoke(ctx, BillingService_ReviewBillingRefund_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ListBillingAdminCatalog(ctx context.Context, in *ListBillingAdminCatalogRequest, opts ...grpc.CallOption) (*ListBillingCatalogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBillingCatalogResponse)
+	err := c.cc.Invoke(ctx, BillingService_ListBillingAdminCatalog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) SaveBillingPriceVersion(ctx context.Context, in *SaveBillingPriceVersionRequest, opts ...grpc.CallOption) (*BillingPriceInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BillingPriceInfo)
+	err := c.cc.Invoke(ctx, BillingService_SaveBillingPriceVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ListAIRateCards(ctx context.Context, in *ListAIRateCardsRequest, opts ...grpc.CallOption) (*ListAIRateCardsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAIRateCardsResponse)
+	err := c.cc.Invoke(ctx, BillingService_ListAIRateCards_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) SaveAIRateCard(ctx context.Context, in *SaveAIRateCardRequest, opts ...grpc.CallOption) (*AIRateCardInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AIRateCardInfo)
+	err := c.cc.Invoke(ctx, BillingService_SaveAIRateCard_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// BillingServiceServer is the server API for BillingService service.
+// All implementations must embed UnimplementedBillingServiceServer
+// for forward compatibility.
+//
+// BillingService is an internal authority for AI entitlements, credit reservations,
+// immutable usage settlement, and owner balances. Public commerce APIs are exposed
+// by the gateway and never trust owner identifiers supplied by browsers.
+type BillingServiceServer interface {
+	CheckAIAccess(context.Context, *CheckAIAccessRequest) (*CheckAIAccessResponse, error)
+	ReserveAIUsage(context.Context, *ReserveAIUsageRequest) (*ReserveAIUsageResponse, error)
+	SettleAIUsage(context.Context, *SettleAIUsageRequest) (*SettleAIUsageResponse, error)
+	CancelAIUsage(context.Context, *CancelAIUsageRequest) (*CancelAIUsageResponse, error)
+	GetAICreditBalance(context.Context, *GetAICreditBalanceRequest) (*GetAICreditBalanceResponse, error)
+	ListBillingCatalog(context.Context, *ListBillingCatalogRequest) (*ListBillingCatalogResponse, error)
+	GetBillingAccount(context.Context, *GetBillingAccountRequest) (*GetBillingAccountResponse, error)
+	ListBillingOrders(context.Context, *ListBillingOrdersRequest) (*ListBillingOrdersResponse, error)
+	CreateBillingOrder(context.Context, *CreateBillingOrderRequest) (*BillingOrderResponse, error)
+	CreateAlipayPayment(context.Context, *CreateAlipayPaymentRequest) (*CreateAlipayPaymentResponse, error)
+	RequestBillingRefund(context.Context, *RequestBillingRefundRequest) (*BillingRefundResponse, error)
+	ProcessAlipayNotification(context.Context, *ProcessAlipayNotificationRequest) (*ProcessAlipayNotificationResponse, error)
+	ResolveAlipayReturn(context.Context, *ResolveAlipayReturnRequest) (*ResolveAlipayReturnResponse, error)
+	SyncAlipayReturn(context.Context, *SyncAlipayReturnRequest) (*CreateAlipayPaymentResponse, error)
+	ListBillingRefunds(context.Context, *ListBillingRefundsRequest) (*ListBillingRefundsResponse, error)
+	ReviewBillingRefund(context.Context, *ReviewBillingRefundRequest) (*BillingRefundResponse, error)
+	ListBillingAdminCatalog(context.Context, *ListBillingAdminCatalogRequest) (*ListBillingCatalogResponse, error)
+	SaveBillingPriceVersion(context.Context, *SaveBillingPriceVersionRequest) (*BillingPriceInfo, error)
+	ListAIRateCards(context.Context, *ListAIRateCardsRequest) (*ListAIRateCardsResponse, error)
+	SaveAIRateCard(context.Context, *SaveAIRateCardRequest) (*AIRateCardInfo, error)
+	mustEmbedUnimplementedBillingServiceServer()
+}
+
+// UnimplementedBillingServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedBillingServiceServer struct{}
+
+func (UnimplementedBillingServiceServer) CheckAIAccess(context.Context, *CheckAIAccessRequest) (*CheckAIAccessResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CheckAIAccess not implemented")
+}
+func (UnimplementedBillingServiceServer) ReserveAIUsage(context.Context, *ReserveAIUsageRequest) (*ReserveAIUsageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReserveAIUsage not implemented")
+}
+func (UnimplementedBillingServiceServer) SettleAIUsage(context.Context, *SettleAIUsageRequest) (*SettleAIUsageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SettleAIUsage not implemented")
+}
+func (UnimplementedBillingServiceServer) CancelAIUsage(context.Context, *CancelAIUsageRequest) (*CancelAIUsageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelAIUsage not implemented")
+}
+func (UnimplementedBillingServiceServer) GetAICreditBalance(context.Context, *GetAICreditBalanceRequest) (*GetAICreditBalanceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAICreditBalance not implemented")
+}
+func (UnimplementedBillingServiceServer) ListBillingCatalog(context.Context, *ListBillingCatalogRequest) (*ListBillingCatalogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBillingCatalog not implemented")
+}
+func (UnimplementedBillingServiceServer) GetBillingAccount(context.Context, *GetBillingAccountRequest) (*GetBillingAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBillingAccount not implemented")
+}
+func (UnimplementedBillingServiceServer) ListBillingOrders(context.Context, *ListBillingOrdersRequest) (*ListBillingOrdersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBillingOrders not implemented")
+}
+func (UnimplementedBillingServiceServer) CreateBillingOrder(context.Context, *CreateBillingOrderRequest) (*BillingOrderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateBillingOrder not implemented")
+}
+func (UnimplementedBillingServiceServer) CreateAlipayPayment(context.Context, *CreateAlipayPaymentRequest) (*CreateAlipayPaymentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateAlipayPayment not implemented")
+}
+func (UnimplementedBillingServiceServer) RequestBillingRefund(context.Context, *RequestBillingRefundRequest) (*BillingRefundResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RequestBillingRefund not implemented")
+}
+func (UnimplementedBillingServiceServer) ProcessAlipayNotification(context.Context, *ProcessAlipayNotificationRequest) (*ProcessAlipayNotificationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ProcessAlipayNotification not implemented")
+}
+func (UnimplementedBillingServiceServer) ResolveAlipayReturn(context.Context, *ResolveAlipayReturnRequest) (*ResolveAlipayReturnResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResolveAlipayReturn not implemented")
+}
+func (UnimplementedBillingServiceServer) SyncAlipayReturn(context.Context, *SyncAlipayReturnRequest) (*CreateAlipayPaymentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SyncAlipayReturn not implemented")
+}
+func (UnimplementedBillingServiceServer) ListBillingRefunds(context.Context, *ListBillingRefundsRequest) (*ListBillingRefundsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBillingRefunds not implemented")
+}
+func (UnimplementedBillingServiceServer) ReviewBillingRefund(context.Context, *ReviewBillingRefundRequest) (*BillingRefundResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReviewBillingRefund not implemented")
+}
+func (UnimplementedBillingServiceServer) ListBillingAdminCatalog(context.Context, *ListBillingAdminCatalogRequest) (*ListBillingCatalogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBillingAdminCatalog not implemented")
+}
+func (UnimplementedBillingServiceServer) SaveBillingPriceVersion(context.Context, *SaveBillingPriceVersionRequest) (*BillingPriceInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveBillingPriceVersion not implemented")
+}
+func (UnimplementedBillingServiceServer) ListAIRateCards(context.Context, *ListAIRateCardsRequest) (*ListAIRateCardsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAIRateCards not implemented")
+}
+func (UnimplementedBillingServiceServer) SaveAIRateCard(context.Context, *SaveAIRateCardRequest) (*AIRateCardInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveAIRateCard not implemented")
+}
+func (UnimplementedBillingServiceServer) mustEmbedUnimplementedBillingServiceServer() {}
+func (UnimplementedBillingServiceServer) testEmbeddedByValue()                        {}
+
+// UnsafeBillingServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to BillingServiceServer will
+// result in compilation errors.
+type UnsafeBillingServiceServer interface {
+	mustEmbedUnimplementedBillingServiceServer()
+}
+
+func RegisterBillingServiceServer(s grpc.ServiceRegistrar, srv BillingServiceServer) {
+	// If the following call panics, it indicates UnimplementedBillingServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&BillingService_ServiceDesc, srv)
+}
+
+func _BillingService_CheckAIAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckAIAccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).CheckAIAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_CheckAIAccess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).CheckAIAccess(ctx, req.(*CheckAIAccessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ReserveAIUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReserveAIUsageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ReserveAIUsage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ReserveAIUsage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ReserveAIUsage(ctx, req.(*ReserveAIUsageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_SettleAIUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SettleAIUsageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).SettleAIUsage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_SettleAIUsage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).SettleAIUsage(ctx, req.(*SettleAIUsageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_CancelAIUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelAIUsageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).CancelAIUsage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_CancelAIUsage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).CancelAIUsage(ctx, req.(*CancelAIUsageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_GetAICreditBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAICreditBalanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).GetAICreditBalance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_GetAICreditBalance_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).GetAICreditBalance(ctx, req.(*GetAICreditBalanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ListBillingCatalog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBillingCatalogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ListBillingCatalog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ListBillingCatalog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ListBillingCatalog(ctx, req.(*ListBillingCatalogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_GetBillingAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBillingAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).GetBillingAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_GetBillingAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).GetBillingAccount(ctx, req.(*GetBillingAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ListBillingOrders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBillingOrdersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ListBillingOrders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ListBillingOrders_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ListBillingOrders(ctx, req.(*ListBillingOrdersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_CreateBillingOrder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateBillingOrderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).CreateBillingOrder(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_CreateBillingOrder_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).CreateBillingOrder(ctx, req.(*CreateBillingOrderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_CreateAlipayPayment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAlipayPaymentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).CreateAlipayPayment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_CreateAlipayPayment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).CreateAlipayPayment(ctx, req.(*CreateAlipayPaymentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_RequestBillingRefund_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestBillingRefundRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).RequestBillingRefund(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_RequestBillingRefund_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).RequestBillingRefund(ctx, req.(*RequestBillingRefundRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ProcessAlipayNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProcessAlipayNotificationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ProcessAlipayNotification(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ProcessAlipayNotification_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ProcessAlipayNotification(ctx, req.(*ProcessAlipayNotificationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ResolveAlipayReturn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolveAlipayReturnRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ResolveAlipayReturn(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ResolveAlipayReturn_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ResolveAlipayReturn(ctx, req.(*ResolveAlipayReturnRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_SyncAlipayReturn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SyncAlipayReturnRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).SyncAlipayReturn(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_SyncAlipayReturn_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).SyncAlipayReturn(ctx, req.(*SyncAlipayReturnRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ListBillingRefunds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBillingRefundsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ListBillingRefunds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ListBillingRefunds_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ListBillingRefunds(ctx, req.(*ListBillingRefundsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ReviewBillingRefund_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReviewBillingRefundRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ReviewBillingRefund(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ReviewBillingRefund_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ReviewBillingRefund(ctx, req.(*ReviewBillingRefundRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ListBillingAdminCatalog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBillingAdminCatalogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ListBillingAdminCatalog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ListBillingAdminCatalog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ListBillingAdminCatalog(ctx, req.(*ListBillingAdminCatalogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_SaveBillingPriceVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveBillingPriceVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).SaveBillingPriceVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_SaveBillingPriceVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).SaveBillingPriceVersion(ctx, req.(*SaveBillingPriceVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ListAIRateCards_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAIRateCardsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ListAIRateCards(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ListAIRateCards_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ListAIRateCards(ctx, req.(*ListAIRateCardsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_SaveAIRateCard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveAIRateCardRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).SaveAIRateCard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_SaveAIRateCard_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).SaveAIRateCard(ctx, req.(*SaveAIRateCardRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// BillingService_ServiceDesc is the grpc.ServiceDesc for BillingService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var BillingService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.BillingService",
+	HandlerType: (*BillingServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CheckAIAccess",
+			Handler:    _BillingService_CheckAIAccess_Handler,
+		},
+		{
+			MethodName: "ReserveAIUsage",
+			Handler:    _BillingService_ReserveAIUsage_Handler,
+		},
+		{
+			MethodName: "SettleAIUsage",
+			Handler:    _BillingService_SettleAIUsage_Handler,
+		},
+		{
+			MethodName: "CancelAIUsage",
+			Handler:    _BillingService_CancelAIUsage_Handler,
+		},
+		{
+			MethodName: "GetAICreditBalance",
+			Handler:    _BillingService_GetAICreditBalance_Handler,
+		},
+		{
+			MethodName: "ListBillingCatalog",
+			Handler:    _BillingService_ListBillingCatalog_Handler,
+		},
+		{
+			MethodName: "GetBillingAccount",
+			Handler:    _BillingService_GetBillingAccount_Handler,
+		},
+		{
+			MethodName: "ListBillingOrders",
+			Handler:    _BillingService_ListBillingOrders_Handler,
+		},
+		{
+			MethodName: "CreateBillingOrder",
+			Handler:    _BillingService_CreateBillingOrder_Handler,
+		},
+		{
+			MethodName: "CreateAlipayPayment",
+			Handler:    _BillingService_CreateAlipayPayment_Handler,
+		},
+		{
+			MethodName: "RequestBillingRefund",
+			Handler:    _BillingService_RequestBillingRefund_Handler,
+		},
+		{
+			MethodName: "ProcessAlipayNotification",
+			Handler:    _BillingService_ProcessAlipayNotification_Handler,
+		},
+		{
+			MethodName: "ResolveAlipayReturn",
+			Handler:    _BillingService_ResolveAlipayReturn_Handler,
+		},
+		{
+			MethodName: "SyncAlipayReturn",
+			Handler:    _BillingService_SyncAlipayReturn_Handler,
+		},
+		{
+			MethodName: "ListBillingRefunds",
+			Handler:    _BillingService_ListBillingRefunds_Handler,
+		},
+		{
+			MethodName: "ReviewBillingRefund",
+			Handler:    _BillingService_ReviewBillingRefund_Handler,
+		},
+		{
+			MethodName: "ListBillingAdminCatalog",
+			Handler:    _BillingService_ListBillingAdminCatalog_Handler,
+		},
+		{
+			MethodName: "SaveBillingPriceVersion",
+			Handler:    _BillingService_SaveBillingPriceVersion_Handler,
+		},
+		{
+			MethodName: "ListAIRateCards",
+			Handler:    _BillingService_ListAIRateCards_Handler,
+		},
+		{
+			MethodName: "SaveAIRateCard",
+			Handler:    _BillingService_SaveAIRateCard_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/recruitment.proto",
 }
 
@@ -3940,6 +5572,9 @@ const (
 	AdminService_RevokeDataScope_FullMethodName                = "/recruitment.AdminService/RevokeDataScope"
 	AdminService_ListStaffUsers_FullMethodName                 = "/recruitment.AdminService/ListStaffUsers"
 	AdminService_CreateStaffUser_FullMethodName                = "/recruitment.AdminService/CreateStaffUser"
+	AdminService_ListPlatformUsers_FullMethodName              = "/recruitment.AdminService/ListPlatformUsers"
+	AdminService_CreatePlatformUser_FullMethodName             = "/recruitment.AdminService/CreatePlatformUser"
+	AdminService_UpdatePlatformUser_FullMethodName             = "/recruitment.AdminService/UpdatePlatformUser"
 	AdminService_QueryAuthAuditLogs_FullMethodName             = "/recruitment.AdminService/QueryAuthAuditLogs"
 	AdminService_GetDashboardReport_FullMethodName             = "/recruitment.AdminService/GetDashboardReport"
 	AdminService_GetFunnelReport_FullMethodName                = "/recruitment.AdminService/GetFunnelReport"
@@ -3984,6 +5619,9 @@ type AdminServiceClient interface {
 	// Staff user management
 	ListStaffUsers(ctx context.Context, in *ListStaffUsersRequest, opts ...grpc.CallOption) (*ListStaffUsersResponse, error)
 	CreateStaffUser(ctx context.Context, in *CreateStaffUserRequest, opts ...grpc.CallOption) (*CreateStaffUserResponse, error)
+	ListPlatformUsers(ctx context.Context, in *ListPlatformUsersRequest, opts ...grpc.CallOption) (*ListPlatformUsersResponse, error)
+	CreatePlatformUser(ctx context.Context, in *CreatePlatformUserRequest, opts ...grpc.CallOption) (*CreatePlatformUserResponse, error)
+	UpdatePlatformUser(ctx context.Context, in *UpdatePlatformUserRequest, opts ...grpc.CallOption) (*PlatformUserResponse, error)
 	// ── Phase 6: Analytics & AI Audit ─────────────────────────────────────
 	QueryAuthAuditLogs(ctx context.Context, in *QueryAuthAuditLogsRequest, opts ...grpc.CallOption) (*QueryAuthAuditLogsResponse, error)
 	GetDashboardReport(ctx context.Context, in *GetDashboardReportRequest, opts ...grpc.CallOption) (*GetDashboardReportResponse, error)
@@ -4293,6 +5931,36 @@ func (c *adminServiceClient) CreateStaffUser(ctx context.Context, in *CreateStaf
 	return out, nil
 }
 
+func (c *adminServiceClient) ListPlatformUsers(ctx context.Context, in *ListPlatformUsersRequest, opts ...grpc.CallOption) (*ListPlatformUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPlatformUsersResponse)
+	err := c.cc.Invoke(ctx, AdminService_ListPlatformUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) CreatePlatformUser(ctx context.Context, in *CreatePlatformUserRequest, opts ...grpc.CallOption) (*CreatePlatformUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreatePlatformUserResponse)
+	err := c.cc.Invoke(ctx, AdminService_CreatePlatformUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) UpdatePlatformUser(ctx context.Context, in *UpdatePlatformUserRequest, opts ...grpc.CallOption) (*PlatformUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlatformUserResponse)
+	err := c.cc.Invoke(ctx, AdminService_UpdatePlatformUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *adminServiceClient) QueryAuthAuditLogs(ctx context.Context, in *QueryAuthAuditLogsRequest, opts ...grpc.CallOption) (*QueryAuthAuditLogsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryAuthAuditLogsResponse)
@@ -4398,6 +6066,9 @@ type AdminServiceServer interface {
 	// Staff user management
 	ListStaffUsers(context.Context, *ListStaffUsersRequest) (*ListStaffUsersResponse, error)
 	CreateStaffUser(context.Context, *CreateStaffUserRequest) (*CreateStaffUserResponse, error)
+	ListPlatformUsers(context.Context, *ListPlatformUsersRequest) (*ListPlatformUsersResponse, error)
+	CreatePlatformUser(context.Context, *CreatePlatformUserRequest) (*CreatePlatformUserResponse, error)
+	UpdatePlatformUser(context.Context, *UpdatePlatformUserRequest) (*PlatformUserResponse, error)
 	// ── Phase 6: Analytics & AI Audit ─────────────────────────────────────
 	QueryAuthAuditLogs(context.Context, *QueryAuthAuditLogsRequest) (*QueryAuthAuditLogsResponse, error)
 	GetDashboardReport(context.Context, *GetDashboardReportRequest) (*GetDashboardReportResponse, error)
@@ -4503,6 +6174,15 @@ func (UnimplementedAdminServiceServer) ListStaffUsers(context.Context, *ListStaf
 }
 func (UnimplementedAdminServiceServer) CreateStaffUser(context.Context, *CreateStaffUserRequest) (*CreateStaffUserResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateStaffUser not implemented")
+}
+func (UnimplementedAdminServiceServer) ListPlatformUsers(context.Context, *ListPlatformUsersRequest) (*ListPlatformUsersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPlatformUsers not implemented")
+}
+func (UnimplementedAdminServiceServer) CreatePlatformUser(context.Context, *CreatePlatformUserRequest) (*CreatePlatformUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreatePlatformUser not implemented")
+}
+func (UnimplementedAdminServiceServer) UpdatePlatformUser(context.Context, *UpdatePlatformUserRequest) (*PlatformUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdatePlatformUser not implemented")
 }
 func (UnimplementedAdminServiceServer) QueryAuthAuditLogs(context.Context, *QueryAuthAuditLogsRequest) (*QueryAuthAuditLogsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method QueryAuthAuditLogs not implemented")
@@ -5068,6 +6748,60 @@ func _AdminService_CreateStaffUser_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AdminService_ListPlatformUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPlatformUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).ListPlatformUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_ListPlatformUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).ListPlatformUsers(ctx, req.(*ListPlatformUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_CreatePlatformUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreatePlatformUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).CreatePlatformUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_CreatePlatformUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).CreatePlatformUser(ctx, req.(*CreatePlatformUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_UpdatePlatformUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdatePlatformUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).UpdatePlatformUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_UpdatePlatformUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).UpdatePlatformUser(ctx, req.(*UpdatePlatformUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AdminService_QueryAuthAuditLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryAuthAuditLogsRequest)
 	if err := dec(in); err != nil {
@@ -5316,6 +7050,18 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateStaffUser",
 			Handler:    _AdminService_CreateStaffUser_Handler,
+		},
+		{
+			MethodName: "ListPlatformUsers",
+			Handler:    _AdminService_ListPlatformUsers_Handler,
+		},
+		{
+			MethodName: "CreatePlatformUser",
+			Handler:    _AdminService_CreatePlatformUser_Handler,
+		},
+		{
+			MethodName: "UpdatePlatformUser",
+			Handler:    _AdminService_UpdatePlatformUser_Handler,
 		},
 		{
 			MethodName: "QueryAuthAuditLogs",
@@ -5919,11 +7665,12 @@ var CollaborationService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	RecruitingIntelligenceService_GetResumeProfile_FullMethodName            = "/recruitment.RecruitingIntelligenceService/GetResumeProfile"
-	RecruitingIntelligenceService_ParseResumeProfile_FullMethodName          = "/recruitment.RecruitingIntelligenceService/ParseResumeProfile"
-	RecruitingIntelligenceService_EvaluateCandidateMatch_FullMethodName      = "/recruitment.RecruitingIntelligenceService/EvaluateCandidateMatch"
-	RecruitingIntelligenceService_GetCandidateMatchEvaluation_FullMethodName = "/recruitment.RecruitingIntelligenceService/GetCandidateMatchEvaluation"
-	RecruitingIntelligenceService_CompareCandidatesForJob_FullMethodName     = "/recruitment.RecruitingIntelligenceService/CompareCandidatesForJob"
+	RecruitingIntelligenceService_GetResumeProfile_FullMethodName               = "/recruitment.RecruitingIntelligenceService/GetResumeProfile"
+	RecruitingIntelligenceService_ParseResumeProfile_FullMethodName             = "/recruitment.RecruitingIntelligenceService/ParseResumeProfile"
+	RecruitingIntelligenceService_ParseResumeProfileForCandidate_FullMethodName = "/recruitment.RecruitingIntelligenceService/ParseResumeProfileForCandidate"
+	RecruitingIntelligenceService_EvaluateCandidateMatch_FullMethodName         = "/recruitment.RecruitingIntelligenceService/EvaluateCandidateMatch"
+	RecruitingIntelligenceService_GetCandidateMatchEvaluation_FullMethodName    = "/recruitment.RecruitingIntelligenceService/GetCandidateMatchEvaluation"
+	RecruitingIntelligenceService_CompareCandidatesForJob_FullMethodName        = "/recruitment.RecruitingIntelligenceService/CompareCandidatesForJob"
 )
 
 // RecruitingIntelligenceServiceClient is the client API for RecruitingIntelligenceService service.
@@ -5932,6 +7679,7 @@ const (
 type RecruitingIntelligenceServiceClient interface {
 	GetResumeProfile(ctx context.Context, in *GetResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error)
 	ParseResumeProfile(ctx context.Context, in *ParseResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error)
+	ParseResumeProfileForCandidate(ctx context.Context, in *ParseResumeProfileForCandidateRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error)
 	EvaluateCandidateMatch(ctx context.Context, in *EvaluateCandidateMatchRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error)
 	GetCandidateMatchEvaluation(ctx context.Context, in *GetCandidateMatchEvaluationRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error)
 	CompareCandidatesForJob(ctx context.Context, in *CompareCandidatesForJobRequest, opts ...grpc.CallOption) (*CompareCandidatesForJobResponse, error)
@@ -5959,6 +7707,16 @@ func (c *recruitingIntelligenceServiceClient) ParseResumeProfile(ctx context.Con
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetResumeProfileResponse)
 	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_ParseResumeProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) ParseResumeProfileForCandidate(ctx context.Context, in *ParseResumeProfileForCandidateRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetResumeProfileResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_ParseResumeProfileForCandidate_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -6001,6 +7759,7 @@ func (c *recruitingIntelligenceServiceClient) CompareCandidatesForJob(ctx contex
 type RecruitingIntelligenceServiceServer interface {
 	GetResumeProfile(context.Context, *GetResumeProfileRequest) (*GetResumeProfileResponse, error)
 	ParseResumeProfile(context.Context, *ParseResumeProfileRequest) (*GetResumeProfileResponse, error)
+	ParseResumeProfileForCandidate(context.Context, *ParseResumeProfileForCandidateRequest) (*GetResumeProfileResponse, error)
 	EvaluateCandidateMatch(context.Context, *EvaluateCandidateMatchRequest) (*GetCandidateMatchEvaluationResponse, error)
 	GetCandidateMatchEvaluation(context.Context, *GetCandidateMatchEvaluationRequest) (*GetCandidateMatchEvaluationResponse, error)
 	CompareCandidatesForJob(context.Context, *CompareCandidatesForJobRequest) (*CompareCandidatesForJobResponse, error)
@@ -6019,6 +7778,9 @@ func (UnimplementedRecruitingIntelligenceServiceServer) GetResumeProfile(context
 }
 func (UnimplementedRecruitingIntelligenceServiceServer) ParseResumeProfile(context.Context, *ParseResumeProfileRequest) (*GetResumeProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ParseResumeProfile not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) ParseResumeProfileForCandidate(context.Context, *ParseResumeProfileForCandidateRequest) (*GetResumeProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ParseResumeProfileForCandidate not implemented")
 }
 func (UnimplementedRecruitingIntelligenceServiceServer) EvaluateCandidateMatch(context.Context, *EvaluateCandidateMatchRequest) (*GetCandidateMatchEvaluationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method EvaluateCandidateMatch not implemented")
@@ -6083,6 +7845,24 @@ func _RecruitingIntelligenceService_ParseResumeProfile_Handler(srv interface{}, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RecruitingIntelligenceServiceServer).ParseResumeProfile(ctx, req.(*ParseResumeProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_ParseResumeProfileForCandidate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ParseResumeProfileForCandidateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).ParseResumeProfileForCandidate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_ParseResumeProfileForCandidate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).ParseResumeProfileForCandidate(ctx, req.(*ParseResumeProfileForCandidateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -6157,6 +7937,10 @@ var RecruitingIntelligenceService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RecruitingIntelligenceService_ParseResumeProfile_Handler,
 		},
 		{
+			MethodName: "ParseResumeProfileForCandidate",
+			Handler:    _RecruitingIntelligenceService_ParseResumeProfileForCandidate_Handler,
+		},
+		{
 			MethodName: "EvaluateCandidateMatch",
 			Handler:    _RecruitingIntelligenceService_EvaluateCandidateMatch_Handler,
 		},
@@ -6167,6 +7951,423 @@ var RecruitingIntelligenceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CompareCandidatesForJob",
 			Handler:    _RecruitingIntelligenceService_CompareCandidatesForJob_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
+	PlatformAIControlPlaneService_ListPlatformAICapabilities_FullMethodName         = "/recruitment.PlatformAIControlPlaneService/ListPlatformAICapabilities"
+	PlatformAIControlPlaneService_ListPlatformAICapabilityVersions_FullMethodName   = "/recruitment.PlatformAIControlPlaneService/ListPlatformAICapabilityVersions"
+	PlatformAIControlPlaneService_CreatePlatformAICapabilityDraft_FullMethodName    = "/recruitment.PlatformAIControlPlaneService/CreatePlatformAICapabilityDraft"
+	PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_FullMethodName    = "/recruitment.PlatformAIControlPlaneService/UpdatePlatformAICapabilityDraft"
+	PlatformAIControlPlaneService_DeletePlatformAICapabilityDraft_FullMethodName    = "/recruitment.PlatformAIControlPlaneService/DeletePlatformAICapabilityDraft"
+	PlatformAIControlPlaneService_PublishPlatformAICapabilityVersion_FullMethodName = "/recruitment.PlatformAIControlPlaneService/PublishPlatformAICapabilityVersion"
+	PlatformAIControlPlaneService_ListPlatformAIRuntimeModels_FullMethodName        = "/recruitment.PlatformAIControlPlaneService/ListPlatformAIRuntimeModels"
+	PlatformAIControlPlaneService_ResolvePlatformAIRuntimeModel_FullMethodName      = "/recruitment.PlatformAIControlPlaneService/ResolvePlatformAIRuntimeModel"
+	PlatformAIControlPlaneService_QueryPlatformAIConfigAuditLogs_FullMethodName     = "/recruitment.PlatformAIControlPlaneService/QueryPlatformAIConfigAuditLogs"
+)
+
+// PlatformAIControlPlaneServiceClient is the client API for PlatformAIControlPlaneService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// Platform-owned AI capability releases and runtime model pools. Technical
+// configuration CRUD remains in the existing focused services; this service
+// governs immutable release snapshots and the safe model list exposed to HR
+// and candidate assistants.
+type PlatformAIControlPlaneServiceClient interface {
+	ListPlatformAICapabilities(ctx context.Context, in *ListPlatformAICapabilitiesRequest, opts ...grpc.CallOption) (*ListPlatformAICapabilitiesResponse, error)
+	ListPlatformAICapabilityVersions(ctx context.Context, in *ListPlatformAICapabilityVersionsRequest, opts ...grpc.CallOption) (*ListPlatformAICapabilityVersionsResponse, error)
+	CreatePlatformAICapabilityDraft(ctx context.Context, in *CreatePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error)
+	UpdatePlatformAICapabilityDraft(ctx context.Context, in *UpdatePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error)
+	DeletePlatformAICapabilityDraft(ctx context.Context, in *DeletePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	PublishPlatformAICapabilityVersion(ctx context.Context, in *PublishPlatformAICapabilityVersionRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error)
+	ListPlatformAIRuntimeModels(ctx context.Context, in *ListPlatformAIRuntimeModelsRequest, opts ...grpc.CallOption) (*ListPlatformAIRuntimeModelsResponse, error)
+	ResolvePlatformAIRuntimeModel(ctx context.Context, in *ResolvePlatformAIRuntimeModelRequest, opts ...grpc.CallOption) (*ResolvePlatformAIRuntimeModelResponse, error)
+	QueryPlatformAIConfigAuditLogs(ctx context.Context, in *QueryPlatformAIConfigAuditLogsRequest, opts ...grpc.CallOption) (*QueryPlatformAIConfigAuditLogsResponse, error)
+}
+
+type platformAIControlPlaneServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewPlatformAIControlPlaneServiceClient(cc grpc.ClientConnInterface) PlatformAIControlPlaneServiceClient {
+	return &platformAIControlPlaneServiceClient{cc}
+}
+
+func (c *platformAIControlPlaneServiceClient) ListPlatformAICapabilities(ctx context.Context, in *ListPlatformAICapabilitiesRequest, opts ...grpc.CallOption) (*ListPlatformAICapabilitiesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPlatformAICapabilitiesResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_ListPlatformAICapabilities_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) ListPlatformAICapabilityVersions(ctx context.Context, in *ListPlatformAICapabilityVersionsRequest, opts ...grpc.CallOption) (*ListPlatformAICapabilityVersionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPlatformAICapabilityVersionsResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_ListPlatformAICapabilityVersions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) CreatePlatformAICapabilityDraft(ctx context.Context, in *CreatePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlatformAICapabilityVersionResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_CreatePlatformAICapabilityDraft_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) UpdatePlatformAICapabilityDraft(ctx context.Context, in *UpdatePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlatformAICapabilityVersionResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) DeletePlatformAICapabilityDraft(ctx context.Context, in *DeletePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_DeletePlatformAICapabilityDraft_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) PublishPlatformAICapabilityVersion(ctx context.Context, in *PublishPlatformAICapabilityVersionRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlatformAICapabilityVersionResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_PublishPlatformAICapabilityVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) ListPlatformAIRuntimeModels(ctx context.Context, in *ListPlatformAIRuntimeModelsRequest, opts ...grpc.CallOption) (*ListPlatformAIRuntimeModelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPlatformAIRuntimeModelsResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_ListPlatformAIRuntimeModels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) ResolvePlatformAIRuntimeModel(ctx context.Context, in *ResolvePlatformAIRuntimeModelRequest, opts ...grpc.CallOption) (*ResolvePlatformAIRuntimeModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResolvePlatformAIRuntimeModelResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_ResolvePlatformAIRuntimeModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) QueryPlatformAIConfigAuditLogs(ctx context.Context, in *QueryPlatformAIConfigAuditLogsRequest, opts ...grpc.CallOption) (*QueryPlatformAIConfigAuditLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryPlatformAIConfigAuditLogsResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_QueryPlatformAIConfigAuditLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// PlatformAIControlPlaneServiceServer is the server API for PlatformAIControlPlaneService service.
+// All implementations must embed UnimplementedPlatformAIControlPlaneServiceServer
+// for forward compatibility.
+//
+// Platform-owned AI capability releases and runtime model pools. Technical
+// configuration CRUD remains in the existing focused services; this service
+// governs immutable release snapshots and the safe model list exposed to HR
+// and candidate assistants.
+type PlatformAIControlPlaneServiceServer interface {
+	ListPlatformAICapabilities(context.Context, *ListPlatformAICapabilitiesRequest) (*ListPlatformAICapabilitiesResponse, error)
+	ListPlatformAICapabilityVersions(context.Context, *ListPlatformAICapabilityVersionsRequest) (*ListPlatformAICapabilityVersionsResponse, error)
+	CreatePlatformAICapabilityDraft(context.Context, *CreatePlatformAICapabilityDraftRequest) (*PlatformAICapabilityVersionResponse, error)
+	UpdatePlatformAICapabilityDraft(context.Context, *UpdatePlatformAICapabilityDraftRequest) (*PlatformAICapabilityVersionResponse, error)
+	DeletePlatformAICapabilityDraft(context.Context, *DeletePlatformAICapabilityDraftRequest) (*CommonResponse, error)
+	PublishPlatformAICapabilityVersion(context.Context, *PublishPlatformAICapabilityVersionRequest) (*PlatformAICapabilityVersionResponse, error)
+	ListPlatformAIRuntimeModels(context.Context, *ListPlatformAIRuntimeModelsRequest) (*ListPlatformAIRuntimeModelsResponse, error)
+	ResolvePlatformAIRuntimeModel(context.Context, *ResolvePlatformAIRuntimeModelRequest) (*ResolvePlatformAIRuntimeModelResponse, error)
+	QueryPlatformAIConfigAuditLogs(context.Context, *QueryPlatformAIConfigAuditLogsRequest) (*QueryPlatformAIConfigAuditLogsResponse, error)
+	mustEmbedUnimplementedPlatformAIControlPlaneServiceServer()
+}
+
+// UnimplementedPlatformAIControlPlaneServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedPlatformAIControlPlaneServiceServer struct{}
+
+func (UnimplementedPlatformAIControlPlaneServiceServer) ListPlatformAICapabilities(context.Context, *ListPlatformAICapabilitiesRequest) (*ListPlatformAICapabilitiesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPlatformAICapabilities not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) ListPlatformAICapabilityVersions(context.Context, *ListPlatformAICapabilityVersionsRequest) (*ListPlatformAICapabilityVersionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPlatformAICapabilityVersions not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) CreatePlatformAICapabilityDraft(context.Context, *CreatePlatformAICapabilityDraftRequest) (*PlatformAICapabilityVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreatePlatformAICapabilityDraft not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) UpdatePlatformAICapabilityDraft(context.Context, *UpdatePlatformAICapabilityDraftRequest) (*PlatformAICapabilityVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdatePlatformAICapabilityDraft not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) DeletePlatformAICapabilityDraft(context.Context, *DeletePlatformAICapabilityDraftRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeletePlatformAICapabilityDraft not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) PublishPlatformAICapabilityVersion(context.Context, *PublishPlatformAICapabilityVersionRequest) (*PlatformAICapabilityVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PublishPlatformAICapabilityVersion not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) ListPlatformAIRuntimeModels(context.Context, *ListPlatformAIRuntimeModelsRequest) (*ListPlatformAIRuntimeModelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPlatformAIRuntimeModels not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) ResolvePlatformAIRuntimeModel(context.Context, *ResolvePlatformAIRuntimeModelRequest) (*ResolvePlatformAIRuntimeModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResolvePlatformAIRuntimeModel not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) QueryPlatformAIConfigAuditLogs(context.Context, *QueryPlatformAIConfigAuditLogsRequest) (*QueryPlatformAIConfigAuditLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method QueryPlatformAIConfigAuditLogs not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) mustEmbedUnimplementedPlatformAIControlPlaneServiceServer() {
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) testEmbeddedByValue() {}
+
+// UnsafePlatformAIControlPlaneServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PlatformAIControlPlaneServiceServer will
+// result in compilation errors.
+type UnsafePlatformAIControlPlaneServiceServer interface {
+	mustEmbedUnimplementedPlatformAIControlPlaneServiceServer()
+}
+
+func RegisterPlatformAIControlPlaneServiceServer(s grpc.ServiceRegistrar, srv PlatformAIControlPlaneServiceServer) {
+	// If the following call panics, it indicates UnimplementedPlatformAIControlPlaneServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&PlatformAIControlPlaneService_ServiceDesc, srv)
+}
+
+func _PlatformAIControlPlaneService_ListPlatformAICapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPlatformAICapabilitiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).ListPlatformAICapabilities(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_ListPlatformAICapabilities_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).ListPlatformAICapabilities(ctx, req.(*ListPlatformAICapabilitiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_ListPlatformAICapabilityVersions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPlatformAICapabilityVersionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).ListPlatformAICapabilityVersions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_ListPlatformAICapabilityVersions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).ListPlatformAICapabilityVersions(ctx, req.(*ListPlatformAICapabilityVersionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_CreatePlatformAICapabilityDraft_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreatePlatformAICapabilityDraftRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).CreatePlatformAICapabilityDraft(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_CreatePlatformAICapabilityDraft_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).CreatePlatformAICapabilityDraft(ctx, req.(*CreatePlatformAICapabilityDraftRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdatePlatformAICapabilityDraftRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).UpdatePlatformAICapabilityDraft(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).UpdatePlatformAICapabilityDraft(ctx, req.(*UpdatePlatformAICapabilityDraftRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_DeletePlatformAICapabilityDraft_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeletePlatformAICapabilityDraftRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).DeletePlatformAICapabilityDraft(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_DeletePlatformAICapabilityDraft_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).DeletePlatformAICapabilityDraft(ctx, req.(*DeletePlatformAICapabilityDraftRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_PublishPlatformAICapabilityVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublishPlatformAICapabilityVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).PublishPlatformAICapabilityVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_PublishPlatformAICapabilityVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).PublishPlatformAICapabilityVersion(ctx, req.(*PublishPlatformAICapabilityVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_ListPlatformAIRuntimeModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPlatformAIRuntimeModelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).ListPlatformAIRuntimeModels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_ListPlatformAIRuntimeModels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).ListPlatformAIRuntimeModels(ctx, req.(*ListPlatformAIRuntimeModelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_ResolvePlatformAIRuntimeModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolvePlatformAIRuntimeModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).ResolvePlatformAIRuntimeModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_ResolvePlatformAIRuntimeModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).ResolvePlatformAIRuntimeModel(ctx, req.(*ResolvePlatformAIRuntimeModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_QueryPlatformAIConfigAuditLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryPlatformAIConfigAuditLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).QueryPlatformAIConfigAuditLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_QueryPlatformAIConfigAuditLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).QueryPlatformAIConfigAuditLogs(ctx, req.(*QueryPlatformAIConfigAuditLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// PlatformAIControlPlaneService_ServiceDesc is the grpc.ServiceDesc for PlatformAIControlPlaneService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var PlatformAIControlPlaneService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.PlatformAIControlPlaneService",
+	HandlerType: (*PlatformAIControlPlaneServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListPlatformAICapabilities",
+			Handler:    _PlatformAIControlPlaneService_ListPlatformAICapabilities_Handler,
+		},
+		{
+			MethodName: "ListPlatformAICapabilityVersions",
+			Handler:    _PlatformAIControlPlaneService_ListPlatformAICapabilityVersions_Handler,
+		},
+		{
+			MethodName: "CreatePlatformAICapabilityDraft",
+			Handler:    _PlatformAIControlPlaneService_CreatePlatformAICapabilityDraft_Handler,
+		},
+		{
+			MethodName: "UpdatePlatformAICapabilityDraft",
+			Handler:    _PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_Handler,
+		},
+		{
+			MethodName: "DeletePlatformAICapabilityDraft",
+			Handler:    _PlatformAIControlPlaneService_DeletePlatformAICapabilityDraft_Handler,
+		},
+		{
+			MethodName: "PublishPlatformAICapabilityVersion",
+			Handler:    _PlatformAIControlPlaneService_PublishPlatformAICapabilityVersion_Handler,
+		},
+		{
+			MethodName: "ListPlatformAIRuntimeModels",
+			Handler:    _PlatformAIControlPlaneService_ListPlatformAIRuntimeModels_Handler,
+		},
+		{
+			MethodName: "ResolvePlatformAIRuntimeModel",
+			Handler:    _PlatformAIControlPlaneService_ResolvePlatformAIRuntimeModel_Handler,
+		},
+		{
+			MethodName: "QueryPlatformAIConfigAuditLogs",
+			Handler:    _PlatformAIControlPlaneService_QueryPlatformAIConfigAuditLogs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -7873,374 +10074,6 @@ var AgentConfigService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAgentConfig",
 			Handler:    _AgentConfigService_GetAgentConfig_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
-}
-
-const (
-	SkillService_ListSkills_FullMethodName           = "/recruitment.SkillService/ListSkills"
-	SkillService_CreateSkill_FullMethodName          = "/recruitment.SkillService/CreateSkill"
-	SkillService_UpdateSkill_FullMethodName          = "/recruitment.SkillService/UpdateSkill"
-	SkillService_CreateSkillVersion_FullMethodName   = "/recruitment.SkillService/CreateSkillVersion"
-	SkillService_ListSkillVersions_FullMethodName    = "/recruitment.SkillService/ListSkillVersions"
-	SkillService_ActivateSkillVersion_FullMethodName = "/recruitment.SkillService/ActivateSkillVersion"
-	SkillService_ListSkillTools_FullMethodName       = "/recruitment.SkillService/ListSkillTools"
-	SkillService_UpdateSkillTool_FullMethodName      = "/recruitment.SkillService/UpdateSkillTool"
-)
-
-// SkillServiceClient is the client API for SkillService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type SkillServiceClient interface {
-	ListSkills(ctx context.Context, in *ListSkillsRequest, opts ...grpc.CallOption) (*ListSkillsResponse, error)
-	CreateSkill(ctx context.Context, in *CreateSkillRequest, opts ...grpc.CallOption) (*SkillResponse, error)
-	UpdateSkill(ctx context.Context, in *UpdateSkillRequest, opts ...grpc.CallOption) (*SkillResponse, error)
-	CreateSkillVersion(ctx context.Context, in *CreateSkillVersionRequest, opts ...grpc.CallOption) (*SkillVersionResponse, error)
-	ListSkillVersions(ctx context.Context, in *ListSkillVersionsRequest, opts ...grpc.CallOption) (*ListSkillVersionsResponse, error)
-	ActivateSkillVersion(ctx context.Context, in *ActivateSkillVersionRequest, opts ...grpc.CallOption) (*SkillResponse, error)
-	ListSkillTools(ctx context.Context, in *ListSkillToolsRequest, opts ...grpc.CallOption) (*ListSkillToolsResponse, error)
-	UpdateSkillTool(ctx context.Context, in *UpdateSkillToolRequest, opts ...grpc.CallOption) (*SkillToolResponse, error)
-}
-
-type skillServiceClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewSkillServiceClient(cc grpc.ClientConnInterface) SkillServiceClient {
-	return &skillServiceClient{cc}
-}
-
-func (c *skillServiceClient) ListSkills(ctx context.Context, in *ListSkillsRequest, opts ...grpc.CallOption) (*ListSkillsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListSkillsResponse)
-	err := c.cc.Invoke(ctx, SkillService_ListSkills_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) CreateSkill(ctx context.Context, in *CreateSkillRequest, opts ...grpc.CallOption) (*SkillResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SkillResponse)
-	err := c.cc.Invoke(ctx, SkillService_CreateSkill_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) UpdateSkill(ctx context.Context, in *UpdateSkillRequest, opts ...grpc.CallOption) (*SkillResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SkillResponse)
-	err := c.cc.Invoke(ctx, SkillService_UpdateSkill_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) CreateSkillVersion(ctx context.Context, in *CreateSkillVersionRequest, opts ...grpc.CallOption) (*SkillVersionResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SkillVersionResponse)
-	err := c.cc.Invoke(ctx, SkillService_CreateSkillVersion_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) ListSkillVersions(ctx context.Context, in *ListSkillVersionsRequest, opts ...grpc.CallOption) (*ListSkillVersionsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListSkillVersionsResponse)
-	err := c.cc.Invoke(ctx, SkillService_ListSkillVersions_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) ActivateSkillVersion(ctx context.Context, in *ActivateSkillVersionRequest, opts ...grpc.CallOption) (*SkillResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SkillResponse)
-	err := c.cc.Invoke(ctx, SkillService_ActivateSkillVersion_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) ListSkillTools(ctx context.Context, in *ListSkillToolsRequest, opts ...grpc.CallOption) (*ListSkillToolsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListSkillToolsResponse)
-	err := c.cc.Invoke(ctx, SkillService_ListSkillTools_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *skillServiceClient) UpdateSkillTool(ctx context.Context, in *UpdateSkillToolRequest, opts ...grpc.CallOption) (*SkillToolResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SkillToolResponse)
-	err := c.cc.Invoke(ctx, SkillService_UpdateSkillTool_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// SkillServiceServer is the server API for SkillService service.
-// All implementations must embed UnimplementedSkillServiceServer
-// for forward compatibility.
-type SkillServiceServer interface {
-	ListSkills(context.Context, *ListSkillsRequest) (*ListSkillsResponse, error)
-	CreateSkill(context.Context, *CreateSkillRequest) (*SkillResponse, error)
-	UpdateSkill(context.Context, *UpdateSkillRequest) (*SkillResponse, error)
-	CreateSkillVersion(context.Context, *CreateSkillVersionRequest) (*SkillVersionResponse, error)
-	ListSkillVersions(context.Context, *ListSkillVersionsRequest) (*ListSkillVersionsResponse, error)
-	ActivateSkillVersion(context.Context, *ActivateSkillVersionRequest) (*SkillResponse, error)
-	ListSkillTools(context.Context, *ListSkillToolsRequest) (*ListSkillToolsResponse, error)
-	UpdateSkillTool(context.Context, *UpdateSkillToolRequest) (*SkillToolResponse, error)
-	mustEmbedUnimplementedSkillServiceServer()
-}
-
-// UnimplementedSkillServiceServer must be embedded to have
-// forward compatible implementations.
-//
-// NOTE: this should be embedded by value instead of pointer to avoid a nil
-// pointer dereference when methods are called.
-type UnimplementedSkillServiceServer struct{}
-
-func (UnimplementedSkillServiceServer) ListSkills(context.Context, *ListSkillsRequest) (*ListSkillsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListSkills not implemented")
-}
-func (UnimplementedSkillServiceServer) CreateSkill(context.Context, *CreateSkillRequest) (*SkillResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method CreateSkill not implemented")
-}
-func (UnimplementedSkillServiceServer) UpdateSkill(context.Context, *UpdateSkillRequest) (*SkillResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpdateSkill not implemented")
-}
-func (UnimplementedSkillServiceServer) CreateSkillVersion(context.Context, *CreateSkillVersionRequest) (*SkillVersionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method CreateSkillVersion not implemented")
-}
-func (UnimplementedSkillServiceServer) ListSkillVersions(context.Context, *ListSkillVersionsRequest) (*ListSkillVersionsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListSkillVersions not implemented")
-}
-func (UnimplementedSkillServiceServer) ActivateSkillVersion(context.Context, *ActivateSkillVersionRequest) (*SkillResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ActivateSkillVersion not implemented")
-}
-func (UnimplementedSkillServiceServer) ListSkillTools(context.Context, *ListSkillToolsRequest) (*ListSkillToolsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListSkillTools not implemented")
-}
-func (UnimplementedSkillServiceServer) UpdateSkillTool(context.Context, *UpdateSkillToolRequest) (*SkillToolResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpdateSkillTool not implemented")
-}
-func (UnimplementedSkillServiceServer) mustEmbedUnimplementedSkillServiceServer() {}
-func (UnimplementedSkillServiceServer) testEmbeddedByValue()                      {}
-
-// UnsafeSkillServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to SkillServiceServer will
-// result in compilation errors.
-type UnsafeSkillServiceServer interface {
-	mustEmbedUnimplementedSkillServiceServer()
-}
-
-func RegisterSkillServiceServer(s grpc.ServiceRegistrar, srv SkillServiceServer) {
-	// If the following call panics, it indicates UnimplementedSkillServiceServer was
-	// embedded by pointer and is nil.  This will cause panics if an
-	// unimplemented method is ever invoked, so we test this at initialization
-	// time to prevent it from happening at runtime later due to I/O.
-	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
-		t.testEmbeddedByValue()
-	}
-	s.RegisterService(&SkillService_ServiceDesc, srv)
-}
-
-func _SkillService_ListSkills_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListSkillsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).ListSkills(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_ListSkills_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).ListSkills(ctx, req.(*ListSkillsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_CreateSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateSkillRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).CreateSkill(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_CreateSkill_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).CreateSkill(ctx, req.(*CreateSkillRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_UpdateSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateSkillRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).UpdateSkill(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_UpdateSkill_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).UpdateSkill(ctx, req.(*UpdateSkillRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_CreateSkillVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateSkillVersionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).CreateSkillVersion(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_CreateSkillVersion_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).CreateSkillVersion(ctx, req.(*CreateSkillVersionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_ListSkillVersions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListSkillVersionsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).ListSkillVersions(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_ListSkillVersions_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).ListSkillVersions(ctx, req.(*ListSkillVersionsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_ActivateSkillVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ActivateSkillVersionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).ActivateSkillVersion(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_ActivateSkillVersion_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).ActivateSkillVersion(ctx, req.(*ActivateSkillVersionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_ListSkillTools_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListSkillToolsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).ListSkillTools(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_ListSkillTools_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).ListSkillTools(ctx, req.(*ListSkillToolsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SkillService_UpdateSkillTool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateSkillToolRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SkillServiceServer).UpdateSkillTool(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SkillService_UpdateSkillTool_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SkillServiceServer).UpdateSkillTool(ctx, req.(*UpdateSkillToolRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// SkillService_ServiceDesc is the grpc.ServiceDesc for SkillService service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var SkillService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "recruitment.SkillService",
-	HandlerType: (*SkillServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "ListSkills",
-			Handler:    _SkillService_ListSkills_Handler,
-		},
-		{
-			MethodName: "CreateSkill",
-			Handler:    _SkillService_CreateSkill_Handler,
-		},
-		{
-			MethodName: "UpdateSkill",
-			Handler:    _SkillService_UpdateSkill_Handler,
-		},
-		{
-			MethodName: "CreateSkillVersion",
-			Handler:    _SkillService_CreateSkillVersion_Handler,
-		},
-		{
-			MethodName: "ListSkillVersions",
-			Handler:    _SkillService_ListSkillVersions_Handler,
-		},
-		{
-			MethodName: "ActivateSkillVersion",
-			Handler:    _SkillService_ActivateSkillVersion_Handler,
-		},
-		{
-			MethodName: "ListSkillTools",
-			Handler:    _SkillService_ListSkillTools_Handler,
-		},
-		{
-			MethodName: "UpdateSkillTool",
-			Handler:    _SkillService_UpdateSkillTool_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

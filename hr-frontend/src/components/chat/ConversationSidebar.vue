@@ -2,12 +2,14 @@
 import { computed, ref } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import type { Session } from '@/types/ai'
+import { formatShanghaiDateTime, parseBusinessDateTime } from '@shared/utils/format'
 
 const props = defineProps<{
   sessions: Session[]
   currentSession: Session | null
   menuSessionId: number
   sessionSidebarOpen: boolean
+  chatDisabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -85,11 +87,10 @@ const GROUP_LABELS: Record<TimeGroup, string> = {
 
 const getTimeGroup = (dateStr?: string): TimeGroup => {
   if (!dateStr) return 'older'
-  const now = new Date()
-  const then = new Date(dateStr)
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const todayKey = formatShanghaiDateTime(Date.now(), '', false).slice(0, 10)
+  const todayStart = parseBusinessDateTime(`${todayKey} 00:00:00`).getTime()
   const yesterdayStart = todayStart - 86400000
-  const thenTime = then.getTime()
+  const thenTime = parseBusinessDateTime(dateStr).getTime()
   if (thenTime >= todayStart) return 'today'
   if (thenTime >= yesterdayStart) return 'yesterday'
   return 'older'
@@ -112,12 +113,12 @@ const groupedSessions = computed(() => {
 const formatSessionTime = (dateStr?: string): string => {
   if (!dateStr) return ''
   const now = Date.now()
-  const then = new Date(dateStr).getTime()
+  const then = parseBusinessDateTime(dateStr).getTime()
   const diff = Math.floor((now - then) / 1000)
   if (diff < 60) return '刚刚'
   if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`
   if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`
-  return new Date(dateStr).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+  return formatShanghaiDateTime(dateStr, '', false).slice(5, 10)
 }
 </script>
 
@@ -135,7 +136,7 @@ const formatSessionTime = (dateStr?: string): string => {
         >
           管理
         </el-button>
-        <el-button size="small" type="primary" class="chat-sidebar__new-btn" @click="emit('create-session')">
+        <el-button size="small" type="primary" class="chat-sidebar__new-btn" :disabled="chatDisabled" @click="chatDisabled ? undefined : emit('create-session')">
           新建对话
         </el-button>
       </div>

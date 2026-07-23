@@ -194,6 +194,14 @@ function validDate(value) {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
+export function extractBodyVerificationDate(body) {
+  if (typeof body !== "string" || body.trim() === "") return null;
+  const section = body.match(/##\s+Verification\b[\s\S]*?(?=\n##\s+|$)/i);
+  if (!section) return null;
+  const match = section[0].match(/\b(\d{4}-\d{2}-\d{2})\b/);
+  return match ? match[1] : null;
+}
+
 function validateStringList(item, field, relative, errors, pattern = null) {
   const values = item[field];
   if (!Array.isArray(values) || values.length === 0) { errors.push(`${relative}: ${field} must be a non-empty list`); return; }
@@ -234,8 +242,8 @@ export function scanKnowledge(root) {
     try {
       const raw = fs.readFileSync(absolute, "utf8");
       if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(raw) || /\bsk-[A-Za-z0-9_-]{20,}\b/.test(raw)) errors.push(`${relative}: possible secret material`);
-      const { data } = parseFrontmatter(raw, relative);
-      documents.push({ path: relative, absolute, metadata: data });
+      const { data, body } = parseFrontmatter(raw, relative);
+      documents.push({ path: relative, absolute, metadata: data, body });
     } catch (error) { errors.push(error.message); }
   }
 
@@ -263,6 +271,11 @@ export function scanKnowledge(root) {
     }
     if (!validDate(item.last_verified)) errors.push(`${relative}: invalid last_verified`);
     if (!validDate(item.review_after)) errors.push(`${relative}: invalid review_after`);
+    const bodyVerified = extractBodyVerificationDate(document.body || "");
+    if (bodyVerified) {
+      if (!validDate(bodyVerified)) errors.push(`${relative}: invalid Verification section date ${bodyVerified}`);
+      else if (bodyVerified !== item.last_verified) errors.push(`${relative}: Verification section date ${bodyVerified} does not match last_verified ${item.last_verified}`);
+    }
     if (relative.startsWith("inbox/") && (item.kind !== "candidate" || item.status !== "draft")) errors.push(`${relative}: Inbox documents must be candidate/draft`);
     if (relative.startsWith("archive/") && !["deprecated", "archived"].includes(item.status)) errors.push(`${relative}: Archive document status must be deprecated or archived`);
     if (item.kind === "decision") {

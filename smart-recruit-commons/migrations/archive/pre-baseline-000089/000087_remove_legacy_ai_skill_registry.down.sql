@@ -1,0 +1,2 @@
+-- The legacy registry data and snapshots were intentionally destroyed by the
+-- approved retirement migration. Restoring it requires a database backup.

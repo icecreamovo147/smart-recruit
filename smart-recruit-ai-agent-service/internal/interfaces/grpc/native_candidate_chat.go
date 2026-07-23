@@ -14,11 +14,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"smart-recruit-ai-agent-service/internal/application/contextbudget"
 	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-proto/recruitment/pb"
 )
 
-const maxCandidateContextMessages = 20
+const maxCandidateContextLoadMessages = 100
 
 // DEV-parity candidate system prompt (tool-calling agent, not context stuffing).
 const candidateADKSystemPrompt = `你是智能招聘系统的候选人 AI 助手，只服务当前登录候选人。
@@ -113,8 +114,6 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 
 	startedAt := time.Now()
 	inputChars := len([]rune(req.GetMessage()))
-	modelID, modelName, providerName := s.resolveRuntimeModelDisplay(ctx, req.GetModelId())
-	auditOpts := candidateUsageAuditOptions{Provider: providerName, Model: modelName}
 	session, err := s.ensureSessionWithOptions(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId(), 0, req.GetMessage(), ChatSessionCreateOptions{
 		SessionType: req.GetSessionType(),
 		SourceType:  req.GetSourceType(),
@@ -131,12 +130,34 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 		return err
 	}
 
+	runtimeModel, err := s.resolveCapabilityRuntimeModel(ctx, billingOwnerUser, req.GetUserId(), "ai.chat", platformAIAudienceCandidate, req.GetModelId())
+	if err != nil {
+		s.persistCandidateChatFailure(ctx, req.GetUserId(), session.ID, err)
+		return err
+	}
+	modelID, modelName, providerName := runtimeModel.ID, runtimeModel.Name, runtimeModel.ProviderName
+	req.ModelId = modelID
+	auditOpts := candidateUsageAuditOptions{Provider: providerName, Model: modelName}
+	ctx, err = s.reserveAIBilling(ctx, billingOwnerUser, req.GetUserId(), "ai.chat", "candidate_chat", providerName, modelName, inputChars, runtimeModel)
+	if err != nil {
+		s.persistCandidateChatFailure(ctx, req.GetUserId(), session.ID, err)
+		return err
+	}
+	defer s.cancelUnsettledBilling(ctx, "runtime_completed_without_usage")
+
 	modelInfoUsage := &pb.ContextUsageInfo{
-		ModelId:   modelID,
-		ModelName: modelName,
-		Estimated: true,
-		Source:    "candidate-agent-runtime",
-		Stage:     "model_selected",
+		ModelId:                modelID,
+		ModelName:              modelName,
+		ContextWindowTokens:    runtimeModel.ContextWindowTokens,
+		MaxOutputTokens:        runtimeModel.MaxOutputTokens,
+		RequestedModelId:       runtimeModel.RequestedModelID,
+		EffectiveModelId:       modelID,
+		ModelFallbackReason:    runtimeModel.FallbackReason,
+		CapabilityVersionId:    runtimeModel.CapabilityVersionID,
+		CapabilitySnapshotHash: runtimeModel.CapabilitySnapshotHash,
+		Estimated:              true,
+		Source:                 "candidate-agent-runtime",
+		Stage:                  "model_selected",
 	}
 	if err := stream.Send(&pb.ChatStreamResponse{
 		Code: 0, Msg: "success", EventType: "model_info", ContextUsage: modelInfoUsage,
@@ -161,8 +182,13 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 		})
 	}
 
-	runtimeCfg := s.getCandidateAgentRuntimeConfig(ctx)
-	systemPrompt := s.resolveCandidateAgentSystemPrompt(ctx, runtimeCfg)
+	runtimeCfg := s.getCandidateAgentRuntimeConfigForRelease(ctx, runtimeModel.ConfigurationRefs)
+	if runtimeModel.CapabilityVersionID > 0 && (!runtimeCfg.HasConfig || strings.TrimSpace(runtimeCfg.SystemPrompt) == "") {
+		return status.Error(codes.FailedPrecondition, "candidate Agent or Prompt is unavailable in the capability release")
+	}
+	systemPrompt := s.resolveCandidateAgentSystemPromptForRelease(ctx, runtimeCfg, runtimeModel.ConfigurationRefs)
+	memoryRecall := s.recallCandidateMemory(ctx, req.GetUserId(), session.ApplicationID, candidateJobIDFromSession(session), req.GetMessage())
+	memorySection := memoryRecall.InjectText
 	availablePlanTools := append([]string(nil), runtimeCfg.ToolNames...)
 	if len(availablePlanTools) == 0 {
 		availablePlanTools = commonsai.CandidateToolNames()
@@ -179,12 +205,15 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	var reply string
 	var metadata commonsai.ToolMetadata
 	var execErr error
+	var candidateContextUsage *pb.ContextUsageInfo
+	var messages []*schema.Message
 	legacyFallback := false
 	useADK := s.effectiveAgentRuntime() == agentRuntimeADK
 	executor := s.candidateTools
 
 	if useADK && executor != nil {
-		messages, buildErr := s.buildCandidateAgentMessages(ctx, req.GetUserId(), session.ID, req.GetMessage(), systemPrompt)
+		var buildErr error
+		messages, candidateContextUsage, buildErr = s.buildCandidateAgentMessages(ctx, req.GetUserId(), session.ID, req.GetMessage(), systemPrompt, memorySection, runtimeModel)
 		if buildErr != nil {
 			return buildErr
 		}
@@ -247,6 +276,17 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 			// Last resort: no tool loop — fail closed rather than stuffing context.
 			return errAIProviderRequired
 		}
+		// Reuse budgeted messages when ADK already assembled them; otherwise build
+		// the same STM/LTM envelope used by the ADK path (summary + memory inject).
+		if len(messages) == 0 {
+			var buildErr error
+			messages, candidateContextUsage, buildErr = s.buildCandidateAgentMessages(
+				ctx, req.GetUserId(), session.ID, req.GetMessage(), systemPrompt, memorySection, runtimeModel,
+			)
+			if buildErr != nil {
+				return buildErr
+			}
+		}
 		tools := commonsai.CandidateTools()
 		if len(runtimeCfg.ToolNames) > 0 {
 			tools = commonsai.FilterCandidateToolInfosByName(tools, runtimeCfg.ToolNames)
@@ -255,10 +295,6 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 			tools = nil
 		} else {
 			tools = commonsai.FilterCandidateToolInfosByName(tools, intentPlan.RequiredTools)
-		}
-		messages := []*schema.Message{
-			schema.SystemMessage(systemPrompt),
-			schema.UserMessage(req.GetMessage()),
 		}
 		opts := ChatCompletionOptions{
 			MaxIterations:       runtimeCfg.MaxIterations,
@@ -274,6 +310,10 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	}
 
 	auditOpts.TokenUsageTotal = tokenUsageTotalFromMeta(metadata.BillingTokenUsage)
+	if metadata.BillingTokenUsage != nil {
+		auditOpts.PromptTokens = metadata.BillingTokenUsage.PromptTokens
+		auditOpts.CompletionTokens = metadata.BillingTokenUsage.CompletionTokens
+	}
 
 	if execErr != nil {
 		if isCandidateChatCanceled(execErr) {
@@ -294,7 +334,7 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 			}); err != nil {
 				return err
 			}
-			processContent := buildCandidateProcessContent(candidateSuggestedQuestionsFallback())
+			processContent := buildCandidateProcessContent(candidateSuggestedQuestionsFallback(), hrRuntimeMemoryEvidence{})
 			if _, saveErr := s.store.AppendChatMessage(ctx, ChatMessageRow{
 				OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID,
 				Role: "assistant", Content: fallback, ProcessContent: processContent, ModelID: modelID, ModelName: modelName, CreatedAt: time.Now(),
@@ -332,17 +372,21 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 			suggestedQuestions = candidateSuggestedQuestionsFallback()
 		}
 	}
-	processContent := buildCandidateProcessContent(suggestedQuestions)
-	if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{
+	processContent := buildCandidateProcessContent(suggestedQuestions, memoryEvidenceFromRecall(memoryRecall.Evidence))
+	assistantRow := ChatMessageRow{
 		OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID,
 		Role: "assistant", Content: cleanReply, ProcessContent: processContent, ModelID: modelID, ModelName: modelName, CreatedAt: time.Now(),
-	}); err != nil {
+	}
+	if candidateContextUsage != nil {
+		assistantRow.ContextUsage = candidateContextUsage
+	}
+	if _, err := s.store.AppendChatMessage(ctx, assistantRow); err != nil {
 		return err
 	}
 	if err := s.recordCandidateUsageAudit(ctx, req.GetUserId(), inputChars, len([]rune(cleanReply)), "ok", "", int(time.Since(startedAt).Milliseconds()), auditOpts); err != nil {
 		return err
 	}
-	go s.maybeRefreshCandidateSummary(session.ID, req.GetUserId())
+	s.asyncExtractCandidateMemory(req.GetUserId(), session.ID, session.ApplicationID, candidateJobIDFromSession(session), req.GetMessage(), cleanReply)
 	return stream.Send(&pb.ChatStreamResponse{
 		Code: 0, Msg: "success", Done: true, SessionId: session.ID,
 		CreatedAt: formatTime(time.Now()), EventType: "done",
@@ -350,21 +394,64 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	})
 }
 
+func (s *nativeAIService) persistCandidateChatFailure(ctx context.Context, userID, sessionID int64, cause error) {
+	if s == nil || s.store == nil || userID <= 0 || sessionID <= 0 || cause == nil {
+		return
+	}
+	content, errorCode, retryable := candidateChatFailurePresentation(cause)
+	payload, _ := json.Marshal(map[string]any{
+		"delivery_status": "failed",
+		"error_code":      errorCode,
+		"retryable":       retryable,
+	})
+	_, _ = s.store.AppendChatMessage(ctx, ChatMessageRow{
+		OwnerRole: ownerRoleCandidate, OwnerID: userID, SessionID: sessionID,
+		Role: "assistant", Content: content, ProcessContent: string(payload), CreatedAt: time.Now(),
+	})
+}
+
+func candidateChatFailurePresentation(cause error) (content, errorCode string, retryable bool) {
+	message := strings.ToLower(status.Convert(cause).Message())
+	if status.Code(cause) == codes.ResourceExhausted && strings.Contains(message, "insufficient_credits") {
+		return "AI 套餐额度已用完，请购买套餐或加量包后继续使用。", "insufficient_credits", false
+	}
+	switch status.Code(cause) {
+	case codes.Unavailable, codes.DeadlineExceeded:
+		return "AI 服务暂时不可用，请稍后重试。", "service_unavailable", true
+	case codes.FailedPrecondition:
+		return "AI 助手当前配置不可用，请稍后再试。", "capability_unavailable", true
+	default:
+		return "本次消息发送失败，请稍后重试。", "request_failed", true
+	}
+}
+
 func (s *nativeAIService) getCandidateAgentRuntimeConfig(ctx context.Context) candidateAgentRuntimeConfig {
+	return s.getCandidateAgentRuntimeConfigForRelease(ctx, CapabilityConfigurationRefs{})
+}
+
+func (s *nativeAIService) getCandidateAgentRuntimeConfigForRelease(ctx context.Context, refs CapabilityConfigurationRefs) candidateAgentRuntimeConfig {
 	cfg := candidateAgentRuntimeConfig{}
 	if s == nil || s.store == nil {
 		return cfg
 	}
-	store, ok := s.store.(agentConfigStore)
-	if !ok {
-		return cfg
+	var agent *pb.AgentConfigInfo
+	if len(refs.AgentIDs) > 0 {
+		if store, ok := s.store.(hrRuntimeAgentByIDStore); ok {
+			for _, id := range refs.AgentIDs {
+				row, found, err := store.GetRuntimeAgentConfigByID(ctx, id)
+				if err == nil && found && row != nil && row.GetIsEnabled() && strings.EqualFold(strings.TrimSpace(row.GetAgentType()), candidateAssistantAgentType) {
+					agent = row
+					break
+				}
+			}
+		}
+	} else if store, ok := s.store.(agentConfigStore); ok {
+		resp, err := store.GetAgentConfig(ctx, &pb.GetAgentConfigRequest{AgentType: candidateAssistantAgentType})
+		if err == nil && resp != nil && resp.GetCode() == 0 {
+			agent = resp.GetAgent()
+		}
 	}
-	resp, err := store.GetAgentConfig(ctx, &pb.GetAgentConfigRequest{AgentType: candidateAssistantAgentType})
-	if err != nil || resp == nil || resp.GetCode() != 0 || resp.GetAgent() == nil {
-		return cfg
-	}
-	agent := resp.GetAgent()
-	if !agent.GetIsEnabled() {
+	if agent == nil || !agent.GetIsEnabled() {
 		return cfg
 	}
 	cfg.HasConfig = true
@@ -380,6 +467,9 @@ func (s *nativeAIService) getCandidateAgentRuntimeConfig(ctx context.Context) ca
 		}
 	}
 	if agent.GetPromptTemplateId() > 0 {
+		if len(refs.PromptTemplateIDs) > 0 && !containsRuntimeID(refs.PromptTemplateIDs, agent.GetPromptTemplateId()) {
+			return cfg
+		}
 		if promptStore, ok := s.store.(interface {
 			GetRuntimePromptTemplateByID(context.Context, int64) (*pb.PromptTemplateInfo, bool, error)
 		}); ok {
@@ -395,16 +485,22 @@ func (s *nativeAIService) getCandidateAgentRuntimeConfig(ctx context.Context) ca
 }
 
 func (s *nativeAIService) resolveCandidateAgentSystemPrompt(ctx context.Context, runtimeCfg candidateAgentRuntimeConfig) string {
+	return s.resolveCandidateAgentSystemPromptForRelease(ctx, runtimeCfg, CapabilityConfigurationRefs{})
+}
+
+func (s *nativeAIService) resolveCandidateAgentSystemPromptForRelease(ctx context.Context, runtimeCfg candidateAgentRuntimeConfig, refs CapabilityConfigurationRefs) string {
 	if strings.TrimSpace(runtimeCfg.SystemPrompt) != "" {
 		return runtimeCfg.SystemPrompt
 	}
-	if prompt, err := s.resolveCandidateSystemPrompt(ctx); err == nil && strings.TrimSpace(prompt) != "" {
-		// Prefer DEV ADK prompt over the short legacy stuffing prompt when only the
-		// hardcoded fallback is available.
-		if prompt == candidateSystemPrompt {
-			return candidateADKSystemPrompt
+	if len(refs.PromptTemplateIDs) == 0 {
+		if prompt, err := s.resolveCandidateSystemPrompt(ctx); err == nil && strings.TrimSpace(prompt) != "" {
+			// Prefer DEV ADK prompt over the short legacy stuffing prompt when only the
+			// hardcoded fallback is available.
+			if prompt == candidateSystemPrompt {
+				return candidateADKSystemPrompt
+			}
+			return prompt
 		}
-		return prompt
 	}
 	return candidateADKSystemPrompt
 }
@@ -412,18 +508,29 @@ func (s *nativeAIService) resolveCandidateAgentSystemPrompt(ctx context.Context,
 func (s *nativeAIService) buildCandidateAgentMessages(
 	ctx context.Context,
 	userID, sessionID int64,
-	currentMessage, systemPrompt string,
-) ([]*schema.Message, error) {
+	currentMessage, systemPrompt, memorySection string,
+	model RuntimeModelInfo,
+) ([]*schema.Message, *pb.ContextUsageInfo, error) {
 	prompt := strings.TrimSpace(systemPrompt)
 	if prompt == "" {
 		prompt = candidateADKSystemPrompt
 	}
 	messages := []*schema.Message{schema.SystemMessage(prompt)}
 
-	history, err := s.listRecentCandidateMessages(ctx, userID, sessionID, maxCandidateContextMessages)
+	history, err := s.listRecentCandidateMessages(ctx, userID, sessionID, maxCandidateContextLoadMessages)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	contextHistory := history[:0]
+	budgetHistory := make([]ChatMessageRow, 0, len(history))
+	for _, item := range history {
+		if candidateChatMessageFailed(item.ProcessContent) {
+			continue
+		}
+		contextHistory = append(contextHistory, item)
+		budgetHistory = append(budgetHistory, item)
+	}
+	history = contextHistory
 	currentMsgTrimmed := strings.TrimSpace(currentMessage)
 	skipLastMatch := false
 	if len(history) > 0 {
@@ -449,7 +556,114 @@ func (s *nativeAIService) buildCandidateAgentMessages(
 	if currentMsgTrimmed != "" {
 		messages = append(messages, schema.UserMessage(currentMessage))
 	}
-	return messages, nil
+
+	summaryStore, summaryGenerator := s.candidateSummaryDependencies()
+	controller := contextbudget.New(ctx, contextbudget.Config{
+		Model: contextbudget.ModelInfo{
+			ContextWindowTokens: model.ContextWindowTokens,
+			MaxOutputTokens:     model.MaxOutputTokens,
+		},
+		Current:         currentMessage,
+		History:         chatRowsToBudgetRows(budgetHistory),
+		OwnerID:         userID,
+		SessionID:       sessionID,
+		MemorySection:   hrBudgetMemorySection(memorySection),
+		SummaryAudience: contextbudget.AudienceCandidate,
+		Store:           summaryStore,
+		Generator:       summaryGenerator,
+	})
+	prepared, err := controller.Prepare(ctx, messages, "candidate_adk")
+	if err != nil {
+		if contextbudget.ErrorCode(err) == contextbudget.BudgetExceededCode {
+			return nil, nil, status.Error(codes.ResourceExhausted, contextbudget.BudgetExceededCode)
+		}
+		if contextbudget.ErrorCode(err) == contextbudget.ConfigInvalidCode {
+			return nil, nil, status.Error(codes.FailedPrecondition, contextbudget.ConfigInvalidCode)
+		}
+		return nil, nil, err
+	}
+	result := controller.LastPrepareResult()
+	usage := newCandidateContextUsage(model, prepared, result)
+	return prepared, usage, nil
+}
+
+func (s *nativeAIService) candidateSummaryDependencies() (contextbudget.SessionSummaryStore, contextbudget.SummaryGenerator) {
+	var summaryStore contextbudget.SessionSummaryStore
+	if candidate, ok := s.store.(contextbudget.SessionSummaryStore); ok {
+		summaryStore = candidate
+	}
+	var generator contextbudget.SummaryGenerator
+	if candidate, ok := s.provider.(sessionSummaryGenerator); ok {
+		generator = candidate
+	} else if candidate, ok := s.store.(sessionSummaryGenerator); ok {
+		generator = candidate
+	}
+	return summaryStore, generator
+}
+
+func newCandidateContextUsage(model RuntimeModelInfo, messages []*schema.Message, result contextbudget.PrepareResult) *pb.ContextUsageInfo {
+	var summaryTokens, memoryTokens, systemTokens, recentTokens, currentTokens int64
+	currentIndex := -1
+	for index := len(messages) - 1; index >= 0; index-- {
+		message := messages[index]
+		if message != nil && message.Role == schema.User {
+			currentIndex = index
+			break
+		}
+	}
+	for index, message := range messages {
+		if message == nil {
+			continue
+		}
+		content := message.Content
+		tokens := int64(contextbudget.EstimateTokensConservative(content))
+		switch {
+		case strings.HasPrefix(content, contextbudget.SummaryMessagePrefix):
+			summaryTokens += int64(contextbudget.EstimateTokensConservative(strings.TrimPrefix(content, contextbudget.SummaryMessagePrefix)))
+		case strings.HasPrefix(content, contextbudget.MemoryMessagePrefix):
+			memoryTokens += int64(contextbudget.EstimateTokensConservative(strings.TrimPrefix(content, contextbudget.MemoryMessagePrefix)))
+		case message.Role == schema.System:
+			systemTokens += tokens
+		case index == currentIndex:
+			currentTokens += tokens
+		default:
+			recentTokens += tokens
+		}
+	}
+	breakdown := &pb.ContextUsageBreakdown{
+		SystemPromptTokens:     saturatingInt32(systemTokens),
+		SummaryTokens:          saturatingInt32(summaryTokens),
+		MemoryTokens:           saturatingInt32(memoryTokens),
+		RecentMessageTokens:    saturatingInt32(recentTokens),
+		CurrentMessageTokens:   saturatingInt32(currentTokens),
+		ProtocolOverheadTokens: saturatingInt32(int64(len(messages)*4 + 2)),
+	}
+	promptTokens := contextUsageBreakdownTotal(breakdown)
+	usage := newHRContextUsageEnvelope(model, promptTokens)
+	usage.PromptTokensEstimated = promptTokens
+	usage.Estimated = true
+	usage.Source = "candidate_context_budget"
+	usage.Stage = "pre_generation"
+	usage.IncludedMessageCount = saturatingInt32(int64(len(messages)))
+	usage.OmittedMessageCount = saturatingInt32(int64(result.OmittedCount))
+	usage.SummaryApplied = result.SummaryApplied
+	usage.MemoryApplied = result.MemoryApplied
+	usage.Breakdown = breakdown
+	if model.ContextWindowTokens <= 0 {
+		usage.BudgetStatus = "unknown_config"
+		usage.BudgetUsageRatio = 0
+	}
+	return usage
+}
+
+func candidateChatMessageFailed(processContent string) bool {
+	if strings.TrimSpace(processContent) == "" {
+		return false
+	}
+	var payload struct {
+		DeliveryStatus string `json:"delivery_status"`
+	}
+	return json.Unmarshal([]byte(processContent), &payload) == nil && payload.DeliveryStatus == "failed"
 }
 
 func (s *nativeAIService) listRecentCandidateMessages(ctx context.Context, userID, sessionID int64, limit int32) ([]ChatMessageRow, error) {
@@ -491,17 +705,6 @@ func (s *nativeAIService) InvalidateCachedCandidateADKTools() {
 	s.cachedCandidateADKTools = nil
 }
 
-type sessionSummaryStore interface {
-	GetSessionSummary(ctx context.Context, ownerID, sessionID int64) (string, bool, error)
-	UpsertSessionSummary(ctx context.Context, ownerID, sessionID int64, summary string, coveredMessageID int64, messageCount int) error
-}
-
-type sessionSummaryGenerator interface {
-	GenerateSessionSummary(ctx context.Context, oldSummary string, recentMessages []string) (string, error)
-}
-
-// maybeRefreshCandidateSummary mirrors DEV: refresh rolling summary when the
-// session has at least 15 recent messages. Failures are logged and ignored.
 func (s *nativeAIService) maybeRefreshCandidateSummary(sessionID, userID int64) {
 	defer func() { _ = recover() }()
 	if s == nil || s.store == nil || sessionID <= 0 || userID <= 0 {
@@ -558,6 +761,15 @@ func (s *nativeAIService) maybeRefreshCandidateSummary(sessionID, userID int64) 
 		return
 	}
 	_ = summaryStore.UpsertSessionSummary(ctx, userID, sessionID, strings.TrimSpace(newSummary), maxMsgID, len(recent))
+}
+
+type sessionSummaryStore interface {
+	GetSessionSummary(ctx context.Context, ownerID, sessionID int64) (string, bool, error)
+	UpsertSessionSummary(ctx context.Context, ownerID, sessionID int64, summary string, coveredMessageID int64, messageCount int) error
+}
+
+type sessionSummaryGenerator interface {
+	GenerateSessionSummary(ctx context.Context, oldSummary string, recentMessages []string) (string, error)
 }
 
 func (s *nativeAIService) recordCandidateToolTrace(sessionID, userID int64, toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
@@ -645,12 +857,16 @@ func candidateSuggestedQuestionsFallback() []string {
 	}
 }
 
-func buildCandidateProcessContent(suggestedQuestions []string) string {
-	if len(suggestedQuestions) == 0 {
+func buildCandidateProcessContent(suggestedQuestions []string, memoryEvidence hrRuntimeMemoryEvidence) string {
+	if len(suggestedQuestions) == 0 && memoryEvidence.Count == 0 {
 		return ""
 	}
-	payload := map[string]any{
-		"suggested_questions": append([]string(nil), suggestedQuestions...),
+	payload := map[string]any{}
+	if len(suggestedQuestions) > 0 {
+		payload["suggested_questions"] = append([]string(nil), suggestedQuestions...)
+	}
+	if memoryEvidence.Count > 0 {
+		payload["memory_inject"] = memoryEvidence
 	}
 	b, err := json.Marshal(payload)
 	if err != nil {

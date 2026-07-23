@@ -1,0 +1,4 @@
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; color: var(--text); background: var(--shell-bg); }
+button, input, textarea { font: inherit; }
+button { color: inherit; }

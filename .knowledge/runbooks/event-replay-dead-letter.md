@@ -21,8 +21,8 @@ source_refs:
   - smart-recruit-commons/internal/platform/events/envelope.go
   - smart-recruit-commons/mq/consumer.go
   - smart-recruit-commons/mq/publisher.go
-  - smart-recruit-commons/migrations/000051_standardize_event_outbox.sql
-  - smart-recruit-commons/migrations/000052_add_event_inbox.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000051_standardize_event_outbox.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000052_add_event_inbox.sql
   - smart-recruit-worker-service/internal/runtime/runtime.go
   - smart-recruit-worker-service/internal/runtime/workload_profile.go
   - smart-recruit-notification-service/internal/domain/repository/notification.go

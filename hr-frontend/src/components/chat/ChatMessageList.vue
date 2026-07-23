@@ -31,9 +31,9 @@ const props = defineProps<{
   streaming: boolean
   sessionLoading: boolean
   hasSession: boolean
-  runningModeLabel: string
   renderMarkdown: (content: string) => string
   waitingText: (message: MessageItem) => string
+  interactionDisabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -72,30 +72,6 @@ const messageSkillBadges = (message: MessageItem): string[] =>
     .map(skillBadgeText)
     .filter(Boolean)
 
-const loadingBadges = (index: number, fallbackMode: string): string[] => {
-  const previousUserMessage = [...props.messages.slice(0, index)]
-    .reverse()
-    .find((message) => message.role === 'user')
-  const badges = previousUserMessage ? messageSkillBadges(previousUserMessage) : []
-  return badges.length > 0 ? badges : [fallbackMode]
-}
-
-const loadingTitle = (message: MessageItem): string => {
-  const text = props.waitingText(message)
-  if (text.includes('分析')) return '正在分析你的问题'
-  if (text.includes('查询') || text.includes('检索')) return '正在查询相关数据'
-  if (text.includes('生成') || text.includes('响应')) return '正在处理你的请求'
-  return text || '正在处理你的请求'
-}
-
-const loadingDescription = (message: MessageItem): string => {
-  const text = props.waitingText(message)
-  if (text.includes('分析')) return '正在理解问题，并结合招聘数据进行分析...'
-  if (text.includes('查询') || text.includes('检索')) return '正在查询相关数据，整理可用信息...'
-  if (text.includes('生成') || text.includes('响应')) return '正在组织答案内容，稍后会开始输出...'
-  return `${text}，请稍候...`
-}
-
 const selectedSkillIds = ref<Record<number, number[]>>({})
 
 const skillSelectionLabel = (candidate: AgentSkillSelectionPayload['candidates'][number]): string =>
@@ -116,16 +92,19 @@ const selectionIds = (index: number, selection: AgentSkillSelectionPayload): num
   selectedSkillIds.value[index] ?? defaultSelectionIds(selection)
 
 const toggleSkillSelection = (index: number, selection: AgentSkillSelectionPayload, id: number) => {
+  if (props.interactionDisabled) return
   const current = selectionIds(index, selection)
   const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
   selectedSkillIds.value = { ...selectedSkillIds.value, [index]: next }
 }
 
 const confirmSkillSelection = (index: number, selection: AgentSkillSelectionPayload) => {
+  if (props.interactionDisabled) return
   emit('confirm-skill-selection', index, selectionIds(index, selection))
 }
 
 const skipSkillSelection = (index: number) => {
+  if (props.interactionDisabled) return
   selectedSkillIds.value = { ...selectedSkillIds.value, [index]: [] }
   emit('confirm-skill-selection', index, [])
 }
@@ -155,6 +134,7 @@ const quickHints = [
           v-for="hint in quickHints"
           :key="hint"
           class="chat-welcome__hint"
+          :disabled="interactionDisabled"
         >
           {{ hint }}
         </button>
@@ -180,6 +160,7 @@ const quickHints = [
         :class="{
           'bubble--user': message.role === 'user',
           'bubble--assistant': message.role === 'assistant',
+          'bubble--pending': message.role === 'assistant' && message.pending && !message.content,
           'bubble--failed': message.failed,
         }"
       >
@@ -203,6 +184,7 @@ const quickHints = [
                 class="skill-confirmation__option"
                 :class="{ 'skill-confirmation__option--selected': selectionIds(index, message.agentSkillSelection).includes(candidate.id) }"
                 type="button"
+                :disabled="interactionDisabled"
                 @click="toggleSkillSelection(index, message.agentSkillSelection, candidate.id)"
               >
                 <span class="skill-confirmation__check">
@@ -218,61 +200,29 @@ const quickHints = [
               </button>
             </div>
             <div class="skill-confirmation__actions">
-              <el-button size="small" @click="skipSkillSelection(index)">不使用 Skill</el-button>
-              <el-button type="primary" size="small" @click="confirmSkillSelection(index, message.agentSkillSelection)">继续</el-button>
+              <el-button size="small" :disabled="interactionDisabled" @click="skipSkillSelection(index)">不使用 Skill</el-button>
+              <el-button type="primary" size="small" :disabled="interactionDisabled" @click="confirmSkillSelection(index, message.agentSkillSelection)">继续</el-button>
             </div>
           </div>
 
-          <div v-if="message.processContent" class="assistant-process">
+          <div v-if="message.processContent && !message.pending" class="assistant-process">
             <div class="assistant-process__label">执行过程</div>
             <div class="assistant-process__content md-content" v-html="renderMarkdown(message.processContent)"></div>
           </div>
 
           <!-- Typing indicator -->
-          <div v-if="message.pending && !message.content" class="assistant-loading-card">
-            <div class="assistant-loading-card__badges">
-              <span
-                v-for="badge in loadingBadges(index, runningModeLabel)"
-                :key="badge"
-                class="assistant-loading-card__badge"
-              >
-                {{ badge }}
-              </span>
-            </div>
-            <div class="assistant-loading-card__header">
-              <span class="assistant-loading-card__pulse"></span>
-              <div>
-                <div class="assistant-loading-card__title">{{ loadingTitle(message) }}</div>
-                <div class="assistant-loading-card__desc">{{ loadingDescription(message) }}</div>
-              </div>
-            </div>
-            <div class="assistant-loading-card__steps">
-              <div class="assistant-loading-card__step assistant-loading-card__step--done">
-                <span>✓</span>
-                <p>已接收问题</p>
-              </div>
-              <div class="assistant-loading-card__step assistant-loading-card__step--active">
-                <span></span>
-                <p>{{ waitingText(message) || '正在分析问题并查询数据' }}</p>
-              </div>
-              <div class="assistant-loading-card__step">
-                <span></span>
-                <p>等待生成最终回答</p>
-              </div>
-            </div>
-            <div class="assistant-loading-card__footer">
-              <span class="assistant-loading-card__dots" aria-hidden="true">
-                <i></i>
-                <i></i>
-                <i></i>
-              </span>
-              <span>可随时在下方中断本次生成</span>
-            </div>
-            <div class="assistant-loading-card__skeleton" aria-hidden="true">
-              <i></i>
-              <i></i>
-              <i></i>
-            </div>
+          <div
+            v-if="message.pending && !message.content"
+            class="assistant-typing"
+            role="status"
+            aria-live="polite"
+          >
+            <span class="assistant-typing__text">{{ waitingText(message) || '思考中' }}</span>
+            <span class="assistant-typing__dots" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </span>
           </div>
 
           <!-- Assistant markdown content -->
@@ -306,7 +256,7 @@ const quickHints = [
 
         <!-- Retry button -->
         <div v-if="message.role === 'assistant' && message.failed && !message.retryDisabled" class="bubble__retry">
-          <el-button type="warning" size="small" @click="emit('retry', index)">重新发送</el-button>
+          <el-button type="warning" size="small" :disabled="interactionDisabled" @click="interactionDisabled ? undefined : emit('retry', index)">重新发送</el-button>
         </div>
 
       </div>
@@ -314,29 +264,14 @@ const quickHints = [
 
     <!-- Loading placeholder -->
     <div v-if="loading && !streaming" class="message-wrapper assistant">
-      <div class="bubble bubble--assistant">
-        <div class="assistant-loading-card">
-          <div class="assistant-loading-card__badges">
-            <span class="assistant-loading-card__badge">{{ runningModeLabel }}</span>
-          </div>
-          <div class="assistant-loading-card__header">
-            <span class="assistant-loading-card__pulse"></span>
-            <div>
-              <div class="assistant-loading-card__title">正在处理你的请求</div>
-              <div class="assistant-loading-card__desc">正在理解问题并查询相关数据...</div>
-            </div>
-          </div>
-          <div class="assistant-loading-card__footer">
-            <span class="assistant-loading-card__dots" aria-hidden="true">
-              <i></i><i></i><i></i>
-            </span>
-            <span>可随时在下方中断本次生成</span>
-          </div>
-          <div class="assistant-loading-card__skeleton" aria-hidden="true">
-            <i></i>
-            <i></i>
-            <i></i>
-          </div>
+      <div class="bubble bubble--assistant bubble--pending">
+        <div class="assistant-typing" role="status" aria-live="polite">
+          <span class="assistant-typing__text">思考中</span>
+          <span class="assistant-typing__dots" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </span>
         </div>
       </div>
     </div>
@@ -566,207 +501,44 @@ const quickHints = [
   margin: 2px 0;
 }
 
-.assistant-loading-card {
-  width: min(520px, 100%);
-  display: grid;
-  gap: 12px;
-  padding: 2px 0 0;
-}
-
-.assistant-loading-card__badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.assistant-loading-card__badge {
-  min-width: 0;
-  max-width: 100%;
-  display: inline-flex;
-  align-items: center;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: rgba(37, 99, 235, 0.08);
-  color: var(--brand-strong);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 24px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.assistant-loading-card__header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.assistant-loading-card__pulse {
-  position: relative;
-  flex: 0 0 auto;
-  width: 10px;
-  height: 10px;
-  margin-top: 8px;
-  border-radius: 999px;
-  background: var(--brand);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
-}
-
-.assistant-loading-card__pulse::after {
-  content: "";
-  position: absolute;
-  inset: -5px;
-  border-radius: inherit;
-  border: 1px solid rgba(37, 99, 235, 0.32);
-  animation: assistant-loading-pulse 1.8s ease-out infinite;
-}
-
-.assistant-loading-card__title {
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.45;
-}
-
-.assistant-loading-card__desc {
-  margin-top: 3px;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.assistant-loading-card__steps {
-  display: grid;
-  gap: 8px;
+.bubble--pending {
   padding: 10px 12px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 58%, var(--surface-muted));
+  border-radius: 8px;
 }
 
-.assistant-loading-card__step {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-faint);
-  font-size: 12.5px;
-  line-height: 1.35;
-}
-
-.assistant-loading-card__step span {
-  width: 16px;
-  height: 16px;
+.assistant-typing {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text-faint);
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.assistant-loading-card__step p {
-  margin: 0;
-}
-
-.assistant-loading-card__step--done {
+  gap: 8px;
   color: var(--text-secondary);
 }
 
-.assistant-loading-card__step--done span {
-  border-color: rgba(34, 197, 94, 0.32);
-  background: rgba(34, 197, 94, 0.12);
-  color: #16a34a;
+.assistant-typing__text {
+  white-space: nowrap;
 }
 
-.assistant-loading-card__step--active {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.assistant-loading-card__step--active span {
-  border-color: rgba(37, 99, 235, 0.34);
-  background: rgba(37, 99, 235, 0.12);
-}
-
-.assistant-loading-card__step--active span::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: inherit;
-  background: var(--brand);
-  animation: typing-bounce 1.2s infinite ease-in-out;
-}
-
-.assistant-loading-card__footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.assistant-loading-card__dots {
+.assistant-typing__dots {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  flex: 0 0 auto;
+  height: 12px;
 }
 
-.assistant-loading-card__dots i {
-  display: block;
+.assistant-typing__dots span {
   width: 5px;
   height: 5px;
-  border-radius: 999px;
-  background: var(--brand);
-  animation: typing-bounce 1.2s infinite ease-in-out;
+  border-radius: 50%;
+  background: var(--brand-strong);
+  opacity: 0.35;
+  animation: assistant-typing-dot 1.2s infinite ease-in-out;
 }
 
-.assistant-loading-card__dots i:nth-child(2) {
-  animation-delay: 0.2s;
+.assistant-typing__dots span:nth-child(2) {
+  animation-delay: 160ms;
 }
 
-.assistant-loading-card__dots i:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-.assistant-loading-card__skeleton {
-  display: grid;
-  gap: 8px;
-  padding-top: 2px;
-}
-
-.assistant-loading-card__skeleton i {
-  display: block;
-  height: 9px;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    rgba(148, 163, 184, 0.16) 0%,
-    rgba(148, 163, 184, 0.34) 42%,
-    rgba(148, 163, 184, 0.16) 84%
-  );
-  background-size: 220% 100%;
-  animation: assistant-loading-shimmer 1.7s ease-in-out infinite;
-}
-
-.assistant-loading-card__skeleton i:nth-child(1) {
-  width: 92%;
-}
-
-.assistant-loading-card__skeleton i:nth-child(2) {
-  width: 78%;
-  animation-delay: 0.12s;
-}
-
-.assistant-loading-card__skeleton i:nth-child(3) {
-  width: 54%;
-  animation-delay: 0.24s;
+.assistant-typing__dots span:nth-child(3) {
+  animation-delay: 320ms;
 }
 
 .bubble__user-text {
@@ -820,42 +592,23 @@ const quickHints = [
   color: #f8c471;
 }
 
-:global(:root[data-theme='dark']) .assistant-loading-card__badge {
-  background: rgba(59, 130, 246, 0.16);
-  color: #93c5fd;
-}
-
-:global(:root[data-theme='dark']) .assistant-loading-card__steps {
-  background: rgba(15, 23, 42, 0.42);
-}
-
-@keyframes assistant-loading-pulse {
-  0% {
-    opacity: 0.6;
-    transform: scale(0.72);
-  }
+@keyframes assistant-typing-dot {
+  0%,
+  80%,
   100% {
-    opacity: 0;
-    transform: scale(1.8);
+    transform: translateY(0);
+    opacity: 0.35;
   }
-}
 
-@keyframes assistant-loading-shimmer {
-  0% {
-    background-position: 120% 0;
-  }
-  100% {
-    background-position: -120% 0;
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
   }
 }
 
 @media (max-width: 768px) {
   .chat-welcome {
     padding: 40px 16px 32px;
-  }
-
-  .assistant-loading-card {
-    width: 100%;
   }
 }
 </style>

@@ -1,0 +1,12 @@
+{
+  "utc_calls": {
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/llm_discovery.go": "Canonical absolute timestamp used only inside an in-memory cache key."
+  },
+  "utc_timestamp": {
+    "smart-recruit-platform-go/mysqltime/mysql.go": "Startup validation must compare NOW() with UTC_TIMESTAMP().",
+    "smart-recruit-billing-service/internal/application/service/commerce_test.go": "Regression assertion rejects UTC_TIMESTAMP in generated runtime SQL."
+  },
+  "loc_local": {
+    "smart-recruit-platform-go/mysqltime/mysql_test.go": "Negative fixture proves DSN normalization overrides loc=Local."
+  }
+}

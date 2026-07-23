@@ -11,6 +11,7 @@ import {
   markAllNotificationsRead,
 } from '@/api/notification'
 import type { NotificationItem, NotificationStreamEvent } from '@/types/notification'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const router = useRouter()
 const unreadCount = ref(0)
@@ -243,10 +244,7 @@ const handleMarkAllRead = async () => {
 }
 
 const formatTime = (ts: string) => {
-  if (!ts) return ''
-  const d = new Date(ts)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return formatShanghaiDateTime(ts, '', false)
 }
 
 const unlockSound = () => {

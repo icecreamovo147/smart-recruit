@@ -9,6 +9,7 @@ import type { Application, InterviewSchedule, JobQuery } from '@/types/domain'
 import { getHRStatusLabel, getStatusType, APP_STATUS_KEY, TERMINAL_STATUS_KEYS, ALLOWED_HR_ACTIONS } from '@/types/domain'
 import InterviewScheduleDialog from '@/components/business/InterviewScheduleDialog.vue'
 import SkillTagSummary from '@/components/business/SkillTagSummary.vue'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,13 +29,7 @@ const offerStageStatusKeys = new Set<string>([
   APP_STATUS_KEY.HIRED,
 ])
 
-const formatDateTime = (value: string): string => {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const pad = (num: number): string => String(num).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
+const formatDateTime = (value: string): string => formatShanghaiDateTime(value, '-', false)
 
 const getStatusKey = (row: Application): string => {
   return row.status_key || ''

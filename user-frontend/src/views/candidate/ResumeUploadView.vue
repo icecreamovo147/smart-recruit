@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { Document, Download, UploadFilled } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
+import { Document, Download, UploadFilled, View } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { confirmResume, getResume, presignResume, putResumeFile } from '@/api/resume'
 import type { ResumeInfo } from '@/types/domain'
+import { formatUploadedAt as formatBusinessUploadedAt } from '@shared/utils/format'
+import ResumePdfPreview from '@/components/ResumePdfPreview.vue'
 
+const router = useRouter()
 const file = ref<File | null>(null)
 const loading = ref(false)
 const resumeLoading = ref(false)
@@ -16,18 +20,68 @@ const uploaderSectionRef = ref<any>(null)
 const isPDF = computed(() => currentResume.value?.file_type === 'pdf')
 const showUploader = ref(false)
 const highlightUploader = ref(false)
+/** PDF preview is opt-in so entering the page does not download the file. */
+const previewRequested = ref(false)
+const previewRefreshing = ref(false)
 const allowed = ['pdf', 'docx']
 let highlightTimer: ReturnType<typeof setTimeout> | null = null
+
+const fetchResume = async () => {
+  const data = await getResume()
+  currentResume.value = data.resume || null
+  showUploader.value = !currentResume.value
+  return currentResume.value
+}
 
 const loadResume = async () => {
   resumeLoading.value = true
   try {
-    const data = await getResume()
-    currentResume.value = data.resume || null
-    showUploader.value = !currentResume.value
+    await fetchResume()
+    previewRequested.value = false
   } finally {
     resumeLoading.value = false
   }
+}
+
+const showResumePreview = async () => {
+  if (!currentResume.value?.resume_url || !isPDF.value) {
+    ElMessage.warning('简历预览暂不可用')
+    return
+  }
+  previewRefreshing.value = true
+  try {
+    // Refresh the signed URL before mounting the preview (presign expiry ~15m).
+    await fetchResume()
+    if (!currentResume.value?.resume_url) {
+      ElMessage.warning('简历预览暂不可用')
+      previewRequested.value = false
+      return
+    }
+    previewRequested.value = true
+  } finally {
+    previewRefreshing.value = false
+  }
+}
+
+const hideResumePreview = () => {
+  previewRequested.value = false
+}
+
+const refreshResumePreview = async () => {
+  previewRefreshing.value = true
+  try {
+    await fetchResume()
+    if (!currentResume.value?.resume_url) {
+      ElMessage.warning('简历预览暂不可用')
+      previewRequested.value = false
+    }
+  } finally {
+    previewRefreshing.value = false
+  }
+}
+
+const onPreviewError = (message: string) => {
+  ElMessage.error(message)
 }
 
 const pick = (uploadFile: { raw: File; name: string; size: number }) => {
@@ -59,11 +113,23 @@ const upload = async () => {
     const ext = file.value.name.split('.').pop()!.toLowerCase()
     const presign = await presignResume({ file_name: file.value.name, file_type: ext })
     await putResumeFile(presign.upload_url, file.value)
-    await confirmResume({ oss_key: presign.oss_key, file_name: file.value.name, file_type: ext, file_size: file.value.size, upload_id: presign.upload_id })
+    const confirm = await confirmResume({ oss_key: presign.oss_key, file_name: file.value.name, file_type: ext, file_size: file.value.size, upload_id: presign.upload_id })
     ElMessage.success('简历上传成功')
     file.value = null
     uploadRef.value?.clearFiles()
     await loadResume()
+    if (confirm.fill_suggested) {
+      try {
+        await ElMessageBox.confirm('是否根据简历填充个人资料？', '简历已上传', {
+          confirmButtonText: '去填充',
+          cancelButtonText: '稍后',
+          type: 'info',
+        })
+        await router.push({ path: '/profile', query: { fill: '1' } })
+      } catch {
+        // user dismissed
+      }
+    }
   } catch (error: unknown) {
     const err = error as { code?: number; message?: string }
     if (err.code === 42911 || err.code === 42912) {
@@ -115,10 +181,7 @@ const formatFileSize = (value: number): string => {
 }
 
 const formatUploadedAt = (value: string): string => {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString('zh-CN', { hour12: false })
+  return formatBusinessUploadedAt(value)
 }
 
 onMounted(loadResume)
@@ -126,44 +189,62 @@ onMounted(loadResume)
 
 <template>
   <section>
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">简历上传</h1>
-        <p class="page-subtitle">请上传最新版本的简历文件。</p>
-      </div>
-    </div>
     <div class="content-surface" v-loading="resumeLoading">
-      <div v-if="currentResume" class="resume-current">
-        <div class="resume-current__icon">
-          <el-icon><Document /></el-icon>
-        </div>
-        <div class="resume-current__body">
-          <div class="resume-current__top">
-            <h2>{{ currentResume.file_name }}</h2>
-            <el-tag type="success">已上传</el-tag>
+      <div v-if="currentResume" class="resume-panel">
+        <div class="resume-current">
+          <div class="resume-current__icon">
+            <el-icon><Document /></el-icon>
           </div>
-          <div class="resume-meta">
-            <span>{{ (currentResume.file_type || 'pdf').toUpperCase() }}</span>
-            <span>{{ formatFileSize(currentResume.file_size) }}</span>
-            <span>{{ formatUploadedAt(currentResume.uploaded_at) }}</span>
+          <div class="resume-current__body">
+            <div class="resume-current__top">
+              <h2>{{ currentResume.file_name }}</h2>
+              <el-tag type="success">已上传</el-tag>
+            </div>
+            <div class="resume-meta">
+              <span>{{ (currentResume.file_type || 'pdf').toUpperCase() }}</span>
+              <span>{{ formatFileSize(currentResume.file_size) }}</span>
+              <span>{{ formatUploadedAt(currentResume.uploaded_at) }}</span>
+            </div>
+          </div>
+          <div class="resume-current__actions">
+            <template v-if="previewRequested && isPDF">
+              <el-button @click="hideResumePreview">收起预览</el-button>
+              <el-button :loading="previewRefreshing" @click="refreshResumePreview">重新加载</el-button>
+            </template>
+            <el-button type="primary" :icon="UploadFilled" @click="showUpdateUploader">更新简历</el-button>
           </div>
         </div>
-        <el-button type="primary" :icon="UploadFilled" @click="showUpdateUploader">更新简历</el-button>
-      </div>
 
-      <div v-if="currentResume" class="resume-preview">
-        <iframe v-if="currentResume.resume_url && isPDF" :key="currentResume.resume_url" :src="currentResume.resume_url" title="简历预览" />
-        <div v-else-if="currentResume.resume_url && !isPDF" class="resume-preview-fallback">
-          <el-icon :size="48"><Document /></el-icon>
-          <h2>DOCX 文件不支持在线预览</h2>
-          <p>请下载后使用 Microsoft Word 或 WPS 打开查看</p>
-          <el-button type="primary" :icon="Download" class="resume-download-btn" @click="downloadResume">
-            下载简历文件
-          </el-button>
-        </div>
-        <div v-else class="resume-preview-empty">
-          <el-icon><Document /></el-icon>
-          <h2>简历预览暂不可用</h2>
+        <div class="resume-preview">
+          <template v-if="currentResume.resume_url && isPDF">
+            <div v-if="!previewRequested" class="resume-preview-fallback" v-loading="previewRefreshing">
+              <el-icon :size="48"><Document /></el-icon>
+              <h2>点击查看简历</h2>
+              <p>预览需要加载文件，确认需要时再打开即可</p>
+              <el-button type="primary" :icon="View" :loading="previewRefreshing" class="resume-download-btn" @click="showResumePreview">
+                查看简历
+              </el-button>
+            </div>
+            <div v-else class="resume-preview-active" v-loading="previewRefreshing">
+              <ResumePdfPreview
+                :key="currentResume.resume_url"
+                :url="currentResume.resume_url"
+                @error="onPreviewError"
+              />
+            </div>
+          </template>
+          <div v-else-if="currentResume.resume_url && !isPDF" class="resume-preview-fallback">
+            <el-icon :size="48"><Document /></el-icon>
+            <h2>DOCX 文件不支持在线预览</h2>
+            <p>请下载后使用 Microsoft Word 或 WPS 打开查看</p>
+            <el-button type="primary" :icon="Download" class="resume-download-btn" @click="downloadResume">
+              下载简历文件
+            </el-button>
+          </div>
+          <div v-else class="resume-preview-empty">
+            <el-icon><Document /></el-icon>
+            <h2>简历预览暂不可用</h2>
+          </div>
         </div>
       </div>
 

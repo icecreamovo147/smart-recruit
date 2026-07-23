@@ -12,6 +12,7 @@ const ProfileView = () => import('@/views/candidate/ProfileView.vue')
 const ResumeUploadView = () => import('@/views/candidate/ResumeUploadView.vue')
 const JobProgressView = () => import('@/views/candidate/JobProgressView.vue')
 const AIAssistantView = () => import('@/views/candidate/AIAssistantView.vue')
+const BillingCenterView = () => import('@/views/candidate/BillingCenterView.vue')
 const ForbiddenView = () => import('@/views/ForbiddenView.vue')
 const NotFoundView = () => import('@/views/NotFoundView.vue')
 
@@ -27,6 +28,9 @@ const routes: RouteRecordRaw[] = [
   { path: '/resume', component: ResumeUploadView, meta: { requiresAuth: true, requiresCandidate: true } },
   { path: '/progress', component: JobProgressView, meta: { requiresAuth: true, requiresCandidate: true } },
   { path: '/ai-assistant', component: AIAssistantView, meta: { requiresAuth: true, requiresCandidate: true } },
+  { path: '/billing', component: BillingCenterView, meta: { requiresAuth: true, requiresCandidate: true } },
+  // Preserve signed payment-return tokens from the former Gateway default.
+  { path: '/candidate/billing', redirect: (to) => ({ path: '/billing', query: to.query }) },
   // Legacy routes kept for notification deep-links – redirect to /progress with query preserved
   { path: '/applications', redirect: (to) => ({ path: '/progress', query: { ...to.query, tab: 'applications' } }) },
   { path: '/interviews', redirect: (to) => ({ path: '/progress', query: { ...to.query, tab: 'interviews' } }) },

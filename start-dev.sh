@@ -14,9 +14,12 @@ STATE_DIR="${ROOT}/.dev"
 PID_DIR="${STATE_DIR}/pids"
 LOG_DIR="${STATE_DIR}/logs"
 BIN_DIR="${STATE_DIR}/bin"
+BUILD_CACHE_DIR="${STATE_DIR}/build-cache"
+BUILD_LOG_DIR="${STATE_DIR}/build-logs"
+TOOL_DIR="${STATE_DIR}/tools"
 PNPM_VERSION="10.19.0"
 
-mkdir -p "${PID_DIR}" "${LOG_DIR}" "${BIN_DIR}"
+mkdir -p "${PID_DIR}" "${LOG_DIR}" "${BIN_DIR}" "${BUILD_CACHE_DIR}" "${BUILD_LOG_DIR}" "${TOOL_DIR}"
 
 info() { printf '[dev] %s\n' "$*"; }
 warn() { printf '[dev] WARN: %s\n' "$*" >&2; }
@@ -46,6 +49,7 @@ Business service aliases:
   notification        notification-service
   ai-agent | ai       ai-agent-service
   analytics           analytics-service
+  billing             billing-service
   worker              worker-service
 
 Frontend aliases:
@@ -58,6 +62,10 @@ Examples:
   ./start-dev.sh identity recruitment notification
   ./start-dev.sh backend hr
   ./start-dev.sh logs
+
+Build controls:
+  DEV_BUILD_JOBS=<n>       Maximum number of binaries checked/built concurrently.
+  DEV_FORCE_REBUILD=1      Ignore saved fingerprints and rebuild selected binaries.
 EOF
 }
 
@@ -162,16 +170,147 @@ EOF
     fi
 }
 
+cpu_count() {
+    local count=""
+    if command -v getconf >/dev/null 2>&1; then
+        count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
+    fi
+    if ! [[ "${count}" =~ ^[1-9][0-9]*$ ]] && command -v sysctl >/dev/null 2>&1; then
+        count="$(sysctl -n hw.logicalcpu 2>/dev/null || true)"
+    fi
+    if ! [[ "${count}" =~ ^[1-9][0-9]*$ ]]; then
+        count=1
+    fi
+    printf '%s\n' "${count}"
+}
+
+configure_build_parallelism() {
+    local selected_count="$1"
+    local available
+    available="$(cpu_count)"
+    if [ -z "${DEV_BUILD_JOBS:-}" ]; then
+        DEV_BUILD_JOBS="${available}"
+        if [ "${DEV_BUILD_JOBS}" -gt 4 ]; then
+            DEV_BUILD_JOBS=4
+        fi
+    fi
+    if ! [[ "${DEV_BUILD_JOBS}" =~ ^[1-9][0-9]*$ ]]; then
+        die "DEV_BUILD_JOBS must be a positive integer."
+    fi
+    if [ "${DEV_BUILD_JOBS}" -gt "${selected_count}" ]; then
+        DEV_BUILD_JOBS="${selected_count}"
+    fi
+    GO_BUILD_PACKAGE_JOBS=$((available / DEV_BUILD_JOBS))
+    if [ "${GO_BUILD_PACKAGE_JOBS}" -lt 1 ]; then
+        GO_BUILD_PACKAGE_JOBS=1
+    fi
+    info "Build parallelism: ${DEV_BUILD_JOBS} binaries at a time, ${GO_BUILD_PACKAGE_JOBS} Go package jobs per binary."
+}
+
+selected_go_build_count() {
+    local count=0
+    local target
+    if has_log_viewer_target; then
+        count=$((count + 1))
+    fi
+    if has_any_backend_target; then
+        count=$((count + 1))
+    fi
+    for target in "${BUSINESS_SERVICES[@]}" smart-recruit-gateway; do
+        if target_selected "${target}"; then
+            count=$((count + 1))
+        fi
+    done
+    printf '%s\n' "${count}"
+}
+
+ensure_build_fingerprint_tool() {
+    local source="${ROOT}/scripts/dev-build-fingerprint.go"
+    local output="${TOOL_DIR}/dev-build-fingerprint"
+    local temporary="${output}.tmp.$$"
+    local checksum_file="${TOOL_DIR}/dev-build-fingerprint.checksum"
+    local temporary_checksum="${checksum_file}.tmp.$$"
+    local source_checksum
+    local previous_checksum=""
+
+    source_checksum="$(cksum <"${source}" | awk '{print $1 "-" $2}')"
+    if [ -f "${checksum_file}" ]; then
+        previous_checksum="$(cat "${checksum_file}")"
+    fi
+    if [ -x "${output}" ] && [ "${source_checksum}" = "${previous_checksum}" ]; then
+        return 0
+    fi
+    info "Preparing incremental build fingerprint tool..."
+    if ! go build -buildvcs=false -ldflags "-X=main.toolRevision=${source_checksum}" -o "${temporary}" "${source}"; then
+        rm -f "${temporary}" "${temporary_checksum}"
+        die "Failed to build the incremental build fingerprint tool."
+    fi
+    mv "${temporary}" "${output}"
+    printf '%s\n' "${source_checksum}" >"${temporary_checksum}"
+    mv "${temporary_checksum}" "${checksum_file}"
+}
+
+compute_go_build_fingerprint() {
+    local dir="$1"
+    local cmd_path="$2"
+    local tags="$3"
+    shift 3
+
+    local args=(
+        --root "${ROOT}"
+        --dir "${dir}"
+        --package "${cmd_path}"
+        --tags "${tags}"
+    )
+    local extra
+    for extra in "$@"; do
+        args+=(--extra "${extra}")
+    done
+    "${TOOL_DIR}/dev-build-fingerprint" "${args[@]}"
+}
+
 build_go_binary() {
     local dir="$1"
     local name="$2"
     local cmd_path="$3"
-    local output="${BIN_DIR}/${name}"
+    local tags="${4:-}"
+    shift 4
 
-    info "Downloading ${name} Go dependencies..."
-    (cd "${dir}" && go mod download)
+    local output="${BIN_DIR}/${name}"
+    local fingerprint_file="${BUILD_CACHE_DIR}/${name}.fingerprint"
+    local fingerprint=""
+    local previous_fingerprint=""
+    local temporary_output="${output}.tmp.$$"
+    local temporary_fingerprint="${fingerprint_file}.tmp.$$"
+
+    if ! fingerprint="$(compute_go_build_fingerprint "${dir}" "${cmd_path}" "${tags}" "$@")"; then
+        warn "Could not calculate ${name} build fingerprint; rebuilding without cache reuse."
+    fi
+    if [ -f "${fingerprint_file}" ]; then
+        previous_fingerprint="$(cat "${fingerprint_file}")"
+    fi
+    if [ "${DEV_FORCE_REBUILD:-0}" != "1" ] && [ -n "${fingerprint}" ] && [ -x "${output}" ] && [ "${fingerprint}" = "${previous_fingerprint}" ]; then
+        info "${name} is up to date; reusing ${output}."
+        return 0
+    fi
+
     info "Building ${name}..."
-    (cd "${dir}" && go build -o "${output}" "${cmd_path}")
+    local build_args=(build -buildvcs=false -p "${GO_BUILD_PACKAGE_JOBS}")
+    if [ -n "${tags}" ]; then
+        build_args+=(-tags "${tags}")
+    fi
+    build_args+=(-o "${temporary_output}" "${cmd_path}")
+    if ! (cd "${dir}" && go "${build_args[@]}"); then
+        rm -f "${temporary_output}" "${temporary_fingerprint}"
+        return 1
+    fi
+    mv "${temporary_output}" "${output}"
+    if [ -n "${fingerprint}" ]; then
+        printf '%s\n' "${fingerprint}" >"${temporary_fingerprint}"
+        mv "${temporary_fingerprint}" "${fingerprint_file}"
+    else
+        rm -f "${fingerprint_file}"
+    fi
 }
 
 install_frontend_dependencies() {
@@ -211,6 +350,7 @@ BUSINESS_SERVICES=(
     notification-service
     ai-agent-service
     analytics-service
+    billing-service
     worker-service
 )
 
@@ -292,6 +432,9 @@ expand_target() {
         analytics|analytics-service)
             add_target analytics-service
             ;;
+        billing|billing-service)
+            add_target billing-service
+            ;;
         worker|worker-service)
             add_target worker-service
             ;;
@@ -358,28 +501,122 @@ has_log_viewer_target() {
 }
 
 build_log_viewer_binary() {
+    local web_fingerprint_file="${BUILD_CACHE_DIR}/dev-log-viewer-web.fingerprint"
+    local web_fingerprint=""
+    local previous_web_fingerprint=""
+    local temporary_fingerprint="${web_fingerprint_file}.tmp.$$"
+    local web_inputs=(
+        "${ROOT}/pnpm-lock.yaml"
+        "${ROOT}/pnpm-workspace.yaml"
+        "${ROOT}/dev-log-viewer/package.json"
+        "${ROOT}/dev-log-viewer/tsconfig.json"
+        "${ROOT}/dev-log-viewer/vite.config.ts"
+        "${ROOT}/dev-log-viewer/web"
+    )
+
     install_frontend_dependencies "${ROOT}/dev-log-viewer" "Dev log viewer"
-    info "Building dev-log-viewer web assets..."
-    (cd "${ROOT}" && pnpm --filter dev-log-viewer build)
-    info "Downloading dev-log-viewer Go dependencies..."
-    (cd "${ROOT}/dev-log-viewer" && go mod download)
-    info "Building dev-log-viewer..."
-    (cd "${ROOT}/dev-log-viewer" && go build -tags prod -o "${BIN_DIR}/dev-log-viewer" ./cmd/dev-log-viewer)
+    local args=(--root "${ROOT}" --inputs-only)
+    local input
+    for input in "${web_inputs[@]}"; do
+        args+=(--extra "${input}")
+    done
+    web_fingerprint="$("${TOOL_DIR}/dev-build-fingerprint" "${args[@]}")"
+    if [ -f "${web_fingerprint_file}" ]; then
+        previous_web_fingerprint="$(cat "${web_fingerprint_file}")"
+    fi
+
+    if [ "${DEV_FORCE_REBUILD:-0}" = "1" ] || [ ! -d "${ROOT}/dev-log-viewer/web/dist" ] || [ "${web_fingerprint}" != "${previous_web_fingerprint}" ]; then
+        info "Building dev-log-viewer web assets..."
+        (cd "${ROOT}" && pnpm --filter dev-log-viewer build)
+        printf '%s\n' "${web_fingerprint}" >"${temporary_fingerprint}"
+        mv "${temporary_fingerprint}" "${web_fingerprint_file}"
+    else
+        info "dev-log-viewer web assets are up to date."
+    fi
+
+    build_go_binary "${ROOT}/dev-log-viewer" "dev-log-viewer" "./cmd/dev-log-viewer" "prod" "${web_inputs[@]}"
+}
+
+BUILD_PIDS=()
+BUILD_NAMES=()
+
+wait_build_batch() {
+    local failed=0
+    local index
+    local log_file
+    for ((index = 0; index < ${#BUILD_PIDS[@]}; index++)); do
+        log_file="${BUILD_LOG_DIR}/${BUILD_NAMES[index]}.log"
+        if wait "${BUILD_PIDS[index]}"; then
+            cat "${log_file}"
+        else
+            warn "Build failed for ${BUILD_NAMES[index]}. Build log: ${log_file}"
+            cat "${log_file}" >&2
+            failed=1
+        fi
+    done
+    BUILD_PIDS=()
+    BUILD_NAMES=()
+    return "${failed}"
+}
+
+queue_build_job() {
+    local name="$1"
+    shift
+    local log_file="${BUILD_LOG_DIR}/${name}.log"
+
+    info "Queueing ${name} build check..."
+    ("$@") >"${log_file}" 2>&1 &
+    BUILD_PIDS+=("$!")
+    BUILD_NAMES+=("${name}")
+    if [ "${#BUILD_PIDS[@]}" -ge "${DEV_BUILD_JOBS}" ]; then
+        wait_build_batch
+    fi
 }
 
 build_selected_go_binaries() {
-    target_selected dev-log-viewer && build_log_viewer_binary
-    has_any_backend_target && build_go_binary "${ROOT}/smart-recruit-commons" "smart-recruit-migrate" "./cmd/migrate"
-    target_selected smart-recruit-gateway && build_go_binary "${ROOT}/smart-recruit-gateway" "smart-recruit-gateway" "./cmd/gateway"
-    target_selected identity-service && build_go_binary "${ROOT}/smart-recruit-identity-service" "identity-service" "./cmd/identity-service"
-    target_selected recruitment-service && build_go_binary "${ROOT}/smart-recruit-recruitment-service" "recruitment-service" "./cmd/recruitment-service"
-    target_selected interview-service && build_go_binary "${ROOT}/smart-recruit-interview-service" "interview-service" "./cmd/interview-service"
-    target_selected offer-service && build_go_binary "${ROOT}/smart-recruit-offer-service" "offer-service" "./cmd/offer-service"
-    target_selected notification-service && build_go_binary "${ROOT}/smart-recruit-notification-service" "notification-service" "./cmd/notification-service"
-    target_selected ai-agent-service && build_go_binary "${ROOT}/smart-recruit-ai-agent-service" "ai-agent-service" "./cmd/ai-agent-service"
-    target_selected analytics-service && build_go_binary "${ROOT}/smart-recruit-analytics-service" "analytics-service" "./cmd/analytics-service"
-    target_selected worker-service && build_go_binary "${ROOT}/smart-recruit-worker-service" "worker-service" "./cmd/worker-service"
-    return 0
+    if ! has_any_backend_target && ! has_log_viewer_target; then
+        return 0
+    fi
+
+    configure_build_parallelism "$(selected_go_build_count)"
+    ensure_build_fingerprint_tool
+    if target_selected dev-log-viewer; then
+        queue_build_job "dev-log-viewer" build_log_viewer_binary
+    fi
+    if has_any_backend_target; then
+        queue_build_job "smart-recruit-migrate" build_go_binary "${ROOT}/smart-recruit-commons" "smart-recruit-migrate" "./cmd/migrate" ""
+    fi
+    if target_selected smart-recruit-gateway; then
+        queue_build_job "smart-recruit-gateway" build_go_binary "${ROOT}/smart-recruit-gateway" "smart-recruit-gateway" "./cmd/gateway" ""
+    fi
+    if target_selected identity-service; then
+        queue_build_job "identity-service" build_go_binary "${ROOT}/smart-recruit-identity-service" "identity-service" "./cmd/identity-service" ""
+    fi
+    if target_selected recruitment-service; then
+        queue_build_job "recruitment-service" build_go_binary "${ROOT}/smart-recruit-recruitment-service" "recruitment-service" "./cmd/recruitment-service" ""
+    fi
+    if target_selected interview-service; then
+        queue_build_job "interview-service" build_go_binary "${ROOT}/smart-recruit-interview-service" "interview-service" "./cmd/interview-service" ""
+    fi
+    if target_selected offer-service; then
+        queue_build_job "offer-service" build_go_binary "${ROOT}/smart-recruit-offer-service" "offer-service" "./cmd/offer-service" ""
+    fi
+    if target_selected notification-service; then
+        queue_build_job "notification-service" build_go_binary "${ROOT}/smart-recruit-notification-service" "notification-service" "./cmd/notification-service" ""
+    fi
+    if target_selected ai-agent-service; then
+        queue_build_job "ai-agent-service" build_go_binary "${ROOT}/smart-recruit-ai-agent-service" "ai-agent-service" "./cmd/ai-agent-service" ""
+    fi
+    if target_selected analytics-service; then
+        queue_build_job "analytics-service" build_go_binary "${ROOT}/smart-recruit-analytics-service" "analytics-service" "./cmd/analytics-service" ""
+    fi
+    if target_selected billing-service; then
+        queue_build_job "billing-service" build_go_binary "${ROOT}/smart-recruit-billing-service" "billing-service" "./cmd/billing-service" ""
+    fi
+    if target_selected worker-service; then
+        queue_build_job "worker-service" build_go_binary "${ROOT}/smart-recruit-worker-service" "worker-service" "./cmd/worker-service" ""
+    fi
+    wait_build_batch
 }
 
 install_selected_frontend_dependencies() {
@@ -424,6 +661,11 @@ start_service() {
 }
 
 parse_targets "$@"
+BILLING_CONFIG_PATH="${BILLING_CONFIG_PATH:-${ROOT}/smart-recruit-billing-service/internal/config/config.yaml}"
+if target_selected billing-service && [ ! -f "${BILLING_CONFIG_PATH}" ]; then
+    die "Billing config not found at ${BILLING_CONFIG_PATH}. Copy smart-recruit-billing-service/internal/config/config.example.yaml to smart-recruit-billing-service/internal/config/config.yaml and fill in the Alipay sandbox values."
+fi
+
 ensure_system_dependencies
 if has_any_backend_target; then
     ensure_runtime_services
@@ -435,7 +677,8 @@ if has_any_frontend_target; then
 fi
 
 export CONFIG_PATH="${CONFIG_PATH:-${ROOT}/smart-recruit-commons/config/config.yaml}"
-export MYSQL_DSN="${MYSQL_DSN:-root:Aa123456@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local}"
+export TZ="${TZ:-Asia/Shanghai}"
+export MYSQL_DSN="${MYSQL_DSN:-root:Aa123456@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai&time_zone=%27%2B08%3A00%27}"
 export REDIS_ADDR="${REDIS_ADDR:-127.0.0.1:6379}"
 export RABBITMQ_URL="${RABBITMQ_URL:-amqp://guest:guest@127.0.0.1:5672/}"
 export JWT_SECRET="${JWT_SECRET:-dev-jwt-secret-at-least-32-chars-long!!}"
@@ -445,6 +688,8 @@ export GRPC_INTERNAL_TLS="${GRPC_INTERNAL_TLS:-optional}"
 export ALLOW_INSECURE_DEV_CONFIG="${ALLOW_INSECURE_DEV_CONFIG:-true}"
 export STATIC_FALLBACK="${STATIC_FALLBACK:-false}"
 export SERVICE_ENV="${SERVICE_ENV:-local}"
+export BILLING_HR_RETURN_URL="${BILLING_HR_RETURN_URL:-http://localhost:5173/hr/billing}"
+export BILLING_CANDIDATE_RETURN_URL="${BILLING_CANDIDATE_RETURN_URL:-http://localhost:5174/billing}"
 
 if has_any_backend_target; then
     info "Applying database migrations..."
@@ -462,6 +707,7 @@ target_selected notification-service && start_service "notification-service" "${
 target_selected ai-agent-service && start_service "ai-agent-service" "${ROOT}/smart-recruit-ai-agent-service" 50066 "${BIN_DIR}/ai-agent-service" --serve --addr :50066
 target_selected analytics-service && start_service "analytics-service" "${ROOT}/smart-recruit-analytics-service" 50067 "${BIN_DIR}/analytics-service" --serve --addr :50067
 target_selected worker-service && start_service "worker-service" "${ROOT}/smart-recruit-worker-service" 50068 "${BIN_DIR}/worker-service" --serve --health-addr :50068
+target_selected billing-service && start_service "billing-service" "${ROOT}/smart-recruit-billing-service" 50069 "${BIN_DIR}/billing-service" --serve --addr :50069 --config "${BILLING_CONFIG_PATH}"
 
 target_selected smart-recruit-gateway && start_service "smart-recruit-gateway" "${ROOT}/smart-recruit-gateway" 8080 \
     env HTTP_PORT=8080 \
@@ -473,6 +719,7 @@ target_selected smart-recruit-gateway && start_service "smart-recruit-gateway" "
     NOTIFICATION_ROUTE_MODE=notification NOTIFICATION_GRPC_ADDR=127.0.0.1:50065 \
     AI_AGENT_ROUTE_MODE=ai-agent AI_AGENT_GRPC_ADDR=127.0.0.1:50066 \
     ANALYTICS_ROUTE_MODE=analytics ANALYTICS_GRPC_ADDR=127.0.0.1:50067 \
+    BILLING_GRPC_ADDR=127.0.0.1:50069 \
     "${BIN_DIR}/smart-recruit-gateway"
 
 target_selected hr-frontend && start_service "hr-frontend" "${ROOT}/hr-frontend" 5173 pnpm run dev
@@ -485,7 +732,7 @@ target_selected dev-log-viewer && start_service "dev-log-viewer" "${ROOT}/dev-lo
 cat <<EOF
 
 Done. Selected dev services are starting in the background.
-  Gateway API: http://127.0.0.1:8080
+  Gateway API: http://localhost:8080
   Identity:    127.0.0.1:50061
   Recruitment: 127.0.0.1:50062
   Interview:   127.0.0.1:50063
@@ -494,10 +741,11 @@ Done. Selected dev services are starting in the background.
   AI Agent:    127.0.0.1:50066
   Analytics:   127.0.0.1:50067
   Worker:      127.0.0.1:50068
-  Staff:       http://127.0.0.1:5173
-  Candidate:   http://127.0.0.1:5174
-  Platform:    http://127.0.0.1:5175
-  Log Viewer:  http://127.0.0.1:8090
+  Billing:     127.0.0.1:50069 (Alipay sandbox)
+  Staff:       http://localhost:5173
+  Candidate:   http://localhost:5174
+  Platform:    http://localhost:5175
+  Log Viewer:  http://localhost:8090
 
 Logs:
   ${LOG_DIR}

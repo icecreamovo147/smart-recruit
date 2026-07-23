@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	domainmemory "smart-recruit-ai-agent-service/internal/domain/memory"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -132,9 +133,11 @@ type EmbeddingStore interface {
 	ResolveEmbeddingConfig(ctx context.Context, providerID, modelID int64) (EmbeddingConfig, bool, error)
 	UpdateEmbeddingTestStatus(ctx context.Context, modelID int64, status, lastError string, testedAt time.Time) error
 	ListAgentSkillEmbeddingDocuments(ctx context.Context, objectID int64, limit int) ([]AgentSkillEmbeddingDocument, error)
+	ListMemoryEmbeddingDocuments(ctx context.Context, objectID int64, limit int) ([]MemoryEmbeddingDocument, error)
 	UpsertAIEmbedding(ctx context.Context, row AIEmbeddingRecord) error
 	InvalidateAIEmbedding(ctx context.Context, objectType string, objectID int64) error
 	ListAIEmbeddings(ctx context.Context, objectType, modelName string, limit int) ([]AIEmbeddingRecord, error)
+	ListAIEmbeddingsForOwner(ctx context.Context, objectType, modelName string, tenantID *uint64, ownerRole int32, ownerID uint64, limit int) ([]AIEmbeddingRecord, error)
 }
 
 type AgentSkillEmbeddingDocument struct {
@@ -154,6 +157,20 @@ type AgentSkillEmbeddingDocument struct {
 	OutputSchema         string
 	BodyMarkdown         string
 	Enabled              bool
+}
+
+type MemoryEmbeddingDocument struct {
+	ID         int64
+	TenantID   *uint64
+	OwnerRole  int32
+	OwnerID    uint64
+	ScopeType  string
+	ScopeID    uint64
+	MemoryType string
+	Content    string
+	Source     string
+	Confidence float64
+	Importance float64
 }
 
 type AIEmbeddingRecord struct {
@@ -216,8 +233,8 @@ func (s *EmbeddingService) Backfill(ctx context.Context, req *pb.BackfillEmbeddi
 	if objectType == "" {
 		objectType = "agent_skill"
 	}
-	if objectType != "agent_skill" {
-		return &pb.BackfillEmbeddingsResponse{Code: 400, Msg: "only agent_skill embedding backfill is supported in native runtime"}, nil
+	if objectType != "agent_skill" && objectType != "ai_memory" {
+		return &pb.BackfillEmbeddingsResponse{Code: 400, Msg: "only agent_skill and ai_memory embedding backfill are supported in native runtime"}, nil
 	}
 	if s == nil || s.store == nil || s.runner == nil {
 		return &pb.BackfillEmbeddingsResponse{Code: 501, Msg: "embedding backfill runtime is not configured"}, nil
@@ -232,6 +249,30 @@ func (s *EmbeddingService) Backfill(ctx context.Context, req *pb.BackfillEmbeddi
 	limit := int(req.GetLimit())
 	if limit <= 0 || limit > 200 {
 		limit = 100
+	}
+	if objectType == "ai_memory" {
+		docs, err := s.store.ListMemoryEmbeddingDocuments(ctx, req.GetObjectId(), limit)
+		if err != nil {
+			return nil, err
+		}
+		var success, failed, skipped int32
+		for _, doc := range docs {
+			text := MemoryEmbeddingText(doc)
+			if strings.TrimSpace(text) == "" {
+				skipped++
+				continue
+			}
+			if req.GetDryRun() {
+				skipped++
+				continue
+			}
+			if err := s.UpsertMemoryDocument(ctx, cfg, doc, text); err != nil {
+				failed++
+				continue
+			}
+			success++
+		}
+		return &pb.BackfillEmbeddingsResponse{Code: 0, Msg: "success", SuccessCount: success, FailedCount: failed, SkippedCount: skipped}, nil
 	}
 	docs, err := s.store.ListAgentSkillEmbeddingDocuments(ctx, req.GetObjectId(), limit)
 	if err != nil {
@@ -306,6 +347,211 @@ func (s *EmbeddingService) InvalidateAgentSkill(ctx context.Context, id int64) e
 		return nil
 	}
 	return s.store.InvalidateAIEmbedding(ctx, "agent_skill", id)
+}
+
+func (s *EmbeddingService) UpsertMemoryEmbedding(ctx context.Context, memory domainmemory.Memory) error {
+	if s == nil || s.store == nil || s.runner == nil || memory.ID == 0 {
+		return nil
+	}
+	cfg, ok, err := s.store.ResolveEmbeddingConfig(ctx, 0, 0)
+	if err != nil || !ok {
+		return err
+	}
+	doc := memoryToEmbeddingDocument(memory)
+	text := MemoryEmbeddingText(doc)
+	if strings.TrimSpace(text) == "" {
+		return nil
+	}
+	return s.UpsertMemoryDocument(ctx, cfg, doc, text)
+}
+
+func (s *EmbeddingService) InvalidateMemoryEmbedding(ctx context.Context, memoryID uint64) error {
+	if s == nil || s.store == nil || memoryID == 0 {
+		return nil
+	}
+	return s.store.InvalidateAIEmbedding(ctx, "ai_memory", int64(memoryID))
+}
+
+func (s *EmbeddingService) UpsertMemoryDocument(ctx context.Context, cfg EmbeddingConfig, doc MemoryEmbeddingDocument, text string) error {
+	result, err := s.runner.Embed(ctx, EmbedRequest{Config: cfg, Texts: []string{text}})
+	status := "ready"
+	lastError := ""
+	vector := []float64(nil)
+	if err != nil {
+		status = "failed"
+		lastError = err.Error()
+	} else if len(result.Vectors) > 0 {
+		vector = result.Vectors[0]
+	}
+	if err := s.store.InvalidateAIEmbedding(ctx, "ai_memory", doc.ID); err != nil {
+		return err
+	}
+	return s.store.UpsertAIEmbedding(ctx, AIEmbeddingRecord{
+		ObjectType:     "ai_memory",
+		ObjectID:       doc.ID,
+		ScopeType:      doc.ScopeType,
+		ScopeID:        int64(doc.ScopeID),
+		TextHash:       hashText(text),
+		EmbeddingModel: cfg.ModelName,
+		EmbeddingDim:   len(vector),
+		Vector:         vector,
+		Metadata:       memoryMetadata(doc),
+		Status:         status,
+		LastError:      lastError,
+	})
+}
+
+func (s *EmbeddingService) SemanticMemoryScores(ctx context.Context, owner domainmemory.OwnerKey, query string, scopes []domainmemory.Scope, targetScopeType string, targetScopeID uint64, limit int) (map[uint64]float64, string) {
+	items, err := s.searchMemoryItems(ctx, owner, query, scopes, targetScopeType, targetScopeID, limit)
+	if err != nil {
+		return nil, err.Error()
+	}
+	scores := make(map[uint64]float64, len(items))
+	for _, item := range items {
+		if item != nil && item.GetId() > 0 {
+			scores[item.GetId()] = item.GetFinalRankScore()
+		}
+	}
+	return scores, ""
+}
+
+func (s *EmbeddingService) SearchMemories(ctx context.Context, req *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
+	if s == nil || s.store == nil || s.runner == nil {
+		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "semantic retrieval debug is not configured", EmbeddingAvailable: false, FallbackReason: "embedding runner is not bound"}, nil
+	}
+	ownerRole := domainmemory.OwnerRole(req.GetOwnerRole())
+	ownerID := req.GetOwnerId()
+	if ownerID == 0 && req.GetHrId() > 0 {
+		ownerRole = domainmemory.OwnerRoleHR
+		ownerID = uint64(req.GetHrId())
+	}
+	owner := domainmemory.OwnerKey{Role: ownerRole, ID: ownerID}
+	if req.GetTenantId() > 0 {
+		tenantID := uint64(req.GetTenantId())
+		owner.TenantID = &tenantID
+	}
+	if err := owner.Validate(); err != nil {
+		return nil, err
+	}
+	scopes := debugMemoryScopes(req)
+	targetType := domainmemory.ScopeApplication
+	targetID := uint64(req.GetApplicationId())
+	if targetID == 0 {
+		targetType = domainmemory.ScopeHR
+		if ownerRole == domainmemory.OwnerRoleCandidate {
+			targetType = domainmemory.ScopeUser
+			targetID = ownerID
+		}
+	}
+	items, err := s.searchMemoryItems(ctx, owner, req.GetQuery(), scopes, targetType, targetID, int(req.GetLimit()))
+	if err != nil {
+		return nil, err
+	}
+	cfg, ok, err := s.store.ResolveEmbeddingConfig(ctx, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	fallbackReason := ""
+	if !ok {
+		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "embedding provider/model is not configured", EmbeddingAvailable: false, FallbackReason: "embedding provider/model is not configured"}, nil
+	}
+	if len(items) == 0 {
+		fallbackReason = "no ready ai_memory embeddings matched current owner/model"
+	}
+	return &pb.DebugSemanticRetrievalResponse{
+		Code:                 0,
+		Msg:                  "success",
+		EmbeddingAvailable:   true,
+		FallbackReason:       fallbackReason,
+		Memories:             items,
+		MemoryPoolConfidence: memoryConfidenceLabel(items),
+		EmbeddingProvider:    cfg.ProviderName,
+		EmbeddingModel:       cfg.ModelName,
+	}, nil
+}
+
+func (s *EmbeddingService) DebugSemanticRetrieval(ctx context.Context, req *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
+	skillsResp, err := s.SearchAgentSkills(ctx, req.GetQuery(), int(req.GetLimit()))
+	if err != nil {
+		return nil, err
+	}
+	memResp, err := s.SearchMemories(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	skillsResp.Memories = memResp.GetMemories()
+	skillsResp.MemoryPoolConfidence = memResp.GetMemoryPoolConfidence()
+	if skillsResp.GetFallbackReason() == "" {
+		skillsResp.FallbackReason = memResp.GetFallbackReason()
+	}
+	return skillsResp, nil
+}
+
+func (s *EmbeddingService) searchMemoryItems(ctx context.Context, owner domainmemory.OwnerKey, query string, scopes []domainmemory.Scope, targetScopeType string, targetScopeID uint64, limit int) ([]*pb.SemanticMemoryDebugItem, error) {
+	if err := owner.Validate(); err != nil {
+		return nil, nil
+	}
+	cfg, ok, err := s.store.ResolveEmbeddingConfig(ctx, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("embedding provider/model is not configured")
+	}
+	limit = normalizeLimit(limit)
+	start := time.Now()
+	embed, err := s.runner.Embed(ctx, EmbedRequest{Config: cfg, Texts: []string{query}})
+	if err != nil {
+		return nil, err
+	}
+	queryVector := embed.Vectors[0]
+	rows, err := s.store.ListAIEmbeddingsForOwner(ctx, "ai_memory", cfg.ModelName, owner.TenantID, int32(owner.Role), owner.ID, 500)
+	if err != nil {
+		return nil, err
+	}
+	allowedScopes := scopeAllowlist(scopes)
+	rankingCfg := domainmemory.DefaultRankingConfig()
+	tokenCount := len(strings.Fields(strings.ToLower(strings.TrimSpace(query))))
+	input := domainmemory.RecallQueryContext{
+		Query:              strings.TrimSpace(query),
+		TargetScopeType:    targetScopeType,
+		TargetScopeID:      targetScopeID,
+		QueryTokenCount:    tokenCount,
+		EmbeddingAvailable: true,
+	}
+	items := make([]*pb.SemanticMemoryDebugItem, 0, len(rows))
+	lowerQuery := strings.ToLower(query)
+	for _, row := range rows {
+		if row.Status != "ready" || len(row.Vector) == 0 {
+			continue
+		}
+		if !memoryScopeAllowed(row, allowedScopes) {
+			continue
+		}
+		vectorScore := cosine(queryVector, row.Vector)
+		lexicalScore := memoryLexicalScore(lowerQuery, row.Metadata)
+		metadataScore := memoryMetadataScore(row.Metadata, input)
+		importance := floatMeta(row.Metadata, "importance")
+		confidence := floatMeta(row.Metadata, "confidence")
+		relevance := domainmemory.ComputeRelevanceScore(rankingCfg, vectorScore, lexicalScore, metadataScore)
+		boost := domainmemory.ComputeMemoryBusinessBoost(rankingCfg, relevance, importance, confidence)
+		final := domainmemory.ComputeFinalRankScore(relevance, boost)
+		items = append(items, semanticMemoryItem(row, vectorScore, lexicalScore, metadataScore, relevance, boost, final))
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].FinalRankScore == items[j].FinalRankScore {
+			return items[i].Id < items[j].Id
+		}
+		return items[i].FinalRankScore > items[j].FinalRankScore
+	})
+	if len(items) > limit {
+		items = items[:limit]
+	}
+	for i, item := range items {
+		item.PoolRank = int32(i + 1)
+	}
+	_ = start
+	return items, nil
 }
 
 func (s *EmbeddingService) SemanticScores(ctx context.Context, query string, limit int) (map[uint64]float64, string) {
@@ -396,6 +642,174 @@ func (s *EmbeddingService) SearchAgentSkills(ctx context.Context, query string, 
 func AgentSkillEmbeddingText(doc AgentSkillEmbeddingDocument) string {
 	parts := []string{doc.Name, doc.DisplayName, doc.Description, doc.Category, doc.Scenario, doc.RiskLevel, strings.Join(doc.TriggerKeywords, " "), strings.Join(doc.SemanticTags, " "), strings.Join(doc.EvaluationCriteria, " "), doc.OutputSchema, doc.BodyMarkdown}
 	return strings.TrimSpace(strings.Join(parts, "\n"))
+}
+
+func MemoryEmbeddingText(doc MemoryEmbeddingDocument) string {
+	parts := []string{doc.MemoryType, doc.Source, doc.Content}
+	return strings.TrimSpace(strings.Join(parts, "\n"))
+}
+
+func memoryToEmbeddingDocument(memory domainmemory.Memory) MemoryEmbeddingDocument {
+	return MemoryEmbeddingDocument{
+		ID:         int64(memory.ID),
+		TenantID:   memory.TenantID,
+		OwnerRole:  int32(memory.OwnerRole),
+		OwnerID:    memory.OwnerID,
+		ScopeType:  memory.Scope.Type,
+		ScopeID:    memory.Scope.ID,
+		MemoryType: memory.MemoryType,
+		Content:    memory.Content,
+		Source:     memory.Source,
+		Confidence: memory.Confidence,
+		Importance: memory.Importance,
+	}
+}
+
+func memoryMetadata(doc MemoryEmbeddingDocument) map[string]any {
+	meta := map[string]any{
+		"id":          doc.ID,
+		"owner_role":  doc.OwnerRole,
+		"owner_id":    doc.OwnerID,
+		"scope_type":  doc.ScopeType,
+		"scope_id":    doc.ScopeID,
+		"memory_type": doc.MemoryType,
+		"source":      doc.Source,
+		"confidence":  doc.Confidence,
+		"importance":  doc.Importance,
+		"content":     doc.Content,
+	}
+	if doc.TenantID != nil {
+		meta["tenant_id"] = *doc.TenantID
+	}
+	return meta
+}
+
+func debugMemoryScopes(req *pb.DebugSemanticRetrievalRequest) []domainmemory.Scope {
+	ownerRole := domainmemory.OwnerRole(req.GetOwnerRole())
+	ownerID := req.GetOwnerId()
+	if ownerID == 0 && req.GetHrId() > 0 {
+		ownerRole = domainmemory.OwnerRoleHR
+		ownerID = uint64(req.GetHrId())
+	}
+	switch ownerRole {
+	case domainmemory.OwnerRoleCandidate:
+		scopes := []domainmemory.Scope{{Type: domainmemory.ScopeUser, ID: ownerID}}
+		if req.GetApplicationId() > 0 {
+			scopes = append(scopes, domainmemory.Scope{Type: domainmemory.ScopeApplication, ID: uint64(req.GetApplicationId())})
+		}
+		if req.GetJobId() > 0 {
+			scopes = append(scopes, domainmemory.Scope{Type: domainmemory.ScopeJob, ID: uint64(req.GetJobId())})
+		}
+		return scopes
+	default:
+		scopes := []domainmemory.Scope{{Type: domainmemory.ScopeHR, ID: 0}}
+		if req.GetApplicationId() > 0 {
+			scopes = append(scopes, domainmemory.Scope{Type: domainmemory.ScopeApplication, ID: uint64(req.GetApplicationId())})
+		}
+		if req.GetJobId() > 0 {
+			scopes = append(scopes, domainmemory.Scope{Type: domainmemory.ScopeJob, ID: uint64(req.GetJobId())})
+		}
+		return scopes
+	}
+}
+
+func scopeAllowlist(scopes []domainmemory.Scope) map[string]struct{} {
+	out := make(map[string]struct{}, len(scopes))
+	for _, scope := range scopes {
+		out[scopeKey(scope.Type, scope.ID)] = struct{}{}
+	}
+	return out
+}
+
+func scopeKey(scopeType string, scopeID uint64) string {
+	return strings.TrimSpace(scopeType) + ":" + fmt.Sprintf("%d", scopeID)
+}
+
+func memoryScopeAllowed(row AIEmbeddingRecord, allowed map[string]struct{}) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	if _, ok := allowed[scopeKey(row.ScopeType, uint64(row.ScopeID))]; ok {
+		return true
+	}
+	scopeType := stringMeta(row.Metadata, "scope_type")
+	scopeID := uint64(floatMeta(row.Metadata, "scope_id"))
+	_, ok := allowed[scopeKey(scopeType, scopeID)]
+	return ok
+}
+
+func semanticMemoryItem(row AIEmbeddingRecord, vectorScore, lexical, metadata, relevance, boost, final float64) *pb.SemanticMemoryDebugItem {
+	meta := row.Metadata
+	mode := "semantic"
+	if vectorScore <= 0 {
+		mode = "lexical_metadata"
+	}
+	return &pb.SemanticMemoryDebugItem{
+		Id:             uint64(row.ObjectID),
+		ScopeType:      stringMeta(meta, "scope_type"),
+		ScopeId:        uint64(floatMeta(meta, "scope_id")),
+		MemoryType:     stringMeta(meta, "memory_type"),
+		Content:        stringMeta(meta, "content"),
+		Source:         stringMeta(meta, "source"),
+		Confidence:     floatMeta(meta, "confidence"),
+		Importance:     floatMeta(meta, "importance"),
+		Score:          final,
+		Reason:         "semantic vector ranking",
+		VectorScore:    vectorScore,
+		LexicalScore:   lexical,
+		MetadataScore:  metadata,
+		RelevanceScore: relevance,
+		BusinessBoost:  boost,
+		FinalRankScore: final,
+		RelevanceMode:  mode,
+	}
+}
+
+func memoryLexicalScore(query string, meta map[string]any) float64 {
+	if strings.TrimSpace(query) == "" {
+		return 0
+	}
+	haystack := strings.ToLower(strings.Join([]string{
+		stringMeta(meta, "memory_type"),
+		stringMeta(meta, "source"),
+		stringMeta(meta, "content"),
+	}, " "))
+	if strings.Contains(haystack, query) {
+		return 1
+	}
+	score := 0.0
+	for _, token := range strings.Fields(query) {
+		if strings.Contains(haystack, token) {
+			score += 0.2
+		}
+	}
+	if score > 1 {
+		return 1
+	}
+	return score
+}
+
+func memoryMetadataScore(meta map[string]any, input domainmemory.RecallQueryContext) float64 {
+	scope := domainmemory.Scope{
+		Type: stringMeta(meta, "scope_type"),
+		ID:   uint64(floatMeta(meta, "scope_id")),
+	}
+	return domainmemory.ScopeMetadataScore(scope, input)
+}
+
+func memoryConfidenceLabel(items []*pb.SemanticMemoryDebugItem) string {
+	if len(items) == 0 {
+		return "none"
+	}
+	top := items[0].GetFinalRankScore()
+	switch {
+	case top >= 0.75:
+		return "high"
+	case top >= 0.45:
+		return "medium"
+	default:
+		return "low"
+	}
 }
 
 func compactTexts(values []string) []string {
@@ -566,9 +980,19 @@ func floatMeta(meta map[string]any, key string) float64 {
 	switch value := meta[key].(type) {
 	case float64:
 		return value
+	case float32:
+		return float64(value)
 	case int:
 		return float64(value)
+	case int32:
+		return float64(value)
 	case int64:
+		return float64(value)
+	case uint:
+		return float64(value)
+	case uint32:
+		return float64(value)
+	case uint64:
 		return float64(value)
 	case json.Number:
 		n, _ := value.Float64()

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, nextTick, shallowRef } from 'vue'
 import { mount } from '@vue/test-utils'
-import type { AgentRunEvent, AgentRunSnapshot } from '@/types/agentRun'
+import type { AgentRunEvent, AgentRunSnapshot } from '@shared/types/agentRun'
 import { createInitialHrAgentRunState, reduceAgentRunEvent } from '@/utils/hrAgentRunReducer'
 import { useHrAgentRun } from '@/composables/useHrAgentRun'
 import {
@@ -9,6 +9,8 @@ import {
   createClientRequestId,
   executeConfirmChatRun,
   executeCreateChatRun,
+  friendlyDurableRunErrorMessage,
+  insufficientCreditsMessage,
   parseCandidateOptionsFromMeta,
   toAgentSkillSelectionPayload,
   type DurableChatUiBinder,
@@ -67,19 +69,29 @@ function collectBinder() {
   const processDeltas: string[] = []
   const snapshots: string[] = []
   const options: unknown[] = []
+  const resultMetadata: unknown[] = []
   const binder: DurableChatUiBinder = {
     onAssistantDelta: (d) => deltas.push(d),
     onAssistantSnapshot: (t) => snapshots.push(t),
     onProcessDelta: (d) => processDeltas.push(d),
     onProcessSnapshot: () => {},
     onCandidateOptions: (o) => options.push(o),
+    onResultMetadata: (meta) => resultMetadata.push(meta),
   }
-  return { binder, deltas, processDeltas, snapshots, options }
+  return { binder, deltas, processDeltas, snapshots, options, resultMetadata }
 }
 
 describe('agentRunChatFlow helpers', () => {
   it('createClientRequestId returns non-empty id', () => {
     expect(createClientRequestId().length).toBeGreaterThan(8)
+  })
+
+  it('maps persisted asynchronous credit errors to the billing guidance', () => {
+    expect(friendlyDurableRunErrorMessage(
+      'provider',
+      'rpc error: code = ResourceExhausted desc = insufficient_credits',
+    )).toBe(insufficientCreditsMessage)
+    expect(friendlyDurableRunErrorMessage('insufficient_credits', '')).toBe(insufficientCreditsMessage)
   })
 
   it('toAgentSkillSelectionPayload maps nested agent_skill_selection', () => {
@@ -180,6 +192,7 @@ describe('agentRunChatFlow entry paths (submit + skill confirm)', () => {
           seq: 3,
           event_type: 'run.result',
           result_metadata: {
+            suggested_questions: ['查看候选人详情', '分析岗位匹配度', '准备面试问题'],
             candidate_options: JSON.stringify([
               {
                 application_id: 9,
@@ -202,7 +215,7 @@ describe('agentRunChatFlow entry paths (submit + skill confirm)', () => {
     )
 
     const { api, wrapper } = mountRuntime()
-    const { binder, deltas, options } = collectBinder()
+    const { binder, deltas, options, resultMetadata } = collectBinder()
 
     const result = await executeCreateChatRun(
       api,
@@ -222,6 +235,9 @@ describe('agentRunChatFlow entry paths (submit + skill confirm)', () => {
     expect(result.state.assistantText).toBe('Hello world')
     expect(deltas.join('')).toBe('Hello world')
     expect(options).toHaveLength(1)
+    expect(resultMetadata).toEqual([
+      expect.objectContaining({ suggested_questions: ['查看候选人详情', '分析岗位匹配度', '准备面试问题'] }),
+    ])
     expect(api.state.value.isTerminal).toBe(true)
 
     wrapper.unmount()

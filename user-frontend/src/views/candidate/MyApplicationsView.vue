@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { listMyApplications } from '@/api/application'
 import type { Application, JobQuery } from '@/types/domain'
 import { getCandidateStatusLabel, getStatusType } from '@/types/domain'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const router = useRouter()
 const loading = ref(false)
@@ -12,13 +13,7 @@ const list = ref<Application[]>([])
 const total = ref(0)
 const query = reactive<JobQuery>({ page: 1, page_size: 10 })
 
-const formatDateTime = (value: string): string => {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const pad = (num: number): string => String(num).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
+const formatDateTime = (value: string): string => formatShanghaiDateTime(value, '-', false)
 
 const getStatusLabel = (row: Application): string => {
   if (row.status_key) return getCandidateStatusLabel(row.status_key)

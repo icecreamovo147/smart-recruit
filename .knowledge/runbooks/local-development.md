@@ -15,6 +15,7 @@ applies_to:
   - README.md
   - start-dev.sh
   - stop-dev.sh
+  - scripts/dev-build-fingerprint.go
   - dev-log-viewer/**
   - docker/**
   - deploy/**
@@ -25,12 +26,18 @@ applies_to:
   - smart-recruit-deploy/**
   - hr-frontend/**
   - user-frontend/**
-  - interviewer-frontend/**
+  - platform-frontend/**
 source_refs:
   - README.md
   - start-dev.sh
   - stop-dev.sh
+  - interviewer-frontend/README.md
+  - scripts/dev-build-fingerprint.go
+  - pnpm-workspace.yaml
   - smart-recruit-commons/cmd/migrate/main.go
+  - smart-recruit-commons/cmd/time-preflight/main.go
+  - smart-recruit-platform-go/businessclock/clock.go
+  - smart-recruit-platform-go/mysqltime/mysql.go
   - smart-recruit-commons/migration/runner.go
   - dev-log-viewer/README.md
   - dev-log-viewer/package.json
@@ -48,8 +55,8 @@ source_refs:
   - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json
   - scripts/backend-load-test.mjs
   - scripts/backend-final-readiness-audit.mjs
-last_verified: 2026-07-19
-review_after: 2026-10-08
+last_verified: 2026-07-23
+review_after: 2026-10-21
 ---
 
 # Local Development Runbook
@@ -66,18 +73,28 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 - Backend load-test dry-run evidence is generated with `node scripts/backend-load-test.mjs --dry-run --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json`; live 200 QPS/50 QPS/AI concurrency runs require a running isolated stack and authenticated test fixtures.
 - Final readiness audit evidence is generated with `node scripts/backend-final-readiness-audit.mjs --feature-dir .spec/backend-ddd-microservices-evolution --allow-current-task TASK-BDME-052 --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json` during the closing TASK.
 - MySQL, Redis, and RabbitMQ available through Docker Compose or an equivalent local stack.
+- Set `TZ=Asia/Shanghai`. MySQL DSNs must use `parseTime=true`, `loc=Asia%2FShanghai`, and `time_zone=%27%2B08%3A00%27`; service startup validates the resulting `+08:00` session rather than trusting the host timezone.
 
 ## Standard Flow
 
 1. Start infrastructure from `docker/` or use `./start-dev.sh` when the script matches the task.
-2. When any backend target is selected, `start-dev.sh` builds `smart-recruit-commons/cmd/migrate`, verifies MySQL/Redis/RabbitMQ availability, and applies `smart-recruit-commons/migrations/` before starting services. Migration failure stops startup.
+2. When any backend target is selected, `start-dev.sh` prepares `smart-recruit-commons/cmd/migrate`, verifies MySQL/Redis/RabbitMQ availability, and applies `smart-recruit-commons/migrations/` before starting services. Migration failure stops startup.
 3. Start the independent backend services before `smart-recruit-gateway` because the gateway depends on generated gRPC clients. The full `./start-dev.sh` target performs this ordering automatically.
 4. Start only the frontend package needed for the task:
-   - HR app: `pnpm --filter hr-frontend dev`
-   - candidate app: `pnpm --filter user-frontend dev`
-   - interviewer app: `pnpm --filter interviewer-frontend dev`
+   - HR app (`5173`): `pnpm --filter hr-frontend dev`
+   - candidate app (`5174`): `pnpm --filter user-frontend dev`
+   - platform app (`5175`): `pnpm --filter platform-frontend dev`
+   - Do not start `interviewer-frontend`; it is a legacy rollback tree outside the workspace. Interviewer workflows live in HR under `/hr/my-interviews`.
 5. Start the local log viewer only when explicitly needed with `./start-dev.sh logs` or `./start-dev.sh log-viewer`; it uses `127.0.0.1:8090`, `.dev/pids/dev-log-viewer.pid`, and `.dev/logs/dev-log-viewer.log`.
 6. Run targeted checks for touched services or apps before broad checks.
+
+## Incremental Backend Builds
+
+`start-dev.sh` stores development binaries under `.dev/bin/` and dependency-aware build fingerprints under `.dev/build-cache/`. A selected Go command is rebuilt only when its binary is missing, its command or local workspace dependency inputs changed, its Go toolchain or build environment changed, or a forced rebuild was requested. Runtime configuration files and migration SQL are not compiled inputs and therefore do not invalidate unrelated binaries.
+
+Dirty binaries are built concurrently. The default concurrency is the smallest of four, the detected logical CPU count, and the number of selected build tasks; Go package-level parallelism is divided across those jobs to avoid multiplying CPU pressure. Override the binary concurrency for a particular machine with `DEV_BUILD_JOBS=<positive-integer>`. Use `DEV_FORCE_REBUILD=1` to bypass all saved fingerprints for the selected targets. Per-binary build logs are retained under `.dev/build-logs/`.
+
+The production-tagged `dev-log-viewer` binary has a separate web-input fingerprint. Its React/Vite assets are rebuilt when the workspace lockfile, package/build configuration, or `dev-log-viewer/web/` sources change; the resulting `web/dist` files remain part of the Go binary fingerprint through `go:embed`.
 
 ## Validation Commands
 
@@ -85,13 +102,15 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 - Service binary convention tests: run `go test ./servicebinary` from `smart-recruit-platform-go/`.
 - Gateway tests: run `go test ./...` from `smart-recruit-gateway/`.
 - Migration runner checks: run `go test ./migration` from `smart-recruit-commons/`; MySQL consistency checks additionally require the repository's configured MySQL test environment.
+- UTC+8 data gate: before migration in a maintenance window, run `go run ./cmd/time-preflight --dsn "$MYSQL_DSN"` from `smart-recruit-commons/`; any ambiguous or invalid row returns nonzero and must be resolved before applying migration 000082.
+- Static timezone gate: run `node scripts/check-timezone-contract.mjs` from the repository root.
 - Observability smoke check: after starting the gateway, request `/metrics` and verify Prometheus text output contains `smart_recruit_http_requests_total`.
 - Worker health smoke check: start `smart-recruit-worker-service` with its worker health address configured, then request the configured `/readyz` endpoint.
 - Load-test harness dry run: `node scripts/backend-load-test.mjs --dry-run --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json`.
 - Final readiness audit: `node scripts/backend-final-readiness-audit.mjs --feature-dir .spec/backend-ddd-microservices-evolution --allow-current-task TASK-BDME-052 --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json`.
 - HR frontend typecheck: `pnpm --filter hr-frontend typecheck`.
 - Candidate frontend typecheck: `pnpm --filter user-frontend typecheck`.
-- Interviewer frontend typecheck: `pnpm --filter interviewer-frontend typecheck`.
+- Platform frontend typecheck: `pnpm --filter platform-frontend typecheck`.
 - Dev log viewer frontend build: `pnpm --filter dev-log-viewer build`.
 - Dev log viewer production binary build: `dev-log-viewer/scripts/build-production.sh`.
 - Dev log viewer loopback smoke test: `dev-log-viewer/scripts/smoke-test.sh`.
@@ -110,4 +129,4 @@ Mark this document stale if startup scripts, frontend package commands, Docker s
 
 ## Verification
 
-Verified against `start-dev.sh`, the Commons migration command and runner, current workspace commands, Docker Compose assets, and dev-log-viewer scripts on 2026-07-19.
+Verified against `start-dev.sh`, `pnpm-workspace.yaml`, the incremental fingerprint helper, the Commons migration command and runner, current workspace frontend ports/commands, Docker Compose assets, `interviewer-frontend/README.md`, and dev-log-viewer scripts on 2026-07-23.

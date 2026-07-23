@@ -3,18 +3,13 @@ import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { listMyInterviews } from '@/api/interview'
 import type { InterviewSchedule } from '@/types/domain'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const loading = ref(false)
 const errorMessage = ref('')
 const interviews = ref<InterviewSchedule[]>([])
 
-const formatDateTime = (value: string): string => {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const pad = (num: number): string => String(num).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
+const formatDateTime = (value: string): string => formatShanghaiDateTime(value, '-', false)
 
 const statusLabel = (status: string): string => {
   const labels: Record<string, string> = {

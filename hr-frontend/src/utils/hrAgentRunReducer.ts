@@ -9,8 +9,8 @@ import type {
   AgentRunResultMetadata,
   AgentRunSnapshot,
   AgentRunStatus,
-} from '@/types/agentRun'
-import { isTerminalAgentRunStatus } from '@/types/agentRun'
+} from '@shared/types/agentRun'
+import { isTerminalAgentRunStatus } from '@shared/types/agentRun'
 
 export interface HrAgentRunState {
   runId: number | null
@@ -159,8 +159,34 @@ function withStatus(state: HrAgentRunState, status: string): HrAgentRunState {
 
 function appendProcessLine(text: string, line: string): string {
   if (!line) return text
+  if (text.split(/\r?\n/).includes(line)) return text
   const separator = text && !text.endsWith('\n') ? '\n' : ''
   return `${text}${separator}${line}`
+}
+
+function mergeProcessMessage(
+  text: string,
+  event: AgentRunEvent,
+  phase: 'process' | 'tool.started' | 'tool.finished',
+): string {
+  const line = processMessageFromEvent(event, phase)
+  if (!line) return text
+  const purpose = (event.step_purpose || '').trim()
+  const lines = text.split(/\r?\n/).filter(Boolean)
+  const filtered = lines.filter((current) => {
+    if (purpose && current.includes(purpose)) return false
+    if (phase === 'tool.finished' && !purpose) {
+      return current !== '我正在查询实时招聘数据。'
+    }
+    if (event.event_message === 'planning HR recruiting context' || event.event_message === '正在分析问题...') {
+      return !current.includes('分析问题') && !current.includes('判断问题意图')
+    }
+    if (event.event_message === '正在生成回答...') {
+      return !current.includes('整理查询结果并生成回复')
+    }
+    return true
+  })
+  return appendProcessLine(filtered.join('\n'), line)
 }
 
 function processMessageFromEvent(event: AgentRunEvent, phase: 'process' | 'tool.started' | 'tool.finished'): string {
@@ -178,19 +204,19 @@ function processMessageFromEvent(event: AgentRunEvent, phase: 'process' | 'tool.
     return '已获取一项实时招聘数据。'
   }
   if (message === 'planning HR recruiting context') {
-    return '我正在判断问题意图，并规划需要读取哪些招聘数据。'
+    return '正在分析问题并确定所需招聘数据。'
   }
   if (message === 'context usage estimated') {
-    return '我已确认上下文容量，准备整理工具结果。'
+    return ''
   }
   if (message === '正在分析问题...') {
-    return '我正在理解问题，并准备整理已查到的数据。'
+    return '正在分析问题并确定所需招聘数据。'
   }
   if (message === 'AI 响应较慢，请稍候...') {
     return '模型响应稍慢，我还在等待它基于工具结果继续推理。'
   }
   if (message === '正在生成回答...') {
-    return '我正在整理已获取的数据并生成回复。'
+    return '正在整理查询结果并生成回复。'
   }
   if (message === '回答完成') {
     return '分析完成，已生成基于真实数据的回复。'
@@ -261,10 +287,12 @@ export function reduceAgentRunEvent(
       return next
     }
     case 'process.delta': {
-      if (event.delta) {
+      if (event.snapshot_text !== undefined) {
+        next = { ...next, processText: event.snapshot_text }
+      } else if (event.delta) {
         next = { ...next, processText: next.processText + event.delta }
       } else if (event.event_message) {
-        next = { ...next, processText: appendProcessLine(next.processText, processMessageFromEvent(event, 'process')) }
+        next = { ...next, processText: mergeProcessMessage(next.processText, event, 'process') }
       }
       if (event.result_metadata) {
         next = {
@@ -283,21 +311,25 @@ export function reduceAgentRunEvent(
       return next
     }
     case 'tool.started': {
-      const processText = processMessageFromEvent(event, 'tool.started')
+      const processText = event.snapshot_text !== undefined
+        ? event.snapshot_text
+        : mergeProcessMessage(next.processText, event, 'tool.started')
       next = {
         ...next,
         lastToolName: event.tool_name || next.lastToolName,
-        ...(processText ? { processText: appendProcessLine(next.processText, processText) } : {}),
+        ...(processText !== next.processText ? { processText } : {}),
       }
       if (event.status) next = withStatus(next, event.status)
       return next
     }
     case 'tool.finished': {
-      const processText = processMessageFromEvent(event, 'tool.finished')
+      const processText = event.snapshot_text !== undefined
+        ? event.snapshot_text
+        : mergeProcessMessage(next.processText, event, 'tool.finished')
       next = {
         ...next,
         lastToolName: event.tool_name || next.lastToolName,
-        ...(processText ? { processText: appendProcessLine(next.processText, processText) } : {}),
+        ...(processText !== next.processText ? { processText } : {}),
       }
       if (event.error_type || event.error_message) {
         // Tool-level errors do not necessarily fail the run; record lightly.

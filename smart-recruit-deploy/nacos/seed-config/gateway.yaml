@@ -38,3 +38,6 @@ serviceTargets:
   analytics:
     routeMode: analytics
     grpcAddr: smart-recruit-analytics-service:50067
+  billing:
+    routeMode: billing
+    grpcAddr: smart-recruit-billing-service:50069

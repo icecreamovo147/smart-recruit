@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeAgentRunEvent } from './agentRun'
-import type { AgentRunEvent } from '@/types/agentRun'
+import type { AgentRunEvent } from '@shared/types/agentRun'
 
 describe('normalizeAgentRunEvent', () => {
   it('keeps process metadata events as process events and extracts payload fields', () => {

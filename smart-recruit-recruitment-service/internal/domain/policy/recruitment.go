@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"smart-recruit-recruitment-service/internal/domain/model"
+	profilepkg "smart-recruit-recruitment-service/internal/domain/profile"
 )
 
 var (
@@ -59,11 +60,11 @@ func CompleteCandidateProfile(profile *model.CandidateProfile) {
 	if profile == nil {
 		return
 	}
-	if allNotEmpty(profile.RealName, profile.Phone, profile.Education, profile.School, profile.WorkExperience, profile.Skills) {
-		profile.IsComplete = 1
-		return
+	bundle := &profilepkg.Bundle{
+		Profile: *profile,
 	}
-	profile.IsComplete = 0
+	profilepkg.Complete(bundle)
+	*profile = bundle.Profile
 }
 
 func ValidateResumeFile(fileName, fileType string) error {

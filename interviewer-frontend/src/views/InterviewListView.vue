@@ -5,6 +5,7 @@ import { Search } from '@element-plus/icons-vue'
 import { listMyInterviews } from '@/api/interview'
 import type { InterviewSchedule } from '@/types/domain'
 import { INTERVIEW_STATUS_LABEL, INTERVIEW_STATUS_TYPE, INTERVIEW_MODE_LABEL } from '@/types/domain'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const router = useRouter()
 const loading = ref(false)
@@ -49,11 +50,7 @@ watch([activeFilter, keyword], () => {
   currentPage.value = 1
 })
 
-const formatDateTime = (iso: string): string => {
-  if (!iso) return '-'
-  const d = new Date(iso)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
+const formatDateTime = (iso: string): string => formatShanghaiDateTime(iso, '-', false)
 
 const loadData = async () => {
   loading.value = true

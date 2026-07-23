@@ -4,7 +4,7 @@ import type {
   CandidateMatchEvaluationSnapshotInfo,
   ResumeProfileSnapshotInfo,
 } from '@/types/recruitingIntelligence'
-import { debugLog } from '@/utils/debugLog'
+import { debugLog } from '@shared/utils/debugLog'
 
 export const getApplicationResumeProfile = async (
   applicationId: number,

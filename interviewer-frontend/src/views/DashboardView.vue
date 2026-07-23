@@ -5,20 +5,19 @@ import { Clock, VideoCamera, Phone, OfficeBuilding } from '@element-plus/icons-v
 import { listMyInterviews } from '@/api/interview'
 import type { InterviewSchedule } from '@/types/domain'
 import { INTERVIEW_MODE_LABEL, INTERVIEW_STATUS_LABEL } from '@/types/domain'
+import { formatShanghaiDateTime, formatShanghaiLongDate } from '@shared/utils/format'
 
 const router = useRouter()
 const loading = ref(false)
 const interviews = ref<InterviewSchedule[]>([])
 
 const today = new Date()
-const todayStr = today.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
+const todayKey = formatShanghaiDateTime(today, '-', false).slice(0, 10)
+const todayStr = formatShanghaiLongDate(today)
 
 const todayInterviews = computed(() => {
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
-  const todayEnd = todayStart + 86400000
   return interviews.value.filter((i) => {
-    const t = new Date(i.scheduled_at).getTime()
-    return t >= todayStart && t < todayEnd
+    return formatShanghaiDateTime(i.scheduled_at, '-', false).startsWith(todayKey)
   }).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
 })
 
@@ -40,13 +39,12 @@ const summaryText = computed(() => {
 })
 
 const formatTime = (iso: string): string => {
-  const d = new Date(iso)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return formatShanghaiDateTime(iso, '-', false).slice(11)
 }
 
 const formatDateTime = (iso: string): string => {
-  const d = new Date(iso)
-  return `${d.getMonth() + 1}/${d.getDate()} ${formatTime(iso)}`
+  const value = formatShanghaiDateTime(iso, '-', false)
+  return `${Number(value.slice(5, 7))}/${Number(value.slice(8, 10))} ${value.slice(11)}`
 }
 
 const modeIcon = (mode: string) => {

@@ -5,7 +5,7 @@
 - `hr-frontend/`, `user-frontend/`, `platform-frontend/`: Vue 3 + Vite apps for the staff workspace, candidate portal, and platform console. App-specific source lives in `src/` with `api/`, `components/`, `views/`, `stores/`, `types/`, and `assets/`.
 - `packages/shared/`: explicit cross-app frontend package for shared components, types, utilities, and brand assets imported through the `@shared/*` alias.
 - `smart-recruit-gateway/`: Go HTTP gateway. Routes live in `router/`, handlers in `handler/`, backend clients in `rpc/`, middleware in `middleware/`.
-- `smart-recruit-identity-service/`, `smart-recruit-recruitment-service/`, `smart-recruit-interview-service/`, `smart-recruit-offer-service/`, `smart-recruit-notification-service/`, `smart-recruit-ai-agent-service/`, `smart-recruit-analytics-service/`, `smart-recruit-worker-service/`: independently buildable Go service roots.
+- `smart-recruit-identity-service/`, `smart-recruit-recruitment-service/`, `smart-recruit-interview-service/`, `smart-recruit-offer-service/`, `smart-recruit-notification-service/`, `smart-recruit-ai-agent-service/`, `smart-recruit-analytics-service/`, `smart-recruit-billing-service/`, `smart-recruit-worker-service/`: independently buildable Go service roots.
 - `smart-recruit-commons/`: shared domain support, migrations, MQ, OSS, AI, email, authz/JWT helpers, resume parsing, and command-line utilities such as the migration runner.
 - `smart-recruit-platform-go/`: shared runtime platform packages for config, Nacos, logging, health, metrics, trace, metadata, and gRPC helpers.
 - `smart-recruit-proto/`: canonical protobuf source and generated Go contracts.

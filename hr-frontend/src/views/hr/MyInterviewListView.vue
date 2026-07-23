@@ -9,6 +9,7 @@ import {
   INTERVIEW_STATUS_TYPE,
   type InterviewSchedule,
 } from '@/types/domain'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const router = useRouter()
 const loading = ref(false)
@@ -26,7 +27,7 @@ const filtered = computed(() => {
   })
 })
 
-const formatDate = (value: string) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '-'
+const formatDate = (value: string) => formatShanghaiDateTime(value)
 
 const load = async () => {
   loading.value = true

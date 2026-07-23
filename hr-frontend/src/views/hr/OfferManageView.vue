@@ -7,6 +7,7 @@ import { getJobDetail } from '@/api/job'
 import type { Offer } from '@/types/domain'
 import OfferCreateDialog from '@/components/business/OfferCreateDialog.vue'
 import OfferDetailDialog from '@/components/business/OfferDetailDialog.vue'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 type OfferTagType = 'primary' | 'success' | 'warning' | 'info' | 'danger'
 
@@ -35,21 +36,9 @@ const statusOptions = [
   { value: 'withdrawn', label: '已撤回' },
 ]
 
-const formatDateTime = (value: string): string => {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const pad = (num: number): string => String(num).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
+const formatDateTime = (value: string): string => formatShanghaiDateTime(value, '-', false)
 
-const formatDate = (value: string): string => {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const pad = (num: number): string => String(num).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
+const formatDate = (value: string): string => formatShanghaiDateTime(value, '-', false).slice(0, 10)
 
 const offerStatusLabel = (status: string): string => {
   return statusOptions.find((item) => item.value === status)?.label || status || '未知状态'

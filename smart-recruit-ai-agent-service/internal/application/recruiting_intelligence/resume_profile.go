@@ -55,6 +55,9 @@ func (e *ResumeExtractionError) Error() string {
 	if e == nil {
 		return ""
 	}
+	if e.Cause != nil {
+		return fmt.Sprintf("resume profile extraction failed (%s): %v", e.Kind, e.Cause)
+	}
 	return fmt.Sprintf("resume profile extraction failed (%s)", e.Kind)
 }
 
@@ -330,7 +333,10 @@ func decodeRequiredResumeObject(data []byte, required []string, destination any)
 }
 
 func decodeResumeProfile(content string) (ResumeProfile, string, error) {
-	raw := strings.TrimSpace(content)
+	raw, err := canonicalizeResumeProfileJSON(content)
+	if err != nil {
+		return ResumeProfile{}, "", err
+	}
 	var extracted extractedResumeProfile
 	decoder := json.NewDecoder(bytes.NewBufferString(raw))
 	decoder.DisallowUnknownFields()
@@ -351,6 +357,189 @@ func decodeResumeProfile(content string) (ResumeProfile, string, error) {
 	return profile, raw, nil
 }
 
+// canonicalizeResumeProfileJSON repairs common LLM drifts before strict schema
+// validation: markdown fences, surrounding prose, null/missing typed empties,
+// unknown keys, and dotted/slashed date separators that appear in Chinese resumes.
+func canonicalizeResumeProfileJSON(content string) (string, error) {
+	raw := extractJSONObject(strings.TrimSpace(content))
+	if raw == "" {
+		return "", &ResumeExtractionError{Kind: ResumeExtractionJSON, Cause: errors.Join(ErrResumeJSON, errors.New("no JSON object found"))}
+	}
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(raw), &root); err != nil {
+		return "", &ResumeExtractionError{Kind: ResumeExtractionJSON, Cause: errors.Join(ErrResumeJSON, err)}
+	}
+	if root == nil {
+		return "", &ResumeExtractionError{Kind: ResumeExtractionJSON, Cause: errors.Join(ErrResumeJSON, errors.New("expected JSON object"))}
+	}
+	normalized, err := normalizeResumeObjectMap(root, resumeProfileKeys, resumeProfileDefault)
+	if err != nil {
+		return "", &ResumeExtractionError{Kind: ResumeExtractionSchema, Cause: errors.Join(ErrResumeSchema, err)}
+	}
+	for _, key := range []string{"educations", "experiences", "projects", "skills"} {
+		items, err := decodeJSONObjectArray(normalized[key])
+		if err != nil {
+			return "", &ResumeExtractionError{Kind: ResumeExtractionSchema, Cause: errors.Join(ErrResumeSchema, fmt.Errorf("%s: %w", key, err))}
+		}
+		keys, defaultFn := resumeArraySchema(key)
+		repaired := make([]json.RawMessage, 0, len(items))
+		for index, item := range items {
+			object, err := normalizeResumeObjectMap(item, keys, defaultFn)
+			if err != nil {
+				return "", &ResumeExtractionError{Kind: ResumeExtractionSchema, Cause: errors.Join(ErrResumeSchema, fmt.Errorf("%s[%d]: %w", key, index, err))}
+			}
+			for _, dateKey := range []string{"start_date", "end_date"} {
+				if rawDate, ok := object[dateKey]; ok {
+					object[dateKey] = json.RawMessage(strconv.Quote(normalizeResumeDateInput(unquoteJSONString(rawDate))))
+				}
+			}
+			encoded, err := json.Marshal(object)
+			if err != nil {
+				return "", &ResumeExtractionError{Kind: ResumeExtractionJSON, Cause: errors.Join(ErrResumeJSON, err)}
+			}
+			repaired = append(repaired, encoded)
+		}
+		encoded, err := json.Marshal(repaired)
+		if err != nil {
+			return "", &ResumeExtractionError{Kind: ResumeExtractionJSON, Cause: errors.Join(ErrResumeJSON, err)}
+		}
+		normalized[key] = encoded
+	}
+	encoded, err := json.Marshal(normalized)
+	if err != nil {
+		return "", &ResumeExtractionError{Kind: ResumeExtractionJSON, Cause: errors.Join(ErrResumeJSON, err)}
+	}
+	return string(encoded), nil
+}
+
+func resumeArraySchema(key string) ([]string, func(string) json.RawMessage) {
+	switch key {
+	case "educations":
+		return resumeEducationKeys, resumeEducationDefault
+	case "experiences":
+		return resumeExperienceKeys, resumeExperienceDefault
+	case "projects":
+		return resumeProjectKeys, resumeProjectDefault
+	default:
+		return resumeSkillKeys, resumeSkillDefault
+	}
+}
+
+func resumeProfileDefault(key string) json.RawMessage {
+	switch key {
+	case "total_experience_years":
+		return json.RawMessage("0")
+	case "educations", "experiences", "projects", "skills":
+		return json.RawMessage("[]")
+	default:
+		return json.RawMessage(`""`)
+	}
+}
+
+func resumeEducationDefault(string) json.RawMessage { return json.RawMessage(`""`) }
+
+func resumeExperienceDefault(key string) json.RawMessage {
+	switch key {
+	case "is_current":
+		return json.RawMessage("false")
+	case "achievements":
+		return json.RawMessage("[]")
+	default:
+		return json.RawMessage(`""`)
+	}
+}
+
+func resumeProjectDefault(key string) json.RawMessage {
+	switch key {
+	case "technologies", "highlights":
+		return json.RawMessage("[]")
+	default:
+		return json.RawMessage(`""`)
+	}
+}
+
+func resumeSkillDefault(key string) json.RawMessage {
+	if key == "years" {
+		return json.RawMessage("0")
+	}
+	return json.RawMessage(`""`)
+}
+
+func normalizeResumeObjectMap(fields map[string]json.RawMessage, required []string, defaultFn func(string) json.RawMessage) (map[string]json.RawMessage, error) {
+	if fields == nil {
+		return nil, errors.New("expected JSON object")
+	}
+	out := make(map[string]json.RawMessage, len(required))
+	for _, key := range required {
+		value, exists := fields[key]
+		if !exists || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			out[key] = defaultFn(key)
+			continue
+		}
+		out[key] = value
+	}
+	return out, nil
+}
+
+func decodeJSONObjectArray(raw json.RawMessage) ([]map[string]json.RawMessage, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		return []map[string]json.RawMessage{}, nil
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal(trimmed, &items); err != nil {
+		return nil, err
+	}
+	out := make([]map[string]json.RawMessage, 0, len(items))
+	for _, item := range items {
+		var object map[string]json.RawMessage
+		if err := json.Unmarshal(item, &object); err != nil {
+			return nil, err
+		}
+		out = append(out, object)
+	}
+	return out, nil
+}
+
+func extractJSONObject(content string) string {
+	trimmed := strings.TrimSpace(content)
+	if strings.HasPrefix(trimmed, "```") {
+		trimmed = strings.TrimPrefix(trimmed, "```")
+		trimmed = strings.TrimSpace(trimmed)
+		if len(trimmed) >= 4 && strings.EqualFold(trimmed[:4], "json") {
+			trimmed = strings.TrimSpace(trimmed[4:])
+		}
+		if idx := strings.LastIndex(trimmed, "```"); idx >= 0 {
+			trimmed = strings.TrimSpace(trimmed[:idx])
+		}
+	}
+	start := strings.Index(trimmed, "{")
+	end := strings.LastIndex(trimmed, "}")
+	if start < 0 || end < start {
+		return ""
+	}
+	return trimmed[start : end+1]
+}
+
+func unquoteJSONString(raw json.RawMessage) string {
+	var value string
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return value
+	}
+	return strings.Trim(string(bytes.TrimSpace(raw)), `"`)
+}
+
+func normalizeResumeDateInput(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	replacer := strings.NewReplacer(".", "-", "/", "-", "年", "-", "月", "-", "日", "")
+	normalized := strings.Trim(replacer.Replace(value), "-")
+	normalized = strings.Join(strings.FieldsFunc(normalized, func(r rune) bool { return r == '-' }), "-")
+	return normalized
+}
+
 func normalizeResumeProfile(extracted extractedResumeProfile) (ResumeProfile, error) {
 	if extracted.TotalExperienceYears == nil {
 		return ResumeProfile{}, errors.New("total_experience_years is required")
@@ -361,7 +550,7 @@ func normalizeResumeProfile(extracted extractedResumeProfile) (ResumeProfile, er
 	if extracted.Educations == nil || extracted.Experiences == nil || extracted.Projects == nil || extracted.Skills == nil {
 		return ResumeProfile{}, errors.New("educations, experiences, projects, and skills are required arrays")
 	}
-	email := normalizeResumeText(extracted.Email)
+	email := normalizeResumeEmail(extracted.Email)
 	if email != "" {
 		address, err := mail.ParseAddress(email)
 		if err != nil || !strings.EqualFold(address.Address, email) {
@@ -613,8 +802,16 @@ func roundResumeYears(value float64) float64 {
 	return float64(int(value*10+0.5)) / 10
 }
 
+func normalizeResumeEmail(value string) string {
+	value = normalizeResumeText(value)
+	for _, prefix := range []string{"邮箱：", "邮箱:", "email:", "Email:", "E-mail:", "e-mail:"} {
+		value = strings.TrimSpace(strings.TrimPrefix(value, prefix))
+	}
+	return value
+}
+
 func parseResumeDate(value string, allowCurrent bool) (*time.Time, error) {
-	value = strings.TrimSpace(strings.ToLower(value))
+	value = strings.TrimSpace(strings.ToLower(normalizeResumeDateInput(value)))
 	if value == "" || (allowCurrent && isCurrentResumeDate(value)) {
 		return nil, nil
 	}

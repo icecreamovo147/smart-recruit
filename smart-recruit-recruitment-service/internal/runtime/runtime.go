@@ -61,6 +61,8 @@ type UsageStatsAPI interface {
 type CandidateAPI interface {
 	GetProfile(context.Context, *pb.GetProfileRequest) (*pb.GetProfileResponse, error)
 	UpdateProfile(context.Context, *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error)
+	FillProfileFromResume(context.Context, *pb.FillProfileFromResumeRequest) (*pb.FillProfileFromResumeResponse, error)
+	ApplyProfileFill(context.Context, *pb.ApplyProfileFillRequest) (*pb.GetProfileResponse, error)
 	GetResume(context.Context, *pb.GetResumeRequest) (*pb.GetResumeResponse, error)
 	PresignResumeUpload(context.Context, *pb.PresignResumeUploadRequest) (*pb.PresignResumeUploadResponse, error)
 	ConfirmResumeUpload(context.Context, *pb.ConfirmResumeUploadRequest) (*pb.ConfirmResumeUploadResponse, error)
@@ -211,6 +213,14 @@ func (s candidateServer) GetProfile(ctx context.Context, req *pb.GetProfileReque
 
 func (s candidateServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error) {
 	return s.api.UpdateProfile(ctx, req)
+}
+
+func (s candidateServer) FillProfileFromResume(ctx context.Context, req *pb.FillProfileFromResumeRequest) (*pb.FillProfileFromResumeResponse, error) {
+	return s.api.FillProfileFromResume(ctx, req)
+}
+
+func (s candidateServer) ApplyProfileFill(ctx context.Context, req *pb.ApplyProfileFillRequest) (*pb.GetProfileResponse, error) {
+	return s.api.ApplyProfileFill(ctx, req)
 }
 
 func (s candidateServer) GetResume(ctx context.Context, req *pb.GetResumeRequest) (*pb.GetResumeResponse, error) {

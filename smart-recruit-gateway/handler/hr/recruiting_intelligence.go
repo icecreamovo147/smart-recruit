@@ -115,6 +115,10 @@ func (h *RecruitingIntelligenceHandler) ParseResumeProfile(c *gin.Context) {
 		base.BadRequest(c, "请求参数错误")
 		return
 	}
+	releaseVersionID := resolveTenantAICapabilityVersion(c, h.clients, "ai.resume_parse")
+	if releaseVersionID <= 0 {
+		return
+	}
 	logger.L().Info("[HR][HTTP] ParseResumeProfile received",
 		zap.String("request_id", requestID),
 		zap.Int64("user_id", userID),
@@ -126,9 +130,10 @@ func (h *RecruitingIntelligenceHandler) ParseResumeProfile(c *gin.Context) {
 		zap.Int64("application_id", req.ApplicationID),
 		zap.Int64("resume_id", req.ResumeID))
 	resp, err := h.clients.RecruitingIntelligence.ParseResumeProfile(c.Request.Context(), &pb.ParseResumeProfileRequest{
-		StaffUserId:   userID,
-		ResumeId:      req.ResumeID,
-		ApplicationId: req.ApplicationID,
+		StaffUserId:         userID,
+		ResumeId:            req.ResumeID,
+		ApplicationId:       req.ApplicationID,
+		CapabilityVersionId: releaseVersionID,
 	})
 	if err != nil {
 		logger.L().Error("[HR][HTTP] ParseResumeProfile grpc error",
@@ -161,6 +166,10 @@ func (h *RecruitingIntelligenceHandler) EvaluateCandidateMatch(c *gin.Context) {
 		AgentRunID uint64 `json:"agent_run_id"`
 	}
 	_ = c.ShouldBindJSON(&body)
+	releaseVersionID := resolveTenantAICapabilityVersion(c, h.clients, "ai.match_evaluation")
+	if releaseVersionID <= 0 {
+		return
+	}
 	logger.L().Info("[HR][HTTP] EvaluateCandidateMatch received",
 		zap.String("request_id", requestID),
 		zap.Int64("user_id", userID),
@@ -172,9 +181,10 @@ func (h *RecruitingIntelligenceHandler) EvaluateCandidateMatch(c *gin.Context) {
 		zap.Int64("application_id", applicationID),
 		zap.Uint64("agent_run_id", body.AgentRunID))
 	resp, err := h.clients.RecruitingIntelligence.EvaluateCandidateMatch(c.Request.Context(), &pb.EvaluateCandidateMatchRequest{
-		StaffUserId:   userID,
-		ApplicationId: applicationID,
-		AgentRunId:    body.AgentRunID,
+		StaffUserId:         userID,
+		ApplicationId:       applicationID,
+		AgentRunId:          body.AgentRunID,
+		CapabilityVersionId: releaseVersionID,
 	})
 	if err != nil {
 		logger.L().Error("[HR][HTTP] EvaluateCandidateMatch grpc error",

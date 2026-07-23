@@ -155,19 +155,42 @@ func TestCreateAgentRunDispatchesDetachedAndCompletes(t *testing.T) {
 		t.Fatalf("assistant message = %#v", message)
 	}
 	eventTypes := store.eventTypes(resp.GetRun().GetRunId())
-	for _, want := range []string{"run.created", "run.status_changed", "process.delta", "assistant.delta", "run.result", "run.completed"} {
+	for _, want := range []string{"run.created", "run.status_changed", "process.delta", "assistant.delta", "process.snapshot", "run.result", "run.completed"} {
 		if !containsString(eventTypes, want) {
 			t.Fatalf("event types = %v, want %s", eventTypes, want)
 		}
 	}
+	processEvent := store.lastEvent(resp.GetRun().GetRunId(), "process.snapshot")
+	var processPayload struct {
+		SnapshotText string `json:"snapshot_text"`
+	}
+	if err := json.Unmarshal([]byte(processEvent.PayloadJSON), &processPayload); err != nil {
+		t.Fatalf("decode process snapshot: %v", err)
+	}
+	var persistedProcess struct {
+		DisplaySummary []string `json:"display_summary"`
+	}
+	if err := json.Unmarshal([]byte(message.ProcessContent), &persistedProcess); err != nil {
+		t.Fatalf("decode persisted process content: %v", err)
+	}
+	if got := strings.Join(persistedProcess.DisplaySummary, "\n"); got != processPayload.SnapshotText {
+		t.Fatalf("persisted process = %q, live final snapshot = %q", got, processPayload.SnapshotText)
+	}
+	if strings.Contains(processPayload.SnapshotText, "上下文容量") ||
+		!strings.Contains(processPayload.SnapshotText, "已分析问题并确定所需招聘数据。") ||
+		!strings.Contains(processPayload.SnapshotText, "已整理查询结果并生成回复。") {
+		t.Fatalf("process snapshot = %q, want concise business process without context internals", processPayload.SnapshotText)
+	}
 }
 
-func TestCreateAgentRunPreservesAuthActorForDetachedExecution(t *testing.T) {
+func TestCreateAgentRunPreservesTenantActorForDetachedExecution(t *testing.T) {
 	store := newAgentRunTestStore()
 	store.seedChatSession(ownerRoleHR, 77, 101, "hr run session")
 	provider := &authCapturingAgentRunProvider{reply: "assistant reply", done: make(chan struct{})}
 	service := &nativeAIService{store: store, provider: provider}
-	ctx := platformmetadata.WithAuthActor(context.Background(), 77, "staff")
+	ctx := platformmetadata.WithTenantActor(context.Background(), platformmetadata.TenantContext{
+		TenantID: 12, MembershipID: 34, UserID: 77, AccountType: "staff", ClientApp: "hr",
+	})
 
 	resp, err := service.CreateAgentRun(ctx, &pb.CreateAgentRunRequest{
 		HrId:            77,
@@ -187,6 +210,9 @@ func TestCreateAgentRunPreservesAuthActorForDetachedExecution(t *testing.T) {
 	if provider.authUserID != 77 || provider.accountType != "staff" {
 		t.Fatalf("provider auth = (%d, %q), want (77, staff)", provider.authUserID, provider.accountType)
 	}
+	if provider.tenantID != 12 || provider.membershipID != 34 || provider.clientApp != "hr" {
+		t.Fatalf("provider tenant actor = (%d, %d, %q), want (12, 34, hr)", provider.tenantID, provider.membershipID, provider.clientApp)
+	}
 	createdRun, found := store.runSnapshot(resp.GetRun().GetRunId())
 	if !found {
 		t.Fatalf("created run %d not found in store", resp.GetRun().GetRunId())
@@ -199,6 +225,79 @@ func TestCreateAgentRunPreservesAuthActorForDetachedExecution(t *testing.T) {
 	}
 	if durable.DurableRequest.AuthUserID != 77 || durable.DurableRequest.AuthAccountType != "staff" {
 		t.Fatalf("durable auth = (%d, %q), want (77, staff)", durable.DurableRequest.AuthUserID, durable.DurableRequest.AuthAccountType)
+	}
+	if durable.DurableRequest.AuthTenantID != 12 || durable.DurableRequest.AuthMembershipID != 34 || durable.DurableRequest.AuthClientApp != "hr" {
+		t.Fatalf("durable tenant actor = (%d, %d, %q), want (12, 34, hr)", durable.DurableRequest.AuthTenantID, durable.DurableRequest.AuthMembershipID, durable.DurableRequest.AuthClientApp)
+	}
+	if createdRun.TenantID != 12 {
+		t.Fatalf("created run tenant = %d, want 12", createdRun.TenantID)
+	}
+}
+
+func TestAgentRunExecutionContextFallsBackToPersistedTenant(t *testing.T) {
+	ctx := agentRunExecutionContext(context.Background(), AgentRunRow{TenantID: 12, OwnerID: 77}, agentRunDurablePayload{
+		AuthUserID: 77, AuthAccountType: "staff",
+	})
+	if got := platformmetadata.GetAuthTenantID(ctx); got != 12 {
+		t.Fatalf("tenant id = %d, want 12", got)
+	}
+}
+
+func TestAgentRunFailureDetailsMapsInsufficientCreditsToUserMessage(t *testing.T) {
+	errorType, errorMessage := agentRunFailureDetails(
+		status.Error(codes.ResourceExhausted, "insufficient_credits"),
+		"provider",
+	)
+	if errorType != "insufficient_credits" || errorMessage != insufficientCreditsUserMessage {
+		t.Fatalf("failure details = (%q, %q)", errorType, errorMessage)
+	}
+}
+
+func TestDispatchAgentRunTimesOutAndCompletesFailed(t *testing.T) {
+	store := newAgentRunTestStore()
+	store.seedChatSession(ownerRoleHR, 77, 101, "hr run session")
+	service := &nativeAIService{
+		store: store, provider: deadlineAgentRunProvider{}, agentRunTimeout: 20 * time.Millisecond,
+	}
+	resp, err := service.CreateAgentRun(context.Background(), &pb.CreateAgentRunRequest{
+		HrId: 77, SessionId: 101, ClientRequestId: "timeout-run", Message: "wait forever",
+	})
+	if err != nil {
+		t.Fatalf("CreateAgentRun returned error: %v", err)
+	}
+	waitUntilAgentRunTest(t, time.Second, func() bool {
+		run, found := store.runSnapshot(resp.GetRun().GetRunId())
+		return found && run.Status == agentRunStatusFailed
+	})
+	run, _ := store.runSnapshot(resp.GetRun().GetRunId())
+	if run.ErrorType != "timeout" || run.CompletedAt == nil {
+		t.Fatalf("timed out run = %#v, want failed timeout with completed_at", run)
+	}
+	if !containsString(store.eventTypes(run.ID), "run.completed") {
+		t.Fatalf("event types = %v, want run.completed", store.eventTypes(run.ID))
+	}
+}
+
+func TestGetActiveAgentRunExpiresOrphanedRun(t *testing.T) {
+	store := newAgentRunTestStore()
+	started := time.Now().Add(-time.Minute)
+	run, _, err := store.CreateAgentRun(context.Background(), AgentRunRow{
+		OwnerID: 77, SessionID: 101, Status: agentRunStatusRunning, StartedAt: started,
+	})
+	if err != nil {
+		t.Fatalf("CreateAgentRun seed returned error: %v", err)
+	}
+	service := &nativeAIService{store: store, agentRunTimeout: 10 * time.Second}
+	resp, err := service.GetActiveAgentRun(context.Background(), &pb.GetActiveAgentRunRequest{HrId: 77, SessionId: 101})
+	if err != nil {
+		t.Fatalf("GetActiveAgentRun returned error: %v", err)
+	}
+	if resp.GetHasActiveRun() {
+		t.Fatalf("HasActiveRun = true, want false after orphan expiry")
+	}
+	terminal, found := store.runSnapshot(run.ID)
+	if !found || terminal.Status != agentRunStatusFailed || terminal.ErrorType != "timeout" {
+		t.Fatalf("expired run = %#v, want failed timeout", terminal)
 	}
 }
 
@@ -225,8 +324,73 @@ func TestAgentRunEmitterPersistsPlannerDisplayMessage(t *testing.T) {
 	}
 	event := store.lastEvent(created.ID, "tool.started")
 	if !strings.Contains(event.PayloadJSON, `"display_message":"我正在读取当前投递和候选人上下文。"`) ||
-		!strings.Contains(event.PayloadJSON, `"step_key":"candidate_identity"`) {
+		!strings.Contains(event.PayloadJSON, `"step_key":"candidate_identity"`) ||
+		!strings.Contains(event.PayloadJSON, `"snapshot_text":"已分析问题并确定所需招聘数据。\n我正在读取当前投递和候选人上下文。"`) {
 		t.Fatalf("event payload = %s, want planner display message and step metadata", event.PayloadJSON)
+	}
+	runSnapshot, found := store.runSnapshot(created.ID)
+	if !found || runSnapshot.ProcessText != "已分析问题并确定所需招聘数据。\n我正在读取当前投递和候选人上下文。" {
+		t.Fatalf("run process snapshot = %q", runSnapshot.ProcessText)
+	}
+	if err := emit(&pb.ChatStreamResponse{EventType: "tool_done", EventMessage: "get_candidate_detail finished", ToolName: "get_candidate_detail", Msg: "success"}, display); err != nil {
+		t.Fatalf("emit tool_done returned error: %v", err)
+	}
+	finished := store.lastEvent(created.ID, "tool.finished")
+	var finishedPayload struct {
+		SnapshotText string `json:"snapshot_text"`
+	}
+	if err := json.Unmarshal([]byte(finished.PayloadJSON), &finishedPayload); err != nil {
+		t.Fatalf("decode finished process snapshot: %v", err)
+	}
+	wantFinished := "已分析问题并确定所需招聘数据。\n已完成：读取当前投递和候选人上下文。"
+	if finishedPayload.SnapshotText != wantFinished {
+		t.Fatalf("finished process snapshot = %q, want %q", finishedPayload.SnapshotText, wantFinished)
+	}
+}
+
+func TestAgentRunEmitterSerializesConcurrentProcessSnapshots(t *testing.T) {
+	store := newAgentRunTestStore()
+	service := &nativeAIService{store: store}
+	run := fallbackAgentRun(77, 101, "concurrent-display-message", agentRunDurablePayload{Message: "user asks"})
+	run.Status = agentRunStatusRunning
+	created, _, err := store.CreateAgentRun(context.Background(), run)
+	if err != nil {
+		t.Fatalf("CreateAgentRun seed returned error: %v", err)
+	}
+
+	emit := service.agentRunChatEmitter(created.ID)
+	const eventCount = 64
+	errCh := make(chan error, eventCount)
+	var wg sync.WaitGroup
+	for i := 0; i < eventCount; i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			purpose := fmt.Sprintf("读取第 %d 组招聘数据", i)
+			errCh <- emit(
+				&pb.ChatStreamResponse{EventType: "tool_calling", ToolName: "get_job_list", Msg: "success"},
+				&agentRunDisplayContext{StepKey: fmt.Sprintf("step-%d", i), StepPurpose: purpose},
+			)
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+	for emitErr := range errCh {
+		if emitErr != nil {
+			t.Fatalf("concurrent emit returned error: %v", emitErr)
+		}
+	}
+
+	snapshot, found := store.runSnapshot(created.ID)
+	if !found {
+		t.Fatal("run snapshot not found")
+	}
+	for i := 0; i < eventCount; i++ {
+		want := fmt.Sprintf("我正在读取第 %d 组招聘数据。", i)
+		if !strings.Contains(snapshot.ProcessText, want) {
+			t.Fatalf("final process snapshot is missing %q: %q", want, snapshot.ProcessText)
+		}
 	}
 }
 
@@ -780,17 +944,31 @@ func (p *blockingAgentRunProvider) promptsSnapshot() []string {
 }
 
 type authCapturingAgentRunProvider struct {
-	reply       string
-	done        chan struct{}
-	authUserID  int64
-	accountType string
+	reply        string
+	done         chan struct{}
+	authUserID   int64
+	accountType  string
+	tenantID     int64
+	membershipID int64
+	clientApp    string
 }
 
 func (p *authCapturingAgentRunProvider) Complete(ctx context.Context, _ string) (string, error) {
 	p.authUserID = platformmetadata.GetAuthUserID(ctx)
 	p.accountType = platformmetadata.GetAuthAccountType(ctx)
+	tenant := platformmetadata.GetTenantContext(ctx)
+	p.tenantID = tenant.TenantID
+	p.membershipID = tenant.MembershipID
+	p.clientApp = tenant.ClientApp
 	close(p.done)
 	return p.reply, nil
+}
+
+type deadlineAgentRunProvider struct{}
+
+func (deadlineAgentRunProvider) Complete(ctx context.Context, _ string) (string, error) {
+	<-ctx.Done()
+	return "", ctx.Err()
 }
 
 type agentRunTestStore struct {
@@ -944,6 +1122,12 @@ func (s *agentRunTestStore) AppendAgentRunEvent(_ context.Context, runID int64, 
 	if run, ok := s.runs[runID]; ok {
 		run.LastEventSeq = row.Seq
 		run.UpdatedAt = row.CreatedAt
+		var snapshotPayload struct {
+			SnapshotText *string `json:"snapshot_text"`
+		}
+		if json.Unmarshal([]byte(payload), &snapshotPayload) == nil && snapshotPayload.SnapshotText != nil {
+			run.ProcessText = *snapshotPayload.SnapshotText
+		}
 		s.runs[runID] = run
 	}
 	return row, nil

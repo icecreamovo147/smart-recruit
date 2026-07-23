@@ -155,6 +155,25 @@ func (m *mockAIServiceClient) ConfirmAgentRun(ctx context.Context, req *pb.Confi
 	}, nil
 }
 
+func (m *mockAIServiceClient) ListMemories(context.Context, *pb.ListMemoriesRequest, ...grpc.CallOption) (*pb.ListMemoriesResponse, error) {
+	return &pb.ListMemoriesResponse{Code: 0, Msg: "ok"}, nil
+}
+func (m *mockAIServiceClient) GetMemory(context.Context, *pb.GetMemoryRequest, ...grpc.CallOption) (*pb.MemoryResponse, error) {
+	return &pb.MemoryResponse{Code: 0, Msg: "ok"}, nil
+}
+func (m *mockAIServiceClient) CreateMemory(context.Context, *pb.CreateMemoryRequest, ...grpc.CallOption) (*pb.MemoryResponse, error) {
+	return &pb.MemoryResponse{Code: 0, Msg: "ok"}, nil
+}
+func (m *mockAIServiceClient) UpdateMemory(context.Context, *pb.UpdateMemoryRequest, ...grpc.CallOption) (*pb.MemoryResponse, error) {
+	return &pb.MemoryResponse{Code: 0, Msg: "ok"}, nil
+}
+func (m *mockAIServiceClient) RevokeMemory(context.Context, *pb.RevokeMemoryRequest, ...grpc.CallOption) (*pb.MemoryResponse, error) {
+	return &pb.MemoryResponse{Code: 0, Msg: "ok"}, nil
+}
+func (m *mockAIServiceClient) RecallMemories(context.Context, *pb.RecallMemoriesRequest, ...grpc.CallOption) (*pb.RecallMemoriesResponse, error) {
+	return &pb.RecallMemoriesResponse{Code: 0, Msg: "ok"}, nil
+}
+
 // mockAgentRunEventStream is a minimal gRPC server-streaming client for tests.
 type mockAgentRunEventStream struct {
 	ctx    context.Context
@@ -598,8 +617,14 @@ func TestHRContextUsageMappingCoversBudgetFieldsForAllTransports(t *testing.T) {
 	if !ok || breakdown["tool_schema_tokens"] != int32(33) || breakdown["protocol_overhead_tokens"] != int32(38) {
 		t.Fatalf("breakdown mapping incomplete: %#v", mapped["breakdown"])
 	}
-	metadata := agentRunResultMetadataPayload(&pb.AgentRunResultMetadata{ContextUsage: usage})
+	metadata := agentRunResultMetadataPayload(&pb.AgentRunResultMetadata{
+		ContextUsage:       usage,
+		SuggestedQuestions: []string{"查看岗位详情", "分析投递趋势", "比较候选人差异"},
+	})
 	if got, ok := metadata["context_usage"].(map[string]any); !ok || got["input_budget_tokens"] != int32(6758) {
 		t.Fatalf("agent-run metadata context mapping incomplete: %#v", metadata)
+	}
+	if got, ok := metadata["suggested_questions"].([]string); !ok || len(got) != 3 || got[0] != "查看岗位详情" {
+		t.Fatalf("agent-run suggested questions mapping incomplete: %#v", metadata)
 	}
 }

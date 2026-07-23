@@ -18,6 +18,7 @@ SERVICES=(
   "smart-recruit-notification-service:./cmd/notification-service:notification-service"
   "smart-recruit-ai-agent-service:./cmd/ai-agent-service:ai-agent-service"
   "smart-recruit-analytics-service:./cmd/analytics-service:analytics-service"
+  "smart-recruit-billing-service:./cmd/billing-service:billing-service"
   "smart-recruit-worker-service:./cmd/worker-service:worker-service"
 )
 
@@ -57,6 +58,15 @@ check_targets() {
     fi
     if ! grep -q "BINARY_NAME: ${binary_name}" "${COMPOSE_FILE}"; then
       echo "compose build target missing BINARY_NAME for ${service_dir}" >&2
+      exit 1
+    fi
+    if ! grep -q "CMD_PATH: ${cmd_path}" "${COMPOSE_FILE}"; then
+      echo "compose build target missing CMD_PATH for ${service_dir}" >&2
+      exit 1
+    fi
+    copy_count="$(grep -Ec "^COPY[[:space:]]+${service_dir}[[:space:]]+" "${DOCKERFILE}" || true)"
+    if [ "${copy_count}" -ne 1 ]; then
+      echo "docker build context must contain exactly one COPY for ${service_dir}; found ${copy_count}" >&2
       exit 1
     fi
   done

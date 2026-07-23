@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AgentRunEvent, AgentRunSnapshot } from '@/types/agentRun'
+import type { AgentRunEvent, AgentRunSnapshot } from '@shared/types/agentRun'
 import {
   applyAgentRunEvents,
   createInitialHrAgentRunState,
@@ -61,14 +61,14 @@ describe('hrAgentRunReducer', () => {
     expect(state.lastEventSeq).toBe(3)
   })
 
-  it('uses event_message as visible process text for durable stream events', () => {
+  it('compacts durable stream events into business steps', () => {
     const state = applyAgentRunEvents(createInitialHrAgentRunState({ runId: 42 }), [
       baseEvent({ seq: 1, event_type: 'process.delta', event_message: 'planning HR recruiting context' }),
       baseEvent({ seq: 2, event_type: 'tool.started', tool_name: 'get_candidate_detail', event_message: 'querying get_candidate_detail' }),
       baseEvent({ seq: 3, event_type: 'tool.finished', tool_name: 'get_candidate_detail', event_message: 'get_candidate_detail finished' }),
     ])
 
-    expect(state.processText).toBe('我正在判断问题意图，并规划需要读取哪些招聘数据。\n我正在查询实时招聘数据。\n已获取一项实时招聘数据。')
+    expect(state.processText).toBe('正在分析问题并确定所需招聘数据。\n已获取一项实时招聘数据。')
     expect(state.lastToolName).toBe('get_candidate_detail')
   })
 
@@ -88,7 +88,7 @@ describe('hrAgentRunReducer', () => {
         },
       }),
     )
-    expect(state.processText).toBe('我已确认上下文容量，准备整理工具结果。')
+    expect(state.processText).toBe('')
     expect(state.resultMetadata?.context_usage?.model_id).toBe(8)
     expect(state.modelId).toBe(8)
     expect(state.modelName).toBe('deepseek-v4-flash')
@@ -125,6 +125,40 @@ describe('hrAgentRunReducer', () => {
       }),
     )
     expect(state.processText).toBe('我正在读取当前投递和候选人上下文。')
+  })
+
+  it('replaces an in-progress business step with its completed state', () => {
+    const state = applyAgentRunEvents(createInitialHrAgentRunState({ runId: 42 }), [
+      baseEvent({
+        seq: 1,
+        event_type: 'tool.started',
+        step_key: 'jobs',
+        step_purpose: '查询岗位列表',
+        display_message: '我正在查询岗位列表。',
+      }),
+      baseEvent({
+        seq: 2,
+        event_type: 'tool.finished',
+        step_key: 'jobs',
+        step_purpose: '查询岗位列表',
+        display_message: '已完成：查询岗位列表。',
+      }),
+    ])
+
+    expect(state.processText).toBe('已完成：查询岗位列表。')
+  })
+
+  it('uses backend process snapshots as the authoritative compact view', () => {
+    const state = reduceAgentRunEvent(
+      createInitialHrAgentRunState({ runId: 42, processText: '旧的实时过程' }),
+      baseEvent({
+        seq: 1,
+        event_type: 'tool.finished',
+        snapshot_text: '已分析问题。\n已完成：查询岗位投递数据。',
+      }),
+    )
+
+    expect(state.processText).toBe('已分析问题。\n已完成：查询岗位投递数据。')
   })
 
   it('snapshots replace text buffers', () => {

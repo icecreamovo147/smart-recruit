@@ -24,6 +24,9 @@ services:
   analytics:
     grpcAddr: smart-recruit-analytics-service:50067
     redisPrefix: analytics
+  billing:
+    grpcAddr: smart-recruit-billing-service:50069
+    redisPrefix: billing
   worker:
     grpcAddr: smart-recruit-worker-service:50068
     redisPrefix: worker

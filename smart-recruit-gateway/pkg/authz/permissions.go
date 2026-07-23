@@ -32,6 +32,7 @@ const (
 	// AI assistants
 	PermAIHRUse        = "ai.hr.use"
 	PermAICandidateUse = "ai.candidate.use"
+	PermBillingManage  = "billing.manage"
 
 	// AI business management (recruiting-facing)
 	PermAIPromptManage     = "ai.prompt.manage"
@@ -51,6 +52,29 @@ const (
 
 	// System
 	PermSystemConfigManage = "system.config.manage"
+
+	// Platform control plane
+	PermPlatformDashboardRead       = "platform.dashboard.read"
+	PermPlatformTenantRead          = "platform.tenant.read"
+	PermPlatformTenantManage        = "platform.tenant.manage"
+	PermPlatformMemberManage        = "platform.member.manage"
+	PermPlatformPlanRead            = "platform.plan.read"
+	PermPlatformPlanManage          = "platform.plan.manage"
+	PermPlatformPlanPublish         = "platform.plan.publish"
+	PermPlatformBillingRefundReview = "platform.billing.refund.review"
+	PermPlatformSubscriptionManage  = "platform.subscription.manage"
+	PermPlatformUsageRead           = "platform.usage.read"
+	PermPlatformAlertRead           = "platform.alert.read"
+	PermPlatformAlertManage         = "platform.alert.manage"
+	PermPlatformAuditRead           = "platform.audit.read"
+	PermPlatformUserManage          = "platform.user.manage"
+	PermPlatformAIConfigRead        = "platform.ai.config.read"
+	PermPlatformAIConfigManage      = "platform.ai.config.manage"
+	PermPlatformAIReleaseRead       = "platform.ai.release.read"
+	PermPlatformAIReleaseManage     = "platform.ai.release.manage"
+	PermPlatformAIReleasePublish    = "platform.ai.release.publish"
+	PermPlatformAIDiagnosticsRead   = "platform.ai.diagnostics.read"
+	PermPlatformAIDiagnosticsExec   = "platform.ai.diagnostics.execute"
 
 	// Offer management
 	PermOfferRead           = "offer.read"

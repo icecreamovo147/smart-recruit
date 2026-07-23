@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowDown, Briefcase, Calendar, ChatDotRound, Collection, Connection, DataAnalysis, Edit, Expand, Fold, Key, Link, MagicStick, Menu, Monitor, Moon, OfficeBuilding, Operation, Search, Setting, Sunny, Tools, UserFilled } from '@element-plus/icons-vue'
+import { ArrowDown, Briefcase, Calendar, ChatDotRound, Collection, DataAnalysis, Expand, Fold, Key, Menu, Monitor, Moon, OfficeBuilding, Operation, Sunny, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
@@ -24,11 +24,8 @@ const sidebarCollapsed = ref(false)
 const mobileSidebarOpen = ref(false)
 const switchingTenant = ref(false)
 const taxonomyOpen = ref(false)
-const llmConfigOpen = ref(route.path.startsWith('/hr/admin/llm-config'))
-const embeddingConfigOpen = ref(route.path.startsWith('/hr/admin/embedding-config'))
 const usageAuditOpen = ref(false)
 const isAuthRoute = computed(() => route.path === '/login' || route.path === '/register')
-const canManageAgentSkills = computed(() => auth.hasPermission(PERM.AI_AGENT_SKILL_MANAGE))
 const homePath = computed(() => resolveStaffHomePath(auth))
 const activeMemberships = computed(() => auth.memberships.filter(
   (membership) => membership.tenant_status === 'active' && membership.membership_status === 'active',
@@ -38,14 +35,6 @@ const activeTenantName = computed(() => auth.activeTenant?.name?.trim() || '当�
 
 const toggleTaxonomy = () => {
   taxonomyOpen.value = !taxonomyOpen.value
-}
-
-const toggleLlmConfig = () => {
-  llmConfigOpen.value = !llmConfigOpen.value
-}
-
-const toggleEmbeddingConfig = () => {
-  embeddingConfigOpen.value = !embeddingConfigOpen.value
 }
 
 const toggleUsageAudit = () => {
@@ -60,12 +49,6 @@ watch(() => route.fullPath, () => {
   // Auto-expand taxonomy group when on a taxonomy sub-page
   if (route.path.startsWith('/hr/admin/departments') || route.path.startsWith('/hr/admin/locations')) {
     taxonomyOpen.value = true
-  }
-  if (route.path.startsWith('/hr/admin/llm-config')) {
-    llmConfigOpen.value = true
-  }
-  if (route.path.startsWith('/hr/admin/embedding-config')) {
-    embeddingConfigOpen.value = true
   }
   if (route.path.startsWith('/hr/admin/usage')) {
     usageAuditOpen.value = true
@@ -199,6 +182,10 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
             <el-icon><ChatDotRound /></el-icon>
             <span>AI 数据助手</span>
           </RouterLink>
+          <RouterLink v-if="auth.hasPermission(PERM.BILLING_MANAGE)" class="sidebar-link" to="/hr/billing" @click="closeMobileSidebar">
+            <el-icon><DataAnalysis /></el-icon>
+            <span>AI 套餐与额度</span>
+          </RouterLink>
           <RouterLink v-if="auth.hasPermission(PERM.ADMIN_INVITE_MANAGE)" class="sidebar-link" to="/hr/admin/invite-codes" @click="closeMobileSidebar">
             <el-icon><Key /></el-icon>
             <span>邀请码管理</span>
@@ -206,54 +193,6 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
           <RouterLink v-if="auth.hasPermission(PERM.ADMIN_USER_MANAGE)" class="sidebar-link" to="/hr/admin/staff-users" @click="closeMobileSidebar">
             <el-icon><UserFilled /></el-icon>
             <span>员工账号</span>
-          </RouterLink>
-          <SidebarNavGroup
-            v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)"
-            :icon="Tools"
-            label="LLM 模型配置"
-            :open="llmConfigOpen"
-            :collapsed="sidebarCollapsed"
-            :mobile-open="mobileSidebarOpen"
-            :items="[
-              { to: '/hr/admin/llm-config/providers', label: 'Provider 配置' },
-              { to: '/hr/admin/llm-config/models', label: 'Model 配置' },
-            ]"
-            @toggle="toggleLlmConfig"
-            @close-mobile="closeMobileSidebar"
-          />
-          <SidebarNavGroup
-            v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)"
-            :icon="Link"
-            label="Embedding 模型配置"
-            :open="embeddingConfigOpen"
-            :collapsed="sidebarCollapsed"
-            :mobile-open="mobileSidebarOpen"
-            :items="[
-              { to: '/hr/admin/embedding-config/providers', label: 'Provider 配置' },
-              { to: '/hr/admin/embedding-config/models', label: 'Model 配置' },
-            ]"
-            @toggle="toggleEmbeddingConfig"
-            @close-mobile="closeMobileSidebar"
-          />
-          <RouterLink v-if="auth.hasPermission(PERM.AI_PROMPT_MANAGE)" class="sidebar-link" to="/hr/admin/prompts" @click="closeMobileSidebar">
-            <el-icon><Edit /></el-icon>
-            <span>Prompt 管理</span>
-          </RouterLink>
-          <RouterLink v-if="auth.hasPermission(PERM.AI_AGENT_MANAGE)" class="sidebar-link" to="/hr/admin/agents" @click="closeMobileSidebar">
-            <el-icon><Setting /></el-icon>
-            <span>Agent 管理</span>
-          </RouterLink>
-          <RouterLink v-if="canManageAgentSkills" class="sidebar-link" to="/hr/admin/agent-skills" @click="closeMobileSidebar">
-            <el-icon><MagicStick /></el-icon>
-            <span>Agent Skill 管理</span>
-          </RouterLink>
-          <RouterLink v-if="canManageAgentSkills" class="sidebar-link" to="/hr/admin/semantic-retrieval" @click="closeMobileSidebar">
-            <el-icon><Search /></el-icon>
-            <span>语义召回调试</span>
-          </RouterLink>
-          <RouterLink v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)" class="sidebar-link" to="/hr/admin/mcp-tools" @click="closeMobileSidebar">
-            <el-icon><Connection /></el-icon>
-            <span>工具中心</span>
           </RouterLink>
           <SidebarNavGroup
             v-if="auth.hasPermission(PERM.AUDIT_USAGE_READ)"

@@ -17,6 +17,7 @@ import (
 
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
 	"smart-recruit-commons/pkg/crypto"
+	"smart-recruit-platform-go/businessclock"
 	platformlogger "smart-recruit-platform-go/logger"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -476,6 +477,7 @@ func (s *NativeStore) CreateAgentRun(ctx context.Context, run aiagentgrpc.AgentR
 	}
 	now := time.Now()
 	row := agentRunRecord{
+		TenantID:        positiveInt64Pointer(run.TenantID),
 		SessionID:       run.SessionID,
 		HRID:            run.OwnerID,
 		ClientRequestID: run.ClientRequestID,
@@ -617,6 +619,17 @@ func (s *NativeStore) CompleteAgentRun(ctx context.Context, ownerID, runID int64
 	return s.GetAgentRun(ctx, ownerID, runID)
 }
 
+func (s *NativeStore) UpdateAgentRunRuntimeGovernance(ctx context.Context, ownerID, runID int64, model aiagentgrpc.RuntimeModelInfo) error {
+	return s.db.WithContext(ctx).Model(&agentRunRecord{}).Where("id = ? AND hr_id = ?", runID, ownerID).Updates(map[string]any{
+		"requested_model_id":       model.RequestedModelID,
+		"effective_model_id":       model.ID,
+		"model_fallback_reason":    nullableSQLString(model.FallbackReason),
+		"capability_version_id":    model.CapabilityVersionID,
+		"capability_snapshot_hash": nullableSQLString(model.CapabilitySnapshotHash),
+		"updated_at":               time.Now(),
+	}).Error
+}
+
 func (s *NativeStore) AppendAgentRunEvent(ctx context.Context, runID int64, eventType, payload string) (aiagentgrpc.AgentRunEventRow, error) {
 	var event agentRunEventRecord
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -631,7 +644,14 @@ func (s *NativeStore) AppendAgentRunEvent(ctx context.Context, runID int64, even
 		if err := tx.Create(&event).Error; err != nil {
 			return err
 		}
-		return tx.Model(&agentRunRecord{}).Where("id = ?", runID).Updates(map[string]any{"last_event_seq": event.Seq, "updated_at": time.Now()}).Error
+		updates := map[string]any{"last_event_seq": event.Seq, "updated_at": time.Now()}
+		var snapshotPayload struct {
+			SnapshotText *string `json:"snapshot_text"`
+		}
+		if json.Unmarshal([]byte(event.PayloadJSON), &snapshotPayload) == nil && snapshotPayload.SnapshotText != nil {
+			updates["process_text"] = *snapshotPayload.SnapshotText
+		}
+		return tx.Model(&agentRunRecord{}).Where("id = ?", runID).Updates(updates).Error
 	})
 	if err != nil {
 		return aiagentgrpc.AgentRunEventRow{}, err
@@ -1277,15 +1297,20 @@ func (s *NativeStore) SaveRecruitingResumeProfileDraft(ctx context.Context, draf
 			return err
 		}
 		parseRun := recruitingResumeParseRunRecord{
-			ResumeID:      draft.ResumeID,
-			UserID:        draft.UserID,
-			Status:        "succeeded",
-			ParserVersion: nullableSQLString(draft.ParserVersion),
-			InputHash:     nullableSQLString(draft.InputHash),
-			StartedAt:     now,
-			CompletedAt:   &completedAt,
-			CreatedAt:     now,
-			UpdatedAt:     now,
+			ResumeID:               draft.ResumeID,
+			UserID:                 draft.UserID,
+			RequestedModelID:       nullInt64From(draft.RequestedModelID),
+			EffectiveModelID:       nullInt64From(draft.EffectiveModelID),
+			ModelFallbackReason:    nullableSQLString(draft.ModelFallbackReason),
+			CapabilityVersionID:    nullInt64From(draft.CapabilityVersionID),
+			CapabilitySnapshotHash: nullableSQLString(draft.CapabilitySnapshotHash),
+			Status:                 "succeeded",
+			ParserVersion:          nullableSQLString(draft.ParserVersion),
+			InputHash:              nullableSQLString(draft.InputHash),
+			StartedAt:              now,
+			CompletedAt:            &completedAt,
+			CreatedAt:              now,
+			UpdatedAt:              now,
 		}
 		if err := tx.Create(&parseRun).Error; err != nil {
 			return err
@@ -1581,23 +1606,28 @@ func (s *NativeStore) SaveRecruitingCandidateMatchDraft(ctx context.Context, dra
 			return err
 		}
 		evaluation := recruitingCandidateMatchEvaluationRecord{
-			ApplicationID:      draft.ApplicationID,
-			JobID:              draft.JobID,
-			CandidateUserID:    draft.CandidateUserID,
-			ResumeProfileID:    draft.ResumeProfileID,
-			AgentRunID:         draft.AgentRunID,
-			EvaluationVersion:  version,
-			IsLatest:           1,
-			OverallScore:       sql.NullFloat64{Float64: draft.OverallScore, Valid: true},
-			Recommendation:     nullableSQLString(draft.Recommendation),
-			Summary:            nullableSQLString(draft.Summary),
-			StrengthsJSON:      nullableSQLString(draft.StrengthsJSON),
-			RisksJSON:          nullableSQLString(draft.RisksJSON),
-			ScoreBreakdownJSON: nullableSQLString(draft.ScoreBreakdownJSON),
-			ModelName:          nullableSQLString(draft.ModelName),
-			EvaluatedAt:        now,
-			CreatedAt:          now,
-			UpdatedAt:          now,
+			ApplicationID:          draft.ApplicationID,
+			JobID:                  draft.JobID,
+			CandidateUserID:        draft.CandidateUserID,
+			ResumeProfileID:        draft.ResumeProfileID,
+			AgentRunID:             draft.AgentRunID,
+			RequestedModelID:       nullInt64From(draft.RequestedModelID),
+			EffectiveModelID:       nullInt64From(draft.EffectiveModelID),
+			ModelFallbackReason:    nullableSQLString(draft.ModelFallbackReason),
+			CapabilityVersionID:    nullInt64From(draft.CapabilityVersionID),
+			CapabilitySnapshotHash: nullableSQLString(draft.CapabilitySnapshotHash),
+			EvaluationVersion:      version,
+			IsLatest:               1,
+			OverallScore:           sql.NullFloat64{Float64: draft.OverallScore, Valid: true},
+			Recommendation:         nullableSQLString(draft.Recommendation),
+			Summary:                nullableSQLString(draft.Summary),
+			StrengthsJSON:          nullableSQLString(draft.StrengthsJSON),
+			RisksJSON:              nullableSQLString(draft.RisksJSON),
+			ScoreBreakdownJSON:     nullableSQLString(draft.ScoreBreakdownJSON),
+			ModelName:              nullableSQLString(draft.ModelName),
+			EvaluatedAt:            now,
+			CreatedAt:              now,
+			UpdatedAt:              now,
 		}
 		if err := tx.Create(&evaluation).Error; err != nil {
 			return err
@@ -1724,18 +1754,23 @@ type candidateOfferReadRow struct {
 }
 
 type recruitingResumeParseRunRecord struct {
-	ID            uint64         `gorm:"primaryKey"`
-	ResumeID      int64          `gorm:"column:resume_id"`
-	UserID        int64          `gorm:"column:user_id"`
-	AgentRunID    *uint64        `gorm:"column:agent_run_id"`
-	Status        string         `gorm:"column:status"`
-	ParserVersion sql.NullString `gorm:"column:parser_version"`
-	InputHash     sql.NullString `gorm:"column:input_hash"`
-	ErrorMessage  sql.NullString `gorm:"column:error_message"`
-	StartedAt     time.Time      `gorm:"column:started_at"`
-	CompletedAt   *time.Time     `gorm:"column:completed_at"`
-	CreatedAt     time.Time      `gorm:"column:created_at"`
-	UpdatedAt     time.Time      `gorm:"column:updated_at"`
+	ID                     uint64         `gorm:"primaryKey"`
+	ResumeID               int64          `gorm:"column:resume_id"`
+	UserID                 int64          `gorm:"column:user_id"`
+	AgentRunID             *uint64        `gorm:"column:agent_run_id"`
+	RequestedModelID       sql.NullInt64  `gorm:"column:requested_model_id"`
+	EffectiveModelID       sql.NullInt64  `gorm:"column:effective_model_id"`
+	ModelFallbackReason    sql.NullString `gorm:"column:model_fallback_reason"`
+	CapabilityVersionID    sql.NullInt64  `gorm:"column:capability_version_id"`
+	CapabilitySnapshotHash sql.NullString `gorm:"column:capability_snapshot_hash"`
+	Status                 string         `gorm:"column:status"`
+	ParserVersion          sql.NullString `gorm:"column:parser_version"`
+	InputHash              sql.NullString `gorm:"column:input_hash"`
+	ErrorMessage           sql.NullString `gorm:"column:error_message"`
+	StartedAt              time.Time      `gorm:"column:started_at"`
+	CompletedAt            *time.Time     `gorm:"column:completed_at"`
+	CreatedAt              time.Time      `gorm:"column:created_at"`
+	UpdatedAt              time.Time      `gorm:"column:updated_at"`
 }
 
 func (recruitingResumeParseRunRecord) TableName() string { return "resume_parse_runs" }
@@ -1829,25 +1864,30 @@ type recruitingResumeSkillRecord struct {
 func (recruitingResumeSkillRecord) TableName() string { return "resume_skills" }
 
 type recruitingCandidateMatchEvaluationRecord struct {
-	ID                 uint64          `gorm:"primaryKey"`
-	TenantID           int64           `gorm:"column:tenant_id"`
-	ApplicationID      int64           `gorm:"column:application_id"`
-	JobID              int64           `gorm:"column:job_id"`
-	CandidateUserID    int64           `gorm:"column:candidate_user_id"`
-	ResumeProfileID    uint64          `gorm:"column:resume_profile_id"`
-	AgentRunID         *uint64         `gorm:"column:agent_run_id"`
-	EvaluationVersion  int32           `gorm:"column:evaluation_version"`
-	IsLatest           int32           `gorm:"column:is_latest"`
-	OverallScore       sql.NullFloat64 `gorm:"column:overall_score"`
-	Recommendation     sql.NullString  `gorm:"column:recommendation"`
-	Summary            sql.NullString  `gorm:"column:summary"`
-	StrengthsJSON      sql.NullString  `gorm:"column:strengths_json"`
-	RisksJSON          sql.NullString  `gorm:"column:risks_json"`
-	ScoreBreakdownJSON sql.NullString  `gorm:"column:score_breakdown_json"`
-	ModelName          sql.NullString  `gorm:"column:model_name"`
-	EvaluatedAt        time.Time       `gorm:"column:evaluated_at"`
-	CreatedAt          time.Time       `gorm:"column:created_at"`
-	UpdatedAt          time.Time       `gorm:"column:updated_at"`
+	ID                     uint64          `gorm:"primaryKey"`
+	TenantID               int64           `gorm:"column:tenant_id"`
+	ApplicationID          int64           `gorm:"column:application_id"`
+	JobID                  int64           `gorm:"column:job_id"`
+	CandidateUserID        int64           `gorm:"column:candidate_user_id"`
+	ResumeProfileID        uint64          `gorm:"column:resume_profile_id"`
+	AgentRunID             *uint64         `gorm:"column:agent_run_id"`
+	RequestedModelID       sql.NullInt64   `gorm:"column:requested_model_id"`
+	EffectiveModelID       sql.NullInt64   `gorm:"column:effective_model_id"`
+	ModelFallbackReason    sql.NullString  `gorm:"column:model_fallback_reason"`
+	CapabilityVersionID    sql.NullInt64   `gorm:"column:capability_version_id"`
+	CapabilitySnapshotHash sql.NullString  `gorm:"column:capability_snapshot_hash"`
+	EvaluationVersion      int32           `gorm:"column:evaluation_version"`
+	IsLatest               int32           `gorm:"column:is_latest"`
+	OverallScore           sql.NullFloat64 `gorm:"column:overall_score"`
+	Recommendation         sql.NullString  `gorm:"column:recommendation"`
+	Summary                sql.NullString  `gorm:"column:summary"`
+	StrengthsJSON          sql.NullString  `gorm:"column:strengths_json"`
+	RisksJSON              sql.NullString  `gorm:"column:risks_json"`
+	ScoreBreakdownJSON     sql.NullString  `gorm:"column:score_breakdown_json"`
+	ModelName              sql.NullString  `gorm:"column:model_name"`
+	EvaluatedAt            time.Time       `gorm:"column:evaluated_at"`
+	CreatedAt              time.Time       `gorm:"column:created_at"`
+	UpdatedAt              time.Time       `gorm:"column:updated_at"`
 }
 
 func (recruitingCandidateMatchEvaluationRecord) TableName() string {
@@ -2045,7 +2085,6 @@ func (agentRunEventRecord) TableName() string { return "agent_run_events" }
 
 type llmProviderRecord struct {
 	ID              int64          `gorm:"primaryKey"`
-	TenantID        *int64         `gorm:"column:tenant_id"`
 	Name            string         `gorm:"column:name"`
 	BaseURL         string         `gorm:"column:base_url"`
 	APIKeyEncrypted string         `gorm:"column:api_key_encrypted"`
@@ -2091,7 +2130,6 @@ type llmModelListRow struct {
 
 type promptTemplateRecord struct {
 	ID         int64          `gorm:"primaryKey"`
-	TenantID   *int64         `gorm:"column:tenant_id"`
 	Name       string         `gorm:"column:name"`
 	Content    string         `gorm:"column:content"`
 	Variables  sql.NullString `gorm:"column:variables"`
@@ -2126,7 +2164,6 @@ type agentConfigListRow struct {
 
 type mcpServerRecord struct {
 	ID             int64          `gorm:"primaryKey"`
-	TenantID       *int64         `gorm:"column:tenant_id"`
 	Name           string         `gorm:"column:name"`
 	Description    sql.NullString `gorm:"column:description"`
 	Transport      string         `gorm:"column:transport"`
@@ -2146,7 +2183,6 @@ func (mcpServerRecord) TableName() string { return "mcp_servers" }
 
 type agentSkillRecord struct {
 	ID                   int64          `gorm:"primaryKey"`
-	TenantID             *int64         `gorm:"column:tenant_id"`
 	Name                 string         `gorm:"column:name"`
 	DisplayName          string         `gorm:"column:display_name"`
 	Description          sql.NullString `gorm:"column:description"`
@@ -2171,7 +2207,6 @@ func (agentSkillRecord) TableName() string { return "agent_skills" }
 
 type embeddingProviderRecord struct {
 	ID              int64          `gorm:"primaryKey"`
-	TenantID        *int64         `gorm:"column:tenant_id"`
 	Name            string         `gorm:"column:name"`
 	ProviderType    string         `gorm:"column:provider_type"`
 	Endpoint        string         `gorm:"column:endpoint"`
@@ -2360,18 +2395,23 @@ func mapRecruitingApplicationReadRow(row recruitingApplicationReadRow) aiagentgr
 
 func mapRecruitingResumeParseRunRecord(row recruitingResumeParseRunRecord) aiagentgrpc.RecruitingResumeParseRunRow {
 	return aiagentgrpc.RecruitingResumeParseRunRow{
-		ID:            row.ID,
-		ResumeID:      row.ResumeID,
-		UserID:        row.UserID,
-		AgentRunID:    row.AgentRunID,
-		Status:        row.Status,
-		ParserVersion: nullString(row.ParserVersion),
-		InputHash:     nullString(row.InputHash),
-		ErrorMessage:  nullString(row.ErrorMessage),
-		StartedAt:     row.StartedAt,
-		CompletedAt:   row.CompletedAt,
-		CreatedAt:     row.CreatedAt,
-		UpdatedAt:     row.UpdatedAt,
+		ID:                     row.ID,
+		ResumeID:               row.ResumeID,
+		UserID:                 row.UserID,
+		AgentRunID:             row.AgentRunID,
+		RequestedModelID:       nullInt64(row.RequestedModelID),
+		EffectiveModelID:       nullInt64(row.EffectiveModelID),
+		ModelFallbackReason:    nullString(row.ModelFallbackReason),
+		CapabilityVersionID:    nullInt64(row.CapabilityVersionID),
+		CapabilitySnapshotHash: nullString(row.CapabilitySnapshotHash),
+		Status:                 row.Status,
+		ParserVersion:          nullString(row.ParserVersion),
+		InputHash:              nullString(row.InputHash),
+		ErrorMessage:           nullString(row.ErrorMessage),
+		StartedAt:              row.StartedAt,
+		CompletedAt:            row.CompletedAt,
+		CreatedAt:              row.CreatedAt,
+		UpdatedAt:              row.UpdatedAt,
 	}
 }
 
@@ -2453,24 +2493,29 @@ func mapRecruitingResumeSkillRecord(row recruitingResumeSkillRecord) aiagentgrpc
 
 func mapRecruitingCandidateMatchEvaluationRecord(row recruitingCandidateMatchEvaluationRecord) aiagentgrpc.RecruitingCandidateMatchEvaluationRow {
 	return aiagentgrpc.RecruitingCandidateMatchEvaluationRow{
-		ID:                 row.ID,
-		ApplicationID:      row.ApplicationID,
-		JobID:              row.JobID,
-		CandidateUserID:    row.CandidateUserID,
-		ResumeProfileID:    row.ResumeProfileID,
-		AgentRunID:         row.AgentRunID,
-		EvaluationVersion:  row.EvaluationVersion,
-		IsLatest:           row.IsLatest,
-		OverallScore:       nullFloat64(row.OverallScore),
-		Recommendation:     nullString(row.Recommendation),
-		Summary:            nullString(row.Summary),
-		StrengthsJSON:      nullString(row.StrengthsJSON),
-		RisksJSON:          nullString(row.RisksJSON),
-		ScoreBreakdownJSON: nullString(row.ScoreBreakdownJSON),
-		ModelName:          nullString(row.ModelName),
-		EvaluatedAt:        row.EvaluatedAt,
-		CreatedAt:          row.CreatedAt,
-		UpdatedAt:          row.UpdatedAt,
+		ID:                     row.ID,
+		ApplicationID:          row.ApplicationID,
+		JobID:                  row.JobID,
+		CandidateUserID:        row.CandidateUserID,
+		ResumeProfileID:        row.ResumeProfileID,
+		AgentRunID:             row.AgentRunID,
+		RequestedModelID:       nullInt64(row.RequestedModelID),
+		EffectiveModelID:       nullInt64(row.EffectiveModelID),
+		ModelFallbackReason:    nullString(row.ModelFallbackReason),
+		CapabilityVersionID:    nullInt64(row.CapabilityVersionID),
+		CapabilitySnapshotHash: nullString(row.CapabilitySnapshotHash),
+		EvaluationVersion:      row.EvaluationVersion,
+		IsLatest:               row.IsLatest,
+		OverallScore:           nullFloat64(row.OverallScore),
+		Recommendation:         nullString(row.Recommendation),
+		Summary:                nullString(row.Summary),
+		StrengthsJSON:          nullString(row.StrengthsJSON),
+		RisksJSON:              nullString(row.RisksJSON),
+		ScoreBreakdownJSON:     nullString(row.ScoreBreakdownJSON),
+		ModelName:              nullString(row.ModelName),
+		EvaluatedAt:            row.EvaluatedAt,
+		CreatedAt:              row.CreatedAt,
+		UpdatedAt:              row.UpdatedAt,
 	}
 }
 
@@ -2585,7 +2630,21 @@ func chatCompatibilityHRID(ownerRole int32, ownerID int64) int64 {
 }
 
 func mapRunRecord(row agentRunRecord) aiagentgrpc.AgentRunRow {
-	return aiagentgrpc.AgentRunRow{ID: row.ID, SessionID: row.SessionID, MessageID: row.MessageID, HistoryID: row.HistoryID, OwnerID: row.HRID, ClientRequestID: row.ClientRequestID, Status: row.Status, AssistantText: row.AssistantText, ProcessText: row.ProcessText, PlanJSON: stringValue(row.PlanJSON), OptionContextJSON: stringValue(row.OptionContext), LastEventSeq: row.LastEventSeq, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, ModelID: row.ModelID, ModelName: row.ModelName, AgentType: row.AgentType, AgentID: row.AgentID, AgentName: row.AgentName, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, CancelRequestedAt: row.CancelRequestedAt, CanceledAt: row.CanceledAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return aiagentgrpc.AgentRunRow{ID: row.ID, TenantID: int64FromPointer(row.TenantID), SessionID: row.SessionID, MessageID: row.MessageID, HistoryID: row.HistoryID, OwnerID: row.HRID, ClientRequestID: row.ClientRequestID, Status: row.Status, AssistantText: row.AssistantText, ProcessText: row.ProcessText, PlanJSON: stringValue(row.PlanJSON), OptionContextJSON: stringValue(row.OptionContext), LastEventSeq: row.LastEventSeq, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, ModelID: row.ModelID, ModelName: row.ModelName, AgentType: row.AgentType, AgentID: row.AgentID, AgentName: row.AgentName, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, CancelRequestedAt: row.CancelRequestedAt, CanceledAt: row.CanceledAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+}
+
+func positiveInt64Pointer(value int64) *int64 {
+	if value <= 0 {
+		return nil
+	}
+	return &value
+}
+
+func int64FromPointer(value *int64) int64 {
+	if value == nil {
+		return 0
+	}
+	return *value
 }
 
 func offset(page, pageSize int32) int {
@@ -2697,7 +2756,7 @@ func formatTime(value time.Time) string {
 	if value.IsZero() {
 		return ""
 	}
-	return value.Format(time.RFC3339)
+	return businessclock.FormatRFC3339(value)
 }
 
 func formatTimePtr(value *time.Time) string {

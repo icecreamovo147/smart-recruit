@@ -11,6 +11,8 @@ import (
 
 	"smart-recruit-commons/oss"
 	sharedauthz "smart-recruit-commons/pkg/authz"
+	commonsquota "smart-recruit-commons/quota"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-platform-go/metadata"
 	"smart-recruit-proto/recruitment/pb"
@@ -77,6 +79,37 @@ func TestNativeRecruitmentScopeFullAccess(t *testing.T) {
 			fixture.assertJobStatus(t, 1002, 0)
 		})
 	}
+}
+
+func TestNativeOnlineJobEnforcesPublishedJobQuota(t *testing.T) {
+	ctx := context.Background()
+	fixture := newScopeFixture(t)
+	fixture.seedScope(t, 101, sharedauthz.ScopeOwnJobs, "", 0)
+	fixture.seedJob(t, 1001, 101, 10, 20)
+	fixture.seedJob(t, 1002, 101, 10, 20)
+	assertCommonOK(t, func() (*pb.CommonResponse, error) {
+		return fixture.job.OfflineJob(ctx, &pb.OfflineJobRequest{HrId: 101, JobId: 1002})
+	})
+
+	ddl := []string{
+		"CREATE TABLE platform_plan_versions (id INTEGER PRIMARY KEY)",
+		"CREATE TABLE tenant_subscriptions (id INTEGER PRIMARY KEY, tenant_id INTEGER, plan_version_id INTEGER, status TEXT, starts_at DATETIME, ends_at DATETIME)",
+		"CREATE TABLE platform_plan_entitlements (plan_version_id INTEGER, entitlement_key TEXT, value_json TEXT, enforcement_mode TEXT)",
+		"CREATE TABLE tenant_entitlement_overrides (tenant_id INTEGER, entitlement_key TEXT, value_json TEXT, expires_at DATETIME)",
+		"INSERT INTO platform_plan_versions (id) VALUES (3)",
+		"INSERT INTO tenant_subscriptions (id, tenant_id, plan_version_id, status, starts_at) VALUES (1, 1, 3, 'active', '2026-07-01 00:00:00')",
+		"INSERT INTO platform_plan_entitlements (plan_version_id, entitlement_key, value_json, enforcement_mode) VALUES (3, 'jobs.published.max', '1', 'hard')",
+	}
+	for _, statement := range ddl {
+		if err := fixture.db.Exec(statement).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	fixture.job.quota = commonsquota.NewChecker(fixture.db)
+	assertCommonCode(t, errs.ErrForbidden, func() (*pb.CommonResponse, error) {
+		return fixture.job.OnlineJob(ctx, &pb.OfflineJobRequest{HrId: 101, JobId: 1002})
+	})
+	fixture.assertJobStatus(t, 1002, 0)
 }
 
 func TestNativeRecruitmentScopeDepartmentLocationOR(t *testing.T) {
@@ -427,7 +460,7 @@ func TestNativeCollaborationScopeAllowsOwnedCandidateWithPermissions(t *testing.
 	if gotOffer.ApplicationId != appID || gotOffer.Title != "Senior Engineer Offer" || gotOffer.Status != "sent" || gotOffer.SalaryRange != "30k-40k" || gotOffer.Level != "P6" || gotOffer.WorkLocation != "Shanghai" || gotOffer.StartDate != "2026-08-01" || gotOffer.JobTitle != "Job 1001" {
 		t.Fatalf("workspace offer = %+v, want seeded offer", gotOffer)
 	}
-	if workspace.Workspace.LatestActivityAt != fixture.now.Add(5*time.Hour).Format(time.RFC3339) {
+	if workspace.Workspace.LatestActivityAt != businessclock.FormatRFC3339(fixture.now.Add(5*time.Hour)) {
 		t.Fatalf("LatestActivityAt = %q, want feedback updated_at", workspace.Workspace.LatestActivityAt)
 	}
 	note, err := fixture.collaboration.CreateNote(ctx, &pb.CreateNoteRequest{StaffUserId: 101, CandidateUserId: 3001, Content: "strong"})
@@ -550,6 +583,8 @@ func newScopeFixture(t *testing.T) *scopeFixture {
 	if err := db.AutoMigrate(
 		&jobRecord{},
 		&candidateProfileRecord{},
+		&candidateEducationRecord{},
+		&candidateExperienceRecord{},
 		&resumeRecord{},
 		&applicationRecord{},
 		&applicationTransitionRecord{},

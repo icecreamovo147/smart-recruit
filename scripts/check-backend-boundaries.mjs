@@ -40,7 +40,6 @@ const allowedRuntimeStubFindings = new Set([
   "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:noopMCPService:unimplemented-native-server",
   "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:noopPromptService:unimplemented-native-server",
   "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:noopRecruitingIntelligenceService:unimplemented-native-server",
-  "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:noopSkillService:unimplemented-native-server",
   "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:CompareCandidatesForJob:empty-success",
   "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:CreateAgentRun:store-nil-success",
   "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:DeleteSession:store-nil-success",
@@ -71,7 +70,6 @@ const allowedRuntimeStubFindings = new Set([
   "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListProviders:empty-success",
   "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListPromptTemplates:store-nil-success",
   "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListPromptTemplates:empty-success",
-  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListSkills:empty-success",
   "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:UpdateSession:store-nil-success",
   "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativeAIService:unimplemented-native-server",
   "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativeAgentConfigService:unimplemented-native-server",
@@ -81,7 +79,6 @@ const allowedRuntimeStubFindings = new Set([
   "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativeMCPService:unimplemented-native-server",
   "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativePromptService:unimplemented-native-server",
   "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativeRecruitingIntelligenceService:unimplemented-native-server",
-  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativeSkillService:unimplemented-native-server",
 ]);
 
 for (const file of listFiles(scanRoots)) {

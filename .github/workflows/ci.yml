@@ -19,6 +19,10 @@ jobs:
         run: node scripts/check-mysql-table-ownership.mjs
       - name: Verify tenant data classification
         run: node scripts/check-tenant-classification.mjs
+      - name: Verify UTC+8 timezone contract
+        run: node scripts/check-timezone-contract.mjs
+      - name: Verify immutable migration baseline
+        run: node scripts/check-migration-baseline.mjs
 
   # ── Go Backend Tests ──────────────────────────────────────────────
   go-test:
@@ -39,6 +43,7 @@ jobs:
           - smart-recruit-notification-service
           - smart-recruit-ai-agent-service
           - smart-recruit-analytics-service
+          - smart-recruit-billing-service
           - smart-recruit-worker-service
     services:
       mysql:
@@ -63,6 +68,7 @@ jobs:
         run: go test ./...
         env:
           MYSQL_DSN: root:test@tcp(127.0.0.1:3306)/recruitment_test?parseTime=true
+          BILLING_TEST_MYSQL_DSN: root:test@tcp(127.0.0.1:3306)/recruitment_test?parseTime=true
           ALLOW_INSECURE_DEV_CONFIG: "true"
       - name: MySQL migration consistency test
         if: matrix.module == 'smart-recruit-commons'
@@ -72,6 +78,23 @@ jobs:
           MYSQL_DSN: root:test@tcp(127.0.0.1:3306)/recruitment_test?parseTime=true
           ALLOW_INSECURE_DEV_CONFIG: "true"
 
+  billing-image:
+    name: Billing Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate all microservice image targets
+        run: bash scripts/build-microservice-images.sh --check
+      - name: Build Billing image
+        run: |
+          docker build \
+            --file smart-recruit-deploy/docker/go-service.Dockerfile \
+            --build-arg SERVICE_DIR=smart-recruit-billing-service \
+            --build-arg CMD_PATH=./cmd/billing-service \
+            --build-arg BINARY_NAME=billing-service \
+            --tag smart-recruit/smart-recruit-billing-service:ci \
+            .
+
   # ── Frontend Type Check + Build ──────────────────────────────────
   frontend:
     name: Frontend (${{ matrix.app }})
@@ -79,7 +102,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [hr-frontend, user-frontend, interviewer-frontend]
+        app: [hr-frontend, user-frontend, platform-frontend]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

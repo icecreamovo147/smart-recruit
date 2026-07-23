@@ -9,9 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/cloudwego/eino/schema"
 )
 
 const (
@@ -99,8 +102,10 @@ func (l *PromptLoader) LoadSystemPrompt(ctx context.Context, agentType string) (
 }
 
 type StructuredCompletionResult struct {
-	Content   string
-	ModelName string
+	Content     string
+	ProviderKey string
+	ModelName   string
+	TokenUsage  *schema.TokenUsage
 }
 
 type StructuredCompletionProvider interface {
@@ -108,9 +113,55 @@ type StructuredCompletionProvider interface {
 }
 
 type CompletionResult struct {
-	Content   string
-	ModelName string
-	Prompt    PromptDescriptor
+	Content     string
+	ProviderKey string
+	ModelName   string
+	TokenUsage  *schema.TokenUsage
+	Prompt      PromptDescriptor
+}
+
+type BillingProviderUsage struct {
+	ProviderKey           string
+	ModelName             string
+	TokenUsage            *schema.TokenUsage
+	EstimatedInputTokens  int
+	EstimatedOutputTokens int
+}
+
+type BillingUsageCollector struct {
+	mu     sync.Mutex
+	usages []BillingProviderUsage
+}
+
+type billingUsageCollectorContextKey struct{}
+
+func WithBillingUsageCollector(ctx context.Context) (context.Context, *BillingUsageCollector) {
+	collector := &BillingUsageCollector{}
+	return context.WithValue(ctx, billingUsageCollectorContextKey{}, collector), collector
+}
+
+func (c *BillingUsageCollector) add(usage BillingProviderUsage) {
+	if c == nil {
+		return
+	}
+	if usage.TokenUsage != nil {
+		copyUsage := *usage.TokenUsage
+		usage.TokenUsage = &copyUsage
+	}
+	c.mu.Lock()
+	c.usages = append(c.usages, usage)
+	c.mu.Unlock()
+}
+
+func (c *BillingUsageCollector) Usages() []BillingProviderUsage {
+	if c == nil {
+		return nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	result := make([]BillingProviderUsage, len(c.usages))
+	copy(result, c.usages)
+	return result
 }
 
 // Observation is the complete allow-list for recruiting runtime diagnostics.
@@ -356,7 +407,22 @@ func (r *Runtime) Complete(ctx context.Context, agentType, userPrompt string) (C
 		return CompletionResult{}, &RuntimeError{Kind: ErrorKindProvider, Operation: "complete", AgentType: agentType, Cause: err}
 	}
 	r.observe(operationCtx, observationForPrompt("structured_completion", "success", prompt, result.ModelName, "none", time.Since(completionStarted)))
-	return CompletionResult{Content: result.Content, ModelName: result.ModelName, Prompt: prompt}, nil
+	if collector, _ := operationCtx.Value(billingUsageCollectorContextKey{}).(*BillingUsageCollector); collector != nil {
+		collector.add(BillingProviderUsage{
+			ProviderKey: result.ProviderKey, ModelName: result.ModelName, TokenUsage: result.TokenUsage,
+			EstimatedInputTokens:  estimateStructuredTokens(prompt.Content + "\n" + userPrompt),
+			EstimatedOutputTokens: estimateStructuredTokens(result.Content),
+		})
+	}
+	return CompletionResult{Content: result.Content, ProviderKey: result.ProviderKey, ModelName: result.ModelName, TokenUsage: result.TokenUsage, Prompt: prompt}, nil
+}
+
+func estimateStructuredTokens(value string) int {
+	runes := utf8.RuneCountInString(value)
+	if runes <= 0 {
+		return 0
+	}
+	return (runes + 3) / 4
 }
 
 func observationForPrompt(stage, outcome string, prompt PromptDescriptor, modelName, fallback string, duration time.Duration) Observation {

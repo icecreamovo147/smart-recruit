@@ -1,0 +1,9 @@
+ALTER TABLE `candidate_profiles`
+  DROP COLUMN `summary`,
+  DROP COLUMN `available_from`,
+  DROP COLUMN `expected_salary_max`,
+  DROP COLUMN `expected_salary_min`,
+  DROP COLUMN `expected_position`,
+  DROP COLUMN `job_status`,
+  DROP COLUMN `years_of_experience`,
+  DROP COLUMN `city`;

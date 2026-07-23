@@ -7,24 +7,7 @@ import (
 	"smart-recruit-recruitment-service/internal/domain/model"
 )
 
-func TestRecruitmentPolicyCompletesProfileAndValidatesResumeFile(t *testing.T) {
-	profile := &model.CandidateProfile{
-		RealName:       "Ada",
-		Phone:          "13800000000",
-		Education:      "Bachelor",
-		School:         "THU",
-		WorkExperience: "5 years",
-		Skills:         "Go",
-	}
-	CompleteCandidateProfile(profile)
-	if profile.IsComplete != 1 {
-		t.Fatalf("IsComplete = %d, want 1", profile.IsComplete)
-	}
-	profile.Skills = " "
-	CompleteCandidateProfile(profile)
-	if profile.IsComplete != 0 {
-		t.Fatalf("IsComplete = %d, want 0", profile.IsComplete)
-	}
+func TestRecruitmentPolicyValidatesResumeFile(t *testing.T) {
 	if err := ValidateResumeFile("resume.pdf", "pdf"); err != nil {
 		t.Fatalf("ValidateResumeFile(pdf) error = %v", err)
 	}

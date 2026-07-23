@@ -7,11 +7,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	gogrpc "google.golang.org/grpc"
 
 	commonsai "smart-recruit-commons/ai"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -101,7 +101,7 @@ func (e *Executor) queryTodayApplications(ctx context.Context, hrID int64, args 
 		return commonsai.ToolResult{}, err
 	}
 	apps := aggregation.applications()
-	today := time.Now().Format("2006-01-02")
+	today := businessclock.Now().Format("2006-01-02")
 	var count int64
 	for _, app := range apps {
 		if app == nil {
@@ -247,7 +247,7 @@ func (e *Executor) applicationTrend(ctx context.Context, hrID int64, args map[st
 		return commonsai.ToolResult{}, err
 	}
 	apps := aggregation.applications()
-	cutoff := time.Now().AddDate(0, 0, -int(days-1)).Truncate(24 * time.Hour)
+	cutoff := businessclock.StartOfDay(businessclock.Now()).AddDate(0, 0, -int(days-1))
 	byDay := map[string]int64{}
 	for d := 0; d < int(days); d++ {
 		day := cutoff.AddDate(0, 0, d).Format("2006-01-02")

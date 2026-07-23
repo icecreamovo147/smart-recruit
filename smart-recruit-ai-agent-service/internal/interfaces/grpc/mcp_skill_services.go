@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	domainmemory "smart-recruit-ai-agent-service/internal/domain/memory"
 	"smart-recruit-ai-agent-service/internal/domain/model"
 	"smart-recruit-ai-agent-service/internal/domain/policy"
 	mcpinfra "smart-recruit-ai-agent-service/internal/infrastructure/mcp"
@@ -42,17 +43,6 @@ func (s nativeMCPService) RedactedArgsForTool(ctx context.Context, serverID int6
 		return redactMCPJSON(argsJSON, nil)
 	}
 	return redactMCPJSON(argsJSON, policyModel.RedactFields)
-}
-
-type skillGovernanceStore interface {
-	ListSkills(context.Context, *pb.ListSkillsRequest) (*pb.ListSkillsResponse, error)
-	CreateSkill(context.Context, *pb.CreateSkillRequest) (*pb.SkillResponse, error)
-	UpdateSkill(context.Context, *pb.UpdateSkillRequest) (*pb.SkillResponse, error)
-	CreateSkillVersion(context.Context, *pb.CreateSkillVersionRequest) (*pb.SkillVersionResponse, error)
-	ListSkillVersions(context.Context, *pb.ListSkillVersionsRequest) (*pb.ListSkillVersionsResponse, error)
-	ActivateSkillVersion(context.Context, *pb.ActivateSkillVersionRequest) (*pb.SkillResponse, error)
-	ListSkillTools(context.Context, *pb.ListSkillToolsRequest) (*pb.ListSkillToolsResponse, error)
-	UpdateSkillTool(context.Context, *pb.UpdateSkillToolRequest) (*pb.SkillToolResponse, error)
 }
 
 type agentSkillGovernanceStore interface {
@@ -358,62 +348,6 @@ func truncateMCPText(value string) string {
 	return value[:maxLen] + "...[truncated]"
 }
 
-func (s nativeSkillService) CreateSkill(ctx context.Context, req *pb.CreateSkillRequest) (*pb.SkillResponse, error) {
-	store, ok := s.store.(skillGovernanceStore)
-	if !ok {
-		return &pb.SkillResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
-	}
-	return store.CreateSkill(ctx, req)
-}
-
-func (s nativeSkillService) UpdateSkill(ctx context.Context, req *pb.UpdateSkillRequest) (*pb.SkillResponse, error) {
-	store, ok := s.store.(skillGovernanceStore)
-	if !ok {
-		return &pb.SkillResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
-	}
-	return store.UpdateSkill(ctx, req)
-}
-
-func (s nativeSkillService) CreateSkillVersion(ctx context.Context, req *pb.CreateSkillVersionRequest) (*pb.SkillVersionResponse, error) {
-	store, ok := s.store.(skillGovernanceStore)
-	if !ok {
-		return &pb.SkillVersionResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
-	}
-	return store.CreateSkillVersion(ctx, req)
-}
-
-func (s nativeSkillService) ListSkillVersions(ctx context.Context, req *pb.ListSkillVersionsRequest) (*pb.ListSkillVersionsResponse, error) {
-	store, ok := s.store.(skillGovernanceStore)
-	if !ok {
-		return &pb.ListSkillVersionsResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
-	}
-	return store.ListSkillVersions(ctx, req)
-}
-
-func (s nativeSkillService) ActivateSkillVersion(ctx context.Context, req *pb.ActivateSkillVersionRequest) (*pb.SkillResponse, error) {
-	store, ok := s.store.(skillGovernanceStore)
-	if !ok {
-		return &pb.SkillResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
-	}
-	return store.ActivateSkillVersion(ctx, req)
-}
-
-func (s nativeSkillService) ListSkillTools(ctx context.Context, req *pb.ListSkillToolsRequest) (*pb.ListSkillToolsResponse, error) {
-	store, ok := s.store.(skillGovernanceStore)
-	if !ok {
-		return &pb.ListSkillToolsResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
-	}
-	return store.ListSkillTools(ctx, req)
-}
-
-func (s nativeSkillService) UpdateSkillTool(ctx context.Context, req *pb.UpdateSkillToolRequest) (*pb.SkillToolResponse, error) {
-	store, ok := s.store.(skillGovernanceStore)
-	if !ok {
-		return &pb.SkillToolResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
-	}
-	return store.UpdateSkillTool(ctx, req)
-}
-
 func (s nativeAgentSkillService) GetAgentSkill(ctx context.Context, req *pb.GetAgentSkillRequest) (*pb.AgentSkillResponse, error) {
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {
@@ -494,8 +428,19 @@ func (s nativeAgentSkillService) PreviewAgentSkill(ctx context.Context, req *pb.
 }
 
 func (s nativeAgentSkillService) DebugSemanticRetrieval(ctx context.Context, req *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
+	ownerID := req.GetOwnerId()
+	ownerRole := req.GetOwnerRole()
+	if ownerID == 0 && req.GetHrId() > 0 {
+		ownerID = uint64(req.GetHrId())
+		ownerRole = int32(domainmemory.OwnerRoleHR)
+	}
+	if ownerID > 0 {
+		if _, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), ownerRole, ownerID); err != nil {
+			return nil, err
+		}
+	}
 	if s.embedding != nil {
-		return s.embedding.SearchAgentSkills(ctx, req.GetQuery(), int(req.GetLimit()))
+		return s.embedding.DebugSemanticRetrieval(ctx, req)
 	}
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {

@@ -29,6 +29,8 @@ export interface ChatMessage {
   waitingText?: string
   process_content?: string
   processContent?: string
+  suggested_questions?: string[] | string
+  suggestedQuestions?: string[] | string
   context_usage?: ContextUsageInfo
   contextUsage?: ContextUsageInfo
   candidateOptions?: CandidateOption[]
@@ -72,6 +74,11 @@ export interface ContextUsageBreakdown {
 export interface ContextUsageInfo {
   model_id: number
   model_name: string
+  requested_model_id?: number
+  effective_model_id?: number
+  model_fallback_reason?: string
+  capability_version_id?: number
+  capability_snapshot_hash?: string
   context_window_tokens: number
   max_output_tokens: number
   prompt_tokens_estimated: number
@@ -90,6 +97,7 @@ export interface ContextUsageInfo {
   included_message_count?: number
   omitted_message_count?: number
   summary_applied?: boolean
+  memory_applied?: boolean
   breakdown?: ContextUsageBreakdown
 }
 
@@ -117,6 +125,7 @@ export interface StreamPayload {
   agent_skill_ids?: number[]
   agent_skill_selection?: AgentSkillSelectionPayload
   context_usage?: ContextUsageInfo
+  suggested_questions?: string[]
 }
 
 export interface AgentSkillSelectionCandidate {

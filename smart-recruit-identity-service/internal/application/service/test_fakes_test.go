@@ -62,6 +62,15 @@ func (m *memoryUsers) ListStaff(context.Context, int32, int32, string) ([]model.
 	}
 	return rows, int64(len(rows)), nil
 }
+func (m *memoryUsers) ListPlatformAccounts(context.Context, int32, int32, string) ([]model.PlatformAccount, int64, error) {
+	return nil, 0, nil
+}
+func (m *memoryUsers) CreatePlatformAccount(context.Context, *model.User, uint64, *uint64) error {
+	return nil
+}
+func (m *memoryUsers) UpdatePlatformAccount(context.Context, int64, uint64, string, string, int64) (*model.PlatformAccount, error) {
+	return nil, nil
+}
 
 type memoryAuthz struct {
 	roles          map[string]*model.Role
@@ -71,19 +80,26 @@ type memoryAuthz struct {
 	assignedScopes map[int64][]string
 	restoredRole   bool
 	auditRecords   []model.AuthAuditDecision
+	platformPerms  []string
 }
 
 func newMemoryAuthz() *memoryAuthz {
 	return &memoryAuthz{
 		roles: map[string]*model.Role{
-			model.RoleCandidate:   {ID: 1, RoleKey: model.RoleCandidate},
-			model.RoleRecruiter:   {ID: 2, RoleKey: model.RoleRecruiter},
-			model.RoleSystemAdmin: {ID: 3, RoleKey: model.RoleSystemAdmin},
+			model.RoleCandidate:       {ID: 1, RoleKey: model.RoleCandidate},
+			model.RoleRecruiter:       {ID: 2, RoleKey: model.RoleRecruiter},
+			model.RoleSystemAdmin:     {ID: 3, RoleKey: model.RoleSystemAdmin},
+			model.RoleRecruitingAdmin: {ID: 4, RoleKey: model.RoleRecruitingAdmin},
 		},
 		userRoles:      map[int64][]string{},
 		userPerms:      map[int64][]string{},
 		assignedRoles:  map[int64][]string{},
 		assignedScopes: map[int64][]string{},
+		platformPerms: []string{
+			model.PermPlatformDashboardRead, model.PermPlatformTenantRead,
+			model.PermPlatformTenantManage, model.PermPlatformMemberManage,
+			model.PermPlatformAuditRead,
+		},
 	}
 }
 
@@ -120,7 +136,11 @@ func (m *memoryAuthz) LoadPrincipal(_ context.Context, userID uint64) (*model.Pr
 }
 
 func (m *memoryAuthz) LoadPlatformPrincipal(_ context.Context, userID uint64) (*model.Principal, error) {
-	return &model.Principal{UserID: int64(userID), AccountType: model.AccountTypePlatform, Roles: []string{model.RolePlatformAdmin}, ClientApp: "platform"}, nil
+	return &model.Principal{
+		UserID: int64(userID), AccountType: model.AccountTypePlatform,
+		Roles: []string{model.RolePlatformAdmin}, ClientApp: "platform",
+		Permissions: append([]string(nil), m.platformPerms...),
+	}, nil
 }
 
 func (m *memoryAuthz) AssignRole(_ context.Context, userID, roleID uint64, _ *uint64) error {

@@ -21,10 +21,11 @@ SERVICES=(
   smart-recruit-notification-service
   smart-recruit-ai-agent-service
   smart-recruit-analytics-service
+  smart-recruit-billing-service
   smart-recruit-worker-service
 )
 
-NACOS_SERVICES=(identity recruitment interview offer notification ai-agent analytics worker)
+NACOS_SERVICES=(identity recruitment interview offer notification ai-agent analytics billing worker)
 GATEWAY_ROUTE_CHECKS=(
   "identity:POST:http://127.0.0.1:8080/api/v1/auth/login"
   "recruitment:GET:http://127.0.0.1:8080/api/v1/jobs"

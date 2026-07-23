@@ -16,7 +16,6 @@ API semantics.
   - `PromptService`
   - `AgentConfigService`
   - `MCPService`
-  - `SkillService`
   - `AgentSkillService`
   - `RecruitingIntelligenceService`
   - `EmbeddingConfigService`
@@ -163,7 +162,7 @@ Known shared dependencies to remove in later AI Agent TASKs:
 
 - Service-local legacy business services: `AIService`, `CandidateAIService`,
   `AIAgentRuntime`, `LlmConfigService`, `PromptService`, `AgentConfigService`,
-  `MCPService`, `SkillService`, `AgentSkillService`,
+  `MCPService`, `AgentSkillService`,
   `RecruitingIntelligenceService`, `EmbeddingConfigService`,
   `EmbeddingService`, `EmbeddingBackfillService`, `EmbeddingConsumer`, and
   `AgentRunConsumer`.

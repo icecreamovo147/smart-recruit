@@ -4,12 +4,14 @@ package authz
 // ── Role keys ──────────────────────────────────────────────────────────
 
 const (
-	RoleCandidate       = "candidate"
-	RoleRecruiter       = "recruiter"
-	RoleRecruitingAdmin = "recruiting_admin"
-	RoleSystemAdmin     = "system_admin"
-	RoleInterviewer     = "interviewer"
-	RolePlatformAdmin   = "platform_admin"
+	RoleCandidate        = "candidate"
+	RoleRecruiter        = "recruiter"
+	RoleRecruitingAdmin  = "recruiting_admin"
+	RoleSystemAdmin      = "system_admin"
+	RoleInterviewer      = "interviewer"
+	RolePlatformAdmin    = "platform_admin"
+	RolePlatformOperator = "platform_operator"
+	RolePlatformAuditor  = "platform_auditor"
 )
 
 // StaffRoles returns all staff roles (non-candidate).
@@ -24,12 +26,18 @@ func AdminRoles() []string {
 
 // RoleDisplayNames maps role keys to human-readable Chinese names.
 var RoleDisplayNames = map[string]string{
-	RoleCandidate:       "求职者",
-	RoleRecruiter:       "招聘专员",
-	RoleRecruitingAdmin: "招聘管理员",
-	RoleSystemAdmin:     "系统管理员",
-	RoleInterviewer:     "面试官",
-	RolePlatformAdmin:   "平台管理员",
+	RoleCandidate:        "求职者",
+	RoleRecruiter:        "招聘专员",
+	RoleRecruitingAdmin:  "招聘管理员",
+	RoleSystemAdmin:      "系统管理员",
+	RoleInterviewer:      "面试官",
+	RolePlatformAdmin:    "平台管理员",
+	RolePlatformOperator: "平台运营管理员",
+	RolePlatformAuditor:  "平台审计员",
+}
+
+func PlatformRoles() []string {
+	return []string{RolePlatformAdmin, RolePlatformOperator, RolePlatformAuditor}
 }
 
 // ── Deprecated numeric role constants (compatibility only) ─────────────

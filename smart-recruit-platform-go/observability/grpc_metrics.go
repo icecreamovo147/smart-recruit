@@ -11,11 +11,13 @@ import (
 var DefaultMetrics = NewRegistry("smart-recruit-service")
 
 type Registry struct {
-	service string
-	mu      sync.Mutex
-	rpc     map[rpcKey]*histogram
-	panics  map[panicKey]uint64
-	auth    map[authKey]uint64
+	service       string
+	mu            sync.Mutex
+	rpc           map[rpcKey]*histogram
+	panics        map[panicKey]uint64
+	auth          map[authKey]uint64
+	billingEvents map[billingKey]uint64
+	billingGauges map[billingKey]float64
 }
 
 type rpcKey struct {
@@ -32,6 +34,8 @@ type authKey struct {
 	Reason string
 }
 
+type billingKey struct{ Name, State string }
+
 type histogram struct {
 	Count   uint64
 	Sum     float64
@@ -42,11 +46,33 @@ var defaultBuckets = []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5,
 
 func NewRegistry(service string) *Registry {
 	return &Registry{
-		service: service,
-		rpc:     make(map[rpcKey]*histogram),
-		panics:  make(map[panicKey]uint64),
-		auth:    make(map[authKey]uint64),
+		service:       service,
+		rpc:           make(map[rpcKey]*histogram),
+		panics:        make(map[panicKey]uint64),
+		auth:          make(map[authKey]uint64),
+		billingEvents: make(map[billingKey]uint64),
+		billingGauges: make(map[billingKey]float64),
 	}
+}
+
+func (r *Registry) RecordBillingEvent(operation, outcome string) {
+	if r == nil {
+		return
+	}
+	key := billingKey{Name: normalizeLabel(operation, "unknown"), State: normalizeLabel(outcome, "unknown")}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.billingEvents[key]++
+}
+
+func (r *Registry) SetBillingGauge(name, state string, value float64) {
+	if r == nil {
+		return
+	}
+	key := billingKey{Name: normalizeLabel(name, "unknown"), State: normalizeLabel(state, "unknown")}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.billingGauges[key] = value
 }
 
 func (r *Registry) ObserveRPC(method, code string, elapsed time.Duration) {
@@ -113,7 +139,29 @@ func (r *Registry) Prometheus() string {
 	for key, count := range r.auth {
 		authSnapshots = append(authSnapshots, authSnapshot{key: key, count: count})
 	}
+	type billingMetric struct {
+		key   billingKey
+		value float64
+	}
+	billingEvents := make([]billingMetric, 0, len(r.billingEvents))
+	for key, count := range r.billingEvents {
+		billingEvents = append(billingEvents, billingMetric{key: key, value: float64(count)})
+	}
+	billingGauges := make([]billingMetric, 0, len(r.billingGauges))
+	for key, value := range r.billingGauges {
+		billingGauges = append(billingGauges, billingMetric{key: key, value: value})
+	}
 	r.mu.Unlock()
+	sortBilling := func(items []billingMetric) {
+		sort.Slice(items, func(i, j int) bool {
+			if items[i].key.Name != items[j].key.Name {
+				return items[i].key.Name < items[j].key.Name
+			}
+			return items[i].key.State < items[j].key.State
+		})
+	}
+	sortBilling(billingEvents)
+	sortBilling(billingGauges)
 	sort.Slice(snapshots, func(i, j int) bool {
 		if snapshots[i].key.Method != snapshots[j].key.Method {
 			return snapshots[i].key.Method < snapshots[j].key.Method
@@ -155,6 +203,16 @@ func (r *Registry) Prometheus() string {
 	b.WriteString("# TYPE smart_recruit_grpc_internal_auth_rejections_total counter\n")
 	for _, s := range authSnapshots {
 		fmt.Fprintf(&b, "smart_recruit_grpc_internal_auth_rejections_total%s %d\n", authLabels(r.service, s.key), s.count)
+	}
+	b.WriteString("# HELP smart_recruit_billing_events_total Billing lifecycle events by operation and outcome.\n")
+	b.WriteString("# TYPE smart_recruit_billing_events_total counter\n")
+	for _, item := range billingEvents {
+		fmt.Fprintf(&b, "smart_recruit_billing_events_total{service=\"%s\",operation=\"%s\",outcome=\"%s\"} %.0f\n", escapeLabel(r.service), escapeLabel(item.key.Name), escapeLabel(item.key.State), item.value)
+	}
+	b.WriteString("# HELP smart_recruit_billing_state_count Current billing lifecycle backlog by resource and state.\n")
+	b.WriteString("# TYPE smart_recruit_billing_state_count gauge\n")
+	for _, item := range billingGauges {
+		fmt.Fprintf(&b, "smart_recruit_billing_state_count{service=\"%s\",resource=\"%s\",state=\"%s\"} %.0f\n", escapeLabel(r.service), escapeLabel(item.key.Name), escapeLabel(item.key.State), item.value)
 	}
 	return b.String()
 }

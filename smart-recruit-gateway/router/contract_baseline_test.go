@@ -28,6 +28,29 @@ func TestCoreHTTPRouteGroupsRemainRegistered(t *testing.T) {
 		"POST /api/v1/auth/login",
 		"POST /api/v1/auth/refresh",
 		"GET /api/v1/auth/me",
+		"GET /api/v1/platform/dashboard",
+		"GET /api/v1/platform/tenants",
+		"GET /api/v1/platform/tenants/:tenant_id",
+		"PATCH /api/v1/platform/tenants/:tenant_id/memberships/:membership_id/status",
+		"GET /api/v1/platform/audit-logs",
+		"GET /api/v1/platform/plans",
+		"POST /api/v1/platform/plans/:plan_id/versions",
+		"POST /api/v1/platform/plans/:plan_id/versions/:version_id/publish",
+		"GET /api/v1/platform/tenants/:tenant_id/subscription",
+		"PUT /api/v1/platform/tenants/:tenant_id/subscription",
+		"PUT /api/v1/platform/tenants/:tenant_id/entitlement-override",
+		"GET /api/v1/platform/tenants/:tenant_id/usage",
+		"GET /api/v1/platform/quota-alerts",
+		"PATCH /api/v1/platform/quota-alerts/:alert_id",
+		"GET /api/v1/platform/users",
+		"POST /api/v1/platform/users",
+		"PATCH /api/v1/platform/users/:user_id",
+		"GET /api/v1/platform/ai/capabilities",
+		"POST /api/v1/platform/ai/capabilities/:capability_id/versions",
+		"DELETE /api/v1/platform/ai/capability-versions/:version_id",
+		"POST /api/v1/platform/ai/capability-versions/:version_id/publish",
+		"GET /api/v1/platform/ai/llm-providers",
+		"GET /api/v1/platform/ai/mcp-servers",
 		"GET /api/v1/jobs",
 		"GET /api/v1/jobs/:job_id",
 		"GET /api/v1/candidate/profile",
@@ -49,13 +72,46 @@ func TestCoreHTTPRouteGroupsRemainRegistered(t *testing.T) {
 		"GET /api/v1/hr/analytics/dashboard",
 		"GET /api/v1/hr/admin/roles",
 		"GET /api/v1/hr/admin/permissions",
-		"GET /api/v1/hr/admin/llm-providers",
-		"GET /api/v1/hr/admin/mcp-servers",
-		"GET /api/v1/hr/admin/skills",
 	}
 	for _, route := range expected {
 		if !registered[route] {
 			t.Fatalf("expected core route to be registered: %s", route)
+		}
+	}
+
+	removedTenantTechnicalRoutes := []string{
+		"GET /api/v1/hr/admin/llm-providers",
+		"POST /api/v1/hr/admin/llm-models",
+		"GET /api/v1/hr/admin/embedding-providers",
+		"POST /api/v1/hr/admin/embedding-models",
+		"GET /api/v1/hr/admin/prompt-templates",
+		"POST /api/v1/hr/admin/agent-configs",
+		"GET /api/v1/hr/admin/mcp-servers",
+		"POST /api/v1/hr/admin/skills",
+		"GET /api/v1/hr/admin/agent-skills",
+	}
+	for _, route := range removedTenantTechnicalRoutes {
+		if registered[route] {
+			t.Fatalf("tenant technical AI route must be removed after one-time cutover: %s", route)
+		}
+	}
+
+	removedLegacySkillRoutes := []string{
+		"GET /api/v1/platform/ai/skills",
+		"POST /api/v1/platform/ai/skills",
+		"PUT /api/v1/platform/ai/skills/:id",
+		"GET /api/v1/platform/ai/skills/:id/versions",
+		"POST /api/v1/platform/ai/skills/:id/versions",
+		"POST /api/v1/platform/ai/skills/:id/versions/:version_id/activate",
+		"GET /api/v1/platform/ai/skills/:id/tools",
+		"PUT /api/v1/platform/ai/skills/:id/tools/:tool_id",
+		"GET /api/v1/hr/capabilities",
+		"GET /api/v1/hr/capabilities/:id",
+		"POST /api/v1/hr/capabilities/from-template",
+	}
+	for _, route := range removedLegacySkillRoutes {
+		if registered[route] {
+			t.Fatalf("legacy Skill route must be absent after the registry retirement: %s", route)
 		}
 	}
 }

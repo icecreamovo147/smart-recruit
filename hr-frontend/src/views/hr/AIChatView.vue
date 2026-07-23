@@ -1,5 +1,44 @@
 <script lang="ts">
-import type { CreateAgentRunRequest } from '@/types/agentRun'
+import type { CreateAgentRunRequest } from '@shared/types/agentRun'
+
+export const normalizeSuggestedQuestions = (value: unknown): string[] => {
+  let source = value
+  if (typeof value === 'string') {
+    try {
+      source = JSON.parse(value)
+    } catch {
+      source = value.split(/[，,；;、\n]/)
+    }
+  }
+  if (!Array.isArray(source)) return []
+  const result: string[] = []
+  for (const item of source) {
+    const question = String(item || '').trim()
+    if (!question || result.includes(question)) continue
+    result.push(question)
+    if (result.length === 3) break
+  }
+  return result
+}
+
+export const suggestedQuestionsFromProcessContent = (raw?: string): string[] => {
+  if (!raw) return []
+  try {
+    const payload = JSON.parse(raw) as { suggested_questions?: unknown; suggestedQuestions?: unknown }
+    return normalizeSuggestedQuestions(payload.suggested_questions ?? payload.suggestedQuestions)
+  } catch {
+    return []
+  }
+}
+
+export const isInsufficientCreditsFailure = (...values: unknown[]): boolean =>
+  values.some((value) => {
+    const normalized = String(value ?? '').trim().toLowerCase()
+    return normalized === '40201'
+      || normalized.includes('insufficient_credits')
+      || normalized.includes('额度不足')
+      || normalized.includes('额度已用完')
+  })
 
 export const buildApplicationAnalysisMessage = (candidateName?: string, jobTitle?: string): string => {
   const candidate = candidateName?.trim() || '该候选人'
@@ -42,17 +81,20 @@ export const buildApplicationAnalysisRunRequest = (input: {
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { WarningFilled } from '@element-plus/icons-vue'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, listSkillCapabilities, previewSessionContext, updateSession } from '@/api/ai'
 import { listAvailableAgentSkills } from '@/api/agentSkill'
 import { updateApplicationStatus } from '@/api/application'
 import { listAvailableModels } from '@/api/llm'
+import { getBillingAccount } from '@/api/billing'
 import {
   bindRunStateToChatUi,
   createClientRequestId,
   executeConfirmChatRun,
   executeCreateChatRun,
+  friendlyDurableRunErrorMessage,
   toAgentSkillSelectionPayload,
   type DurableChatUiBinder,
 } from '@/components/hr/ai/agentRunChatFlow'
@@ -62,11 +104,11 @@ import ConversationHeader from '@/components/chat/ConversationHeader.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import { useHrAgentRun } from '@/composables/useHrAgentRun'
-import type { AgentRunResultMetadata } from '@/types/agentRun'
+import type { AgentRunResultMetadata } from '@shared/types/agentRun'
 import type { AgentSkillSelectionPayload, ChatMessageSkill, ChatSessionListItem, Session, CandidateOption, StreamPayload, ContextUsageInfo } from '@/types/ai'
-import type { CapabilityInfo } from '@/types/agent'
-import type { LlmModel } from '@/types/llm'
-import type { AvailableAgentSkill } from '@/types/agentSkill'
+import type { CapabilityInfo } from '@shared/types/agent'
+import type { LlmModel } from '@shared/types/llm'
+import type { AvailableAgentSkill } from '@shared/types/agentSkill'
 import { sanitizeAssistantProcessText } from '@/utils/hrAssistantProcess'
 import {
   contextGuardCodeFrom,
@@ -99,6 +141,8 @@ interface MessageItem {
   waitingText?: string
   process_content?: string
   processContent?: string
+  suggested_questions?: string[] | string
+  suggestedQuestions?: string[] | string
   context_usage?: ContextUsageInfo
   contextUsage?: ContextUsageInfo
   candidateOptions?: CandidateOption[]
@@ -200,7 +244,10 @@ const selectedAgentSkillIds = ref<number[]>([])
 const skillCapabilities = ref<CapabilityInfo[]>([])
 const selectedSkillKeys = ref<string[]>([])
 const contextUsage = ref<ContextUsageInfo | null>(null)
+const lastModelFallbackSignature = ref('')
 const contextPreviewing = ref(false)
+const availableCredits = ref<number | null>(null)
+const billingAccessLoading = ref(true)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const listRef = ref<any>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -209,6 +256,43 @@ let contextPreviewTimer: ReturnType<typeof setTimeout> | null = null
 let contextPreviewController: AbortController | null = null
 let contextPreviewVersion = 0
 const contextUsageStoragePrefix = 'hr-ai-context-usage:'
+
+const latestSuggestedQuestions = computed(() => {
+  const latest = messages.value[messages.value.length - 1]
+  if (
+    latest?.role !== 'assistant'
+    || latest.pending
+    || latest.failed
+    || latest.agentSkillSelection
+    || normalizeSuggestedQuestions(latest.suggestedQuestions).length === 0
+  ) return []
+  return normalizeSuggestedQuestions(latest.suggestedQuestions)
+})
+
+const quotaExhausted = computed(() => availableCredits.value !== null && availableCredits.value <= 0)
+
+const refreshBillingAccess = async () => {
+  billingAccessLoading.value = true
+  try {
+    const account = await getBillingAccount()
+    const value = Number(account.available_credits)
+    availableCredits.value = Number.isFinite(value) ? Math.max(0, value) : null
+  } catch {
+    availableCredits.value = null
+  } finally {
+    billingAccessLoading.value = false
+  }
+}
+
+const applyQuotaExhausted = (assistantIndex?: number) => {
+  availableCredits.value = 0
+  if (assistantIndex == null) return
+  const message = messages.value[assistantIndex]
+  if (message?.role === 'assistant' && !message.content?.trim()) {
+    messages.value.splice(assistantIndex, 1)
+  }
+  scrollBottom()
+}
 
 // Durable HR Agent runtime (TASK-HARS-007). Legacy sendMessageStream remains in api/ai.ts for rollout compatibility.
 const agentRun = useHrAgentRun()
@@ -340,6 +424,13 @@ const normalizeMessage = (message: Partial<MessageItem>, fallback?: MessageItem)
   const skill = normalizeSkillMeta(message, fallback)
   const skills = normalizeSkillsMeta(message, fallback)
   const processContent = sanitizeAssistantProcessText(message.processContent || message.process_content || fallback?.processContent || '')
+  const directSuggestedQuestions = normalizeSuggestedQuestions(message.suggestedQuestions ?? message.suggested_questions)
+  const persistedSuggestedQuestions = suggestedQuestionsFromProcessContent(message.processContent || message.process_content)
+  const suggestedQuestions = directSuggestedQuestions.length > 0
+    ? directSuggestedQuestions
+    : persistedSuggestedQuestions.length > 0
+      ? persistedSuggestedQuestions
+      : normalizeSuggestedQuestions(fallback?.suggestedQuestions)
   const contextUsageSnapshot = message.context_usage || message.contextUsage || fallback?.context_usage || fallback?.contextUsage
   const {
     processContent: _processContent,
@@ -351,6 +442,7 @@ const normalizeMessage = (message: Partial<MessageItem>, fallback?: MessageItem)
     ...(skill ? { skill } : {}),
     ...(skills?.length ? { skills } : {}),
     ...(processContent ? { processContent } : {}),
+    ...(suggestedQuestions.length ? { suggestedQuestions } : {}),
     ...(contextUsageSnapshot ? { context_usage: contextUsageSnapshot } : {}),
   }
 }
@@ -493,9 +585,14 @@ const appendAssistantProcess = (index: number, delta: string) => {
   enqueueAssistantText(index, 'process', text)
 }
 
-const markAssistantError = (index: number, error: Error | null, explicitCode?: string) => {
+const markAssistantError = (index: number, error: Error | null, explicitCode?: string): boolean => {
   clearAssistantTextQueue()
   const message = messages.value[index]
+  const errorCode = (error as (Error & { code?: string | number }) | null)?.code
+  if (isInsufficientCreditsFailure(explicitCode, errorCode, error?.message, message?.errorCode)) {
+    applyQuotaExhausted(index)
+    return true
+  }
   const errorWithGuard = error as (Error & { contextGuardCode?: string }) | null
   const guardCode = contextGuardCodeFrom(explicitCode, errorWithGuard?.contextGuardCode, error?.message, message?.errorCode)
   const content = contextGuardMessage(guardCode) || error?.message || '响应中断，请稍后重试'
@@ -506,6 +603,7 @@ const markAssistantError = (index: number, error: Error | null, explicitCode?: s
     messages.value.push({ role: 'assistant', content, failed: true, retryDisabled, ...(guardCode ? { errorCode: guardCode } : {}) })
   }
   scrollBottom()
+  return false
 }
 
 const safeAgentRunErrorMessage = (
@@ -514,7 +612,7 @@ const safeAgentRunErrorMessage = (
   errorMessage: string,
   fallback: string,
 ): string => contextGuardMessage(contextGuardCodeFrom(errorType, errorMessage, error?.message))
-  || error?.message
+  || friendlyDurableRunErrorMessage(errorType, errorMessage || error?.message || '')
   || fallback
 
 const beginAgentRun = (): number => {
@@ -536,6 +634,7 @@ const resultMetaToStreamPayload = (
   job_title: meta?.job_title,
   status: meta?.status,
   candidate_options: meta?.candidate_options,
+  suggested_questions: meta?.suggested_questions,
   session_id: sessionId ?? undefined,
   context_usage: (meta?.context_usage as ContextUsageInfo | undefined) || undefined,
 })
@@ -596,17 +695,29 @@ const makeChatUiBinder = (
     scrollBottom()
   },
   onResultMetadata: (meta) => {
-    if (!meta?.context_usage) return
-    handleContextUsage({
-      context_usage: meta.context_usage as ContextUsageInfo,
-      session_id: expectedSessionId,
-    })
+    const msg = messages.value[assistantIndex]
+    const suggestedQuestions = normalizeSuggestedQuestions(meta?.suggested_questions)
+    if (msg && suggestedQuestions.length > 0) {
+      messages.value[assistantIndex] = { ...msg, suggestedQuestions }
+    }
+    if (meta?.context_usage) {
+      handleContextUsage({
+        context_usage: meta.context_usage as ContextUsageInfo,
+        session_id: expectedSessionId,
+      })
+    }
   },
   onRunError: (errorType, errorMessage) => {
     const guardCode = contextGuardCodeFrom(errorType, errorMessage)
     if (guardCode) {
       markAssistantError(assistantIndex, new Error(contextGuardMessage(guardCode) || ''), guardCode)
+      return
     }
+    markAssistantError(
+      assistantIndex,
+      new Error(friendlyDurableRunErrorMessage(errorType, errorMessage)),
+      errorType,
+    )
   },
 })
 
@@ -748,6 +859,11 @@ const restoreActiveRunForSession = async (session: Session) => {
         session,
         agentRun.state.value.runId || restored.runId,
       )
+      return
+    }
+
+    if (settlement === 'timed_out') {
+      markAssistantError(assistantIndex, new Error('AI 服务响应超时，请稍后重试'), 'timeout')
       return
     }
 
@@ -897,6 +1013,7 @@ const pollCurrentSession = (expectedLength: number) => {
 }
 
 const createNewSession = async () => {
+  if (quotaExhausted.value || billingAccessLoading.value) return
   const data = await createSession({ title: '新对话' })
   const session = normalizeSession(data.session)
   sessions.value = [session, ...sessions.value]
@@ -971,6 +1088,10 @@ const batchRemoveSessions = async (sessionIds: number[]) => {
 const createAnalysisSessionFromRoute = async () => {
   const applicationId = Number(route.query.application_id || 0)
   if (!applicationId) return false
+  if (quotaExhausted.value || billingAccessLoading.value) {
+    await router.replace({ path: '/hr/ai' })
+    return true
+  }
   const nameFromQuery = route.query.candidate_name || '该求职者'
   candidateName.value = String(nameFromQuery)
   candidatePosition.value = String(route.query.job_title || '')
@@ -1087,7 +1208,7 @@ const confirmAction = async (data: StreamPayload) => {
 }
 
 const analyzeCandidateOption = async (option: CandidateOption) => {
-  if (!option?.application_id || loading.value) return
+  if (!option?.application_id || loading.value || quotaExhausted.value || billingAccessLoading.value) return
   candidateName.value = option.candidate_name || ''
   candidatePosition.value = option.job_title || ''
   // Durable runs require session_id — create analysis session first (same as route entry).
@@ -1227,6 +1348,7 @@ const setSkillSelectionMessage = (
 }
 
 const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: number[]) => {
+  if (quotaExhausted.value || billingAccessLoading.value) return
   const current = messages.value[assistantIndex]
   const request = current?.skillSelectionRequest
   const session = currentSession.value
@@ -1315,8 +1437,9 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
   }
 }
 
-const submit = async () => {
-  const text = input.value.trim()
+const submit = async (textOverride?: string) => {
+  if (quotaExhausted.value || billingAccessLoading.value) return
+  const text = (textOverride ?? input.value).trim()
   if (!text) return
   if (!currentSession.value) {
     await createNewSession()
@@ -1397,6 +1520,7 @@ const submit = async () => {
 }
 
 const retry = async (failedIndex: number) => {
+  if (quotaExhausted.value || billingAccessLoading.value) return
   const failedMsg = messages.value[failedIndex]
   if (!failedMsg || failedMsg.role !== 'assistant' || !failedMsg.failed || failedMsg.retryDisabled) return
 
@@ -1483,6 +1607,7 @@ const retry = async (failedIndex: number) => {
 
 onMounted(async () => {
   document.addEventListener('click', closeMenu)
+  await refreshBillingAccess()
   // Load available models for the model selector.
   try {
     const modelData = await listAvailableModels(1, 200)
@@ -1513,6 +1638,13 @@ const handleContextUsage = (payload: StreamPayload) => {
     if (!contextUsageBelongsToSession(sessionId, currentSession.value?.id)) return
     const nextUsage = resolveLiveContextUsage(contextUsage.value, payload.context_usage)
     contextUsage.value = nextUsage
+    if (nextUsage.model_fallback_reason && nextUsage.effective_model_id) {
+      const signature = `${nextUsage.capability_version_id || 0}:${nextUsage.requested_model_id || 0}:${nextUsage.effective_model_id}`
+      if (signature !== lastModelFallbackSignature.value) {
+        lastModelFallbackSignature.value = signature
+        ElMessage.warning(`所选模型当前不可用，已按平台能力版本切换为 ${nextUsage.model_name || '默认模型'}`)
+      }
+    }
     if (sessionId > 0) {
       rememberContextUsage(sessionId, nextUsage)
     }
@@ -1647,11 +1779,6 @@ const mobileContextSub = computed(() => {
   return '招聘数据问答会话'
 })
 
-const runningModeLabel = computed(() => {
-  if (currentSession.value?.application_id) return '/候选人岗位匹配复核'
-  return '/数据问答'
-})
-
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
   if (typewriterTimer) clearInterval(typewriterTimer)
@@ -1694,6 +1821,7 @@ onBeforeUnmount(() => {
           :current-session="currentSession"
           :menu-session-id="menuSessionId"
           :session-sidebar-open="sessionSidebarOpen"
+          :chat-disabled="quotaExhausted || billingAccessLoading"
           @select-session="selectSession"
           @create-session="createNewSession"
           @rename-session="renameSession"
@@ -1723,12 +1851,32 @@ onBeforeUnmount(() => {
             :streaming="streaming"
             :session-loading="sessionLoading"
             :has-session="!!currentSession"
-            :running-mode-label="runningModeLabel"
             :render-markdown="renderMarkdown"
             :waiting-text="waitingText"
+            :interaction-disabled="quotaExhausted || billingAccessLoading"
             @retry="retry"
             @confirm-skill-selection="submitConfirmedSkillSelection"
           />
+
+          <div v-if="latestSuggestedQuestions.length" class="ai-suggested ai-suggested--composer" aria-label="快速回复">
+            <button
+              v-for="question in latestSuggestedQuestions"
+              :key="question"
+              type="button"
+              :disabled="loading || streaming || contextPreviewing || quotaExhausted || billingAccessLoading"
+              @click="submit(question)"
+            >
+              {{ question }}
+            </button>
+          </div>
+
+          <div v-if="quotaExhausted" class="ai-quota-notice" role="status">
+            <div class="ai-quota-notice__message">
+              <el-icon><WarningFilled /></el-icon>
+              <span><strong>AI 额度已用完</strong>购买套餐或加量包后即可继续对话。</span>
+            </div>
+            <el-button size="small" type="primary" @click="router.push('/hr/billing')">查看套餐</el-button>
+          </div>
 
           <ChatComposer
             :input="input"
@@ -1744,6 +1892,7 @@ onBeforeUnmount(() => {
             :selected-skill-keys="selectedSkillKeys"
             :agent-skills="agentSkills"
             :selected-agent-skill-ids="selectedAgentSkillIds"
+            :disabled="quotaExhausted || billingAccessLoading"
             @update:input="(val: string) => input = val"
             @update:selected-model-id="handleSelectedModelUpdate"
             @update:selected-skill-keys="handleSelectedSkillKeysUpdate"
@@ -1761,3 +1910,88 @@ onBeforeUnmount(() => {
     />
   </section>
 </template>
+
+<style scoped>
+.ai-suggested {
+  --ai-suggested-accent: color-mix(in srgb, var(--brand) 76%, var(--text-primary));
+  --ai-suggested-hover-accent: color-mix(in srgb, var(--brand) 64%, var(--text-primary));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ai-suggested--composer {
+  flex-shrink: 0;
+  margin: 0 16px;
+  padding: 4px 8px 10px;
+}
+
+.ai-suggested button {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ai-suggested-accent);
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.4;
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.ai-suggested button:hover:not(:disabled),
+.ai-suggested button:focus-visible {
+  border-color: color-mix(in srgb, var(--brand) 58%, var(--border));
+  background: color-mix(in srgb, var(--brand-soft) 72%, var(--surface));
+  color: var(--ai-suggested-hover-accent);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--brand) 16%, transparent);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.ai-suggested button:focus-visible {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--brand) 24%, transparent),
+    0 5px 14px color-mix(in srgb, var(--brand) 16%, transparent);
+}
+
+.ai-suggested button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.ai-suggested button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ai-quota-notice {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 16px 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--brand-soft) 58%, var(--surface));
+}
+
+.ai-quota-notice__message {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.ai-quota-notice__message .el-icon,
+.ai-quota-notice__message strong {
+  color: var(--brand-strong);
+}
+</style>

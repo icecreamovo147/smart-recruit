@@ -4,8 +4,8 @@ Local-only log viewer for the Smart Recruit development stack. It reads the fixe
 
 ## Ports And Targets
 
-- Production viewer: `http://127.0.0.1:8090`
-- Vite development UI: `http://127.0.0.1:8091`
+- Production viewer: `http://localhost:8090`
+- Vite development UI: `http://localhost:8091`
 - Start target: `./start-dev.sh logs` or `./start-dev.sh log-viewer`
 - Stop target: `./stop-dev.sh logs` or `./stop-dev.sh log-viewer`
 

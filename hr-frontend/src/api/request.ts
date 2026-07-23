@@ -6,8 +6,9 @@ import { useAuthStore } from '@/stores/auth'
 import { clearLocalAuthCache } from '@/utils/token'
 import { BusinessError } from '@/types/api'
 import { silentRefresh } from './authRefresh'
-import { debugLog } from '@/utils/debugLog'
+import { debugLog } from '@shared/utils/debugLog'
 import { contextGuardCodeFrom, contextGuardMessage } from '@/utils/contextUsage'
+import { formatShanghaiTime } from '@shared/utils/format'
 
 interface RequestConfig extends AxiosRequestConfig {
   silentError?: boolean
@@ -161,6 +162,7 @@ export const friendlyBusinessMessage = (code: number, msg: string): string => {
   if (code === 401) return msg || '登录状态已失效，请重新登录'
   if (code === 403 || code === 4030) return msg || '当前账号没有权限执行这个操作'
   if (code === 404) return msg || '请求的资源不存在或已失效'
+  if (code === 40201) return msg || 'AI 套餐额度不足，请购买套餐或加量包后重试'
   if (code === 429) return msg || '请求过于频繁，请稍后再试'
   if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
   if (code === 42902) return msg || 'AI 请求太频繁，请稍后再试'
@@ -197,9 +199,7 @@ interface RequestInstance {
 
 const formatResetTime = (resetAt: string): string => {
   try {
-    const d = new Date(resetAt)
-    if (Number.isNaN(d.getTime())) return ''
-    return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    return formatShanghaiTime(resetAt)
   } catch { return '' }
 }
 

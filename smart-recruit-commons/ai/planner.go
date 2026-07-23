@@ -28,6 +28,11 @@ const (
 )
 
 const (
+	HRSuggestedQuestionsStartMarker = "<<<HR_SUGGESTED_QUESTIONS_JSON>>>"
+	HRSuggestedQuestionsEndMarker   = "<<<END_HR_SUGGESTED_QUESTIONS_JSON>>>"
+)
+
+const (
 	IntentDomainGeneral    = "general_chat"
 	IntentDomainRecruiting = "recruiting_domain"
 	IntentDomainAmbiguous  = "ambiguous"
@@ -54,6 +59,7 @@ type RecruitingPlan struct {
 	OutputSchema            map[string]any          `json:"output_schema"`
 	ConfirmationRequirement ConfirmationRequirement `json:"confirmation_requirement"`
 	RiskChecks              []string                `json:"risk_checks"`
+	SuggestedQuestions      []string                `json:"suggested_questions,omitempty"`
 }
 
 type IntentClassification struct {
@@ -225,6 +231,9 @@ func (RecruitingPlanner) Plan(input RecruitingPlannerInput) RecruitingPlan {
 	}
 	plan.RequiredTools = toolsFromGroups(plan.RequiredToolGroups)
 	plan.DisplaySteps = displayStepsForPlan(intent, plan.RequiredToolGroups)
+	if !plan.ConfirmationRequirement.Required {
+		plan.SuggestedQuestions = recruitingSuggestedQuestions(intent)
+	}
 
 	plan.RiskChecks = appendUnavailableToolRisk(plan.RiskChecks, intent, available)
 	logger.L().Info("[domain][planner] plan finished",
@@ -344,7 +353,31 @@ func (p RecruitingPlan) InstructionBlock() string {
 			base += "\nHARD RULE: this turn is not a live recruiting-data request. You MUST NOT call recruiting tools or query jobs, applications, candidates, resumes, or analytics. Answer the user's request directly from general model knowledge, and state limitations when appropriate."
 		}
 	}
+	if len(p.SuggestedQuestions) == 3 {
+		base += "\nAfter the user-visible answer, append exactly three short, natural follow-up questions as a JSON string array between these markers:\n" + HRSuggestedQuestionsStartMarker + "\n[\"question 1\",\"question 2\",\"question 3\"]\n" + HRSuggestedQuestionsEndMarker + "\nThe questions must follow from this turn, use generic references such as 该候选人 or 该岗位, and must not contain candidate names, phone numbers, email addresses, IDs, salaries, or other personal data. Do not mention these markers in the user-visible answer."
+	}
 	return base
+}
+
+func recruitingSuggestedQuestions(intent string) []string {
+	var questions []string
+	switch intent {
+	case IntentJobListing, IntentJobDetail:
+		questions = []string{"查看这些岗位的投递情况", "分析相关岗位的候选人分布", "哪些岗位需要优先推进招聘？"}
+	case IntentApplicationListing, IntentCandidateLookup:
+		questions = []string{"查看相关候选人的详细信息", "分析候选人与岗位的匹配度", "为候选人准备面试问题"}
+	case IntentCandidateMatchEvaluation, IntentCandidateComparison:
+		questions = []string{"展开说明主要匹配证据", "比较候选人的关键差异", "给出下一步面试建议"}
+	case IntentAnalytics:
+		questions = []string{"按岗位拆分这些招聘数据", "查看招聘漏斗的变化趋势", "哪些招聘环节需要重点关注？"}
+	case IntentInterviewPrep:
+		questions = []string{"补充更有针对性的面试问题", "生成面试评价要点", "查看候选人的匹配风险"}
+	case IntentOfferSupport:
+		questions = []string{"整理 Offer 沟通要点", "检查还需要确认哪些信息", "生成审批前核对清单"}
+	default:
+		questions = []string{"查看当前招聘数据概览", "有哪些正在招聘的岗位？", "帮我分析候选人匹配度"}
+	}
+	return append([]string(nil), questions...)
 }
 
 // DisallowsModelTools reports whether the runtime must expose zero model tools.

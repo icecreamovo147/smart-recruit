@@ -13,6 +13,7 @@ import {
 } from '@/types/domain'
 import FeedbackForm from '@/components/FeedbackForm.vue'
 import FeedbackDisplay from '@/components/FeedbackDisplay.vue'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,11 +42,7 @@ const modeIcon = computed(() => {
   return OfficeBuilding
 })
 
-const formatDateTime = (iso: string): string => {
-  if (!iso) return '-'
-  const d = new Date(iso)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
+const formatDateTime = (iso: string): string => formatShanghaiDateTime(iso, '-', false)
 
 const formatDuration = (mins: number): string => {
   if (mins >= 60) {

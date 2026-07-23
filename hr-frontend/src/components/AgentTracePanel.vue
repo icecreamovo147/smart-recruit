@@ -5,7 +5,7 @@ import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import { getAgentRuns, getToolTraces } from '@/api/ai'
 import { getActiveAgentRun, subscribeAgentRunEvents } from '@/api/agentRun'
-import { isTerminalAgentRunStatus, type AgentRunEvent } from '@/types/agentRun'
+import { isTerminalAgentRunStatus, type AgentRunEvent } from '@shared/types/agentRun'
 import type {
   AgentRunItem,
   AgentRunPlanJSON,
@@ -13,7 +13,8 @@ import type {
   AgentRunStepItem,
   ToolTraceItem,
 } from '@/types/ai'
-import { debugLog } from '@/utils/debugLog'
+import { debugLog } from '@shared/utils/debugLog'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 import TraceOverview from '@/components/agent-trace/TraceOverview.vue'
 import TraceFilterBar from '@/components/agent-trace/TraceFilterBar.vue'
 import TraceRunSection from '@/components/agent-trace/TraceRunSection.vue'
@@ -432,11 +433,7 @@ const toggleStepOutput = (id: number) => {
 }
 
 const formatTime = (iso: string): string => {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return iso
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  return formatShanghaiDateTime(iso, '')
 }
 
 const formatJson = (json: string): string => {

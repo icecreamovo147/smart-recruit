@@ -5,6 +5,8 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   plugins: [vue()],
   server: {
+    // Bind IPv4 as well as IPv6 so Alipay return_url using 127.0.0.1 still works.
+    host: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

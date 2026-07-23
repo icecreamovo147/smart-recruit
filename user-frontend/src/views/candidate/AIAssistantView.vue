@@ -16,7 +16,9 @@ import {
   Star,
   Suitcase,
   User,
+  WarningFilled,
 } from '@element-plus/icons-vue'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import {
@@ -31,6 +33,7 @@ import {
 import { listAvailableModels } from '@/api/llm'
 import { applyJob } from '@/api/application'
 import { getJobDetail } from '@/api/job'
+import { getBillingAccount } from '@/api/billing'
 import type { CandidateSession, RecommendedJob, StreamPayload } from '@/types/ai'
 import type { LlmModel } from '@/types/llm'
 
@@ -39,6 +42,8 @@ interface MessageItem {
   content: string
   pending?: boolean
   failed?: boolean
+  failureCode?: string
+  retryable?: boolean
   waitingText?: string
   actionPayload?: CandidateAIActionPayload | null
   suggestedQuestions?: string[]
@@ -54,6 +59,9 @@ interface CandidateAIActionPayload {
 interface CandidateAIProcessContent {
   suggested_questions?: unknown
   suggestedQuestions?: unknown
+  delivery_status?: string
+  error_code?: string
+  retryable?: boolean
 }
 
 const route = useRoute()
@@ -78,6 +86,8 @@ const modelList = ref<LlmModel[]>([])
 const selectedModelId = ref<number | null>(null)
 const sourceContext = ref<CandidateAISessionSource>({})
 const sourceHint = ref('')
+const lastFallbackSignature = ref('')
+const availableCredits = ref<number | null>(null)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const messageListRef = ref<any>(null)
 
@@ -111,10 +121,9 @@ const renderMarkdown = (content: string): string => {
 const formatSessionTitle = (title: string, createdAt?: string): string => {
   if (title && title !== '新对话' && title !== 'New chat') return title
   if (!createdAt) return '新对话'
-  const d = new Date(createdAt)
-  if (Number.isNaN(d.getTime())) return '新对话'
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `对话 ${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const formatted = formatShanghaiDateTime(createdAt, '', false)
+  if (!formatted) return '新对话'
+  return `对话 ${formatted.slice(5, 10)} ${formatted.slice(11)}`
 }
 
 const normalizedSessions = computed(() =>
@@ -135,6 +144,56 @@ const latestSuggestedQuestions = computed(() => {
   if (latest?.role !== 'assistant' || !latest.suggestedQuestions?.length) return []
   return latest.suggestedQuestions
 })
+
+const quotaExhausted = computed(() => availableCredits.value !== null && availableCredits.value <= 0)
+
+const failureTitle = (msg: MessageItem): string => {
+  if (msg.failureCode === 'insufficient_credits') return 'AI 额度已用完'
+  if (msg.failureCode === '42921' || msg.failureCode === 'risk_blocked') return '请求暂时受限'
+  if (msg.failureCode === '42901') return '今日使用次数已达上限'
+  return '消息未发送成功'
+}
+
+const isQuotaFailure = (msg: MessageItem): boolean => msg.failureCode === 'insufficient_credits'
+
+const refreshBillingAccess = async () => {
+  try {
+    const billing = await getBillingAccount()
+    const value = Number(billing.available_credits)
+    availableCredits.value = Number.isFinite(value) ? Math.max(0, value) : null
+  } catch {
+    availableCredits.value = null
+  }
+}
+
+const transientFailureKey = (sessionId: number) => `candidate-ai-transient-failure:${sessionId}`
+
+const saveTransientFailure = (sessionId: number, message: MessageItem) => {
+  if (!sessionId || isQuotaFailure(message)) return
+  sessionStorage.setItem(transientFailureKey(sessionId), JSON.stringify({
+    role: 'assistant',
+    content: message.content,
+    failed: true,
+    failureCode: message.failureCode,
+    retryable: message.retryable,
+  }))
+}
+
+const loadTransientFailure = (sessionId: number): MessageItem | null => {
+  const raw = sessionStorage.getItem(transientFailureKey(sessionId))
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as MessageItem
+    return parsed.role === 'assistant' && parsed.failed ? parsed : null
+  } catch {
+    sessionStorage.removeItem(transientFailureKey(sessionId))
+    return null
+  }
+}
+
+const clearTransientFailure = (sessionId: number) => {
+  if (sessionId) sessionStorage.removeItem(transientFailureKey(sessionId))
+}
 
 const modelLabel = (model: LlmModel): string => model.display_name || model.model_name
 
@@ -252,17 +311,29 @@ const loadMessages = async (session: CandidateSession) => {
   messagesLoading.value = true
   try {
     const data = await getSessionMessages(session.session_id, { page: 1, page_size: 100 })
-    messages.value = (data.list || []).map((item) => ({
-      role: item.role === 'assistant' ? 'assistant' : 'user',
-      content: item.content,
-      model_name: item.model_name || undefined,
-      suggestedQuestions: normalizeSuggestedQuestions(
-        item.suggested_questions
-        ?? item.suggestedQuestions
-        ?? parseProcessContent(item.process_content)?.suggested_questions
-        ?? parseProcessContent(item.process_content)?.suggestedQuestions,
-      ),
-    }))
+    messages.value = (data.list || []).map((item) => {
+      const process = parseProcessContent(item.process_content)
+      return {
+        role: item.role === 'assistant' ? 'assistant' : 'user',
+        content: item.content,
+        model_name: item.model_name || undefined,
+        failed: process?.delivery_status === 'failed',
+        failureCode: process?.error_code,
+        retryable: process?.retryable,
+        suggestedQuestions: normalizeSuggestedQuestions(
+          item.suggested_questions
+          ?? item.suggestedQuestions
+          ?? process?.suggested_questions
+          ?? process?.suggestedQuestions,
+        ),
+      } satisfies MessageItem
+    })
+    const transient = loadTransientFailure(session.session_id)
+    if (transient) {
+      const persisted = messages.value.some((item) => item.failed && item.failureCode === transient.failureCode && item.content === transient.content)
+      if (persisted) clearTransientFailure(session.session_id)
+      else messages.value.push(transient)
+    }
   } catch {
     messages.value = []
   } finally {
@@ -333,7 +404,7 @@ const ensureSessionBeforeSend = async (message: string, type = 'general') => {
 
 const send = async (text?: string, type = 'general') => {
   const message = (text || input.value).trim()
-  if (!message || loading.value) return
+  if (!message || loading.value || quotaExhausted.value) return
   input.value = ''
   const session = await ensureSessionBeforeSend(message, type)
   if (!session) return
@@ -369,20 +440,35 @@ const send = async (text?: string, type = 'general') => {
           if (!msg) return
           const modelName = modelNameFromPayload(payload)
           messages.value[assistantIndex] = { ...msg, waitingText: eventMessage, ...(modelName ? { model_name: modelName } : {}) }
+          const usage = payload.context_usage
+          if (usage?.model_fallback_reason && usage.effective_model_id) {
+            const signature = `${usage.capability_version_id || 0}:${usage.requested_model_id || 0}:${usage.effective_model_id}`
+            if (signature !== lastFallbackSignature.value) {
+              lastFallbackSignature.value = signature
+              ElMessage.warning(`所选模型当前不可用，已按平台能力版本切换为 ${modelName || '默认模型'}`)
+            }
+          }
         },
         onDone: (payload) => {
           result.payload = payload
         },
-        onError: (_errorType, errorMessage) => {
+        onError: (errorType, errorMessage) => {
           streamFailed = true
+          const failureCode = errorType === '40201' ? 'insufficient_credits' : errorType
           const msg = messages.value[assistantIndex]
-          if (msg) messages.value[assistantIndex] = { ...msg, content: errorMessage, pending: false, failed: true }
+          if (msg) {
+            const failedMessage = { ...msg, content: errorMessage, pending: false, failed: true, failureCode, retryable: failureCode !== 'insufficient_credits' }
+            messages.value[assistantIndex] = failedMessage
+            saveTransientFailure(session.session_id, failedMessage)
+          }
+          if (failureCode === 'insufficient_credits') availableCredits.value = 0
         },
       },
       { signal: controller.signal, silentAbort: true },
     )
 
     if (userAborted.value || streamFailed) return
+    clearTransientFailure(session.session_id)
     const finalPayload = result.payload
     const latest = messages.value[assistantIndex]
     if (finalPayload && latest) {
@@ -500,7 +586,7 @@ watch(selectedModelId, (id) => {
 })
 
 onMounted(async () => {
-  await loadModels()
+  await Promise.all([loadModels(), refreshBillingAccess()])
   await applyRouteContext()
 })
 </script>
@@ -601,7 +687,18 @@ onMounted(async () => {
             <el-icon v-else><Position /></el-icon>
           </div>
           <div class="ai-message__body">
-            <div v-if="msg.pending" class="ai-typing" role="status" aria-live="polite">
+            <div v-if="msg.failed" class="ai-failure-card" :class="{ 'ai-failure-card--quota': isQuotaFailure(msg) }" role="alert">
+              <div class="ai-failure-card__icon"><el-icon><WarningFilled /></el-icon></div>
+              <div class="ai-failure-card__main">
+                <strong>{{ failureTitle(msg) }}</strong>
+                <p>{{ msg.content }}</p>
+                <div class="ai-failure-card__actions">
+                  <el-button v-if="isQuotaFailure(msg)" size="small" type="primary" @click="router.push('/billing')">查看 AI 套餐</el-button>
+                  <el-button v-else-if="msg.retryable !== false" size="small" plain @click="retry">重新发送</el-button>
+                </div>
+              </div>
+            </div>
+            <div v-else-if="msg.pending" class="ai-typing" role="status" aria-live="polite">
               <span class="ai-typing__text">{{ msg.waitingText || '思考中' }}</span>
               <span class="ai-typing__dots" aria-hidden="true">
                 <span />
@@ -635,22 +732,21 @@ onMounted(async () => {
                 </div>
               </div>
             </div>
-
-            <div v-if="msg.failed" class="ai-error">
-              发送失败
-              <el-button size="small" text type="primary" @click="retry">重试</el-button>
-            </div>
           </div>
         </div>
         </el-scrollbar>
 
         <div v-if="latestSuggestedQuestions.length" class="ai-suggested ai-suggested--composer">
-          <button v-for="question in latestSuggestedQuestions" :key="question" :disabled="loading" @click="send(question)">
+          <button v-for="question in latestSuggestedQuestions" :key="question" :disabled="loading || quotaExhausted" @click="send(question)">
             {{ question }}
           </button>
         </div>
 
         <footer class="ai-composer">
+          <div v-if="quotaExhausted" class="ai-quota-notice" role="status">
+            <div><el-icon><WarningFilled /></el-icon><span><strong>AI 额度已用完</strong>购买套餐或加量包后即可继续对话。</span></div>
+            <el-button size="small" type="primary" @click="router.push('/billing')">查看套餐</el-button>
+          </div>
           <div class="ai-composer__card">
             <div class="ai-composer__input-area">
               <el-input
@@ -659,7 +755,7 @@ onMounted(async () => {
                 :autosize="{ minRows: 2, maxRows: 6 }"
                 resize="none"
                 placeholder="输入你的求职问题..."
-                :disabled="streaming"
+                :disabled="streaming || quotaExhausted"
                 class="ai-composer__text-input"
                 @keydown.enter.exact.prevent="streaming ? undefined : send()"
               />
@@ -673,6 +769,7 @@ onMounted(async () => {
                   placeholder="选择模型"
                   class="ai-composer__model-select"
                   clearable
+                  :disabled="quotaExhausted"
                 >
                   <el-option
                     v-for="model in modelList"
@@ -701,7 +798,7 @@ onMounted(async () => {
                 type="primary"
                 :icon="Position"
                 :loading="loading"
-                :disabled="!input.trim()"
+                :disabled="!input.trim() || quotaExhausted"
                 class="ai-composer__send-btn"
                 @click="send()"
               >
@@ -1023,6 +1120,67 @@ onMounted(async () => {
   line-height: 1.6;
 }
 
+.ai-failure-card {
+  width: min(520px, 100%);
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 15px;
+  border: 1px solid color-mix(in srgb, var(--el-color-warning) 34%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--el-color-warning-light-9) 78%, var(--surface));
+  box-shadow: 0 8px 22px rgba(120, 72, 12, 0.06);
+}
+
+.ai-failure-card--quota {
+  border-color: color-mix(in srgb, var(--brand) 28%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand-soft) 68%, var(--surface)), var(--surface));
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.08);
+}
+
+.ai-failure-card__icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--el-color-warning) 16%, transparent);
+  color: var(--el-color-warning-dark-2);
+  font-size: 17px;
+}
+
+.ai-failure-card--quota .ai-failure-card__icon {
+  background: color-mix(in srgb, var(--brand) 13%, transparent);
+  color: var(--brand-strong);
+}
+
+.ai-failure-card__main {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.ai-failure-card__main > strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.ai-failure-card__main p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ai-failure-card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 3px;
+}
+
 .ai-typing {
   display: inline-flex;
   align-items: center;
@@ -1162,6 +1320,8 @@ onMounted(async () => {
 }
 
 .ai-suggested {
+  --ai-suggested-accent: color-mix(in srgb, var(--brand) 76%, var(--text-primary));
+  --ai-suggested-hover-accent: color-mix(in srgb, var(--brand) 64%, var(--text-primary));
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -1176,19 +1336,72 @@ onMounted(async () => {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
-  color: var(--brand-strong);
+  color: var(--ai-suggested-accent);
   padding: 6px 10px;
   cursor: pointer;
   font-size: 13px;
   line-height: 1.4;
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
 }
 
-.ai-error {
-  color: var(--el-color-danger);
+.ai-suggested button:hover:not(:disabled),
+.ai-suggested button:focus-visible {
+  border-color: color-mix(in srgb, var(--brand) 58%, var(--border));
+  background: color-mix(in srgb, var(--brand-soft) 72%, var(--surface));
+  color: var(--ai-suggested-hover-accent);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--brand) 16%, transparent);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.ai-suggested button:focus-visible {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--brand) 24%, transparent),
+    0 5px 14px color-mix(in srgb, var(--brand) 16%, transparent);
+}
+
+.ai-suggested button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.ai-suggested button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .ai-composer {
   flex-shrink: 0;
+}
+
+.ai-quota-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--brand-soft) 58%, var(--surface));
+}
+
+.ai-quota-notice > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.ai-quota-notice .el-icon,
+.ai-quota-notice strong {
+  color: var(--brand-strong);
 }
 
 .ai-composer__card {

@@ -43,6 +43,7 @@ Business service aliases:
   notification        notification-service
   ai-agent | ai       ai-agent-service
   analytics           analytics-service
+  billing             billing-service
   worker              worker-service
 
 Frontend aliases:
@@ -66,6 +67,7 @@ BUSINESS_SERVICES=(
     notification-service
     ai-agent-service
     analytics-service
+    billing-service
     worker-service
 )
 
@@ -146,6 +148,9 @@ expand_target() {
             ;;
         analytics|analytics-service)
             add_target analytics-service
+            ;;
+        billing|billing-service)
+            add_target billing-service
             ;;
         worker|worker-service)
             add_target worker-service
@@ -256,6 +261,7 @@ target_selected dev-log-viewer && stop_pid_file "dev-log-viewer"
 target_selected smart-recruit-gateway && stop_pid_file "smart-recruit-gateway"
 target_selected worker-service && stop_pid_file "worker-service"
 target_selected analytics-service && stop_pid_file "analytics-service"
+target_selected billing-service && stop_pid_file "billing-service"
 target_selected ai-agent-service && stop_pid_file "ai-agent-service"
 target_selected notification-service && stop_pid_file "notification-service"
 target_selected offer-service && stop_pid_file "offer-service"
@@ -270,6 +276,7 @@ target_selected dev-log-viewer && kill_port 8090 "Dev Log Viewer"
 target_selected smart-recruit-gateway && kill_port 8080 "Smart Recruit Gateway"
 target_selected worker-service && kill_port 50068 "Worker Service"
 target_selected analytics-service && kill_port 50067 "Analytics Service"
+target_selected billing-service && kill_port 50069 "Billing Service"
 target_selected ai-agent-service && kill_port 50066 "AI Agent Service"
 target_selected notification-service && kill_port 50065 "Notification Service"
 target_selected offer-service && kill_port 50064 "Offer Service"

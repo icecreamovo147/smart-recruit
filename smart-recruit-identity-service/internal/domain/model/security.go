@@ -14,12 +14,14 @@ const (
 
 	UserStatusActive = "active"
 
-	RoleCandidate       = "candidate"
-	RoleRecruiter       = "recruiter"
-	RoleRecruitingAdmin = "recruiting_admin"
-	RoleSystemAdmin     = "system_admin"
-	RolePlatformAdmin   = "platform_admin"
-	RoleInterviewer     = "interviewer"
+	RoleCandidate        = "candidate"
+	RoleRecruiter        = "recruiter"
+	RoleRecruitingAdmin  = "recruiting_admin"
+	RoleSystemAdmin      = "system_admin"
+	RolePlatformAdmin    = "platform_admin"
+	RolePlatformOperator = "platform_operator"
+	RolePlatformAuditor  = "platform_auditor"
+	RoleInterviewer      = "interviewer"
 
 	RoleScopeIdentity = "identity"
 	RoleScopeTenant   = "tenant"
@@ -32,6 +34,20 @@ const (
 	PermAdminRoleManage   = "admin.role.manage"
 	PermAdminUserManage   = "admin.user.manage"
 	PermAuditSecurityRead = "audit.security.read"
+
+	PermPlatformDashboardRead      = "platform.dashboard.read"
+	PermPlatformTenantRead         = "platform.tenant.read"
+	PermPlatformTenantManage       = "platform.tenant.manage"
+	PermPlatformMemberManage       = "platform.member.manage"
+	PermPlatformAuditRead          = "platform.audit.read"
+	PermPlatformUserManage         = "platform.user.manage"
+	PermPlatformPlanRead           = "platform.plan.read"
+	PermPlatformPlanManage         = "platform.plan.manage"
+	PermPlatformPlanPublish        = "platform.plan.publish"
+	PermPlatformSubscriptionManage = "platform.subscription.manage"
+	PermPlatformUsageRead          = "platform.usage.read"
+	PermPlatformAlertRead          = "platform.alert.read"
+	PermPlatformAlertManage        = "platform.alert.manage"
 )
 
 type User struct {
@@ -44,6 +60,11 @@ type User struct {
 	Status       string
 	TokenVersion int32
 	CreatedAt    time.Time
+}
+
+type PlatformAccount struct {
+	User
+	Roles []string
 }
 
 type Role struct {
@@ -183,6 +204,8 @@ type Tenant struct {
 	Locale          string
 	IsDefault       bool
 	MembershipCount int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 func (t Tenant) IsActive() bool { return t.Status == "active" }
@@ -192,10 +215,125 @@ type TenantMembership struct {
 	TenantID int64
 	UserID   int64
 	Username string
+	Email    string
 	Status   string
 	Tenant   Tenant
 	Roles    []string
 	JoinedAt *time.Time
+}
+
+type PlatformDashboard struct {
+	TotalTenants        int64
+	ActiveTenants       int64
+	SuspendedTenants    int64
+	DisabledTenants     int64
+	NewTenants30D       int64
+	TotalMemberships    int64
+	ActiveMemberships   int64
+	TenantsWithoutAdmin int64
+}
+
+type PlatformAuditLog struct {
+	ID               uint64
+	ActorUserID      int64
+	ActorUsername    string
+	Action           string
+	ResourceType     string
+	ResourceID       int64
+	TargetTenantID   int64
+	TargetTenantName string
+	BeforeJSON       string
+	AfterJSON        string
+	RequestID        string
+	ClientIP         string
+	CreatedAt        time.Time
+}
+
+type PlatformAuditFilter struct {
+	TenantID    int64
+	ActorUserID int64
+	Action      string
+	RequestID   string
+	StartTime   *time.Time
+	EndTime     *time.Time
+}
+
+type PlatformEntitlement struct {
+	Key             string
+	ValueType       string
+	ValueJSON       string
+	EnforcementMode string
+	Source          string
+}
+
+type PlatformPlanVersion struct {
+	ID           int64
+	PlanID       int64
+	Version      int32
+	Status       string
+	EffectiveAt  *time.Time
+	RetiredAt    *time.Time
+	ChangeNote   string
+	Entitlements []PlatformEntitlement
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type PlatformPlan struct {
+	ID          int64
+	PlanKey     string
+	Name        string
+	Description string
+	Status      string
+	Versions    []PlatformPlanVersion
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type TenantSubscription struct {
+	ID                    int64
+	TenantID              int64
+	PlanVersionID         int64
+	PlanKey               string
+	PlanName              string
+	PlanVersion           int32
+	Status                string
+	StartsAt              time.Time
+	EndsAt                *time.Time
+	Reason                string
+	EffectiveEntitlements []PlatformEntitlement
+}
+
+type TenantUsageMetric struct {
+	Key             string
+	UsageValue      int64
+	QuotaValue      int64
+	UsagePercent    int32
+	EnforcementMode string
+	MeasuredAt      time.Time
+}
+
+type QuotaAlert struct {
+	ID               int64
+	TenantID         int64
+	TenantName       string
+	MetricKey        string
+	ThresholdPercent int32
+	UsageValue       int64
+	QuotaValue       int64
+	Status           string
+	AssigneeUserID   int64
+	AcknowledgedAt   *time.Time
+	ResolvedAt       *time.Time
+	ResolutionNote   string
+	FirstTriggeredAt time.Time
+	LastTriggeredAt  time.Time
+}
+
+type QuotaAlertFilter struct {
+	TenantID  int64
+	Status    string
+	MetricKey string
 }
 
 func (m TenantMembership) IsActive() bool {

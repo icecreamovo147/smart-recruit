@@ -10,6 +10,7 @@ import type {
   UsageTrendPoint,
 } from '@/api/admin'
 import * as echarts from 'echarts'
+import { toShanghaiRFC3339 } from '@shared/utils/format'
 
 // ── Constants ────────────────────────────────────────────────────────────
 
@@ -118,9 +119,8 @@ const successRateOf = (row: UsageStatsItem): number => {
 
 const getDefaultStatsRange = (): [string, string] => {
   const end = new Date()
-  const start = new Date()
-  start.setDate(start.getDate() - 30)
-  return [start.toISOString(), end.toISOString()]
+  const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000)
+  return [toShanghaiRFC3339(start), toShanghaiRFC3339(end)]
 }
 
 const resolveRange = (): { startTime: string; endTime: string } => {
@@ -494,7 +494,7 @@ onMounted(() => {
             <el-table-column prop="total_tokens" label="Token" width="110" align="center">
               <template #default="{ row }">{{ toNum(row.total_tokens).toLocaleString() }}</template>
             </el-table-column>
-            <el-table-column prop="estimated_cost" label="花费 ($)" width="110" align="center">
+            <el-table-column prop="estimated_cost" label="供应商成本（元）" width="140" align="center">
               <template #default="{ row }">{{ toNum(row.estimated_cost).toFixed(4) }}</template>
             </el-table-column>
             <el-table-column prop="avg_cost_ms" label="平均耗时" width="110" align="center">

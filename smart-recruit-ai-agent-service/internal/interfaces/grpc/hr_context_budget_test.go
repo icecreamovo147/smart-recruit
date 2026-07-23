@@ -175,3 +175,38 @@ func TestHRContextBudgetAsyncSummaryAtSixtyPercent(t *testing.T) {
 		t.Fatal("async summary was not triggered")
 	}
 }
+
+func TestHRContextBudgetMemorySectionMeteredSeparately(t *testing.T) {
+	model := RuntimeModelInfo{ContextWindowTokens: 8192, MaxOutputTokens: 1024}
+	memoryText := "candidate prefers remote roles"
+	c := newHRContextBudgetController(context.Background(), model, nil, "current question", nil, hrRuntimeGovernanceContext{MemorySection: memoryText}, nil, 1, 2, nil, nil)
+	messages := []*schema.Message{
+		schema.SystemMessage("system governance"),
+		schema.UserMessage("older"),
+		schema.AssistantMessage("reply", nil),
+		schema.UserMessage("current question"),
+	}
+	prepared, err := c.prepare(context.Background(), messages, "test")
+	if err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	if !c.usage.GetMemoryApplied() {
+		t.Fatalf("memory_applied=false")
+	}
+	breakdown := c.usage.GetBreakdown()
+	if breakdown.GetMemoryTokens() <= 0 {
+		t.Fatalf("memory_tokens not set: %+v", breakdown)
+	}
+	if breakdown.GetSystemPromptTokens() <= 0 {
+		t.Fatalf("system prompt tokens missing: %+v", breakdown)
+	}
+	foundMemory := false
+	for _, message := range prepared {
+		if strings.Contains(message.Content, memoryText) {
+			foundMemory = true
+		}
+	}
+	if !foundMemory {
+		t.Fatalf("memory section not injected: %#v", prepared)
+	}
+}

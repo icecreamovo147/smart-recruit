@@ -362,6 +362,62 @@ func TestSystemAdminWithoutRecruiterPermCannotMutateRecruitingState(t *testing.T
 
 // ── Interviewer route tests ─────────────────────────────────────────────
 
+func TestPlatformOperatorPermissionBoundaries(t *testing.T) {
+	cases := []routeAuthCase{
+		{
+			name:   "platform operator can read tenants",
+			method: "GET", path: "/api/v1/platform/tenants",
+			roles:       []string{authz.RolePlatformOperator},
+			permissions: []string{authz.PermPlatformTenantRead},
+			middleware:  []gin.HandlerFunc{RequirePermission(authz.PermPlatformTenantRead)},
+			wantStatus:  http.StatusOK,
+		},
+		{
+			name:   "platform operator without user manage cannot manage platform users",
+			method: "POST", path: "/api/v1/platform/users",
+			roles:       []string{authz.RolePlatformOperator},
+			permissions: []string{authz.PermPlatformTenantRead, authz.PermPlatformTenantManage},
+			middleware:  []gin.HandlerFunc{RequirePermission(authz.PermPlatformUserManage)},
+			wantStatus:  http.StatusForbidden,
+		},
+		{
+			name:   "platform operator without publish cannot publish plans",
+			method: "POST", path: "/api/v1/platform/plans/basic/publish",
+			roles:       []string{authz.RolePlatformOperator},
+			permissions: []string{authz.PermPlatformPlanRead, authz.PermPlatformPlanManage},
+			middleware:  []gin.HandlerFunc{RequirePermission(authz.PermPlatformPlanPublish)},
+			wantStatus:  http.StatusForbidden,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) { runRouteAuthTest(t, tc) })
+	}
+}
+
+func TestPlatformAuditorIsReadOnly(t *testing.T) {
+	cases := []routeAuthCase{
+		{
+			name:   "platform auditor can read audit logs",
+			method: "GET", path: "/api/v1/platform/audit-logs",
+			roles:       []string{authz.RolePlatformAuditor},
+			permissions: []string{authz.PermPlatformAuditRead},
+			middleware:  []gin.HandlerFunc{RequirePermission(authz.PermPlatformAuditRead)},
+			wantStatus:  http.StatusOK,
+		},
+		{
+			name:   "platform auditor cannot suspend a tenant",
+			method: "PATCH", path: "/api/v1/platform/tenants/1/status",
+			roles:       []string{authz.RolePlatformAuditor},
+			permissions: []string{authz.PermPlatformTenantRead, authz.PermPlatformAuditRead},
+			middleware:  []gin.HandlerFunc{RequirePermission(authz.PermPlatformTenantManage)},
+			wantStatus:  http.StatusForbidden,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) { runRouteAuthTest(t, tc) })
+	}
+}
+
 func TestInterviewerCannotMutateApplicationStatus(t *testing.T) {
 	tc := routeAuthCase{
 		name:   "interviewer blocked from updating application status",

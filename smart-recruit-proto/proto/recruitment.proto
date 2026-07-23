@@ -22,8 +22,21 @@ service AuthService {
 service PlatformTenantService {
   rpc CreateTenant(CreateTenantRequest) returns (TenantResponse);
   rpc ListTenants(ListTenantsRequest) returns (ListTenantsResponse);
+  rpc GetTenant(GetTenantRequest) returns (TenantResponse);
   rpc UpdateTenantStatus(UpdateTenantStatusRequest) returns (TenantResponse);
   rpc ListTenantMemberships(ListTenantMembershipsRequest) returns (ListTenantMembershipsResponse);
+  rpc UpdateTenantMembershipStatus(UpdateTenantMembershipStatusRequest) returns (TenantMembershipResponse);
+  rpc GetPlatformDashboard(GetPlatformDashboardRequest) returns (GetPlatformDashboardResponse);
+  rpc QueryPlatformAuditLogs(QueryPlatformAuditLogsRequest) returns (QueryPlatformAuditLogsResponse);
+  rpc ListPlatformPlans(ListPlatformPlansRequest) returns (ListPlatformPlansResponse);
+  rpc SavePlatformPlanVersion(SavePlatformPlanVersionRequest) returns (PlatformPlanVersionResponse);
+  rpc PublishPlatformPlanVersion(PublishPlatformPlanVersionRequest) returns (PlatformPlanVersionResponse);
+  rpc GetTenantSubscription(GetTenantSubscriptionRequest) returns (TenantSubscriptionResponse);
+  rpc UpdateTenantSubscription(UpdateTenantSubscriptionRequest) returns (TenantSubscriptionResponse);
+  rpc UpdateTenantEntitlementOverride(UpdateTenantEntitlementOverrideRequest) returns (TenantSubscriptionResponse);
+  rpc GetTenantUsage(GetTenantUsageRequest) returns (GetTenantUsageResponse);
+  rpc ListQuotaAlerts(ListQuotaAlertsRequest) returns (ListQuotaAlertsResponse);
+  rpc UpdateQuotaAlert(UpdateQuotaAlertRequest) returns (QuotaAlertResponse);
 }
 
 service JobService {
@@ -41,6 +54,8 @@ service JobService {
 service CandidateService {
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
   rpc UpdateProfile(UpdateProfileRequest) returns (GetProfileResponse);
+  rpc FillProfileFromResume(FillProfileFromResumeRequest) returns (FillProfileFromResumeResponse);
+  rpc ApplyProfileFill(ApplyProfileFillRequest) returns (GetProfileResponse);
   rpc GetResume(GetResumeRequest) returns (GetResumeResponse);
   rpc PresignResumeUpload(PresignResumeUploadRequest) returns (PresignResumeUploadResponse);
   rpc ConfirmResumeUpload(ConfirmResumeUploadRequest) returns (ConfirmResumeUploadResponse);
@@ -114,6 +129,40 @@ service AIService {
   rpc SubscribeAgentRunEvents(SubscribeAgentRunEventsRequest) returns (stream AgentRunEvent);
   rpc CancelAgentRun(CancelAgentRunRequest) returns (CancelAgentRunResponse);
   rpc ConfirmAgentRun(ConfirmAgentRunRequest) returns (ConfirmAgentRunResponse);
+
+  // Durable agent memory lifecycle (owner-scoped long-term memory).
+  rpc ListMemories(ListMemoriesRequest) returns (ListMemoriesResponse);
+  rpc GetMemory(GetMemoryRequest) returns (MemoryResponse);
+  rpc CreateMemory(CreateMemoryRequest) returns (MemoryResponse);
+  rpc UpdateMemory(UpdateMemoryRequest) returns (MemoryResponse);
+  rpc RevokeMemory(RevokeMemoryRequest) returns (MemoryResponse);
+  rpc RecallMemories(RecallMemoriesRequest) returns (RecallMemoriesResponse);
+}
+
+// BillingService is an internal authority for AI entitlements, credit reservations,
+// immutable usage settlement, and owner balances. Public commerce APIs are exposed
+// by the gateway and never trust owner identifiers supplied by browsers.
+service BillingService {
+  rpc CheckAIAccess(CheckAIAccessRequest) returns (CheckAIAccessResponse);
+  rpc ReserveAIUsage(ReserveAIUsageRequest) returns (ReserveAIUsageResponse);
+  rpc SettleAIUsage(SettleAIUsageRequest) returns (SettleAIUsageResponse);
+  rpc CancelAIUsage(CancelAIUsageRequest) returns (CancelAIUsageResponse);
+  rpc GetAICreditBalance(GetAICreditBalanceRequest) returns (GetAICreditBalanceResponse);
+  rpc ListBillingCatalog(ListBillingCatalogRequest) returns (ListBillingCatalogResponse);
+  rpc GetBillingAccount(GetBillingAccountRequest) returns (GetBillingAccountResponse);
+  rpc ListBillingOrders(ListBillingOrdersRequest) returns (ListBillingOrdersResponse);
+  rpc CreateBillingOrder(CreateBillingOrderRequest) returns (BillingOrderResponse);
+  rpc CreateAlipayPayment(CreateAlipayPaymentRequest) returns (CreateAlipayPaymentResponse);
+  rpc RequestBillingRefund(RequestBillingRefundRequest) returns (BillingRefundResponse);
+  rpc ProcessAlipayNotification(ProcessAlipayNotificationRequest) returns (ProcessAlipayNotificationResponse);
+  rpc ResolveAlipayReturn(ResolveAlipayReturnRequest) returns (ResolveAlipayReturnResponse);
+  rpc SyncAlipayReturn(SyncAlipayReturnRequest) returns (CreateAlipayPaymentResponse);
+  rpc ListBillingRefunds(ListBillingRefundsRequest) returns (ListBillingRefundsResponse);
+  rpc ReviewBillingRefund(ReviewBillingRefundRequest) returns (BillingRefundResponse);
+  rpc ListBillingAdminCatalog(ListBillingAdminCatalogRequest) returns (ListBillingCatalogResponse);
+  rpc SaveBillingPriceVersion(SaveBillingPriceVersionRequest) returns (BillingPriceInfo);
+  rpc ListAIRateCards(ListAIRateCardsRequest) returns (ListAIRateCardsResponse);
+  rpc SaveAIRateCard(SaveAIRateCardRequest) returns (AIRateCardInfo);
 }
 
 service OfferService {
@@ -167,6 +216,9 @@ service AdminService {
   // Staff user management
   rpc ListStaffUsers(ListStaffUsersRequest) returns (ListStaffUsersResponse);
   rpc CreateStaffUser(CreateStaffUserRequest) returns (CreateStaffUserResponse);
+  rpc ListPlatformUsers(ListPlatformUsersRequest) returns (ListPlatformUsersResponse);
+  rpc CreatePlatformUser(CreatePlatformUserRequest) returns (CreatePlatformUserResponse);
+  rpc UpdatePlatformUser(UpdatePlatformUserRequest) returns (PlatformUserResponse);
 
   // ── Phase 6: Analytics & AI Audit ─────────────────────────────────────
   rpc QueryAuthAuditLogs(QueryAuthAuditLogsRequest) returns (QueryAuthAuditLogsResponse);
@@ -210,6 +262,7 @@ service CollaborationService {
 service RecruitingIntelligenceService {
   rpc GetResumeProfile(GetResumeProfileRequest) returns (GetResumeProfileResponse);
   rpc ParseResumeProfile(ParseResumeProfileRequest) returns (GetResumeProfileResponse);
+  rpc ParseResumeProfileForCandidate(ParseResumeProfileForCandidateRequest) returns (GetResumeProfileResponse);
   rpc EvaluateCandidateMatch(EvaluateCandidateMatchRequest) returns (GetCandidateMatchEvaluationResponse);
   rpc GetCandidateMatchEvaluation(GetCandidateMatchEvaluationRequest) returns (GetCandidateMatchEvaluationResponse);
   rpc CompareCandidatesForJob(CompareCandidatesForJobRequest) returns (CompareCandidatesForJobResponse);
@@ -255,6 +308,8 @@ message TenantMembershipInfo {
   bool is_default = 9;
   int64 user_id = 10;
   string username = 11;
+  string email = 12;
+  string joined_at = 13;
 }
 
 message TenantInfo {
@@ -267,6 +322,8 @@ message TenantInfo {
   string locale = 7;
   bool is_default = 8;
   int64 membership_count = 9;
+  string created_at = 10;
+  string updated_at = 11;
 }
 
 message CreateTenantRequest {
@@ -296,9 +353,14 @@ message ListTenantsResponse {
   repeated TenantInfo list = 4;
 }
 
+message GetTenantRequest {
+  int64 tenant_id = 1;
+}
+
 message UpdateTenantStatusRequest {
   int64 tenant_id = 1;
   string status = 2;
+  string reason = 3;
 }
 
 message ListTenantMembershipsRequest {
@@ -312,6 +374,242 @@ message ListTenantMembershipsResponse {
   string msg = 2;
   int64 total = 3;
   repeated TenantMembershipInfo list = 4;
+}
+
+message UpdateTenantMembershipStatusRequest {
+  int64 tenant_id = 1;
+  int64 membership_id = 2;
+  string status = 3;
+  string reason = 4;
+}
+
+message TenantMembershipResponse {
+  int32 code = 1;
+  string msg = 2;
+  TenantMembershipInfo membership = 3;
+}
+
+message GetPlatformDashboardRequest {}
+
+message PlatformTenantStatusCount {
+  string status = 1;
+  int64 count = 2;
+}
+
+message GetPlatformDashboardResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total_tenants = 3;
+  int64 active_tenants = 4;
+  int64 suspended_tenants = 5;
+  int64 disabled_tenants = 6;
+  int64 new_tenants_30d = 7;
+  int64 total_memberships = 8;
+  int64 active_memberships = 9;
+  int64 tenants_without_admin = 10;
+  repeated PlatformTenantStatusCount status_distribution = 11;
+}
+
+message QueryPlatformAuditLogsRequest {
+  int64 tenant_id = 1;
+  int64 actor_user_id = 2;
+  string action = 3;
+  string request_id = 4;
+  string start_time = 5;
+  string end_time = 6;
+  int32 page = 7;
+  int32 page_size = 8;
+}
+
+message PlatformAuditLogItem {
+  uint64 id = 1;
+  int64 actor_user_id = 2;
+  string actor_username = 3;
+  string action = 4;
+  string resource_type = 5;
+  int64 resource_id = 6;
+  int64 target_tenant_id = 7;
+  string target_tenant_name = 8;
+  string before_json = 9;
+  string after_json = 10;
+  string request_id = 11;
+  string client_ip = 12;
+  string created_at = 13;
+}
+
+message QueryPlatformAuditLogsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated PlatformAuditLogItem list = 4;
+}
+
+message PlatformEntitlementItem {
+  string key = 1;
+  string value_type = 2;
+  string value_json = 3;
+  string enforcement_mode = 4;
+  string source = 5;
+}
+
+message PlatformPlanVersionInfo {
+  int64 id = 1;
+  int64 plan_id = 2;
+  int32 version = 3;
+  string status = 4;
+  string effective_at = 5;
+  string retired_at = 6;
+  string change_note = 7;
+  repeated PlatformEntitlementItem entitlements = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message PlatformPlanInfo {
+  int64 id = 1;
+  string plan_key = 2;
+  string name = 3;
+  string description = 4;
+  string status = 5;
+  repeated PlatformPlanVersionInfo versions = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message ListPlatformPlansRequest {
+  string status = 1;
+}
+
+message ListPlatformPlansResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated PlatformPlanInfo list = 3;
+}
+
+message SavePlatformPlanVersionRequest {
+  int64 plan_id = 1;
+  int64 version_id = 2;
+  string change_note = 3;
+  repeated PlatformEntitlementItem entitlements = 4;
+}
+
+message PublishPlatformPlanVersionRequest {
+  int64 plan_id = 1;
+  int64 version_id = 2;
+  string effective_at = 3;
+  string reason = 4;
+}
+
+message PlatformPlanVersionResponse {
+  int32 code = 1;
+  string msg = 2;
+  PlatformPlanVersionInfo version = 3;
+}
+
+message TenantSubscriptionInfo {
+  int64 id = 1;
+  int64 tenant_id = 2;
+  int64 plan_version_id = 3;
+  string plan_key = 4;
+  string plan_name = 5;
+  int32 plan_version = 6;
+  string status = 7;
+  string starts_at = 8;
+  string ends_at = 9;
+  string reason = 10;
+  repeated PlatformEntitlementItem effective_entitlements = 11;
+}
+
+message GetTenantSubscriptionRequest {
+  int64 tenant_id = 1;
+}
+
+message UpdateTenantSubscriptionRequest {
+  int64 tenant_id = 1;
+  int64 plan_version_id = 2;
+  string starts_at = 3;
+  string ends_at = 4;
+  string reason = 5;
+}
+
+message TenantSubscriptionResponse {
+  int32 code = 1;
+  string msg = 2;
+  TenantSubscriptionInfo subscription = 3;
+}
+
+message UpdateTenantEntitlementOverrideRequest {
+  int64 tenant_id = 1;
+  string entitlement_key = 2;
+  string value_type = 3;
+  string value_json = 4;
+  string expires_at = 5;
+  string reason = 6;
+}
+
+message TenantUsageMetric {
+  string key = 1;
+  int64 usage_value = 2;
+  int64 quota_value = 3;
+  int32 usage_percent = 4;
+  string enforcement_mode = 5;
+  string measured_at = 6;
+}
+
+message GetTenantUsageRequest {
+  int64 tenant_id = 1;
+}
+
+message GetTenantUsageResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 tenant_id = 3;
+  repeated TenantUsageMetric metrics = 4;
+}
+
+message QuotaAlertInfo {
+  int64 id = 1;
+  int64 tenant_id = 2;
+  string tenant_name = 3;
+  string metric_key = 4;
+  int32 threshold_percent = 5;
+  int64 usage_value = 6;
+  int64 quota_value = 7;
+  string status = 8;
+  int64 assignee_user_id = 9;
+  string acknowledged_at = 10;
+  string resolved_at = 11;
+  string resolution_note = 12;
+  string first_triggered_at = 13;
+  string last_triggered_at = 14;
+}
+
+message ListQuotaAlertsRequest {
+  int64 tenant_id = 1;
+  string status = 2;
+  string metric_key = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListQuotaAlertsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated QuotaAlertInfo list = 4;
+}
+
+message UpdateQuotaAlertRequest {
+  int64 alert_id = 1;
+  string status = 2;
+  int64 assignee_user_id = 3;
+  string resolution_note = 4;
+}
+
+message QuotaAlertResponse {
+  int32 code = 1;
+  string msg = 2;
+  QuotaAlertInfo alert = 3;
 }
 
 message LoginResponse {
@@ -540,6 +838,37 @@ message UpdateProfileRequest {
   string school = 5;
   string work_experience = 6;
   string skills = 7;
+  string city = 8;
+  double years_of_experience = 9;
+  string job_status = 10;
+  string expected_position = 11;
+  int32 expected_salary_min = 12;
+  int32 expected_salary_max = 13;
+  string available_from = 14;
+  string summary = 15;
+  repeated CandidateEducationInfo educations = 16;
+  repeated CandidateExperienceInfo experiences = 17;
+}
+
+message CandidateEducationInfo {
+  string school = 1;
+  string degree = 2;
+  string major = 3;
+  string start_date = 4;
+  string end_date = 5;
+  string description = 6;
+  int32 sort_order = 7;
+}
+
+message CandidateExperienceInfo {
+  string company = 1;
+  string title = 2;
+  string location = 3;
+  string start_date = 4;
+  string end_date = 5;
+  int32 is_current = 6;
+  string description = 7;
+  int32 sort_order = 8;
 }
 
 message CandidateProfile {
@@ -550,6 +879,54 @@ message CandidateProfile {
   string work_experience = 5;
   repeated string skills = 6;
   bool is_complete = 7;
+  string city = 8;
+  double years_of_experience = 9;
+  string job_status = 10;
+  string expected_position = 11;
+  int32 expected_salary_min = 12;
+  int32 expected_salary_max = 13;
+  string available_from = 14;
+  string summary = 15;
+  repeated CandidateEducationInfo educations = 16;
+  repeated CandidateExperienceInfo experiences = 17;
+}
+
+message ProfileFillFieldDiff {
+  string field = 1;
+  string label = 2;
+  string action = 3; // fill | overwrite | skip | unsupported
+  string before = 4;
+  string after = 5;
+}
+
+message ProfileFillDraft {
+  CandidateProfile draft = 1;
+  bool refreshed = 2;
+  string refresh_reason = 3; // missing | heuristic | input_changed | forced | reused
+  repeated ProfileFillFieldDiff field_diffs = 4;
+  repeated string warnings = 5;
+  int64 resume_id = 6;
+}
+
+message FillProfileFromResumeRequest {
+  int64 user_id = 1;
+  bool force_refresh = 2;
+  bool overwrite_existing = 3;
+}
+
+message FillProfileFromResumeResponse {
+  int32 code = 1;
+  string msg = 2;
+  ProfileFillDraft draft = 3;
+  bool needs_refresh = 4;
+  string refresh_reason = 5;
+  int64 resume_id = 6;
+}
+
+message ApplyProfileFillRequest {
+  int64 user_id = 1;
+  ProfileFillDraft draft = 2;
+  bool overwrite_existing = 3;
 }
 
 message GetProfileResponse {
@@ -605,6 +982,7 @@ message ConfirmResumeUploadResponse {
   int32 code = 1;
   string msg = 2;
   int64 resume_id = 3;
+  bool fill_suggested = 4;
 }
 
 message ApplyJobRequest {
@@ -788,6 +1166,12 @@ message ContextUsageInfo {
   int32 included_message_count = 19;
   int32 omitted_message_count = 20;
   bool summary_applied = 21;
+  int64 requested_model_id = 22;
+  int64 effective_model_id = 23;
+  string model_fallback_reason = 24;
+  int64 capability_version_id = 25;
+  string capability_snapshot_hash = 26;
+  bool memory_applied = 27;
 }
 
 message ChatResponse {
@@ -803,6 +1187,7 @@ message ChatResponse {
   int32 status = 10;
   int64 session_id = 11;
   ContextUsageInfo context_usage = 12;
+  repeated string suggested_questions = 13;
 }
 
 message AgentSkillSelectionCandidate {
@@ -892,6 +1277,7 @@ message AnalyzeApplicationRequest {
   int64 hr_id = 1;
   int64 application_id = 2;
   int64 model_id = 3;
+  int64 capability_version_id = 4;
 }
 
 message AnalyzeApplicationResponse {
@@ -902,6 +1288,7 @@ message AnalyzeApplicationResponse {
   string job_title = 5;
   int32 status = 6;
   int32 round_no = 7;
+  ContextUsageInfo context_usage = 8;
 }
 
 message ChatSessionListRequest {
@@ -1257,6 +1644,140 @@ message ConfirmAgentRunResponse {
   int32 code = 1;
   string msg = 2;
   AgentRunSnapshot run = 3;
+}
+
+// ── Agent Memory ──────────────────────────────────────────────────────
+
+message MemoryInfo {
+  uint64 id = 1;
+  int64 tenant_id = 2;
+  int32 owner_role = 3;
+  uint64 owner_id = 4;
+  uint64 hr_id = 5;
+  string scope_type = 6;
+  uint64 scope_id = 7;
+  string memory_type = 8;
+  string content = 9;
+  string source = 10;
+  double confidence = 11;
+  double importance = 12;
+  string status = 13;
+  string pii_level = 14;
+  string content_hash = 15;
+  int64 source_session_id = 16;
+  int64 source_message_id = 17;
+  int64 source_run_id = 18;
+  int64 created_by = 19;
+  int64 revoked_by = 20;
+  string revoke_reason = 21;
+  string expires_at = 22;
+  string deleted_at = 23;
+  string created_at = 24;
+  string updated_at = 25;
+}
+
+message ListMemoriesRequest {
+  int64 tenant_id = 1;
+  int32 owner_role = 2;
+  uint64 owner_id = 3;
+  string scope_type = 4;
+  uint64 scope_id = 5;
+  string memory_type = 6;
+  string status = 7;
+  string pii_level = 8;
+  int32 page = 9;
+  int32 page_size = 10;
+}
+
+message ListMemoriesResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated MemoryInfo list = 4;
+}
+
+message GetMemoryRequest {
+  uint64 id = 1;
+  int32 owner_role = 2;
+  uint64 owner_id = 3;
+  int64 tenant_id = 4;
+}
+
+message MemoryResponse {
+  int32 code = 1;
+  string msg = 2;
+  MemoryInfo memory = 3;
+}
+
+message CreateMemoryRequest {
+  int64 tenant_id = 1;
+  int32 owner_role = 2;
+  uint64 owner_id = 3;
+  string scope_type = 4;
+  uint64 scope_id = 5;
+  string memory_type = 6;
+  string content = 7;
+  string source = 8;
+  double confidence = 9;
+  double importance = 10;
+  string pii_level = 11;
+  int64 source_session_id = 12;
+  int64 source_message_id = 13;
+  int64 source_run_id = 14;
+  int64 created_by = 15;
+  string expires_at = 16;
+  bool confirm_high_pii = 17;
+}
+
+message UpdateMemoryRequest {
+  uint64 id = 1;
+  int32 owner_role = 2;
+  uint64 owner_id = 3;
+  string content = 4;
+  double confidence = 5;
+  double importance = 6;
+  string status = 7;
+  string pii_level = 8;
+  string expires_at = 9;
+  bool content_set = 10;
+  bool confidence_set = 11;
+  bool importance_set = 12;
+  bool status_set = 13;
+  bool pii_level_set = 14;
+  bool expires_at_set = 15;
+  int64 tenant_id = 16;
+}
+
+message RevokeMemoryRequest {
+  uint64 id = 1;
+  int32 owner_role = 2;
+  uint64 owner_id = 3;
+  int64 revoked_by = 4;
+  string revoke_reason = 5;
+  int64 tenant_id = 6;
+}
+
+message RecallMemoriesRequest {
+  int64 tenant_id = 1;
+  int32 owner_role = 2;
+  uint64 owner_id = 3;
+  string scope_type = 4;
+  uint64 scope_id = 5;
+  string query = 6;
+  int32 limit = 7;
+  repeated string memory_types = 8;
+}
+
+message RecallMemoryItem {
+  MemoryInfo memory = 1;
+  double score = 2;
+  string reason = 3;
+}
+
+message RecallMemoriesResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated RecallMemoryItem items = 3;
 }
 
 // ── Interview ─────────────────────────────────────────────────────────
@@ -2027,6 +2548,57 @@ message CreateStaffUserResponse {
   int64 user_id = 3;
 }
 
+message PlatformUserInfo {
+  int64 user_id = 1;
+  string username = 2;
+  string email = 3;
+  string status = 4;
+  repeated string roles = 5;
+  int32 token_version = 6;
+  string created_at = 7;
+}
+
+message ListPlatformUsersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string status = 3;
+}
+
+message ListPlatformUsersResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated PlatformUserInfo list = 4;
+}
+
+message CreatePlatformUserRequest {
+  int64 admin_id = 1;
+  string username = 2;
+  string email = 3;
+  string password = 4;
+  string role_key = 5;
+}
+
+message CreatePlatformUserResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 user_id = 3;
+}
+
+message UpdatePlatformUserRequest {
+  int64 admin_id = 1;
+  int64 user_id = 2;
+  string role_key = 3;
+  string status = 4;
+  string reason = 5;
+}
+
+message PlatformUserResponse {
+  int32 code = 1;
+  string msg = 2;
+  PlatformUserInfo user = 3;
+}
+
 // ── Phase 4: Candidate Collaboration ───────────────────────────────────
 
 // ── Candidate Workspace ────────────────────────────────────────────────
@@ -2063,6 +2635,18 @@ message CandidateWorkspace {
   // Detailed interview and offer records
   repeated CandidateWorkspaceInterview interviews = 14;
   repeated CandidateWorkspaceOffer offers = 15;
+
+  // P0 screening fields
+  string city = 16;
+  double years_of_experience = 17;
+  string job_status = 18;
+  string expected_position = 19;
+  int32 expected_salary_min = 20;
+  int32 expected_salary_max = 21;
+  string available_from = 22;
+  string summary = 23;
+  repeated CandidateEducationInfo educations = 24;
+  repeated CandidateExperienceInfo experiences = 25;
 }
 
 message CandidateWorkspaceInterview {
@@ -2497,6 +3081,165 @@ message GetUsageTrendResponse {
 // ══════════════════════════════════════════════════════════════════════
 // P1-006: MCP Tool Center
 // ══════════════════════════════════════════════════════════════════════
+
+// Platform-owned AI capability releases and runtime model pools. Technical
+// configuration CRUD remains in the existing focused services; this service
+// governs immutable release snapshots and the safe model list exposed to HR
+// and candidate assistants.
+service PlatformAIControlPlaneService {
+  rpc ListPlatformAICapabilities(ListPlatformAICapabilitiesRequest) returns (ListPlatformAICapabilitiesResponse);
+  rpc ListPlatformAICapabilityVersions(ListPlatformAICapabilityVersionsRequest) returns (ListPlatformAICapabilityVersionsResponse);
+  rpc CreatePlatformAICapabilityDraft(CreatePlatformAICapabilityDraftRequest) returns (PlatformAICapabilityVersionResponse);
+  rpc UpdatePlatformAICapabilityDraft(UpdatePlatformAICapabilityDraftRequest) returns (PlatformAICapabilityVersionResponse);
+  rpc DeletePlatformAICapabilityDraft(DeletePlatformAICapabilityDraftRequest) returns (CommonResponse);
+  rpc PublishPlatformAICapabilityVersion(PublishPlatformAICapabilityVersionRequest) returns (PlatformAICapabilityVersionResponse);
+  rpc ListPlatformAIRuntimeModels(ListPlatformAIRuntimeModelsRequest) returns (ListPlatformAIRuntimeModelsResponse);
+  rpc ResolvePlatformAIRuntimeModel(ResolvePlatformAIRuntimeModelRequest) returns (ResolvePlatformAIRuntimeModelResponse);
+  rpc QueryPlatformAIConfigAuditLogs(QueryPlatformAIConfigAuditLogsRequest) returns (QueryPlatformAIConfigAuditLogsResponse);
+}
+
+message PlatformAICapabilityInfo {
+  int64 id = 1;
+  string capability_key = 2;
+  string audience = 3;
+  string name = 4;
+  string description = 5;
+  string status = 6;
+  int64 current_published_version_id = 7;
+}
+
+message PlatformAICapabilityVersionInfo {
+  int64 id = 1;
+  int64 capability_id = 2;
+  int32 version = 3;
+  string status = 4;
+  string snapshot_json = 5;
+  string snapshot_hash = 6;
+  string change_note = 7;
+  string published_at = 8;
+}
+
+message ListPlatformAICapabilitiesRequest {}
+
+message ListPlatformAICapabilitiesResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated PlatformAICapabilityInfo list = 3;
+}
+
+message ListPlatformAICapabilityVersionsRequest {
+  int64 capability_id = 1;
+}
+
+message ListPlatformAICapabilityVersionsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated PlatformAICapabilityVersionInfo list = 3;
+}
+
+message CreatePlatformAICapabilityDraftRequest {
+  int64 capability_id = 1;
+  string snapshot_json = 2;
+  string change_note = 3;
+  int64 actor_user_id = 4;
+  string request_id = 5;
+}
+
+message UpdatePlatformAICapabilityDraftRequest {
+  int64 version_id = 1;
+  string snapshot_json = 2;
+  string change_note = 3;
+  int64 actor_user_id = 4;
+  string request_id = 5;
+}
+
+message PublishPlatformAICapabilityVersionRequest {
+  int64 version_id = 1;
+  int64 actor_user_id = 2;
+  string request_id = 3;
+}
+
+message PlatformAICapabilityVersionResponse {
+  int32 code = 1;
+  string msg = 2;
+  PlatformAICapabilityVersionInfo version = 3;
+}
+
+message PlatformAIRuntimeModelInfo {
+  int64 id = 1;
+  string model_name = 2;
+  string display_name = 3;
+  int64 provider_id = 4;
+  string provider_name = 5;
+  bool is_default = 6;
+  int32 max_tokens = 7;
+  int32 context_window_tokens = 8;
+}
+
+message ListPlatformAIRuntimeModelsRequest {
+  string capability_key = 1;
+  string audience = 2;
+  int64 capability_version_id = 3;
+}
+
+message ListPlatformAIRuntimeModelsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 capability_version_id = 3;
+  string snapshot_hash = 4;
+  repeated PlatformAIRuntimeModelInfo list = 5;
+}
+
+message ResolvePlatformAIRuntimeModelRequest {
+  string capability_key = 1;
+  string audience = 2;
+  int64 capability_version_id = 3;
+  int64 requested_model_id = 4;
+}
+
+message ResolvePlatformAIRuntimeModelResponse {
+  int32 code = 1;
+  string msg = 2;
+  string capability_key = 3;
+  string audience = 4;
+  int64 capability_version_id = 5;
+  string snapshot_hash = 6;
+  int64 requested_model_id = 7;
+  int64 effective_model_id = 8;
+  string model_fallback_reason = 9;
+  string model_name = 10;
+  string display_name = 11;
+  int64 provider_id = 12;
+  string provider_name = 13;
+}
+
+message QueryPlatformAIConfigAuditLogsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string resource_type = 3;
+  int64 capability_id = 4;
+}
+
+message PlatformAIConfigAuditLogInfo {
+  int64 id = 1;
+  int64 actor_user_id = 2;
+  string action = 3;
+  string resource_type = 4;
+  int64 resource_id = 5;
+  int64 capability_id = 6;
+  int64 capability_version_id = 7;
+  string before_snapshot = 8;
+  string after_snapshot = 9;
+  string request_id = 10;
+  string created_at = 11;
+}
+
+message QueryPlatformAIConfigAuditLogsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated PlatformAIConfigAuditLogInfo list = 4;
+}
 
 service MCPService {
   rpc ListMCPServers(ListMCPServersRequest) returns (ListMCPServersResponse);
@@ -3199,7 +3942,7 @@ message AgentToolBindingInfo {
 message AgentCapabilityBindingInfo {
   int64 id = 1;
   int64 agent_id = 2;
-  string capability_source = 3; // builtin / mcp / skill
+  string capability_source = 3; // builtin / mcp
   string capability_key = 4;    // builtin tool name or mcp server_id:tool_name
   bool is_enabled = 5;
   int32 priority = 6;
@@ -3209,7 +3952,7 @@ message AgentCapabilityBindingInfo {
 }
 
 message CapabilityInfo {
-  string source = 1;       // builtin / mcp / skill
+  string source = 1;       // builtin / mcp
   string key = 2;          // stable capability key
   string name = 3;         // runtime tool name
   string display_name = 4;
@@ -3301,152 +4044,6 @@ message GetAgentConfigResponse {
   int32 code = 1;
   string msg = 2;
   AgentConfigInfo agent = 3;
-}
-
-// ══════════════════════════════════════════════════════════════════════
-// SKILL Registry Management
-// ══════════════════════════════════════════════════════════════════════
-
-service SkillService {
-  rpc ListSkills(ListSkillsRequest) returns (ListSkillsResponse);
-  rpc CreateSkill(CreateSkillRequest) returns (SkillResponse);
-  rpc UpdateSkill(UpdateSkillRequest) returns (SkillResponse);
-  rpc CreateSkillVersion(CreateSkillVersionRequest) returns (SkillVersionResponse);
-  rpc ListSkillVersions(ListSkillVersionsRequest) returns (ListSkillVersionsResponse);
-  rpc ActivateSkillVersion(ActivateSkillVersionRequest) returns (SkillResponse);
-  rpc ListSkillTools(ListSkillToolsRequest) returns (ListSkillToolsResponse);
-  rpc UpdateSkillTool(UpdateSkillToolRequest) returns (SkillToolResponse);
-}
-
-message SkillInfo {
-  int64 id = 1;
-  string name = 2;
-  string display_name = 3;
-  string description = 4;
-  string source_type = 5;
-  string source_uri = 6;
-  int64 current_version_id = 7;
-  bool is_enabled = 8;
-  string created_at = 9;
-  string updated_at = 10;
-}
-
-message SkillVersionInfo {
-  int64 id = 1;
-  int64 skill_id = 2;
-  string version = 3;
-  string manifest_json = 4;
-  string instruction = 5;
-  string input_schema_json = 6;
-  string output_schema_json = 7;
-  string runtime_type = 8;
-  string created_at = 9;
-}
-
-message SkillToolInfo {
-  int64 id = 1;
-  int64 skill_version_id = 2;
-  string tool_name = 3;
-  string description = 4;
-  string input_schema_json = 5;
-  string runtime_config_json = 6;
-  bool is_enabled = 7;
-  string capability_key = 8; // <skill_name>:<tool_name>
-  string runtime_tool_name = 9; // skill_<skill_name>_<tool_name>
-  string created_at = 10;
-  string updated_at = 11;
-}
-
-message ListSkillsRequest {
-  int32 page = 1;
-  int32 page_size = 2;
-}
-
-message ListSkillsResponse {
-  int32 code = 1;
-  string msg = 2;
-  int64 total = 3;
-  repeated SkillInfo list = 4;
-}
-
-message CreateSkillRequest {
-  string name = 1;
-  string display_name = 2;
-  string description = 3;
-  string source_type = 4;
-  string source_uri = 5;
-  bool is_enabled = 6;
-  bool is_enabled_set = 7;
-}
-
-message UpdateSkillRequest {
-  int64 id = 1;
-  string display_name = 2;
-  string description = 3;
-  string source_type = 4;
-  string source_uri = 5;
-  bool is_enabled = 6;
-  bool is_enabled_set = 7;
-}
-
-message SkillResponse {
-  int32 code = 1;
-  string msg = 2;
-  SkillInfo skill = 3;
-}
-
-message CreateSkillVersionRequest {
-  int64 skill_id = 1;
-  string manifest_json = 2;
-  bool activate = 3;
-}
-
-message SkillVersionResponse {
-  int32 code = 1;
-  string msg = 2;
-  SkillVersionInfo version = 3;
-  repeated SkillToolInfo tools = 4;
-}
-
-message ListSkillVersionsRequest {
-  int64 skill_id = 1;
-}
-
-message ListSkillVersionsResponse {
-  int32 code = 1;
-  string msg = 2;
-  repeated SkillVersionInfo list = 3;
-}
-
-message ActivateSkillVersionRequest {
-  int64 skill_id = 1;
-  int64 version_id = 2;
-}
-
-message ListSkillToolsRequest {
-  int64 skill_id = 1;
-  int64 skill_version_id = 2;
-  bool enabled_only = 3;
-}
-
-message ListSkillToolsResponse {
-  int32 code = 1;
-  string msg = 2;
-  repeated SkillToolInfo list = 3;
-}
-
-message UpdateSkillToolRequest {
-  int64 tool_id = 1;
-  string description = 2;
-  string runtime_config_json = 3;
-  bool is_enabled = 4;
-  bool is_enabled_set = 5;
-}
-
-message SkillToolResponse {
-  int32 code = 1;
-  string msg = 2;
-  SkillToolInfo tool = 3;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -3650,6 +4247,9 @@ message DebugSemanticRetrievalRequest {
   int64 job_id = 4;
   int64 application_id = 5;
   int32 limit = 6;
+  int32 owner_role = 7;
+  uint64 owner_id = 8;
+  int64 tenant_id = 9;
 }
 
 message SemanticSkillDebugItem {
@@ -3723,6 +4323,13 @@ message ParseResumeProfileRequest {
   int64 staff_user_id = 1;
   int64 resume_id = 2;
   int64 application_id = 3;
+  int64 capability_version_id = 4;
+  int64 model_id = 5;
+}
+
+message ParseResumeProfileForCandidateRequest {
+  int64 candidate_user_id = 1;
+  int64 resume_id = 2;
 }
 
 message ResumeParseRunInfo {
@@ -3738,6 +4345,11 @@ message ResumeParseRunInfo {
   string completed_at = 10;
   string created_at = 11;
   string updated_at = 12;
+  int64 requested_model_id = 13;
+  int64 effective_model_id = 14;
+  string model_fallback_reason = 15;
+  int64 capability_version_id = 16;
+  string capability_snapshot_hash = 17;
 }
 
 message ResumeProfileInfo {
@@ -3825,6 +4437,8 @@ message EvaluateCandidateMatchRequest {
   int64 staff_user_id = 1;
   int64 application_id = 2;
   uint64 agent_run_id = 3;
+  int64 capability_version_id = 4;
+  int64 model_id = 5;
 }
 
 message GetCandidateMatchEvaluationRequest {
@@ -3855,6 +4469,11 @@ message CandidateMatchEvaluationInfo {
   string created_at = 18;
   string updated_at = 19;
   string dimensions_json = 20;
+  int64 requested_model_id = 21;
+  int64 effective_model_id = 22;
+  string model_fallback_reason = 23;
+  int64 capability_version_id = 24;
+  string capability_snapshot_hash = 25;
 }
 
 message CandidateMatchEvidenceInfo {
@@ -4111,4 +4730,335 @@ message PreviewChatContextResponse {
   string msg = 2;
   int64 selected_model_id = 3;
   ContextUsageInfo context_usage = 4;
+}
+
+enum BillingOwnerType {
+  BILLING_OWNER_TYPE_UNSPECIFIED = 0;
+  BILLING_OWNER_TYPE_TENANT = 1;
+  BILLING_OWNER_TYPE_USER = 2;
+}
+
+enum BillingEnforcementMode {
+  BILLING_ENFORCEMENT_MODE_UNSPECIFIED = 0;
+  BILLING_ENFORCEMENT_MODE_SHADOW = 1;
+  BILLING_ENFORCEMENT_MODE_ENFORCE = 2;
+}
+
+message BillingOwner {
+  BillingOwnerType type = 1;
+  int64 id = 2;
+}
+
+message CheckAIAccessRequest {
+  BillingOwner owner = 1;
+  int64 user_id = 2;
+  string capability = 3;
+  int64 estimated_credits = 4;
+}
+
+message CheckAIAccessResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool allowed = 3;
+  string reason = 4;
+  int64 available_credits = 5;
+  BillingEnforcementMode enforcement_mode = 6;
+  int64 capability_version_id = 7;
+}
+
+message ReserveAIUsageRequest {
+  BillingOwner owner = 1;
+  int64 user_id = 2;
+  string capability = 3;
+  string operation = 4;
+  string provider_key = 5;
+  string model_key = 6;
+  int64 estimated_credits = 7;
+  string idempotency_key = 8;
+  int64 ttl_seconds = 9;
+}
+
+message ReserveAIUsageResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool allowed = 3;
+  string reason = 4;
+  string reservation_no = 5;
+  int64 reserved_credits = 6;
+  int64 available_credits = 7;
+  int64 expires_at_unix_ms = 8;
+  BillingEnforcementMode enforcement_mode = 9;
+  int64 capability_version_id = 10;
+}
+
+message AIProviderUsage {
+  int32 provider_call_seq = 1;
+  string provider_key = 2;
+  string model_key = 3;
+  int64 input_tokens = 4;
+  int64 output_tokens = 5;
+  int64 cached_input_tokens = 6;
+  string provider_request_id = 7;
+  bool estimated = 8;
+  int64 occurred_at_unix_ms = 9;
+  string metadata_json = 10;
+}
+
+message SettleAIUsageRequest {
+  string reservation_no = 1;
+  repeated AIProviderUsage provider_usages = 2;
+  string idempotency_key = 3;
+}
+
+message SettleAIUsageResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 charged_credits = 3;
+  int64 supplier_cost_micros = 4;
+  int64 available_credits = 5;
+  bool already_settled = 6;
+}
+
+message CancelAIUsageRequest {
+  string reservation_no = 1;
+  string reason = 2;
+  string idempotency_key = 3;
+}
+
+message CancelAIUsageResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 released_credits = 3;
+  int64 available_credits = 4;
+  bool already_cancelled = 5;
+}
+
+message GetAICreditBalanceRequest {
+  BillingOwner owner = 1;
+}
+
+message GetAICreditBalanceResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 available_credits = 3;
+  int64 reserved_credits = 4;
+  int64 next_expiry_at_unix_ms = 5;
+  BillingEnforcementMode enforcement_mode = 6;
+}
+
+message BillingPriceInfo {
+  int64 id = 1;
+  int32 version = 2;
+  string billing_term = 3;
+  int64 amount_fen = 4;
+  string currency = 5;
+  int64 included_credits = 6;
+  string entitlement_snapshot_json = 7;
+}
+
+message BillingProductInfo {
+  int64 id = 1;
+  string product_key = 2;
+  string name = 3;
+  string description = 4;
+  string product_type = 5;
+  repeated BillingPriceInfo prices = 6;
+}
+
+message ListBillingCatalogRequest { BillingOwner owner = 1; }
+message ListBillingCatalogResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated BillingProductInfo products = 3;
+  string payment_environment = 4;
+}
+
+message BillingSubscriptionInfo {
+  int64 id = 1;
+  string product_key = 2;
+  string product_name = 3;
+  string status = 4;
+  string term = 5;
+  int64 current_period_start_unix_ms = 6;
+  int64 current_period_end_unix_ms = 7;
+  bool cancel_at_period_end = 8;
+  // Identifies how the current plan was granted. Existing paid subscriptions
+  // use "paid_subscription"; platform-assigned tenant plans use
+  // "platform_plan"; candidate baseline access uses "free_tier".
+  string source = 9;
+  int64 included_credits = 10;
+}
+
+message GetBillingAccountRequest { BillingOwner owner = 1; }
+message GetBillingAccountResponse {
+  int32 code = 1;
+  string msg = 2;
+  BillingSubscriptionInfo subscription = 3;
+  int64 available_credits = 4;
+  int64 reserved_credits = 5;
+  int64 next_expiry_at_unix_ms = 6;
+  string payment_environment = 7;
+  // Credits granted in the current active buckets before consumption.
+  int64 total_credits = 8;
+  // Credits already settled against the current active buckets.
+  int64 used_credits = 9;
+  // The next monthly entitlement refresh boundary, when applicable.
+  int64 next_refresh_at_unix_ms = 10;
+  // The next paid subscription period that is waiting for activation.
+  BillingSubscriptionInfo scheduled_subscription = 11;
+}
+
+message BillingOrderInfo {
+  string order_no = 1;
+  string order_type = 2;
+  string product_key = 3;
+  string product_name = 4;
+  int64 price_version_id = 5;
+  int64 amount_fen = 6;
+  string currency = 7;
+  string status = 8;
+  string payment_environment = 9;
+  int64 expires_at_unix_ms = 10;
+  int64 paid_at_unix_ms = 11;
+  int64 created_at_unix_ms = 12;
+}
+
+message ListBillingOrdersRequest {
+  BillingOwner owner = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+message ListBillingOrdersResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated BillingOrderInfo orders = 3;
+  int64 total = 4;
+}
+
+message CreateBillingOrderRequest {
+  BillingOwner owner = 1;
+  int64 actor_user_id = 2;
+  int64 price_version_id = 3;
+  string order_type = 4;
+  string idempotency_key = 5;
+  // When true, the service closes the owner's current unpaid order before
+  // creating this order. Browsers must only set this after explicit user choice.
+  bool replace_pending_order = 6;
+}
+message BillingOrderResponse {
+  int32 code = 1;
+  string msg = 2;
+  BillingOrderInfo order = 3;
+}
+
+message CreateAlipayPaymentRequest {
+  BillingOwner owner = 1;
+  int64 actor_user_id = 2;
+  string order_no = 3;
+  string scene = 4;
+}
+message CreateAlipayPaymentResponse {
+  int32 code = 1;
+  string msg = 2;
+  string payment_no = 3;
+  string redirect_url = 4;
+  string payment_environment = 5;
+  bool reused = 6;
+  string status = 7;
+  int64 expires_at_unix_ms = 8;
+}
+
+message RequestBillingRefundRequest {
+  BillingOwner owner = 1;
+  int64 actor_user_id = 2;
+  string order_no = 3;
+  string reason = 4;
+  string idempotency_key = 5;
+}
+message BillingRefundResponse {
+  int32 code = 1;
+  string msg = 2;
+  string refund_no = 3;
+  string status = 4;
+  string review_mode = 5;
+}
+message BillingRefundInfo {
+  string refund_no = 1;
+  string order_no = 2;
+  string owner_type = 3;
+  int64 owner_id = 4;
+  int64 amount_fen = 5;
+  string status = 6;
+  string review_mode = 7;
+  string reason = 8;
+  int64 requested_by = 9;
+  int64 reviewed_by = 10;
+  int64 created_at_unix_ms = 11;
+  int64 reviewed_at_unix_ms = 12;
+  string last_error = 13;
+}
+message ListBillingRefundsRequest { string status = 1; int32 page = 2; int32 page_size = 3; }
+message ListBillingRefundsResponse { int32 code = 1; string msg = 2; repeated BillingRefundInfo refunds = 3; int64 total = 4; }
+message ReviewBillingRefundRequest { string refund_no = 1; int64 actor_user_id = 2; string action = 3; string reason = 4; }
+
+message AlipayNotificationField { string key = 1; string value = 2; }
+message ProcessAlipayNotificationRequest { repeated AlipayNotificationField fields = 1; }
+message ProcessAlipayNotificationResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool accepted = 3;
+}
+message ResolveAlipayReturnRequest { repeated AlipayNotificationField fields = 1; }
+message ResolveAlipayReturnResponse {
+  int32 code = 1;
+  string msg = 2;
+  string source_app = 3;
+  string return_token = 4;
+}
+message SyncAlipayReturnRequest {
+  BillingOwner owner = 1;
+  int64 actor_user_id = 2;
+  string return_token = 3;
+}
+
+message ListBillingAdminCatalogRequest {}
+message SaveBillingPriceVersionRequest {
+  int64 product_id = 1;
+  int64 price_version_id = 2;
+  string billing_term = 3;
+  int64 amount_fen = 4;
+  int64 included_credits = 5;
+  string entitlement_snapshot_json = 6;
+  bool publish = 7;
+}
+
+message AIRateCardInfo {
+  int64 id = 1;
+  string provider_key = 2;
+  string model_key = 3;
+  int32 version = 4;
+  string currency = 5;
+  int64 input_micros_per_1k_tokens = 6;
+  int64 output_micros_per_1k_tokens = 7;
+  int64 cached_input_micros_per_1k_tokens = 8;
+  int64 credit_micros = 9;
+  string status = 10;
+  int64 effective_at_unix_ms = 11;
+}
+message ListAIRateCardsRequest {}
+message ListAIRateCardsResponse { int32 code = 1; string msg = 2; repeated AIRateCardInfo rates = 3; }
+message SaveAIRateCardRequest {
+  string provider_key = 1;
+  string model_key = 2;
+  int64 input_micros_per_1k_tokens = 3;
+  int64 output_micros_per_1k_tokens = 4;
+  int64 cached_input_micros_per_1k_tokens = 5;
+  int64 credit_micros = 6;
+  bool publish = 7;
+}
+
+message DeletePlatformAICapabilityDraftRequest {
+  int64 version_id = 1;
+  int64 actor_user_id = 2;
+  string request_id = 3;
 }

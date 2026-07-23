@@ -1,9 +1,21 @@
-import axios from 'axios'
+import axios, { type AxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '@/router'
 import { clearPlatformUser } from '@/stores/auth'
 
 const http = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || '', timeout: 30000, withCredentials: true })
+
+export interface PlatformRequestConfig extends AxiosRequestConfig {
+  silentError?: boolean
+}
+
+interface PlatformRequestInstance {
+  get<T = unknown, R = T>(url: string, config?: PlatformRequestConfig): Promise<R>
+  post<T = unknown, R = T>(url: string, data?: unknown, config?: PlatformRequestConfig): Promise<R>
+  put<T = unknown, R = T>(url: string, data?: unknown, config?: PlatformRequestConfig): Promise<R>
+  patch<T = unknown, R = T>(url: string, data?: unknown, config?: PlatformRequestConfig): Promise<R>
+  delete<T = unknown, R = T>(url: string, config?: PlatformRequestConfig): Promise<R>
+}
 
 http.interceptors.request.use((config) => {
   config.headers.set('X-Client-App', 'platform')
@@ -14,13 +26,14 @@ http.interceptors.response.use(
   (response) => {
     const { code, msg, data } = response.data || {}
     if (code !== 0) {
-      ElMessage.error(msg || '操作失败')
+      const requestConfig = response.config as typeof response.config & PlatformRequestConfig
+      if (!requestConfig.silentError) ElMessage.error(msg || '操作失败')
       return Promise.reject(new Error(msg || 'operation failed'))
     }
     return data
   },
   async (error) => {
-    const request = error.config as typeof error.config & { _retry?: boolean }
+    const request = error.config as typeof error.config & PlatformRequestConfig & { _retry?: boolean }
     if (error.response?.status === 401 && request && !request._retry) {
       request._retry = true
       const refresh = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/v1/auth/refresh`, {
@@ -32,9 +45,9 @@ http.interceptors.response.use(
       await router.push('/login')
     }
     const msg = error.response?.data?.msg || '请求失败，请稍后重试'
-    ElMessage.error(msg)
+    if (!request?.silentError) ElMessage.error(msg)
     return Promise.reject(error)
   },
 )
 
-export default http
+export default http as unknown as PlatformRequestInstance

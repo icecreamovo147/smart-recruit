@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	domainmemory "smart-recruit-ai-agent-service/internal/domain/memory"
 	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-proto/recruitment/pb"
@@ -27,7 +28,6 @@ const (
 
 type llmModelRecord struct {
 	ID                      int64          `gorm:"primaryKey"`
-	TenantID                *int64         `gorm:"column:tenant_id"`
 	ProviderID              int64          `gorm:"column:provider_id"`
 	ModelName               string         `gorm:"column:model_name"`
 	CatalogModelName        sql.NullString `gorm:"column:catalog_model_name"`
@@ -56,7 +56,6 @@ func (llmModelRecord) TableName() string { return "llm_models" }
 
 type promptVersionRecord struct {
 	ID         int64          `gorm:"primaryKey"`
-	TenantID   *int64         `gorm:"column:tenant_id"`
 	TemplateID int64          `gorm:"column:template_id"`
 	Version    int            `gorm:"column:version"`
 	Content    string         `gorm:"column:content"`
@@ -69,7 +68,6 @@ func (promptVersionRecord) TableName() string { return "prompt_versions" }
 
 type agentConfigRecord struct {
 	ID                  int64           `gorm:"primaryKey"`
-	TenantID            *int64          `gorm:"column:tenant_id"`
 	Name                string          `gorm:"column:name"`
 	DisplayName         string          `gorm:"column:display_name"`
 	Description         sql.NullString  `gorm:"column:description"`
@@ -88,7 +86,6 @@ func (agentConfigRecord) TableName() string { return "agent_configs" }
 
 type agentToolBindingRecord struct {
 	ID        int64     `gorm:"primaryKey"`
-	TenantID  *int64    `gorm:"column:tenant_id"`
 	AgentID   int64     `gorm:"column:agent_id"`
 	ToolName  string    `gorm:"column:tool_name"`
 	IsEnabled bool      `gorm:"column:is_enabled"`
@@ -99,7 +96,6 @@ func (agentToolBindingRecord) TableName() string { return "agent_tool_bindings" 
 
 type agentCapabilityBindingRecord struct {
 	ID               int64          `gorm:"primaryKey"`
-	TenantID         *int64         `gorm:"column:tenant_id"`
 	AgentID          int64          `gorm:"column:agent_id"`
 	CapabilitySource string         `gorm:"column:capability_source"`
 	CapabilityKey    string         `gorm:"column:capability_key"`
@@ -114,7 +110,6 @@ func (agentCapabilityBindingRecord) TableName() string { return "agent_capabilit
 
 type embeddingModelRecord struct {
 	ID              int64          `gorm:"primaryKey"`
-	TenantID        *int64         `gorm:"column:tenant_id"`
 	ProviderID      int64          `gorm:"column:provider_id"`
 	ModelName       string         `gorm:"column:model_name"`
 	DisplayName     string         `gorm:"column:display_name"`
@@ -480,6 +475,9 @@ func (s *NativeStore) CreatePromptTemplate(ctx context.Context, req *pb.CreatePr
 }
 
 func (s *NativeStore) UpdatePromptTemplate(ctx context.Context, req *pb.UpdatePromptTemplateRequest) (*pb.PromptTemplateResponse, error) {
+	if err := s.assertNotReleasedConfiguration(ctx, "prompt", req.GetId()); err != nil {
+		return &pb.PromptTemplateResponse{Code: configBadRequest, Msg: err.Error()}, nil
+	}
 	var row promptTemplateRecord
 	if err := s.db.WithContext(ctx).First(&row, req.GetId()).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -563,6 +561,9 @@ func promptAgentTypeScope(agentType string) []string {
 }
 
 func (s *NativeStore) DeletePromptTemplate(ctx context.Context, req *pb.DeletePromptTemplateRequest) (*pb.CommonResponse, error) {
+	if err := s.assertNotReleasedConfiguration(ctx, "prompt", req.GetId()); err != nil {
+		return &pb.CommonResponse{Code: configBadRequest, Msg: err.Error()}, nil
+	}
 	return rowsCommon(s.db.WithContext(ctx).Delete(&promptTemplateRecord{}, req.GetId()), "success", "prompt template not found")
 }
 
@@ -662,6 +663,9 @@ func (s *NativeStore) CreateAgent(ctx context.Context, req *pb.CreateAgentReques
 }
 
 func (s *NativeStore) UpdateAgent(ctx context.Context, req *pb.UpdateAgentRequest) (*pb.AgentConfigResponse, error) {
+	if err := s.assertNotReleasedConfiguration(ctx, "agent", req.GetId()); err != nil {
+		return &pb.AgentConfigResponse{Code: configBadRequest, Msg: err.Error()}, nil
+	}
 	updates := map[string]any{}
 	putString(updates, "name", req.GetName())
 	putString(updates, "display_name", req.GetDisplayName())
@@ -747,6 +751,9 @@ func agentPromptTypesCompatible(agentType, promptAgentType string) bool {
 }
 
 func (s *NativeStore) DeleteAgent(ctx context.Context, req *pb.DeleteAgentRequest) (*pb.CommonResponse, error) {
+	if err := s.assertNotReleasedConfiguration(ctx, "agent", req.GetId()); err != nil {
+		return &pb.CommonResponse{Code: configBadRequest, Msg: err.Error()}, nil
+	}
 	return rowsCommon(s.db.WithContext(ctx).Delete(&agentConfigRecord{}, req.GetId()), "success", "agent not found")
 }
 
@@ -1066,6 +1073,40 @@ func (s *NativeStore) ListAgentSkillEmbeddingDocuments(ctx context.Context, obje
 	return docs, nil
 }
 
+func (s *NativeStore) ListMemoryEmbeddingDocuments(ctx context.Context, objectID int64, limit int) ([]embeddinginfra.MemoryEmbeddingDocument, error) {
+	if s == nil || s.db == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	query := s.db.WithContext(ctx).Model(&aiMemoryRecord{}).Where("status = ?", domainmemory.StatusActive)
+	if objectID > 0 {
+		query = query.Where("id = ?", objectID)
+	}
+	var rows []aiMemoryRecord
+	if err := query.Order("updated_at DESC, id DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	docs := make([]embeddinginfra.MemoryEmbeddingDocument, 0, len(rows))
+	for _, row := range rows {
+		docs = append(docs, embeddinginfra.MemoryEmbeddingDocument{
+			ID:         int64(row.ID),
+			TenantID:   row.TenantID,
+			OwnerRole:  row.OwnerRole,
+			OwnerID:    row.OwnerID,
+			ScopeType:  row.ScopeType,
+			ScopeID:    row.ScopeID,
+			MemoryType: row.MemoryType,
+			Content:    row.Content,
+			Source:     row.Source,
+			Confidence: row.Confidence,
+			Importance: row.Importance,
+		})
+	}
+	return docs, nil
+}
+
 func (s *NativeStore) UpsertAIEmbedding(ctx context.Context, row embeddinginfra.AIEmbeddingRecord) error {
 	vector, err := json.Marshal(row.Vector)
 	if err != nil {
@@ -1142,6 +1183,87 @@ func (s *NativeStore) ListAIEmbeddings(ctx context.Context, objectType, modelNam
 		})
 	}
 	return out, nil
+}
+
+func (s *NativeStore) ListAIEmbeddingsForOwner(ctx context.Context, objectType, modelName string, tenantID *uint64, ownerRole int32, ownerID uint64, limit int) ([]embeddinginfra.AIEmbeddingRecord, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 500
+	}
+	var rows []aiEmbeddingRecord
+	query := s.db.WithContext(ctx).
+		Where("object_type = ? AND embedding_model = ? AND status = ?", strings.TrimSpace(objectType), strings.TrimSpace(modelName), "ready")
+	if ownerID > 0 {
+		query = query.Where("metadata_json LIKE ? OR metadata_json LIKE ?", fmt.Sprintf(`%%"owner_id":%d%%`, ownerID), fmt.Sprintf(`%%"owner_id":%d.0%%`, ownerID))
+	}
+	if err := query.Order("updated_at DESC, id DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]embeddinginfra.AIEmbeddingRecord, 0, len(rows))
+	for _, row := range rows {
+		var vector []float64
+		if row.VectorJSON.Valid {
+			_ = json.Unmarshal([]byte(row.VectorJSON.String), &vector)
+		}
+		var metadata map[string]any
+		if row.MetadataJSON.Valid {
+			_ = json.Unmarshal([]byte(row.MetadataJSON.String), &metadata)
+		}
+		if ownerID > 0 {
+			metaOwnerRole := int32(floatFromAny(metadata["owner_role"]))
+			metaOwnerID := uint64(floatFromAny(metadata["owner_id"]))
+			if metaOwnerID != ownerID || (ownerRole > 0 && metaOwnerRole != ownerRole) {
+				continue
+			}
+			metaTenantID, hasTenantID := metadata["tenant_id"]
+			if tenantID == nil {
+				if hasTenantID {
+					continue
+				}
+			} else if !hasTenantID || uint64(floatFromAny(metaTenantID)) != *tenantID {
+				continue
+			}
+		}
+		out = append(out, embeddinginfra.AIEmbeddingRecord{
+			ObjectType:     row.ObjectType,
+			ObjectID:       row.ObjectID,
+			ScopeType:      row.ScopeType,
+			ScopeID:        row.ScopeID,
+			TextHash:       row.TextHash,
+			EmbeddingModel: row.EmbeddingModel,
+			EmbeddingDim:   row.EmbeddingDim,
+			Vector:         vector,
+			Metadata:       metadata,
+			Status:         row.Status,
+			LastError:      nullString(row.LastError),
+		})
+	}
+	return out, nil
+}
+
+func floatFromAny(value any) float64 {
+	switch v := value.(type) {
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case int:
+		return float64(v)
+	case int32:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case uint:
+		return float64(v)
+	case uint32:
+		return float64(v)
+	case uint64:
+		return float64(v)
+	case json.Number:
+		n, _ := v.Float64()
+		return n
+	default:
+		return 0
+	}
 }
 
 func (s *NativeStore) getLlmProviderResponse(ctx context.Context, id int64) (*pb.ProviderResponse, error) {
@@ -1267,7 +1389,11 @@ func replaceAgentBindings(tx *gorm.DB, agentID int64, toolNames []string, caps [
 			if cap == nil || strings.TrimSpace(cap.GetCapabilitySource()) == "" || strings.TrimSpace(cap.GetCapabilityKey()) == "" {
 				continue
 			}
-			if err := tx.Create(&agentCapabilityBindingRecord{AgentID: agentID, CapabilitySource: strings.TrimSpace(cap.GetCapabilitySource()), CapabilityKey: strings.TrimSpace(cap.GetCapabilityKey()), IsEnabled: cap.GetIsEnabled(), Priority: int(cap.GetPriority()), PolicyJSON: nullableJSONText(cap.GetPolicyJson())}).Error; err != nil {
+			source := strings.ToLower(strings.TrimSpace(cap.GetCapabilitySource()))
+			if source != "builtin" && source != "mcp" {
+				return fmt.Errorf("unsupported capability source %q", cap.GetCapabilitySource())
+			}
+			if err := tx.Create(&agentCapabilityBindingRecord{AgentID: agentID, CapabilitySource: source, CapabilityKey: strings.TrimSpace(cap.GetCapabilityKey()), IsEnabled: cap.GetIsEnabled(), Priority: int(cap.GetPriority()), PolicyJSON: nullableJSONText(cap.GetPolicyJson())}).Error; err != nil {
 				return err
 			}
 		}

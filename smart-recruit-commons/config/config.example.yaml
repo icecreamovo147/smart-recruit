@@ -14,7 +14,7 @@ logging:
     ignore_record_not_found: true    # GORM_IGNORE_NOT_FOUND: suppress gorm.ErrRecordNotFound
 
 mysql:
-  dsn: "root:CHANGE_ME_MYSQL_PASSWORD@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: "root:CHANGE_ME_MYSQL_PASSWORD@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai&time_zone=%27%2B08%3A00%27"
   max_open_conns: 50
   max_idle_conns: 10
   conn_max_lifetime: "1h"
@@ -78,6 +78,13 @@ agent:
   max_memory_chars: 1500
   max_prompt_chars: 20000
   max_memories: 10
+  memory:
+    enabled: true                       # AGENT_MEMORY_ENABLED
+    write_enabled: true                 # AGENT_MEMORY_WRITE_ENABLED
+    inject_enabled: true                # AGENT_MEMORY_INJECT_ENABLED
+    cleanup_interval: 15m               # AGENT_MEMORY_CLEANUP_INTERVAL
+    cleanup_timeout: 5m                 # AGENT_MEMORY_CLEANUP_TIMEOUT
+    revoked_retention: 720h             # AGENT_MEMORY_REVOKED_RETENTION
   features:
     planner: true                       # AGENT_FEATURE_PLANNER
     structured_resume_parse: true       # AGENT_FEATURE_STRUCTURED_RESUME_PARSE

@@ -38,17 +38,25 @@ type JobLocation struct {
 }
 
 type CandidateProfile struct {
-	ID             int64
-	UserID         int64
-	RealName       string
-	Phone          string
-	Education      string
-	School         string
-	WorkExperience string
-	Skills         string
-	IsComplete     int32
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID                 int64
+	UserID             int64
+	RealName           string
+	Phone              string
+	Education          string
+	School             string
+	WorkExperience     string
+	Skills             string
+	City               string
+	YearsOfExperience  float64
+	JobStatus          string
+	ExpectedPosition   string
+	ExpectedSalaryMin  int32
+	ExpectedSalaryMax  int32
+	AvailableFrom      string
+	Summary            string
+	IsComplete         int32
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 type Resume struct {

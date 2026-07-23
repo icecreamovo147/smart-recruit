@@ -111,7 +111,7 @@ func TestMySQLMigrationConsistency(t *testing.T) {
 	}
 
 	// ── Compare information_schema ───────────────────────────────────
-	diff, err := compareSchemas(ctx, rootSQL, dbNameMig, dbNameSQL)
+	diff, err := compareDatabaseSchemas(ctx, rootSQL, dbNameMig, dbNameSQL)
 	if err != nil {
 		t.Fatalf("compare schemas: %v", err)
 	}

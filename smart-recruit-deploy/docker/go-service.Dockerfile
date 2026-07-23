@@ -44,6 +44,7 @@ COPY smart-recruit-offer-service ./smart-recruit-offer-service
 COPY smart-recruit-notification-service ./smart-recruit-notification-service
 COPY smart-recruit-ai-agent-service ./smart-recruit-ai-agent-service
 COPY smart-recruit-analytics-service ./smart-recruit-analytics-service
+COPY smart-recruit-billing-service ./smart-recruit-billing-service
 COPY smart-recruit-worker-service ./smart-recruit-worker-service
 
 RUN test -n "${SERVICE_DIR}" && test -n "${CMD_PATH}" && test -n "${BINARY_NAME}" && \

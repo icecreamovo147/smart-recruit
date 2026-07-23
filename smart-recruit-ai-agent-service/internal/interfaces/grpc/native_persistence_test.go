@@ -14,25 +14,30 @@ import (
 )
 
 type candidateEvaluationTestRow struct {
-	ID                 uint64          `gorm:"primaryKey"`
-	TenantID           int64           `gorm:"column:tenant_id"`
-	ApplicationID      int64           `gorm:"column:application_id"`
-	JobID              int64           `gorm:"column:job_id"`
-	CandidateUserID    int64           `gorm:"column:candidate_user_id"`
-	ResumeProfileID    uint64          `gorm:"column:resume_profile_id"`
-	AgentRunID         *uint64         `gorm:"column:agent_run_id"`
-	EvaluationVersion  int32           `gorm:"column:evaluation_version"`
-	IsLatest           int32           `gorm:"column:is_latest"`
-	OverallScore       sql.NullFloat64 `gorm:"column:overall_score"`
-	Recommendation     sql.NullString  `gorm:"column:recommendation"`
-	Summary            sql.NullString  `gorm:"column:summary"`
-	StrengthsJSON      sql.NullString  `gorm:"column:strengths_json"`
-	RisksJSON          sql.NullString  `gorm:"column:risks_json"`
-	ScoreBreakdownJSON sql.NullString  `gorm:"column:score_breakdown_json"`
-	ModelName          sql.NullString  `gorm:"column:model_name"`
-	EvaluatedAt        time.Time       `gorm:"column:evaluated_at"`
-	CreatedAt          time.Time       `gorm:"column:created_at"`
-	UpdatedAt          time.Time       `gorm:"column:updated_at"`
+	ID                     uint64          `gorm:"primaryKey"`
+	TenantID               int64           `gorm:"column:tenant_id"`
+	ApplicationID          int64           `gorm:"column:application_id"`
+	JobID                  int64           `gorm:"column:job_id"`
+	CandidateUserID        int64           `gorm:"column:candidate_user_id"`
+	ResumeProfileID        uint64          `gorm:"column:resume_profile_id"`
+	AgentRunID             *uint64         `gorm:"column:agent_run_id"`
+	RequestedModelID       sql.NullInt64   `gorm:"column:requested_model_id"`
+	EffectiveModelID       sql.NullInt64   `gorm:"column:effective_model_id"`
+	ModelFallbackReason    sql.NullString  `gorm:"column:model_fallback_reason"`
+	CapabilityVersionID    sql.NullInt64   `gorm:"column:capability_version_id"`
+	CapabilitySnapshotHash sql.NullString  `gorm:"column:capability_snapshot_hash"`
+	EvaluationVersion      int32           `gorm:"column:evaluation_version"`
+	IsLatest               int32           `gorm:"column:is_latest"`
+	OverallScore           sql.NullFloat64 `gorm:"column:overall_score"`
+	Recommendation         sql.NullString  `gorm:"column:recommendation"`
+	Summary                sql.NullString  `gorm:"column:summary"`
+	StrengthsJSON          sql.NullString  `gorm:"column:strengths_json"`
+	RisksJSON              sql.NullString  `gorm:"column:risks_json"`
+	ScoreBreakdownJSON     sql.NullString  `gorm:"column:score_breakdown_json"`
+	ModelName              sql.NullString  `gorm:"column:model_name"`
+	EvaluatedAt            time.Time       `gorm:"column:evaluated_at"`
+	CreatedAt              time.Time       `gorm:"column:created_at"`
+	UpdatedAt              time.Time       `gorm:"column:updated_at"`
 }
 
 func (candidateEvaluationTestRow) TableName() string { return "candidate_match_evaluations" }
