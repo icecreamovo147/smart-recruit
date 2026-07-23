@@ -14,9 +14,9 @@ tags:
 applies_to:
   - smart-recruit-billing-service/**
   - smart-recruit-gateway/handler/billing.go
-  - smart-recruit-commons/migrations/000076_harden_alipay_payment_lifecycle.sql
-  - smart-recruit-commons/migrations/000077_add_billing_refund_review_permission.sql
-  - smart-recruit-commons/migrations/000088_harden_memory_billing_integrity.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000076_harden_alipay_payment_lifecycle.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000077_add_billing_refund_review_permission.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000088_harden_memory_billing_integrity.sql
   - docs/ai-billing-alipay-sandbox.md
   - smart-recruit-deploy/observability/rules/billing-alerts.yml
 source_refs:
@@ -24,8 +24,8 @@ source_refs:
   - smart-recruit-billing-service/internal/application/service/commerce.go
   - smart-recruit-billing-service/internal/interfaces/grpc/server.go
   - smart-recruit-gateway/handler/billing.go
-  - smart-recruit-commons/migrations/000076_harden_alipay_payment_lifecycle.sql
-  - smart-recruit-commons/migrations/000088_harden_memory_billing_integrity.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000076_harden_alipay_payment_lifecycle.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000088_harden_memory_billing_integrity.sql
   - docs/ai-billing-alipay-sandbox.md
   - smart-recruit-deploy/observability/rules/billing-alerts.yml
 last_verified: 2026-07-23

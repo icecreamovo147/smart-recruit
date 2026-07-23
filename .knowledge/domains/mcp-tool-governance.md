@@ -26,7 +26,7 @@ source_refs:
   - smart-recruit-gateway/handler/hr/mcp.go
   - smart-recruit-gateway/router/router.go
   - platform-frontend/src/views/ai/McpManageView.vue
-  - smart-recruit-commons/migrations/000070_add_platform_ai_control_plane.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000070_add_platform_ai_control_plane.sql
 last_verified: 2026-07-20
 review_after: 2026-10-14
 ---

@@ -20,8 +20,8 @@ applies_to:
   - smart-recruit-proto/proto/recruitment.proto
   - smart-recruit-gateway/handler/hr/memory.go
   - smart-recruit-gateway/handler/candidate/memory.go
-  - smart-recruit-commons/migrations/000083_ai_memories_owner_lifecycle.sql
-  - smart-recruit-commons/migrations/000088_harden_memory_billing_integrity.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000083_ai_memories_owner_lifecycle.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000088_harden_memory_billing_integrity.sql
 source_refs:
   - smart-recruit-ai-agent-service/internal/application/memory/service.go
   - smart-recruit-ai-agent-service/internal/application/memory/config.go
@@ -35,8 +35,8 @@ source_refs:
   - smart-recruit-proto/proto/recruitment.proto
   - smart-recruit-gateway/handler/hr/memory.go
   - smart-recruit-gateway/handler/candidate/memory.go
-  - smart-recruit-commons/migrations/000083_ai_memories_owner_lifecycle.sql
-  - smart-recruit-commons/migrations/000088_harden_memory_billing_integrity.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000083_ai_memories_owner_lifecycle.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000088_harden_memory_billing_integrity.sql
   - smart-recruit-commons/config/config.example.yaml
 last_verified: 2026-07-23
 review_after: 2026-10-14

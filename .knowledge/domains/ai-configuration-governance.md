@@ -29,9 +29,9 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/model_catalog.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/platform_ai_control_plane.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/platform_ai_release_guard.go
-  - smart-recruit-commons/migrations/000070_add_platform_ai_control_plane.sql
-  - smart-recruit-commons/migrations/000078_repair_hr_capability_prompt_releases.sql
-  - smart-recruit-commons/migrations/000060_add_llm_model_catalog.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000070_add_platform_ai_control_plane.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000078_repair_hr_capability_prompt_releases.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000060_add_llm_model_catalog.sql
   - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/recruiting_observability.go
   - smart-recruit-gateway/handler/hr/llm_config.go

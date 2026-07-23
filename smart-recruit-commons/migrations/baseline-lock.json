@@ -1,0 +1,10 @@
+{
+  "baseline_version": 89,
+  "baseline_file": "000089_schema_baseline.sql",
+  "baseline_sha256": "46ad2cbf4a20575ff514d93274557291485c4193d7b720d35ed337a6616758ea",
+  "archived_through": 88,
+  "archive_directory": "archive/pre-baseline-000089",
+  "archive_up_files": 88,
+  "archive_down_files": 88,
+  "archive_sha256": "cf7a2fe49c89a4a1be87ed5367e97345899eab4faf80b5407ae489006ac23356"
+}

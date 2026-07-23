@@ -33,7 +33,7 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
   - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go
   - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/capability_context.go
-  - smart-recruit-commons/migrations/000071_add_structured_ai_release_trace.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000071_add_structured_ai_release_trace.sql
   - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/resume_profile.go
   - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/job_requirement.go
   - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/candidate_match.go

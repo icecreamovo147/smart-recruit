@@ -24,7 +24,8 @@ func main() {
 	businessclock.Configure()
 	statusFlag := flag.Bool("status", false, "show migration status and exit")
 	downFlag := flag.Int("down", -1, "rollback migrations to specified version and exit")
-	baselineFlag := flag.Int("baseline", -1, "mark v1-N as applied without executing and exit")
+	baselineFlag := flag.Int("baseline", -1, "mark active migrations through N as applied without executing and exit")
+	adoptBaselineFlag := flag.Int("adopt-baseline", -1, "verify and adopt a consolidated baseline on an existing migrated database")
 	dsnFlag := flag.String("dsn", "", "MySQL DSN; defaults to MYSQL_DSN or local dev DSN")
 	migrationsDirFlag := flag.String("migrations-dir", "", "migration SQL directory; defaults to ./migrations or smart-recruit-commons/migrations")
 	flag.Parse()
@@ -67,6 +68,11 @@ func main() {
 	}
 
 	switch {
+	case *adoptBaselineFlag >= 0:
+		if err := runner.AdoptBaseline(ctx, *adoptBaselineFlag); err != nil {
+			exitf("adopt migration baseline: %v", err)
+		}
+		fmt.Println("migration baseline adoption completed")
 	case *baselineFlag >= 0:
 		if err := runner.Baseline(ctx, *baselineFlag); err != nil {
 			exitf("migration baseline: %v", err)

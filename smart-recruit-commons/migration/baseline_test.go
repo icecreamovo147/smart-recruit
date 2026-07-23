@@ -26,6 +26,7 @@ func TestBaselineScenarios(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	const baselineVersion = 89
 
 	// ── Connect ──────────────────────────────────────────────────────
 	rootDB, err := gorm.Open(mysql.Open(baseDSN), &gorm.Config{})
@@ -52,7 +53,7 @@ func TestBaselineScenarios(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = runner.Baseline(ctx, 1)
+		err = runner.Baseline(ctx, baselineVersion)
 		if err == nil {
 			t.Fatal("expected error for empty database, got nil")
 		}
@@ -140,10 +141,10 @@ func TestBaselineScenarios(t *testing.T) {
 		t.Logf("Up after Baseline(%d) completed with no pending migrations", maxVersion)
 	})
 
-	t.Run("incremental migrations up after partial schema", func(t *testing.T) {
-		cleanup := setupTestDB(t, rootSQL, dbName+"_up_after")
+	t.Run("existing migration history adopts baseline without changing data", func(t *testing.T) {
+		cleanup := setupTestDB(t, rootSQL, dbName+"_adopt")
 		defer cleanup()
-		dsn := replaceDBName(baseDSN, dbName+"_up_after")
+		dsn := replaceDBName(baseDSN, dbName+"_adopt")
 		db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{TranslateError: true})
 		if err != nil {
 			t.Fatal(err)
@@ -151,29 +152,165 @@ func TestBaselineScenarios(t *testing.T) {
 		sqlDB, _ := db.DB()
 		defer sqlDB.Close()
 
-		const partialVersion = 21
-		applyMigrationSQLUpTo(t, db, ctx, partialVersion)
+		importDBSQL(t, sqlDB, ctx)
+		archiveRunner, err := NewRunner(db, testMigrationsFS, "archive/pre-baseline-000089")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := archiveRunner.ensureTable(ctx); err != nil {
+			t.Fatalf("create migration history table: %v", err)
+		}
+		seedArchivedHistory(t, archiveRunner, ctx, baselineVersion-1)
+
+		if _, err := sqlDB.ExecContext(ctx,
+			`INSERT INTO users (username, password, account_type, status)
+			 VALUES ('baseline-adoption-sentinel', 'not-a-real-password', 'candidate', 'active')`,
+		); err != nil {
+			t.Fatalf("insert sentinel: %v", err)
+		}
+		var beforeCount int
+		if err := sqlDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&beforeCount); err != nil {
+			t.Fatalf("count users before adoption: %v", err)
+		}
 
 		runner, err := NewRunner(db, testMigrationsFS, ".")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := runner.Baseline(ctx, partialVersion); err != nil {
-			t.Fatalf("Baseline(%d) should succeed: %v", partialVersion, err)
+		if err := runner.AdoptBaseline(ctx, baselineVersion); err != nil {
+			t.Fatalf("AdoptBaseline(%d) should succeed: %v", baselineVersion, err)
+		}
+		if err := runner.AdoptBaseline(ctx, baselineVersion); err != nil {
+			t.Fatalf("repeated AdoptBaseline(%d) should be idempotent: %v", baselineVersion, err)
 		}
 		if err := runner.Up(ctx); err != nil {
-			t.Fatalf("Up after partial baseline should succeed: %v", err)
+			t.Fatalf("Up after baseline adoption should succeed: %v", err)
 		}
 		assertAllMigrationsApplied(t, runner, ctx)
-		t.Logf("Up after Baseline(%d) applied remaining migrations successfully", partialVersion)
+
+		var afterCount int
+		if err := sqlDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&afterCount); err != nil {
+			t.Fatalf("count users after adoption: %v", err)
+		}
+		if afterCount != beforeCount {
+			t.Fatalf("baseline adoption changed business data: users before=%d after=%d", beforeCount, afterCount)
+		}
+		var baselineRows int
+		if err := sqlDB.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM schema_migrations WHERE version = ?", baselineVersion,
+		).Scan(&baselineRows); err != nil {
+			t.Fatalf("count baseline records: %v", err)
+		}
+		if baselineRows != 1 {
+			t.Fatalf("baseline record count = %d, want 1", baselineRows)
+		}
 	})
+
+	t.Run("incomplete migration history rejects adoption", func(t *testing.T) {
+		cleanup := setupTestDB(t, rootSQL, dbName+"_incomplete")
+		defer cleanup()
+		dsn := replaceDBName(baseDSN, dbName+"_incomplete")
+		db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{TranslateError: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		sqlDB, _ := db.DB()
+		defer sqlDB.Close()
+
+		importDBSQL(t, sqlDB, ctx)
+		archiveRunner, err := NewRunner(db, testMigrationsFS, "archive/pre-baseline-000089")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := archiveRunner.ensureTable(ctx); err != nil {
+			t.Fatalf("create migration history table: %v", err)
+		}
+		seedArchivedHistory(t, archiveRunner, ctx, baselineVersion-2)
+
+		runner, err := NewRunner(db, testMigrationsFS, ".")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.AdoptBaseline(ctx, baselineVersion); err == nil {
+			t.Fatal("expected incomplete migration history to reject baseline adoption")
+		}
+		assertBaselineNotRecorded(t, sqlDB, ctx, baselineVersion)
+	})
+
+	t.Run("schema drift rejects adoption", func(t *testing.T) {
+		cleanup := setupTestDB(t, rootSQL, dbName+"_drift")
+		defer cleanup()
+		dsn := replaceDBName(baseDSN, dbName+"_drift")
+		db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{TranslateError: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		sqlDB, _ := db.DB()
+		defer sqlDB.Close()
+
+		importDBSQL(t, sqlDB, ctx)
+		archiveRunner, err := NewRunner(db, testMigrationsFS, "archive/pre-baseline-000089")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := archiveRunner.ensureTable(ctx); err != nil {
+			t.Fatalf("create migration history table: %v", err)
+		}
+		seedArchivedHistory(t, archiveRunner, ctx, baselineVersion-1)
+		if _, err := sqlDB.ExecContext(ctx,
+			"ALTER TABLE event_outbox ALTER COLUMN producer SET DEFAULT 'drifted-producer'",
+		); err != nil {
+			t.Fatalf("introduce schema drift: %v", err)
+		}
+
+		runner, err := NewRunner(db, testMigrationsFS, ".")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.AdoptBaseline(ctx, baselineVersion); err == nil {
+			t.Fatal("expected schema drift to reject baseline adoption")
+		}
+		assertBaselineNotRecorded(t, sqlDB, ctx, baselineVersion)
+	})
+}
+
+func seedArchivedHistory(t *testing.T, runner *Runner, ctx context.Context, throughVersion int) {
+	t.Helper()
+	archived, err := runner.loadMigrations()
+	if err != nil {
+		t.Fatalf("load archived migrations: %v", err)
+	}
+	for _, migration := range archived {
+		if migration.Version > throughVersion {
+			break
+		}
+		if err := runner.insertSeedRecord(ctx, nil, migration); err != nil {
+			t.Fatalf("seed archived migration %d: %v", migration.Version, err)
+		}
+	}
+}
+
+func assertBaselineNotRecorded(t *testing.T, db *sql.DB, ctx context.Context, version int) {
+	t.Helper()
+	var count int
+	if err := db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM schema_migrations WHERE version = ?", version,
+	).Scan(&count); err != nil {
+		t.Fatalf("count baseline records: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("baseline version %d was recorded after rejected adoption", version)
+	}
 }
 
 // setupTestDB creates a fresh database and returns a cleanup function.
 func setupTestDB(t *testing.T, rootSQL *sql.DB, dbName string) func() {
 	t.Helper()
 	rootSQL.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS `%s`", dbName))
-	if _, err := rootSQL.Exec(fmt.Sprintf("CREATE DATABASE `%s`", dbName)); err != nil {
+	if _, err := rootSQL.Exec(fmt.Sprintf(
+		"CREATE DATABASE `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci",
+		dbName,
+	)); err != nil {
 		t.Fatalf("create db %s: %v", dbName, err)
 	}
 	return func() {

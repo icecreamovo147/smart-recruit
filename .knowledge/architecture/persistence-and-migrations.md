@@ -19,20 +19,24 @@ applies_to:
   - db.sql
 source_refs:
   - smart-recruit-commons/migration/runner.go
+  - smart-recruit-commons/migration/schema_compare.go
   - smart-recruit-commons/migration/runner_test.go
   - smart-recruit-commons/migration/mysql_consistency_test.go
-  - smart-recruit-commons/migrations/000051_standardize_event_outbox.sql
-  - smart-recruit-commons/migrations/000052_add_event_inbox.sql
-  - smart-recruit-commons/migrations/000053_add_analytics_projection_events.sql
-  - smart-recruit-commons/migrations/000060_add_llm_model_catalog.sql
-  - smart-recruit-commons/migrations/000070_add_platform_ai_control_plane.sql
-  - smart-recruit-commons/migrations/000071_add_structured_ai_release_trace.sql
-  - smart-recruit-commons/migrations/000078_repair_hr_capability_prompt_releases.sql
-  - smart-recruit-commons/migrations/000079_add_ai_billing_settlement_outbox.sql
-  - smart-recruit-commons/migrations/000082_standardize_utc8_time_semantics.sql
-  - smart-recruit-commons/migrations/000084_candidate_profile_screening_fields.sql
-  - smart-recruit-commons/migrations/000085_candidate_profile_structured_history.sql
-  - smart-recruit-commons/migrations/000086_extend_profile_city_length.sql
+  - smart-recruit-commons/migrations/000089_schema_baseline.sql
+  - smart-recruit-commons/migrations/baseline-lock.json
+  - smart-recruit-commons/migrations/README.md
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000051_standardize_event_outbox.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000052_add_event_inbox.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000053_add_analytics_projection_events.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000060_add_llm_model_catalog.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000070_add_platform_ai_control_plane.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000071_add_structured_ai_release_trace.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000078_repair_hr_capability_prompt_releases.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000079_add_ai_billing_settlement_outbox.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000082_standardize_utc8_time_semantics.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000084_candidate_profile_screening_fields.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000085_candidate_profile_structured_history.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000086_extend_profile_city_length.sql
   - smart-recruit-commons/cmd/time-preflight/main.go
   - smart-recruit-platform-go/mysqltime/mysql.go
   - smart-recruit-deploy/mysql-table-ownership.json
@@ -55,6 +59,15 @@ Shared SQL migrations and the migration runner live in `smart-recruit-commons/`.
 
 Schema changes must keep migrations, `db.sql`, service persistence code, table ownership, and focused tests aligned.
 
+Migration `000089` is the immutable active baseline. Historical migrations
+`000001`–`000088` live under `archive/pre-baseline-000089/`; they remain checksum
+and audit evidence but are not part of fresh-database execution. Existing
+databases adopt `000089` only through `--adopt-baseline 89`, which verifies a
+clean contiguous history and compares the complete live structure against a
+temporary baseline database before writing one migration-history row. Future
+schema changes begin at `000090` and update `db.sql` without rewriting the
+baseline or archive.
+
 The pre-launch platform AI cutover is migration `000070`; it promotes only the default tenant's technical AI configuration after a fail-closed conflict check. Migration `000071` adds fixed capability-release/model trace columns to structured resume-parse and candidate-match evidence. Both must remain reversible independently and match the cold-start schema.
 
 Migration `000078` repairs HR Agent-backed capability releases whose initial immutable snapshot omitted the Agent-bound Prompt. It appends corrected published versions, advances capability and entitlement pointers, preserves the original release rows for audit, and keeps `db.sql` cold-start data aligned without rewriting the historical `000070` migration.
@@ -71,4 +84,4 @@ GORM table records that are needed by a bounded service should stay private to t
 
 ## Verification
 
-Verified against current repository files on 2026-07-23, including migrations `000084`-`000086`, `db.sql` candidate profile tables, and Recruitment ownership entries.
+Verified against the v89 immutable baseline, archived migrations `000001`–`000088`, baseline adoption tests, `db.sql`, and Recruitment ownership entries on 2026-07-23.

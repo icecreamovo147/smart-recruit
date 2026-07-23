@@ -12,7 +12,8 @@ const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclud
   .filter(Boolean)
 
 const findings = []
-const isHistoricalMigration = (file) => /^smart-recruit-commons\/migrations\/0000(?:73|74|76|80|81)_/.test(file)
+const isHistoricalMigration = (file) =>
+  /^smart-recruit-commons\/migrations\/(?:archive\/pre-baseline-000089\/)?0000(?:73|74|76|80|81)_/.test(file)
 const allowed = (kind, file) => Boolean(exceptions[kind]?.[file])
 
 for (const file of files) {

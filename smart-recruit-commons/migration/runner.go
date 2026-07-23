@@ -12,6 +12,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io/fs"
+	"path"
 	"regexp"
 	"sort"
 	"strconv"
@@ -115,12 +116,16 @@ func NewRunner(db *gorm.DB, migrFS fs.FS, subDir string) (*Runner, error) {
 
 // loadMigrations scans the FS and returns migrations sorted by version.
 func (r *Runner) loadMigrations() ([]Migration, error) {
-	entries, err := fs.ReadDir(r.migrFS, r.subDir)
+	return r.loadMigrationsAt(r.subDir)
+}
+
+func (r *Runner) loadMigrationsAt(subDir string) ([]Migration, error) {
+	entries, err := fs.ReadDir(r.migrFS, subDir)
 	if err != nil {
-		return nil, fmt.Errorf("migration: read dir %q: %w", r.subDir, err)
+		return nil, fmt.Errorf("migration: read dir %q: %w", subDir, err)
 	}
 
-	prefix := r.subDir
+	prefix := subDir
 	if prefix == "." || prefix == "" {
 		prefix = ""
 	} else {
@@ -162,6 +167,19 @@ func (r *Runner) loadMigrations() ([]Migration, error) {
 		return migrations[i].Version < migrations[j].Version
 	})
 	return migrations, nil
+}
+
+func (r *Runner) findMigration(version int) (Migration, error) {
+	migrations, err := r.loadMigrations()
+	if err != nil {
+		return Migration{}, err
+	}
+	for _, migration := range migrations {
+		if migration.Version == version {
+			return migration, nil
+		}
+	}
+	return Migration{}, fmt.Errorf("migration: version %d is not an active migration", version)
 }
 
 // ensureTable creates the schema_migrations tracking table if it does not exist.
@@ -451,7 +469,8 @@ func (r *Runner) insertSeedRecord(ctx context.Context, conn *sql.Conn, m Migrati
 	return nil
 }
 
-// Baseline marks migrations v1–targetVersion as applied without executing them.
+// Baseline marks active migrations through targetVersion as applied without
+// executing them.
 // Use this when the database was initialized via db.sql (a full schema snapshot)
 // and you want to skip the corresponding migrations while still having an
 // accurate schema_migrations history. Subsequent Up() calls will only apply
@@ -592,6 +611,194 @@ func (r *Runner) Baseline(ctx context.Context, targetVersion int) error {
 		zap.Int("target_version", targetVersion),
 		zap.Int("seeded", seeded))
 	return nil
+}
+
+// AdoptBaseline marks a consolidated baseline as applied on a database that
+// already has the complete archived migration history. Unlike Baseline, this
+// path is for preserving an existing database: it validates every historical
+// checksum and compares the live schema with the baseline in a temporary
+// database before inserting exactly one new schema_migrations row.
+func (r *Runner) AdoptBaseline(ctx context.Context, targetVersion int) error {
+	if r.db.Dialector.Name() != "mysql" {
+		return fmt.Errorf("migration: baseline adoption requires a MySQL database (got %q)", r.db.Dialector.Name())
+	}
+	if targetVersion < 2 {
+		return fmt.Errorf("migration: baseline adoption target must be at least 2")
+	}
+	if err := r.ensureTable(ctx); err != nil {
+		return fmt.Errorf("migration: ensure table: %w", err)
+	}
+
+	conn, release, err := r.acquireLock(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
+
+	baseline, err := r.findMigration(targetVersion)
+	if err != nil {
+		return err
+	}
+	active, err := r.loadMigrations()
+	if err != nil {
+		return err
+	}
+	for _, migration := range active {
+		if migration.Version < targetVersion {
+			return fmt.Errorf(
+				"migration: baseline adoption refused: active migration %d must be archived before adopting %d",
+				migration.Version, targetVersion,
+			)
+		}
+	}
+
+	applied, err := r.getApplied(ctx)
+	if err != nil {
+		return err
+	}
+	for version, migration := range applied {
+		if migration.Dirty {
+			return fmt.Errorf("migration: baseline adoption refused: version %d (%s) is dirty", version, migration.Name)
+		}
+	}
+	if existing, ok := applied[targetVersion]; ok {
+		if !migrationChecksumMatches(targetVersion, existing.Checksum, baseline.Checksum) {
+			return fmt.Errorf("migration: baseline adoption refused: version %d checksum mismatch", targetVersion)
+		}
+		return nil
+	}
+	for version := range applied {
+		if version > targetVersion {
+			return fmt.Errorf(
+				"migration: baseline adoption refused: version %d is already applied before baseline %d",
+				version, targetVersion,
+			)
+		}
+	}
+
+	archiveDir := path.Join(r.subDir, "archive", fmt.Sprintf("pre-baseline-%06d", targetVersion))
+	archived, err := r.loadMigrationsAt(archiveDir)
+	if err != nil {
+		return fmt.Errorf("migration: load baseline archive: %w", err)
+	}
+	if len(archived) != targetVersion-1 {
+		return fmt.Errorf(
+			"migration: baseline adoption refused: archive %q contains %d up migrations, want %d",
+			archiveDir, len(archived), targetVersion-1,
+		)
+	}
+	for index, migration := range archived {
+		expectedVersion := index + 1
+		if migration.Version != expectedVersion {
+			return fmt.Errorf(
+				"migration: baseline adoption refused: archive is not contiguous at version %d (found %d)",
+				expectedVersion, migration.Version,
+			)
+		}
+		history, ok := applied[migration.Version]
+		if !ok {
+			return fmt.Errorf(
+				"migration: baseline adoption refused: historical version %d is not applied",
+				migration.Version,
+			)
+		}
+		if !migrationChecksumMatches(migration.Version, history.Checksum, migration.Checksum) {
+			return fmt.Errorf(
+				"migration: baseline adoption refused: historical version %d checksum mismatch",
+				migration.Version,
+			)
+		}
+	}
+
+	if err := r.verifySchemaMatchesBaseline(ctx, conn, baseline); err != nil {
+		return err
+	}
+
+	if _, err := conn.ExecContext(ctx,
+		`INSERT INTO schema_migrations (version, name, applied_at, checksum, dirty)
+		 VALUES (?, ?, ?, ?, FALSE)`,
+		baseline.Version, baseline.Name, time.Now(), baseline.Checksum,
+	); err != nil {
+		return fmt.Errorf("migration: record adopted baseline %s: %w", baseline.Name, err)
+	}
+
+	logger.L().Info("migration: baseline adopted",
+		zap.Int("target_version", targetVersion),
+		zap.Int("verified_history", len(archived)))
+	return nil
+}
+
+func (r *Runner) verifySchemaMatchesBaseline(ctx context.Context, conn *sql.Conn, baseline Migration) error {
+	var currentSchema string
+	if err := conn.QueryRowContext(ctx, "SELECT DATABASE()").Scan(&currentSchema); err != nil {
+		return fmt.Errorf("migration: read current database: %w", err)
+	}
+	if strings.TrimSpace(currentSchema) == "" {
+		return fmt.Errorf("migration: baseline adoption requires a selected database")
+	}
+
+	var charset, collation string
+	if err := conn.QueryRowContext(ctx,
+		`SELECT default_character_set_name, default_collation_name
+		 FROM information_schema.schemata WHERE schema_name = ?`,
+		currentSchema,
+	).Scan(&charset, &collation); err != nil {
+		return fmt.Errorf("migration: read database defaults: %w", err)
+	}
+	if !safeMySQLName(charset) || !safeMySQLName(collation) {
+		return fmt.Errorf("migration: unsafe database charset or collation metadata")
+	}
+
+	temporarySchema := fmt.Sprintf("smart_recruit_baseline_verify_%d", time.Now().UnixNano())
+	if _, err := conn.ExecContext(ctx, fmt.Sprintf(
+		"CREATE DATABASE `%s` CHARACTER SET %s COLLATE %s",
+		temporarySchema, charset, collation,
+	)); err != nil {
+		return fmt.Errorf("migration: create baseline verification database: %w", err)
+	}
+	defer func() {
+		_, _ = conn.ExecContext(context.Background(), "USE "+quoteMySQLIdentifier(currentSchema))
+		_, _ = conn.ExecContext(context.Background(), "DROP DATABASE IF EXISTS "+quoteMySQLIdentifier(temporarySchema))
+	}()
+
+	if _, err := conn.ExecContext(ctx, "USE "+quoteMySQLIdentifier(temporarySchema)); err != nil {
+		return fmt.Errorf("migration: select baseline verification database: %w", err)
+	}
+	if err := r.execSQLConn(ctx, conn, baseline.UpSQL); err != nil {
+		return fmt.Errorf("migration: execute baseline in verification database: %w", err)
+	}
+	if _, err := conn.ExecContext(ctx, "USE "+quoteMySQLIdentifier(currentSchema)); err != nil {
+		return fmt.Errorf("migration: restore current database: %w", err)
+	}
+
+	rawDB, err := r.db.DB()
+	if err != nil {
+		return fmt.Errorf("migration: get sql.DB for baseline comparison: %w", err)
+	}
+	diff, err := compareDatabaseSchemas(ctx, rawDB, currentSchema, temporarySchema)
+	if err != nil {
+		return fmt.Errorf("migration: compare baseline schema: %w", err)
+	}
+	if diff != "" {
+		return fmt.Errorf("migration: baseline adoption refused: live schema differs from baseline:\n%s", diff)
+	}
+	return nil
+}
+
+func safeMySQLName(value string) bool {
+	for _, char := range value {
+		if (char < 'a' || char > 'z') &&
+			(char < 'A' || char > 'Z') &&
+			(char < '0' || char > '9') &&
+			char != '_' {
+			return false
+		}
+	}
+	return value != ""
+}
+
+func quoteMySQLIdentifier(value string) string {
+	return "`" + strings.ReplaceAll(value, "`", "``") + "`"
 }
 
 // Up applies all pending migrations in version order.

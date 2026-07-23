@@ -21,6 +21,8 @@ jobs:
         run: node scripts/check-tenant-classification.mjs
       - name: Verify UTC+8 timezone contract
         run: node scripts/check-timezone-contract.mjs
+      - name: Verify immutable migration baseline
+        run: node scripts/check-migration-baseline.mjs
 
   # ── Go Backend Tests ──────────────────────────────────────────────
   go-test:

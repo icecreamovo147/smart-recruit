@@ -54,9 +54,9 @@ func TestLoadMigrations(t *testing.T) {
 		}
 	}
 
-	// Verify first migration is version 1.
-	if migrations[0].Version != 1 {
-		t.Errorf("first migration version = %d, want 1", migrations[0].Version)
+	// Versions 1-88 are archived behind the immutable v89 baseline.
+	if migrations[0].Version != 89 {
+		t.Errorf("first active migration version = %d, want 89", migrations[0].Version)
 	}
 
 	// Verify all migrations have non-empty SQL.

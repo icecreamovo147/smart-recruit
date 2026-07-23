@@ -17,7 +17,7 @@ applies_to:
   - smart-recruit-gateway/router/router.go
   - smart-recruit-gateway/handler/auth.go
   - smart-recruit-identity-service/**
-  - smart-recruit-commons/migrations/000012_add_rbac_schema.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000012_add_rbac_schema.sql
 source_refs:
   - smart-recruit-gateway/middleware/jwt.go
   - smart-recruit-gateway/middleware/role.go
@@ -31,9 +31,9 @@ source_refs:
   - smart-recruit-identity-service/internal/runtime/runtime.go
   - smart-recruit-platform-go/server/interceptor.go
   - smart-recruit-platform-go/server/transport_security.go
-  - smart-recruit-commons/migrations/000011_add_refresh_tokens.sql
-  - smart-recruit-commons/migrations/000012_add_rbac_schema.sql
-  - smart-recruit-commons/migrations/000013_seed_rbac_catalog.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000011_add_refresh_tokens.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000012_add_rbac_schema.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000013_seed_rbac_catalog.sql
 last_verified: 2026-07-14
 review_after: 2026-10-14
 ---

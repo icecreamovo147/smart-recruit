@@ -13,14 +13,14 @@ tags:
 applies_to:
   - smart-recruit-gateway/router/router.go
   - smart-recruit-gateway/middleware/role.go
-  - smart-recruit-commons/migrations/000013_seed_rbac_catalog.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000013_seed_rbac_catalog.sql
   - smart-recruit-identity-service/**
   - hr-frontend/src/router/index.ts
 source_refs:
   - smart-recruit-gateway/router/router.go
   - smart-recruit-gateway/middleware/role.go
   - smart-recruit-gateway/pkg/authz/permissions.go
-  - smart-recruit-commons/migrations/000013_seed_rbac_catalog.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000013_seed_rbac_catalog.sql
   - smart-recruit-identity-service/internal/application/service/admin_service.go
   - hr-frontend/src/router/index.ts
 last_verified: 2026-07-14

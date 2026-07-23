@@ -30,8 +30,8 @@ source_refs:
   - smart-recruit-worker-service/internal/runtime/workload_profile.go
   - smart-recruit-commons/internal/platform/events/envelope.go
   - smart-recruit-commons/mq/publisher.go
-  - smart-recruit-commons/migrations/000051_standardize_event_outbox.sql
-  - smart-recruit-commons/migrations/000052_add_event_inbox.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000051_standardize_event_outbox.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000052_add_event_inbox.sql
   - smart-recruit-interview-service/internal/infrastructure/mq/outbox_publisher.go
   - smart-recruit-offer-service/internal/infrastructure/mq/outbox_publisher.go
   - smart-recruit-recruitment-service/internal/infrastructure/persistence/native_adapters.go

@@ -21,9 +21,9 @@ routes:
   - match:
       - smart-recruit-billing-service/**
       - smart-recruit-gateway/handler/billing.go
-      - smart-recruit-commons/migrations/000076_harden_alipay_payment_lifecycle.sql
-      - smart-recruit-commons/migrations/000077_add_billing_refund_review_permission.sql
-      - smart-recruit-commons/migrations/000079_add_ai_billing_settlement_outbox.sql
+      - smart-recruit-commons/migrations/archive/pre-baseline-000089/000076_harden_alipay_payment_lifecycle.sql
+      - smart-recruit-commons/migrations/archive/pre-baseline-000089/000077_add_billing_refund_review_permission.sql
+      - smart-recruit-commons/migrations/archive/pre-baseline-000089/000079_add_ai_billing_settlement_outbox.sql
       - smart-recruit-ai-agent-service/internal/interfaces/grpc/billing_meter.go
       - smart-recruit-ai-agent-service/internal/infrastructure/persistence/billing_settlement_outbox.go
       - hr-frontend/src/views/hr/BillingCenterView.vue
@@ -112,9 +112,9 @@ routes:
       - smart-recruit-identity-service/**
       - smart-recruit-commons/pkg/authz/**
       - smart-recruit-commons/pkg/jwt/**
-      - smart-recruit-commons/migrations/000011_add_refresh_tokens.sql
-      - smart-recruit-commons/migrations/000012_add_rbac_schema.sql
-      - smart-recruit-commons/migrations/000013_seed_rbac_catalog.sql
+      - smart-recruit-commons/migrations/archive/pre-baseline-000089/000011_add_refresh_tokens.sql
+      - smart-recruit-commons/migrations/archive/pre-baseline-000089/000012_add_rbac_schema.sql
+      - smart-recruit-commons/migrations/archive/pre-baseline-000089/000013_seed_rbac_catalog.sql
       - smart-recruit-platform-go/server/interceptor.go
       - smart-recruit-platform-go/server/transport_security.go
       - hr-frontend/src/router/index.ts

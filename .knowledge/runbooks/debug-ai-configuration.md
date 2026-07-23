@@ -20,7 +20,7 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/runtime/runtime.go
   - smart-recruit-gateway/router/router.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/platform_ai_control_plane.go
-  - smart-recruit-commons/migrations/000070_add_platform_ai_control_plane.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000070_add_platform_ai_control_plane.sql
 last_verified: 2026-07-20
 review_after: 2026-10-14
 ---

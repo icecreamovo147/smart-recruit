@@ -14,9 +14,9 @@ tags:
 applies_to:
   - smart-recruit-ai-agent-service/**
   - smart-recruit-billing-service/**
-  - smart-recruit-commons/migrations/000069_add_ai_billing_foundation.sql
-  - smart-recruit-commons/migrations/000079_add_ai_billing_settlement_outbox.sql
-  - smart-recruit-commons/migrations/000088_harden_memory_billing_integrity.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000069_add_ai_billing_foundation.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000079_add_ai_billing_settlement_outbox.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000088_harden_memory_billing_integrity.sql
   - smart-recruit-gateway/handler/response.go
 source_refs:
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/billing_meter.go
@@ -25,8 +25,8 @@ source_refs:
   - smart-recruit-billing-service/internal/application/service/billing.go
   - smart-recruit-billing-service/internal/infrastructure/persistence/gorm_repository.go
   - smart-recruit-billing-service/internal/infrastructure/persistence/entitlement_policy.go
-  - smart-recruit-commons/migrations/000079_add_ai_billing_settlement_outbox.sql
-  - smart-recruit-commons/migrations/000088_harden_memory_billing_integrity.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000079_add_ai_billing_settlement_outbox.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000088_harden_memory_billing_integrity.sql
   - smart-recruit-deploy/mysql-table-ownership.json
 last_verified: 2026-07-23
 review_after: 2026-10-19
