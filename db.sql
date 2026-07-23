@@ -2003,7 +2003,25 @@ ALTER TABLE ai_tool_traces ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, A
 ALTER TABLE agent_runs ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_runs_tenant_session (tenant_id, session_id, created_at), ADD CONSTRAINT fk_agent_runs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 ALTER TABLE agent_run_events ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_run_events_tenant_run (tenant_id, run_id, seq), ADD CONSTRAINT fk_agent_run_events_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 ALTER TABLE agent_run_steps ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_run_steps_tenant_run (tenant_id, run_id, step_index), ADD CONSTRAINT fk_agent_run_steps_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE ai_memories ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_memories_tenant_owner (tenant_id, hr_id, scope_type, scope_id), ADD CONSTRAINT fk_ai_memories_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE ai_memories
+  ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id,
+  ADD COLUMN owner_role TINYINT NOT NULL DEFAULT 2 COMMENT '归属角色：1=候选人 2=HR' AFTER tenant_id,
+  ADD COLUMN owner_id BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '归属用户ID' AFTER owner_role,
+  ADD COLUMN status VARCHAR(16) NOT NULL DEFAULT 'active' COMMENT 'active / archived / revoked' AFTER importance,
+  ADD COLUMN deleted_at DATETIME NULL COMMENT '软删除时间' AFTER status,
+  ADD COLUMN content_hash CHAR(64) NULL COMMENT 'SHA-256 of normalized content' AFTER deleted_at,
+  ADD COLUMN pii_level VARCHAR(16) NOT NULL DEFAULT 'none' COMMENT 'none / low / high' AFTER content_hash,
+  ADD COLUMN source_session_id BIGINT UNSIGNED NULL COMMENT '来源会话ID' AFTER pii_level,
+  ADD COLUMN source_message_id BIGINT UNSIGNED NULL COMMENT '来源消息ID' AFTER source_session_id,
+  ADD COLUMN source_run_id BIGINT UNSIGNED NULL COMMENT '来源 Agent Run ID' AFTER source_message_id,
+  ADD COLUMN created_by BIGINT UNSIGNED NULL COMMENT '创建者用户ID' AFTER source_run_id,
+  ADD COLUMN revoked_by BIGINT UNSIGNED NULL COMMENT '撤销者用户ID' AFTER created_by,
+  ADD COLUMN revoke_reason VARCHAR(512) NULL COMMENT '撤销原因' AFTER revoked_by,
+  ADD KEY idx_ai_memories_tenant_owner (tenant_id, hr_id, scope_type, scope_id),
+  ADD KEY idx_ai_memories_tenant_owner_status_scope (tenant_id, owner_role, owner_id, status, scope_type, scope_id),
+  ADD KEY idx_ai_memories_expires_status (expires_at, status),
+  ADD KEY idx_ai_memories_content_hash_owner (content_hash, owner_role, owner_id),
+  ADD CONSTRAINT fk_ai_memories_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 ALTER TABLE ai_embeddings ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_embeddings_tenant_object (tenant_id, object_type, object_id), ADD CONSTRAINT fk_ai_embeddings_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 ALTER TABLE notifications ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_notifications_tenant_receiver (tenant_id, receiver_id, receiver_account_type, created_at), ADD CONSTRAINT fk_notifications_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 ALTER TABLE event_outbox ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_event_outbox_tenant_status (tenant_id, status, created_at), ADD CONSTRAINT fk_event_outbox_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
@@ -2242,7 +2260,6 @@ CREATE TABLE IF NOT EXISTS `billing_subscriptions` (
   `product_id` BIGINT UNSIGNED NOT NULL,
   `price_version_id` BIGINT UNSIGNED NOT NULL,
   `status` VARCHAR(24) NOT NULL DEFAULT 'pending',
-  `active_slot` TINYINT UNSIGNED DEFAULT NULL,
   `term` VARCHAR(16) NOT NULL,
   `current_period_start` DATETIME(3) NOT NULL,
   `current_period_end` DATETIME(3) NOT NULL,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -315,6 +316,52 @@ func TestExtractTableNames(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestExtractDroppedTableNames(t *testing.T) {
+	tests := []struct {
+		name string
+		sql  string
+		want []string
+	}{
+		{
+			name: "if exists with backticks",
+			sql:  "DROP TABLE IF EXISTS `ai_skill_tools`;",
+			want: []string{"ai_skill_tools"},
+		},
+		{
+			name: "multiple tables",
+			sql:  "DROP TABLE a;\nDROP TABLE IF EXISTS b;",
+			want: []string{"a", "b"},
+		},
+		{
+			name: "no tables",
+			sql:  "ALTER TABLE users DROP COLUMN legacy_flag;",
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractDroppedTableNames(tt.sql)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("extractDroppedTableNames() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExpectedTableNames(t *testing.T) {
+	migrations := []Migration{
+		{Version: 1, UpSQL: "CREATE TABLE active_table (id INT); CREATE TABLE retired_table (id INT);"},
+		{Version: 2, UpSQL: "DROP TABLE IF EXISTS retired_table;"},
+	}
+
+	if got, want := expectedTableNames(migrations, 1), []string{"active_table", "retired_table"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("expectedTableNames(v1) = %v, want %v", got, want)
+	}
+	if got, want := expectedTableNames(migrations, 2), []string{"active_table"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("expectedTableNames(v2) = %v, want %v", got, want)
 	}
 }
 

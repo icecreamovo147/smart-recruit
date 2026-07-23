@@ -36,6 +36,11 @@ var filePattern = regexp.MustCompile(`^(\d+)_.+\.sql$`)
 // createTablePattern matches CREATE TABLE statements to extract table names.
 var createTablePattern = regexp.MustCompile(`(?i)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?` + "`?" + `(\w+)` + "`?")
 
+// dropTablePattern matches DROP TABLE statements to remove retired tables from
+// baseline verification. A baseline targets a schema version, not the union of
+// every table ever created before that version.
+var dropTablePattern = regexp.MustCompile(`(?i)DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?` + "`?" + `(\w+)` + "`?")
+
 // MySQL 8.0 does not accept ADD COLUMN IF NOT EXISTS, although some compatible
 // databases do. Keep historical migration files unchanged for checksum
 // stability and normalize the clause only at execution time.
@@ -227,6 +232,45 @@ func extractTableNames(sqlStr string) []string {
 			names = append(names, name)
 		}
 	}
+	return names
+}
+
+// extractDroppedTableNames parses DROP TABLE statements from SQL and returns table names.
+func extractDroppedTableNames(sqlStr string) []string {
+	matches := dropTablePattern.FindAllStringSubmatch(sqlStr, -1)
+	seen := make(map[string]bool)
+	var names []string
+	for _, m := range matches {
+		name := strings.ToLower(m[1])
+		if !seen[name] {
+			seen[name] = true
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// expectedTableNames returns tables that should exist at targetVersion after
+// applying both CREATE TABLE and DROP TABLE statements in migration order.
+func expectedTableNames(migrations []Migration, targetVersion int) []string {
+	tables := make(map[string]struct{})
+	for _, m := range migrations {
+		if m.Version > targetVersion {
+			break
+		}
+		for _, table := range extractTableNames(m.UpSQL) {
+			tables[table] = struct{}{}
+		}
+		for _, table := range extractDroppedTableNames(m.UpSQL) {
+			delete(tables, table)
+		}
+	}
+
+	names := make([]string, 0, len(tables))
+	for table := range tables {
+		names = append(names, table)
+	}
+	sort.Strings(names)
 	return names
 }
 
@@ -450,15 +494,8 @@ func (r *Runner) Baseline(ctx context.Context, targetVersion int) error {
 
 	log := logger.L()
 
-	// ── Collect all table names created by v1-targetVersion ──────────
-	var allTableNames []string
-	for _, m := range migrations {
-		if m.Version > targetVersion {
-			break
-		}
-		tables := extractTableNames(m.UpSQL)
-		allTableNames = append(allTableNames, tables...)
-	}
+	// ── Collect table names that still exist at targetVersion ────────
+	allTableNames := expectedTableNames(migrations, targetVersion)
 
 	// ── Verify all those tables exist ───────────────────────────────
 	if len(allTableNames) > 0 {
@@ -508,15 +545,32 @@ func (r *Runner) Baseline(ctx context.Context, targetVersion int) error {
 	}
 
 	// ── Verify key Offer, interview, collaboration tables exist ────
-	offerTables := []string{"offers", "offer_events", "interview_schedules",
-		"interview_feedback", "candidate_notes", "candidate_tags",
-		"candidate_tag_assignments", "follow_up_tasks",
-		"candidate_educations", "candidate_experiences"}
-	existing, err := r.tablesExist(ctx, conn, offerTables)
+	offerTables := []struct {
+		table      string
+		minVersion int
+	}{
+		{"offers", 19},
+		{"offer_events", 19},
+		{"interview_schedules", 19},
+		{"interview_feedback", 19},
+		{"candidate_notes", 20},
+		{"candidate_tags", 20},
+		{"candidate_tag_assignments", 20},
+		{"follow_up_tasks", 20},
+		{"candidate_educations", 85},
+		{"candidate_experiences", 85},
+	}
+	var requiredOfferTables []string
+	for _, table := range offerTables {
+		if targetVersion >= table.minVersion {
+			requiredOfferTables = append(requiredOfferTables, table.table)
+		}
+	}
+	existing, err := r.tablesExist(ctx, conn, requiredOfferTables)
 	if err != nil {
 		return fmt.Errorf("migration: baseline verification: %w", err)
 	}
-	for _, t := range offerTables {
+	for _, t := range requiredOfferTables {
 		if !existing[t] {
 			return fmt.Errorf("migration: baseline verification failed: table %q not found (did you import db.sql?)", t)
 		}
