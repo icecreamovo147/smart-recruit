@@ -102,7 +102,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [hr-frontend, user-frontend, platform-frontend]
+        app: [homepage, hr-frontend, user-frontend, platform-frontend]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

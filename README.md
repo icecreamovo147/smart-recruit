@@ -1,6 +1,7 @@
 <p align="center">
   <h1 align="center">Smart Recruit</h1>
   <p align="center">基于 Go gRPC 微服务与 Vue 3 的智能招聘平台，集成 Eino/ADK AI Agent、RBAC 权限、面试管理、Offer 全流程、协作与审计能力</p>
+  <p align="center"><a href="https://recruit.jkghjk123.site">访问项目主页</a></p>
 </p>
 
 <p align="center">
@@ -133,10 +134,20 @@ export GRPC_INTERNAL_TOKEN='local-dev-internal-token-at-least-32!!'
 ./start-dev.sh
 ```
 
+项目主页可独立开发与验证：
+
+```bash
+pnpm --filter homepage dev
+pnpm --filter homepage typecheck
+pnpm --filter homepage test
+pnpm --filter homepage build
+```
+
 ## 项目结构
 
 ```
 smart-recruit/
+├── homepage/                   # 公开项目主页，通过 GitHub Pages 发布
 ├── hr-frontend/                # 企业招聘工作台：招聘专员、招聘管理员、面试官
 │   └── src/
 │       ├── api/                # API 请求层

@@ -82,6 +82,7 @@ routes:
   - match:
       - README.md
       - pnpm-workspace.yaml
+      - homepage/**
       - hr-frontend/**
       - user-frontend/**
       - platform-frontend/**
@@ -283,6 +284,7 @@ routes:
       - public-api-changed
 
   - match:
+      - homepage/**
       - hr-frontend/**
       - user-frontend/**
       - platform-frontend/**
