@@ -12,6 +12,7 @@ tags:
   - vue
   - typecheck
 applies_to:
+  - homepage/src/**
   - hr-frontend/src/**
   - user-frontend/src/**
   - platform-frontend/src/**
@@ -19,6 +20,11 @@ applies_to:
 source_refs:
   - AGENTS.md
   - pnpm-workspace.yaml
+  - homepage/package.json
+  - homepage/src/App.vue
+  - homepage/src/App.test.ts
+  - homepage/vite.config.ts
+  - .github/workflows/deploy-homepage.yml
   - interviewer-frontend/README.md
   - hr-frontend/tsconfig.json
   - user-frontend/tsconfig.json
@@ -47,6 +53,7 @@ Use this runbook after frontend route, API, type, store, component, view, notifi
 
 Map changed files to active apps:
 
+- `homepage` for the public bilingual project site, theme behavior, marketing content, generated visual assets, and GitHub Pages deployment.
 - `hr-frontend` for staff, admin, AI, analytics, recruitment operations, collaboration, and interviewer workflows under `/hr/my-interviews`.
 - `user-frontend` for candidate job search, profile, resume, applications, interviews, offers, and candidate AI.
 - `platform-frontend` for platform console, tenant governance, plan/subscription, and global AI configuration.
@@ -58,6 +65,7 @@ Validate only touched apps unless a shared contract changes. For `packages/share
 
 ## 2. Route and Permission Checks
 
+- For the public homepage, confirm that stable anchors, GitHub/documentation links, language selection, and theme selection work without API, auth, cookies, or business-app routing.
 - Compare route meta with auth store capability checks.
 - For HR pages, compare frontend `requiresPermission` with gateway route permission in `smart-recruit-gateway/router/router.go`.
 - For candidate pages, confirm public vs `requiresCandidate` route intent.
@@ -74,6 +82,7 @@ Validate only touched apps unless a shared contract changes. For `packages/share
 
 ## 4. UI Checks
 
+- For the public homepage, compare desktop/mobile light and dark themes against the selected design reference; check bilingual text fit, image crops, keyboard focus, reduced motion, and absence of horizontal overflow.
 - For platform operational pages, reuse `admin-console` layout components where possible.
 - For HR admin pages, keep page-header spacing and action placement consistent with existing admin pages.
 - Check text fit in compact controls, toolbars, table actions, and responsive headers.
@@ -85,6 +94,7 @@ Validate only touched apps unless a shared contract changes. For `packages/share
 Run the relevant commands from the repository root:
 
 ```sh
+pnpm --filter homepage typecheck
 pnpm --filter hr-frontend typecheck
 pnpm --filter user-frontend typecheck
 pnpm --filter platform-frontend typecheck
@@ -93,6 +103,7 @@ pnpm --filter platform-frontend typecheck
 For frontend tests in a touched app:
 
 ```sh
+pnpm --filter homepage test
 pnpm --filter hr-frontend test
 pnpm --filter user-frontend test
 pnpm --filter platform-frontend test
@@ -106,4 +117,4 @@ Record touched app, route paths, permission keys or role guard, API helper names
 
 ## Verification
 
-Verified against the current pnpm workspace, `@shared/*` aliases and consumers, active frontend routers, request wrappers, auth stores, and `interviewer-frontend/README.md` on 2026-07-23.
+Verified against the current pnpm workspace, homepage tests/build/deployment workflow, `@shared/*` aliases and consumers, active frontend routers, request wrappers, auth stores, and `interviewer-frontend/README.md` on 2026-07-23.

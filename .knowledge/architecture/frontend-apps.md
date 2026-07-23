@@ -13,12 +13,17 @@ tags:
   - auth
   - api
 applies_to:
+  - homepage/src/**
   - hr-frontend/src/**
   - user-frontend/src/**
   - platform-frontend/src/**
   - packages/shared/src/**
 source_refs:
   - pnpm-workspace.yaml
+  - homepage/package.json
+  - homepage/src/App.vue
+  - homepage/vite.config.ts
+  - .github/workflows/deploy-homepage.yml
   - interviewer-frontend/README.md
   - hr-frontend/tsconfig.json
   - user-frontend/tsconfig.json
@@ -47,15 +52,17 @@ review_after: 2026-10-21
 
 # Frontend App Architecture
 
-The repository has three active Vue 3 + Vite apps with shared patterns but different user contracts:
+The repository has three active authenticated Vue 3 + Vite product apps with shared patterns but different user contracts:
 
 - `hr-frontend` (port `5173`, `X-Client-App: hr`) serves staff, recruiting, admin, AI, analytics, collaboration, and interviewer workflows under `/hr/my-interviews`.
 - `user-frontend` (port `5174`, `X-Client-App: candidate`) serves candidates, public job browsing, profile, resume upload, applications, interviews, offers, and candidate AI.
 - `platform-frontend` (port `5175`, `X-Client-App: platform`) serves platform administrators, operators, and auditors with tenant governance, platform-account RBAC, audit, plan/version, subscription, entitlement, usage, quota-alert, and global AI configuration/release workflows.
 
+`homepage/` is a separate public Vue 3 + Vite marketing site for product and open-source discovery. It has no router, auth state, API client, `X-Client-App` header, or backend dependency. It provides typed Chinese/English content, persisted light/dark theme selection, stable in-page anchors, and GitHub/documentation links. It is deployed through GitHub Actions to GitHub Pages at `https://recruit.jkghjk123.site`.
+
 `interviewer-frontend/` is a legacy source tree retained temporarily for rollback comparison only. It is not in `pnpm-workspace.yaml`, Docker, or local-dev startup targets. Do not add features there; do not use root `pnpm --filter interviewer-frontend` commands as validation evidence.
 
-Each active app keeps its own `src/router`, `src/stores`, `src/api`, `src/types`, `src/components`, `src/views`, `src/utils`, and app-level styles. Deliberately shared components, types, utilities, and brand assets live under `packages/shared/src/` and are imported through the configured `@shared/*` alias. Do not import source directly from another frontend app; keep behavior- or permission-specific wiring local even when a lower-level primitive is shared.
+Each authenticated product app keeps its own `src/router`, `src/stores`, `src/api`, `src/types`, `src/components`, `src/views`, `src/utils`, and app-level styles. The public homepage stays API-free and owns its marketing content and generated imagery locally. Deliberately shared components, types, utilities, and brand assets live under `packages/shared/src/` and are imported through the configured `@shared/*` alias. Do not import source directly from another frontend app; keep behavior- or permission-specific wiring local even when a lower-level primitive is shared.
 
 User-visible instants use `packages/shared/src/utils/format.ts`: formatting is pinned to `Asia/Shanghai`, datetime-local wall clocks serialize with `+08:00`, Unix seconds/milliseconds remain absolute instants, and pure calendar dates are not timezone-shifted. Frontend code must not rely on the browser's local timezone for plan, interview, order, audit, or quota-reset displays.
 
@@ -102,7 +109,8 @@ Platform AI configuration pages use the `admin-console` component family for hea
 - Platform console navigation, platform permission alignment, tenant governance, plan/subscription, or quota operations changes.
 - Shared package changes, which require checking every consuming active app rather than only the file's nearest frontend.
 - Any proposal to revive or remove `interviewer-frontend/`.
+- Homepage language/theme persistence, public links, stable anchors, responsive behavior, or Pages deployment changes.
 
 ## Verification
 
-Verified against the pnpm workspace, `start-dev.sh` ports, `X-Client-App` wrappers, shared-package aliases and consumers, current routers/auth stores, HR interviewer compatibility routes, and `interviewer-frontend/README.md` on 2026-07-23.
+Verified against the pnpm workspace, homepage content and deployment boundaries, `start-dev.sh` ports, `X-Client-App` wrappers, shared-package aliases and consumers, current routers/auth stores, HR interviewer compatibility routes, and `interviewer-frontend/README.md` on 2026-07-23.

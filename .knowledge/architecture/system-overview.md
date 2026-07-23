@@ -13,6 +13,7 @@ tags:
   - backend
 applies_to:
   - dev-log-viewer/**
+  - homepage/**
   - hr-frontend/**
   - user-frontend/**
   - platform-frontend/**
@@ -28,6 +29,9 @@ applies_to:
 source_refs:
   - README.md
   - pnpm-workspace.yaml
+  - homepage/package.json
+  - homepage/src/App.vue
+  - .github/workflows/deploy-homepage.yml
   - hr-frontend/tsconfig.json
   - platform-frontend/tsconfig.json
   - packages/shared/src/components/EmailSetupDialog.vue
@@ -56,7 +60,9 @@ review_after: 2026-10-21
 
 # Smart Recruit System Overview
 
-Smart Recruit has three active Vue frontends (`hr-frontend`, `user-frontend`, `platform-frontend`), an explicit `packages/shared/` frontend package, a Gin gateway, independent Go services, shared protobuf contracts, shared platform utilities, and shared Commons packages. The gateway owns HTTP routing, middleware, auth/RBAC enforcement, request limits, SSE endpoints, and generated gRPC clients. Tenant quota definitions are owned by Identity, while enforcement is shared through Commons and invoked at each owning service's write boundary.
+Smart Recruit has three active authenticated Vue product frontends (`hr-frontend`, `user-frontend`, `platform-frontend`), one independent public Vue marketing site (`homepage`), an explicit `packages/shared/` frontend package, a Gin gateway, independent Go services, shared protobuf contracts, shared platform utilities, and shared Commons packages. The gateway owns HTTP routing, middleware, auth/RBAC enforcement, request limits, SSE endpoints, and generated gRPC clients. Tenant quota definitions are owned by Identity, while enforcement is shared through Commons and invoked at each owning service's write boundary.
+
+`homepage/` is a static, API-free bilingual project site. It consumes shared brand assets through `@shared/*`, builds independently in the pnpm workspace, and is deployed from `main` to GitHub Pages at `https://recruit.jkghjk123.site`. It is not part of `start-dev.sh`, Docker Compose, product authentication, or the Gateway runtime.
 
 `interviewer-frontend/` is retained temporarily as a read-only rollback comparison tree. It is not part of the pnpm workspace, Docker Compose, or `start-dev.sh`/`stop-dev.sh` targets. Interviewer workflows now live in `hr-frontend` under `/hr/my-interviews`, and port `5175` is assigned to `platform-frontend`.
 
@@ -68,4 +74,4 @@ Frontend apps keep app-specific behavior under their own roots and import delibe
 
 ## Verification
 
-Verified against `pnpm-workspace.yaml`, `start-dev.sh` frontend/service targets and ports, `interviewer-frontend/README.md`, `smart-recruit-billing-service/cmd/billing-service/main.go`, Gateway billing client wiring, and microservice Compose on 2026-07-23.
+Verified against `pnpm-workspace.yaml`, the homepage package and Pages workflow, `start-dev.sh` frontend/service targets and ports, `interviewer-frontend/README.md`, `smart-recruit-billing-service/cmd/billing-service/main.go`, Gateway billing client wiring, and microservice Compose on 2026-07-23.

@@ -1,4 +1,5 @@
 packages:
+  - 'homepage'
   - 'user-frontend'
   - 'hr-frontend'
   - 'platform-frontend'
