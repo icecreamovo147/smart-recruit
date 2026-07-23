@@ -16,6 +16,7 @@ ARG DEBIAN_SECURITY_MIRROR
 ARG GOPROXY
 
 ENV GOPROXY=${GOPROXY}
+ENV GOWORK=off
 
 WORKDIR /src
 
@@ -32,7 +33,6 @@ RUN set -eux; \
         tzdata && \
     rm -rf /var/lib/apt/lists/*
 
-COPY go.work go.work.sum ./
 COPY smart-recruit-platform-go ./smart-recruit-platform-go
 COPY smart-recruit-proto ./smart-recruit-proto
 COPY smart-recruit-commons ./smart-recruit-commons

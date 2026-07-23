@@ -61,9 +61,13 @@ Service unit conventions live in `smart-recruit-platform-go/servicebinary/`. Eac
 
 Local startup builds Billing with `./cmd/billing-service` into `.dev/bin/billing-service` and starts it with `--serve --addr :50069 --config <billing-config>`. Microservice Compose uses image build args `SERVICE_DIR=smart-recruit-billing-service`, `CMD_PATH=./cmd/billing-service`, and `BINARY_NAME=billing-service`.
 
+Generic microservice image builds run with `GOWORK=off` and intentionally do not copy the repository-root `go.work` or `go.work.sum`. Each service image is built from its own `go.mod` and explicit local `replace` dependencies, so development-only workspace members such as `dev-log-viewer` do not become image build dependencies. `bash scripts/build-microservice-images.sh --check` enforces this separation without invoking the container runtime.
+
 ## Focused verification
 
 ```sh
+bash scripts/build-microservice-images.sh --check
+
 GOWORK=off go test ./servicebinary
 # from smart-recruit-platform-go/
 

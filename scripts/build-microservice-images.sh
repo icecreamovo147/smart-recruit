@@ -48,6 +48,14 @@ require_file() {
 check_targets() {
   require_file "${COMPOSE_FILE}"
   require_file "${DOCKERFILE}"
+  if ! grep -Eq '^ENV[[:space:]]+GOWORK=off([[:space:]]|$)' "${DOCKERFILE}"; then
+    echo "docker build must set GOWORK=off to isolate service modules from the root workspace" >&2
+    exit 1
+  fi
+  if grep -Eq '^COPY[[:space:]].*go\.work(\.sum)?([[:space:]]|$)' "${DOCKERFILE}"; then
+    echo "docker build must not copy root go.work files when service module mode is enabled" >&2
+    exit 1
+  fi
   for entry in "${SERVICES[@]}"; do
     IFS=: read -r service_dir cmd_path binary_name <<<"${entry}"
     require_file "${ROOT}/${service_dir}/go.mod"
