@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-024",
+  "base_sha": "886c37b25b5baa03393a7b8b8e4eab5336a7ceb9",
+  "base_tree": "02407c2bb2622234d0c5b442d82215adb4d9d28c",
+  "head_sha": "886c37b25b5baa03393a7b8b8e4eab5336a7ceb9",
+  "changed_files": [
+    "smart-recruit-ai-agent-service/internal/application/command/capability.go",
+    "smart-recruit-ai-agent-service/internal/application/dto/capability.go",
+    "smart-recruit-ai-agent-service/internal/application/service/capability_service.go",
+    "smart-recruit-ai-agent-service/internal/application/service/capability_service_test.go",
+    "smart-recruit-ai-agent-service/internal/docs/ai_agent_dependency_inventory.md",
+    "smart-recruit-ai-agent-service/internal/domain/model/capability.go",
+    "smart-recruit-ai-agent-service/internal/domain/policy/capability.go",
+    "smart-recruit-ai-agent-service/internal/domain/policy/capability_test.go",
+    "smart-recruit-ai-agent-service/internal/domain/repository/capability.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-024-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-024-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-024",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "go test ./internal/domain/policy ./internal/application/service",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:55:00Z",
+      "duration_ms": 1901,
+      "status": "passed",
+      "summary": "MCP policy, Skill version/selection, Embedding runtime, and CandidateMatch targeted tests passed."
+    },
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:55:00Z",
+      "duration_ms": 2342,
+      "status": "passed",
+      "summary": "smart-recruit-ai-agent-service package tests passed."
+    },
+    {
+      "command": "go run ./cmd/ai-agent-service --check",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:55:00Z",
+      "duration_ms": 973,
+      "status": "passed",
+      "summary": "ai-agent-service runtime check passed"
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:56:00Z",
+      "duration_ms": 2,
+      "status": "passed",
+      "summary": "Tracked diff listed smart-recruit-ai-agent-service/internal/docs/ai_agent_dependency_inventory.md; git status also listed new TASK-024 Go files."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-024",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:56:00Z",
+      "duration_ms": 237,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-024. Changed files: 9 before report/evidence creation."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:56:00Z",
+      "duration_ms": 1027,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-ai-agent-service passed."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:56:00Z",
+      "duration_ms": 306,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:57:00Z",
+      "duration_ms": 102,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-ddd-evolution/reports/TASK-024-evidence.json",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:59:00Z",
+      "duration_ms": 24,
+      "status": "passed",
+      "summary": "evidence_result: PASS"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-024",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:59:00Z",
+      "duration_ms": 58,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-024. Changed files: 11 after report/evidence creation."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:59:00Z",
+      "duration_ms": 799,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-ai-agent-service passed."
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 02407c2bb2622234d0c5b442d82215adb4d9d28c",
+      "exit_code": 1,
+      "started_at": "2026-07-13T09:57:00Z",
+      "duration_ms": 1,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-024 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-13T11:22:00Z",
+    "confirmation_text": "User confirmed continuing TASK-012 and cancelled future human gates unless a blocking issue needs human intervention; applying that confirmation to TASK-024."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-ai-agent-service/internal/domain/**",
+      "smart-recruit-ai-agent-service/internal/application/**",
+      "smart-recruit-ai-agent-service/internal/docs/ai_agent_dependency_inventory.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/domains/ai-configuration-governance.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-024 localizes embedding provider/model availability, encrypted credential marker, and Skill/Agent Skill configuration boundaries."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/mcp-tool-governance.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-024 localizes MCP server validation, private-network denial, command allowlist, and policy decision ordering."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/agent-skill.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-024 localizes Skill versioning and Agent Skill selection gate/priority behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/semantic-retrieval.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-024 localizes embedding availability/fallback state and semantic score participation in Agent Skill selection."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/embedding-fallback.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-024 preserves explicit embedding unavailable state rather than treating fallback as semantic success."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/mcp-policy-audit.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-024 preserves MCP no-policy allow and rate/confirmation/redaction policy surfaces for later adapter audit logging."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/resume-intelligence.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-024 localizes candidate match requirement scoring, fallback marker, and knockout cap."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-ai-configuration.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-024 introduces local debug-relevant state for MCP decision, embedding availability, and Skill selection."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-024 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

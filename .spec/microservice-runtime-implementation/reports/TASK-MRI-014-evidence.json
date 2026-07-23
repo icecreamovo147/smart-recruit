@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-014",
+  "base_sha": "ee9e70e234f19842d7290789fe307c24b038255a",
+  "base_tree": "301af09ea3f5d7767fa590154d92d0b3bfb5ac7e",
+  "head_sha": "ee9e70e234f19842d7290789fe307c24b038255a",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-014-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-014-report.md",
+    "smart-recruit-offer-service/README.md",
+    "smart-recruit-offer-service/cmd/offer-service/main.go",
+    "smart-recruit-offer-service/cmd/offer-service/main_test.go",
+    "smart-recruit-offer-service/doc.go",
+    "smart-recruit-offer-service/go.mod",
+    "smart-recruit-offer-service/go.sum",
+    "smart-recruit-offer-service/internal/runtime/runtime.go",
+    "smart-recruit-offer-service/internal/runtime/runtime_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=301af09ea3f5d7767fa590154d92d0b3bfb5ac7e bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-014",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-offer-service/**",
+      "logic-grpc-service/internal/offer/**",
+      "logic-grpc-service/cmd/offer-service/**",
+      "smart-recruit-proto/**",
+      "smart-recruit-platform-go/**",
+      "**/go.mod",
+      "**/go.sum",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "cd smart-recruit-offer-service && GOWORK=off go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T08:47:00.000Z",
+      "duration_ms": 4321
+    },
+    {
+      "command": "cd smart-recruit-offer-service && GOWORK=off go build ./cmd/offer-service",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T08:47:10.000Z",
+      "duration_ms": 10968
+    },
+    {
+      "command": "cd smart-recruit-offer-service && GOWORK=off go run ./cmd/offer-service --check",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T08:47:10.000Z",
+      "duration_ms": 10968
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T08:48:00.000Z",
+      "duration_ms": 9
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 301af09ea3f5d7767fa590154d92d0b3bfb5ac7e --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T08:48:01.000Z",
+      "duration_ms": 655
+    },
+    {
+      "command": "TASK_BASE_TREE=301af09ea3f5d7767fa590154d92d0b3bfb5ac7e bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-014",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T08:48:02.000Z",
+      "duration_ms": 290
+    },
+    {
+      "command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T08:48:03.000Z",
+      "duration_ms": 5371
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-014-evidence.json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T08:49:00.000Z",
+      "duration_ms": 60
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_at": "2026-07-12T08:49:00Z",
+    "source": "TASK-MRI-014 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Live --serve smoke with MySQL/Redis/Nacos",
+      "reason": "The runtime starts against the shared configured MySQL and optional Redis/Nacos; live service stack smoke is deferred to Docker Compose/runtime TASKs."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "recurring-defect-fixed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active source_refs; TASK-MRI-014 adds an extracted Offer service root but does not change gateway routing defaults, public HTTP API, protobuf, or the shared MySQL schema."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active local startup guidance; full local microservice compose and start order updates are scoped to later Docker/runtime TASKs."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "The document still describes logic-grpc-service/cmd/offer-service as the Offer skeleton. TASK-MRI-014 creates smart-recruit-offer-service runtime, but this TASK keeps knowledge edits out of the strict runtime scope."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "The runbook still describes the legacy Offer skeleton. Later service-convention or deployment TASKs should update extracted smart-recruit-* root guidance."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

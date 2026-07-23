@@ -1,0 +1,908 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "tasks": {
+    "TASK-001": {
+      "title": "建立迁移总则与边界检查基线",
+      "status": "pending",
+      "allowedFiles": [
+        ".spec/microservice-ddd-evolution/docs/architecture/**",
+        "scripts/check-backend-boundaries.mjs",
+        "scripts/backend-final-readiness-audit.mjs",
+        ".knowledge/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-*-service/**",
+        "smart-recruit-commons/**",
+        "smart-recruit-platform-go/**",
+        "smart-recruit-proto/**",
+        "smart-recruit-gateway/**",
+        "go.mod",
+        "go.sum",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-001.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-001-report.md",
+      "notes": [
+        "Establishes architecture rules only; no business migration."
+      ]
+    },
+    "TASK-002": {
+      "title": "盘点共享依赖、表归属与服务迁移基线",
+      "status": "pending",
+      "allowedFiles": [
+        ".spec/microservice-ddd-evolution/docs/architecture/**",
+        ".knowledge/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-*-service/**",
+        "smart-recruit-commons/**",
+        "smart-recruit-platform-go/**",
+        "smart-recruit-proto/**",
+        "smart-recruit-gateway/**",
+        "go.mod",
+        "go.sum",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-002.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-002-report.md",
+      "notes": [
+        "Produces baseline evidence for later service migrations."
+      ]
+    },
+    "TASK-003": {
+      "title": "Offer DDD 骨架与契约盘点",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-offer-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-003.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-003-report.md",
+      "notes": [
+        "No protobuf or shared module changes."
+      ]
+    },
+    "TASK-004": {
+      "title": "Offer domain/application 迁移",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-offer-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-004.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-004-report.md",
+      "notes": [
+        "Stop if new cross-service API or event schema is required."
+      ]
+    },
+    "TASK-005": {
+      "title": "Offer infrastructure/interfaces/runtime/tests 收敛",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-offer-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-005.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-005-report.md",
+      "notes": [
+        "Do not delete shared legacy implementation in this task."
+      ]
+    },
+    "TASK-006": {
+      "title": "Interview DDD 骨架与契约盘点",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-interview-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-006.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-006-report.md",
+      "notes": [
+        "Depends on completed Offer migration."
+      ]
+    },
+    "TASK-007": {
+      "title": "Interview domain/application 迁移",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-interview-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-007.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-007-report.md",
+      "notes": [
+        "Stop if notification event contract must change."
+      ]
+    },
+    "TASK-008": {
+      "title": "Interview infrastructure/interfaces/runtime/tests 收敛",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-interview-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-008.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-008-report.md",
+      "notes": [
+        "Must preserve gRPC compatibility."
+      ]
+    },
+    "TASK-009": {
+      "title": "Notification DDD 骨架与契约盘点",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-notification-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-009.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-009-report.md",
+      "notes": [
+        "Must inventory Outbox/Inbox and email semantics."
+      ]
+    },
+    "TASK-010": {
+      "title": "Notification domain/application 迁移",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-notification-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-010.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-010-report.md",
+      "notes": [
+        "Real SMTP calls must remain fake or env-gated in tests."
+      ]
+    },
+    "TASK-011": {
+      "title": "Notification infrastructure/interfaces/runtime/tests 收敛",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-notification-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-011.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-011-report.md",
+      "notes": [
+        "Must preserve retry/DLQ/idempotency behavior."
+      ]
+    },
+    "TASK-012": {
+      "title": "Identity DDD 骨架与安全契约盘点",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-identity-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-012.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-012-report.md",
+      "notes": [
+        "Security-sensitive context; confirmation required."
+      ]
+    },
+    "TASK-013": {
+      "title": "Identity domain/application 迁移",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-identity-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-013.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-013-report.md",
+      "notes": [
+        "Auth/authz behavior changes are forbidden without explicit confirmation."
+      ]
+    },
+    "TASK-014": {
+      "title": "Identity infrastructure/interfaces/runtime/tests 收敛",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-identity-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-014.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-014-report.md",
+      "notes": [
+        "Must preserve all security contracts."
+      ]
+    },
+    "TASK-015": {
+      "title": "Recruitment DDD 骨架与核心域盘点",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-recruitment-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-015.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-015-report.md",
+      "notes": [
+        "Core largest context; keep inventory precise."
+      ]
+    },
+    "TASK-016": {
+      "title": "Recruitment job/candidate/resume domain/application 迁移",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-recruitment-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-016.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-016-report.md",
+      "notes": [
+        "Preserve OSS and resume parsing outbox semantics."
+      ]
+    },
+    "TASK-017": {
+      "title": "Recruitment application/collaboration/taxonomy 迁移",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-recruitment-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-017.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-017-report.md",
+      "notes": [
+        "Stop if new snapshot API or event schema is required."
+      ]
+    },
+    "TASK-018": {
+      "title": "Recruitment infrastructure/interfaces/runtime/tests 收敛",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-recruitment-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-018.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-018-report.md",
+      "notes": [
+        "Must preserve AdminService split compatibility."
+      ]
+    },
+    "TASK-019": {
+      "title": "Analytics DDD 骨架与投影策略盘点",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-analytics-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-019.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-019-report.md",
+      "notes": [
+        "Inventory transitional read debt."
+      ]
+    },
+    "TASK-020": {
+      "title": "Analytics reporting/projection application 迁移",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-analytics-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-020.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-020-report.md",
+      "notes": [
+        "Do not write transactional state."
+      ]
+    },
+    "TASK-021": {
+      "title": "Analytics infrastructure/interfaces/runtime/tests 收敛",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-analytics-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-021.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-021-report.md",
+      "notes": [
+        "Must preserve report semantics."
+      ]
+    },
+    "TASK-022": {
+      "title": "AI Agent DDD 骨架与复杂依赖盘点",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-022.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-022-report.md",
+      "notes": [
+        "Complex AI/MCP/security context; confirmation required."
+      ]
+    },
+    "TASK-023": {
+      "title": "AI Agent chat/agent-run/prompt domain/application 迁移",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-023.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-023-report.md",
+      "notes": [
+        "Preserve streaming and durable agent-run semantics."
+      ]
+    },
+    "TASK-024": {
+      "title": "AI Agent MCP/skill/embedding/intelligence 迁移",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-024.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-024-report.md",
+      "notes": [
+        "Preserve MCP policy, credential encryption, and fallback behavior."
+      ]
+    },
+    "TASK-025": {
+      "title": "AI Agent infrastructure/interfaces/runtime/tests 收敛",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-025.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-025-report.md",
+      "notes": [
+        "Must not leak provider credentials."
+      ]
+    },
+    "TASK-026": {
+      "title": "Worker DDD/workload 骨架与边界盘点",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-worker-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-026.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-026-report.md",
+      "notes": [
+        "Do not split worker binary in this task."
+      ]
+    },
+    "TASK-027": {
+      "title": "Worker workload application/runtime 迁移",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-worker-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-027.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-027-report.md",
+      "notes": [
+        "Worker writes must follow owner contracts."
+      ]
+    },
+    "TASK-028": {
+      "title": "Worker infrastructure/tests 与 owner contract 收敛",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-worker-service/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/**",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-028.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-028-report.md",
+      "notes": [
+        "Must preserve workload readiness and idempotency."
+      ]
+    },
+    "TASK-029": {
+      "title": "收缩 smart-recruit-commons 至 commons-ready shared kernel",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-commons/**",
+        "smart-recruit-*-service/**",
+        "smart-recruit-gateway/**",
+        ".spec/microservice-ddd-evolution/docs/architecture/**",
+        "scripts/**",
+        ".knowledge/**",
+        ".spec/microservice-ddd-evolution/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "db.sql",
+        "smart-recruit-commons/migrations/*.sql",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": [
+        "create",
+        "modify",
+        "delete",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-029.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-029-report.md",
+      "notes": [
+        "Shared cleanup only; module rename is reserved for TASK-030."
+      ]
+    },
+    "TASK-030": {
+      "title": "最终重命名 smart-recruit-commons 为 smart-recruit-commons",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-domain-go/**",
+        "smart-recruit-commons/**",
+        "smart-recruit-*-service/**",
+        "smart-recruit-gateway/**",
+        "smart-recruit-platform-go/**",
+        "smart-recruit-proto/**",
+        "go.work",
+        "go.work.sum",
+        "smart-recruit-deploy/**",
+        "deploy/**",
+        "docker/**",
+        "start-dev.sh",
+        "start-docker-all.sh",
+        "stop-dev.sh",
+        "README.md",
+        "scripts/**",
+        ".knowledge/**",
+        ".spec/microservice-ddd-evolution/**"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "db.sql",
+        "smart-recruit-domain-go/migrations/*.sql",
+        "smart-recruit-commons/migrations/*.sql"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": [
+        "create",
+        "modify",
+        "delete",
+        "move",
+        "test"
+      ],
+      "acceptance": ".spec/microservice-ddd-evolution/acceptance/TASK-030.md",
+      "report": ".spec/microservice-ddd-evolution/reports/TASK-030-report.md",
+      "notes": [
+        "Final high-risk rename; must be the last migration task."
+      ]
+    }
+  }
+}

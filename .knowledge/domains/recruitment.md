@@ -13,45 +13,36 @@ tags:
   - interviews
   - offers
 applies_to:
-  - logic-grpc-service/service/job_service.go
-  - logic-grpc-service/service/application_service.go
-  - logic-grpc-service/service/interview_service.go
-  - logic-grpc-service/service/offer_service.go
+  - smart-recruit-recruitment-service/**
+  - smart-recruit-interview-service/**
+  - smart-recruit-offer-service/**
+  - smart-recruit-proto/**
   - hr-frontend/src/views/hr/**
   - user-frontend/src/views/candidate/**
 source_refs:
-  - README.md
-  - logic-grpc-service/proto/recruitment.proto
-  - logic-grpc-service/service/application_service.go
+  - smart-recruit-proto/proto/recruitment.proto
+  - smart-recruit-proto/recruitment/pb/recruitment.pb.go
+  - smart-recruit-recruitment-service/internal/runtime/runtime.go
+  - smart-recruit-recruitment-service/internal/domain/policy/recruitment.go
+  - smart-recruit-recruitment-service/internal/interfaces/grpc/adapters.go
+  - smart-recruit-recruitment-service/internal/infrastructure/persistence/native_adapters.go
+  - smart-recruit-recruitment-service/cmd/recruitment-service/main.go
+  - smart-recruit-interview-service/internal/runtime/runtime.go
+  - smart-recruit-offer-service/internal/runtime/runtime.go
+  - smart-recruit-deploy/mysql-table-ownership.json
   - db.sql
-last_verified: 2026-07-10
-review_after: 2026-10-08
+last_verified: 2026-07-14
+review_after: 2026-10-14
 ---
 
 # Recruitment Domain Model
 
-The recruitment domain centers on jobs, candidates, applications, interviews, offers, notifications, and analytics. HR users manage jobs and application flow. Candidates browse jobs, maintain profile/resume data, apply, track progress, attend interviews, and respond to offers. Interviewers use staff-facing interview task and feedback flows.
+Recruitment owns jobs, candidates, resumes, applications, taxonomy, invite/admin subsets, and collaboration APIs. Interview owns schedules and feedback. Offer owns offer lifecycle and offer events. The shared wire contract is in `smart-recruit-proto/`, and cross-context table access is governed by the ownership manifest.
 
-Application state transitions and offer/interview lifecycle behavior are business rules. Verify them in service code, protobuf contracts, database schema, and tests before documenting or changing behavior.
+Application records and application status transitions are Recruitment-owned data. Services that need application state should read `ApplicationOwnerService.GetApplicationSnapshot`; services that need to advance application lifecycle should call `ApplicationOwnerService.ApplyApplicationLifecycleTransition` instead of carrying local application repositories.
 
-## Core Concepts
-
-- Job: published or managed recruitment opening with department and location context.
-- Application: candidate-to-job relationship with status transitions and timeline.
-- Interview: scheduled evaluation event, including interviewer feedback.
-- Offer: post-interview decision artifact with send, withdraw, accept, and reject flows.
-- Resume profile and match evaluation: AI-assisted extraction and candidate-job comparison.
-- Notification: user-facing event delivery, including SSE and unread state.
-
-## Change Impact Hints
-
-- Status changes normally require service, repository, frontend display, and analytics review.
-- Resume and candidate intelligence changes may touch AI quota, parsing, storage, and evaluation flows.
-- Offer and interview changes usually affect both HR and candidate/interviewer surfaces.
-- Permission changes belong to route/RBAC review and should not be inferred only from UI visibility.
-- Notification, outbox, and timeline effects should be reviewed together with application, interview, offer, and collaboration workflows.
-- Candidate-facing status labels are intentionally safer than HR-facing labels; avoid leaking internal rejection or screening detail to candidate surfaces.
+Recruitment service runtime is no longer bootstrapped from `internal/legacydomain` repositories/services, and the Recruitment service-local legacy directory has been retired. `cmd/recruitment-service` wires a local native persistence bundle that exposes focused adapters for job, taxonomy/admin, candidate/resume, application lifecycle, collaboration, usage audit, outbox, and application-owner contract behavior for the active runtime.
 
 ## Verification
 
-This domain summary was verified against `README.md`, protobuf definitions, application/interview/offer/collaboration/notification service code, status model code, and database schema on 2026-07-10.
+Verified against current repository files on 2026-07-14.

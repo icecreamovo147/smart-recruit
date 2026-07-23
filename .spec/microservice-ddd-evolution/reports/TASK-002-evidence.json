@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-002",
+  "base_sha": "61f0db7b917c2d7c401fe1bcdb0baede92f2b376",
+  "base_tree": "4c47f386e5518a6b0eb16069d903cbc84102c697",
+  "head_sha": "61f0db7b917c2d7c401fe1bcdb0baede92f2b376",
+  "changed_files": [
+    "docs/architecture/microservice-ddd-evolution-service-baseline.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-002-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-002-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-002",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T02:38:55.712Z",
+      "duration_ms": 47,
+      "status": "passed",
+      "summary": "无输出；本 TASK 仅新增未跟踪文件，真实文件列表由 changed_files 和 scope check 记录。"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-002",
+      "exit_code": 0,
+      "started_at": "2026-07-13T02:38:55.776Z",
+      "duration_ms": 148,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-002. Changed files: 3"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T02:38:55.924Z",
+      "duration_ms": 139,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. No Go module changes detected; skipped go test."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T02:38:56.063Z",
+      "duration_ms": 97,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 4c47f386e5518a6b0eb16069d903cbc84102c697",
+      "exit_code": 1,
+      "started_at": "2026-07-13T02:38:56.160Z",
+      "duration_ms": 84,
+      "status": "failed",
+      "summary": "既有 active knowledge 中大量旧 logic-grpc-service/web-gin-service source_refs 缺失；TASK-001 已新增 inbox candidate，TASK-002 记录 candidate_required。"
+    }
+  ],
+  "review": {
+    "type": "independent-agent",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-13T02:40:00.000Z",
+    "confirmation_text": "TASK-002 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "docs/architecture/microservice-ddd-evolution-service-baseline.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Active document still describes older service topology; TASK-002 baseline uses current smart-recruit-* service roots."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Active document still centers on logic-grpc-service-era source_refs; TASK-002 records current microservice roots and table ownership baseline."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Active persistence document references old logic-grpc-service paths; current ownership authority is smart-recruit-deploy/mysql-table-ownership.json."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Runbook still includes old service layout details; TASK-002 baseline documents current per-service roots."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-001 candidate remains the update path."
+  },
+  "skipped_checks": []
+}

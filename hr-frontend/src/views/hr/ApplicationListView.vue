@@ -8,6 +8,8 @@ import { listApplicationInterviews, batchCancelInterviews } from '@/api/intervie
 import type { Application, InterviewSchedule, JobQuery } from '@/types/domain'
 import { getHRStatusLabel, getStatusType, APP_STATUS_KEY, TERMINAL_STATUS_KEYS, ALLOWED_HR_ACTIONS } from '@/types/domain'
 import InterviewScheduleDialog from '@/components/business/InterviewScheduleDialog.vue'
+import SkillTagSummary from '@/components/business/SkillTagSummary.vue'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,13 +21,15 @@ const query = reactive<JobQuery>({ page: 1, page_size: 10 })
 const keyword = ref('')
 const statusFilter = ref('')
 
-const formatDateTime = (value: string): string => {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const pad = (num: number): string => String(num).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
+const offerStageStatusKeys = new Set<string>([
+  APP_STATUS_KEY.OFFER_PENDING,
+  APP_STATUS_KEY.OFFER_SENT,
+  APP_STATUS_KEY.OFFER_ACCEPTED,
+  APP_STATUS_KEY.OFFER_REJECTED,
+  APP_STATUS_KEY.HIRED,
+])
+
+const formatDateTime = (value: string): string => formatShanghaiDateTime(value, '-', false)
 
 const getStatusKey = (row: Application): string => {
   return row.status_key || ''
@@ -140,16 +144,6 @@ const decide = async (row: Application, statusKey: string) => {
     } catch {
       return
     }
-  } else if (statusKey === APP_STATUS_KEY.OFFER_PENDING) {
-    try {
-      await ElMessageBox.confirm(
-        `确认将「${row.real_name || '该候选人'}」推进到待发 Offer 阶段？`,
-        '发起 Offer 确认',
-        { type: 'success' },
-      )
-    } catch {
-      return
-    }
   } else {
     try {
       await ElMessageBox.confirm(`确认将「${row.real_name || '该候选人'}」标记为${text}？`, '更新投递状态', { type: 'success' })
@@ -173,6 +167,19 @@ const openIntelligence = (row: Application) => {
       candidate_name: row.real_name || '',
     },
   })
+}
+
+const shouldOpenOfferCreate = (row: Application): boolean => {
+  const statusKey = getStatusKey(row)
+  return statusKey === APP_STATUS_KEY.VIEWED || statusKey === APP_STATUS_KEY.INTERVIEW_PASSED
+}
+
+const canOpenOfferWorkspace = (row: Application): boolean => {
+  return shouldOpenOfferCreate(row) || offerStageStatusKeys.has(getStatusKey(row))
+}
+
+const offerActionLabel = (row: Application): string => {
+  return shouldOpenOfferCreate(row) ? '创建 Offer' : '管理 Offer'
 }
 
 // ── Interview scheduling dialog ──────────────────────────────────────────
@@ -235,11 +242,16 @@ const handleDropdownCommand = (command: string, row: Application) => {
     case 'interview_passed':
       decide(row, APP_STATUS_KEY.INTERVIEW_PASSED)
       break
-    case 'offer_pending':
-      decide(row, APP_STATUS_KEY.OFFER_PENDING)
-      break
     case 'manage_offer':
-      router.push({ path: `/hr/applications/${row.application_id}/offers`, query: { job_id: String(route.params.jobId) } })
+      router.push({
+        path: `/hr/applications/${row.application_id}/offers`,
+        query: {
+          job_id: String(route.params.jobId),
+          job_title: row.job_title || '',
+          candidate_name: row.real_name || '',
+          ...(shouldOpenOfferCreate(row) ? { action: 'create' } : {}),
+        },
+      })
       break
     case 'rejected':
       decide(row, APP_STATUS_KEY.REJECTED)
@@ -318,7 +330,7 @@ onMounted(load)
           </el-table-column>
           <el-table-column label="技能" min-width="220">
             <template #default="{ row }">
-              <el-tag v-for="skill in row.skills" :key="skill" style="margin-right: 6px">{{ skill }}</el-tag>
+              <SkillTagSummary :skills="row.skills" :limit="3" />
             </template>
           </el-table-column>
           <el-table-column prop="applied_time_display" label="投递时间" width="170" />
@@ -347,8 +359,7 @@ onMounted(load)
                       <el-dropdown-item divided command="schedule_interview" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)">安排面试</el-dropdown-item>
                       <el-dropdown-item command="cancel_interview">取消面试</el-dropdown-item>
                       <el-dropdown-item command="interview_passed" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PASSED)">面试通过</el-dropdown-item>
-                      <el-dropdown-item command="offer_pending" :disabled="!canAction(row, APP_STATUS_KEY.OFFER_PENDING)">推进至Offer阶段</el-dropdown-item>
-                      <el-dropdown-item command="manage_offer">创建/发送Offer</el-dropdown-item>
+                      <el-dropdown-item command="manage_offer" :disabled="!canOpenOfferWorkspace(row)">{{ offerActionLabel(row) }}</el-dropdown-item>
                       <el-dropdown-item command="rejected" :disabled="!canAction(row, APP_STATUS_KEY.REJECTED)">淘汰</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
@@ -374,8 +385,8 @@ onMounted(load)
             <span>{{ row.phone || '未填写电话' }}</span>
             <span>{{ row.education || '' }}{{ row.school ? ' / ' + row.school : '' }}</span>
           </div>
-          <div v-if="row.skills && row.skills.length" class="mobile-card__tags">
-            <el-tag v-for="skill in row.skills" :key="skill" size="small">{{ skill }}</el-tag>
+          <div class="mobile-card__tags">
+            <SkillTagSummary :skills="row.skills" :limit="2" trigger="click" />
           </div>
           <div class="mobile-card__meta">
             <span>{{ row.applied_time_display }}</span>
@@ -394,8 +405,7 @@ onMounted(load)
                   <el-dropdown-item divided command="schedule_interview" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)">安排面试</el-dropdown-item>
                   <el-dropdown-item command="cancel_interview">取消面试</el-dropdown-item>
                   <el-dropdown-item command="interview_passed" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PASSED)">面试通过</el-dropdown-item>
-                  <el-dropdown-item command="offer_pending" :disabled="!canAction(row, APP_STATUS_KEY.OFFER_PENDING)">推进至Offer阶段</el-dropdown-item>
-                  <el-dropdown-item command="manage_offer">创建/发送Offer</el-dropdown-item>
+                  <el-dropdown-item command="manage_offer" :disabled="!canOpenOfferWorkspace(row)">{{ offerActionLabel(row) }}</el-dropdown-item>
                   <el-dropdown-item command="rejected" :disabled="!canAction(row, APP_STATUS_KEY.REJECTED)">淘汰</el-dropdown-item>
                 </el-dropdown-menu>
               </template>

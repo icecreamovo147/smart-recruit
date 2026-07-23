@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_count": 52,
+  "completed_count_excluding_allowed_current": 51,
+  "allow_current_task": "TASK-BDME-052",
+  "missing_evidence": [],
+  "missing_artifacts": [],
+  "transitional_shared_access_count": 6,
+  "transitional_without_removal_plan": [],
+  "generated_at": "2026-07-11T19:22:09.828Z"
+}

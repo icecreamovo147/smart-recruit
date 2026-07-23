@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, MoreFilled, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { createInviteCode, extendInviteCode, listInviteCodes, reactivateInviteCode, revokeInviteCode } from '@/api/admin'
 import type { InviteCodeInfo } from '@/types/domain'
+import { formatShanghaiDateTime, toShanghaiRFC3339 } from '@shared/utils/format'
 
 const list = ref<InviteCodeInfo[]>([])
 const total = ref(0)
@@ -64,7 +65,7 @@ const saveExtend = async () => {
   }
   saving.value = true
   try {
-    await extendInviteCode(extendingId.value, new Date(extendForm.new_expires_at).toISOString())
+    await extendInviteCode(extendingId.value, toShanghaiRFC3339(extendForm.new_expires_at))
     ElMessage.success('有效期已延长')
     extendingVisible.value = false
     await load()
@@ -109,8 +110,8 @@ const statusTag = (row: InviteCodeInfo) => {
 }
 
 const formatTime = (s?: string) => {
-  if (!s) return '永不过期'
-  return new Date(s).toLocaleString('zh-CN')
+	if (!s) return '永不过期'
+	return formatShanghaiDateTime(s)
 }
 
 const copyLink = async (row: InviteCodeInfo) => {
@@ -250,7 +251,7 @@ onMounted(load)
     </div>
 
     <!-- Create dialog -->
-    <el-drawer v-model="dialogVisible" title="生成邀请码" size="460px" @closed="form.expires_at = ''">
+    <el-drawer v-model="dialogVisible" title="生成邀请码" size="460px" :close-on-click-modal="true" @closed="form.expires_at = ''">
       <el-form label-position="top">
         <el-form-item label="过期时间">
           <el-date-picker
@@ -270,7 +271,7 @@ onMounted(load)
     </el-drawer>
 
     <!-- Extend dialog -->
-    <el-drawer v-model="extendingVisible" title="延长有效期" size="460px">
+    <el-drawer v-model="extendingVisible" title="延长有效期" size="460px" :close-on-click-modal="true">
       <el-form label-position="top">
         <el-form-item label="新过期时间">
           <el-date-picker

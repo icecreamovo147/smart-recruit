@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
-import { login as loginApi } from '@/api/auth'
+import { login as loginApi, switchTenant as switchTenantApi } from '@/api/auth'
 import { silentRefresh } from '@/api/authRefresh'
 import { getUser, setUser, clearLocalAuthCache } from '@/utils/token'
+import { normalizeTenantMemberships, normalizeTenantUser } from '@/utils/tenantMembership'
 import type { User, LoginPayload, LoginResponse } from '@/types/domain'
 import { PERM, ROLE_KEY_RECRUITING_ADMIN, ROLE_KEY_RECRUITER, ROLE_KEY_SYSTEM_ADMIN } from '@/types/domain'
 
@@ -10,7 +11,7 @@ interface AuthState {
 }
 
 export const useAuthStore = defineStore('auth', {
-  state: (): AuthState => ({ user: getUser() }),
+  state: (): AuthState => ({ user: normalizeTenantUser(getUser()) }),
 
   getters: {
     isLoggedIn: (state: AuthState): boolean => Boolean(state.user),
@@ -27,6 +28,14 @@ export const useAuthStore = defineStore('auth', {
     roles: (state: AuthState): string[] => state.user?.roles || [],
 
     permissions: (state: AuthState): string[] => state.user?.permissions || [],
+
+    tenantId: (state: AuthState): number => state.user?.tenant_id || 0,
+
+    membershipId: (state: AuthState): number => state.user?.membership_id || 0,
+
+    memberships: (state: AuthState) => state.user?.memberships || [],
+
+    activeTenant: (state: AuthState) => (state.user?.memberships || []).find((item) => item.tenant_id === state.user?.tenant_id),
 
     isStaff: (state: AuthState): boolean => state.user?.account_type === 'staff',
 
@@ -61,7 +70,7 @@ export const useAuthStore = defineStore('auth', {
 
     async login(payload: LoginPayload): Promise<void> {
       const data: LoginResponse = await loginApi(payload)
-      setUser({
+      const user = normalizeTenantUser({
         user_id: data.user_id,
         role: data.role,
         username: data.username,
@@ -69,8 +78,23 @@ export const useAuthStore = defineStore('auth', {
         roles: data.roles || [],
         permissions: data.permissions || [],
         email: data.email,
+        tenant_id: data.tenant_id,
+        membership_id: data.membership_id,
+        client_app: data.client_app,
+        available_apps: data.available_apps || [],
+        memberships: normalizeTenantMemberships(data.memberships),
       })
-      this.user = getUser()
+      if (!user) throw new Error('invalid login session')
+      setUser(user)
+      this.user = user
+    },
+
+    async switchTenant(tenantId: number): Promise<void> {
+      if (!tenantId || tenantId === this.tenantId) return
+      await switchTenantApi(tenantId)
+      if (!await this.restoreSession()) {
+        throw new Error('tenant session restore failed')
+      }
     },
 
     logout(): void {
@@ -102,8 +126,13 @@ export const useAuthStore = defineStore('auth', {
             roles: Array.isArray(json.data.roles) ? json.data.roles.map(String) : [],
             permissions: Array.isArray(json.data.permissions) ? json.data.permissions.map(String) : [],
             email: json.data.email ? String(json.data.email) : undefined,
+            tenant_id: json.data.tenant_id ? Number(json.data.tenant_id) : undefined,
+            membership_id: json.data.membership_id ? Number(json.data.membership_id) : undefined,
+            client_app: json.data.client_app ? String(json.data.client_app) : undefined,
+            available_apps: Array.isArray(json.data.available_apps) ? json.data.available_apps.map(String) : [],
+            memberships: normalizeTenantMemberships(json.data.memberships),
           })
-          this.user = getUser()
+          this.user = normalizeTenantUser(getUser())
           return true
         }
         if (json.code === 401) { this.logout(); return false }

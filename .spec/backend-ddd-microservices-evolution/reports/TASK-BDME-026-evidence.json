@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-026",
+  "base_sha": "91027ae11b68323d5c7c8af84b91f80b9462aa5e",
+  "base_tree": "8497b8128a41540e00b6e0555a2caa635b319ebf",
+  "head_sha": "91027ae11b68323d5c7c8af84b91f80b9462aa5e",
+  "changed_files": [
+    ".knowledge/INDEX.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/architecture/system-overview.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/local-development.md",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-026-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-026-evidence.json",
+    "deploy/k8s/README-service-binaries.md",
+    "docs/backend-ddd-microservices-evolution-service-binary-convention.md",
+    "logic-grpc-service/internal/platform/servicebinary/convention.go",
+    "logic-grpc-service/internal/platform/servicebinary/convention_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "8497b8128a41540e00b6e0555a2caa635b319ebf",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/INDEX.md",
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/architecture/system-overview.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/local-development.md",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-026-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-026-evidence.json",
+      "deploy/k8s/README-service-binaries.md",
+      "docs/backend-ddd-microservices-evolution-service-binary-convention.md",
+      "logic-grpc-service/internal/platform/servicebinary/convention.go",
+      "logic-grpc-service/internal/platform/servicebinary/convention_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:56:00Z",
+      "duration_ms": 331,
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./internal/platform/servicebinary",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:56:00Z",
+      "duration_ms": 1391,
+      "summary": "Focused service binary convention tests passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:57:00Z",
+      "duration_ms": 9559,
+      "summary": "All logic-grpc-service packages passed, including servicebinary."
+    },
+    {
+      "command": "TASK_BASE_TREE=8497b8128a41540e00b6e0555a2caa635b319ebf bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-026",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:57:00Z",
+      "duration_ms": 352,
+      "summary": "scope_result: PASS (TASK-BDME-026)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:57:00Z",
+      "duration_ms": 10034,
+      "summary": "Feature validation, git diff whitespace check, gofmt check, logic-grpc-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 8497b8128a41540e00b6e0555a2caa635b319ebf --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:57:00Z",
+      "duration_ms": 484,
+      "summary": "impact_result: update_required; no coverage gaps."
+    },
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:57:00Z",
+      "duration_ms": 33,
+      "summary": "Listed tracked and untracked TASK files."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T15:52:01Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "docs/backend-ddd-microservices-evolution-service-binary-convention.md",
+      "deploy/k8s/README-service-binaries.md",
+      "logic-grpc-service/internal/platform/servicebinary/convention.go",
+      "logic-grpc-service/internal/platform/servicebinary/convention_test.go",
+      ".knowledge/manifest.yaml"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Created active runbook knowledge for backend service binary and deployment convention review."
+        ]
+      },
+      {
+        "document": ".knowledge/INDEX.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added navigation entry for service binaries and deployment convention."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented the servicebinary registry as compile-checked convention without runtime routing."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented staged service extraction through the service binary convention."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added focused validation command for service binary convention tests."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added narrow route for service binary convention files."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge route; no audit procedure change required."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}
+

@@ -12,44 +12,52 @@ tags:
   - grpc
   - contract
 applies_to:
-  - web-gin-service/router/**
-  - web-gin-service/handler/**
-  - web-gin-service/middleware/**
-  - web-gin-service/rpc/**
-  - logic-grpc-service/proto/**
+  - smart-recruit-gateway/config/**
+  - smart-recruit-gateway/router/**
+  - smart-recruit-gateway/handler/**
+  - smart-recruit-gateway/middleware/**
+  - smart-recruit-gateway/rpc/**
+  - smart-recruit-proto/**
 source_refs:
-  - web-gin-service/router/router.go
-  - web-gin-service/rpc/client.go
-  - web-gin-service/middleware/body_limit.go
-  - web-gin-service/middleware/ratelimit.go
-  - web-gin-service/middleware/observability.go
-  - logic-grpc-service/proto/recruitment.proto
-  - logic-grpc-service/main.go
-last_verified: 2026-07-10
-review_after: 2026-10-08
+  - smart-recruit-gateway/router/router.go
+  - smart-recruit-gateway/rpc/client.go
+  - smart-recruit-gateway/config/config.go
+  - smart-recruit-gateway/middleware/body_limit.go
+  - smart-recruit-gateway/middleware/ratelimit.go
+  - smart-recruit-gateway/middleware/observability.go
+  - smart-recruit-gateway/handler/hr/ai.go
+  - smart-recruit-gateway/cmd/gateway/main.go
+  - smart-recruit-platform-go/businessclock/clock.go
+  - smart-recruit-proto/proto/recruitment.proto
+  - smart-recruit-proto/recruitment/pb/recruitment.pb.go
+  - hr-frontend/src/api/ai.ts
+  - hr-frontend/src/types/ai.ts
+  - hr-frontend/src/utils/hrAgentRunReducer.ts
+last_verified: 2026-07-23
+review_after: 2026-10-21
 ---
 
 # API Contracts and Gateway Architecture
 
-The Gin gateway is the HTTP policy and transport boundary. It exposes `/api/v1` routes, applies timeout/body/rate/quota/risk middleware, performs auth and RBAC checks, and calls generated gRPC clients. It should not own core recruitment state transitions, persistence rules, or AI runtime selection.
+The gateway exposes `/api/v1`, applies timeout/body/rate/quota/risk/auth middleware, and calls generated gRPC clients. `smart-recruit-gateway/rpc/client.go` defaults route modes to independent service targets and forwards internal auth, request, and trace metadata.
 
-## Contract Layers
+AI daily and burst quota accounting distinguishes admission from an attempted HTTP request. Candidate streaming handlers mark the quota consumed only after the AI service emits its first runtime event; capability, configuration, and billing failures before that event refund the provisional daily count and do not contribute to the burst risk block. Once runtime admission occurs, later provider/stream failures remain counted because upstream work may already have happened.
 
-- `web-gin-service/router/router.go` wires public, candidate, staff, admin, AI, notification, analytics, collaboration, and configuration routes.
-- `web-gin-service/handler/**` translates HTTP payloads, path/query parameters, and streaming responses to protobuf-backed gRPC calls.
-- `web-gin-service/middleware/**` owns HTTP concerns such as JWT, role/permission checks, body limits, rate limits, quotas, risk blocking, CSP, request IDs, and timeouts.
-- `web-gin-service/rpc/client.go` creates generated gRPC clients, forwards internal auth/request metadata, and restricts retry policy to known read-only methods.
-- `logic-grpc-service/proto/recruitment.proto` is the source contract for gateway and logic generated clients/servers.
-- `logic-grpc-service/main.go` registers gRPC service implementations and health checks.
+The HR durable Agent Run endpoint requires a positive session ID and a non-empty trimmed message. It rejects blank input before invoking the AI gRPC client, while the AI service repeats the validation as a defense-in-depth boundary. Application-analysis session responses use the existing repeated `messages` field; no wire-shape change is needed to return the canonical seeded analysis message.
 
-## Impact Guidance
+HR AI chat JSON and Agent Run event JSON now forward two additive contract fields that must stay aligned across Proto, AI Agent, Gateway, and HR frontend:
 
-- Adding an HTTP endpoint usually requires handler, route, permission, frontend API/types, and a matching gRPC or existing handler contract.
-- Changing a protobuf message or service method is a public-contract change and must update generated Go code in both service trees.
-- Adding request bodies should check `MaxBodyBytes` limits and timeout category.
-- Adding streaming endpoints should check gateway response flushing and frontend event parsing.
-- Retrying write RPCs is unsafe unless idempotency is explicitly designed.
+- `suggested_questions` (`ChatResponse` field 13, `ChatStreamResponse` field 14, `AgentRunResultMetadata` field 8): optional repeated strings. Gateway chat handlers copy `resp.GetSuggestedQuestions()` into the HTTP body; Agent Run result metadata includes the same key. Treat absence or empty arrays as “no suggestions,” never as an error.
+- `snapshot_text` (`AgentRunEvent` field 7): optional full replacement text for assistant or process snapshots. Gateway `agentRunEventPayload` exposes it beside `payload_json`. Prefer the first-class field over re-parsing nested JSON when present; clients may still fall back to payload JSON for older events.
+
+These fields are additive and privacy-sensitive. Do not log suggestion text or snapshot bodies into ordinary diagnostics, and do not document or persist hidden prompt/provider payloads through knowledge.
+
+Changing HTTP routes normally requires route registration, handler mapping, permission metadata, frontend API/types, and a matching protobuf or service contract. Changing protobuf wire shape is rooted in `smart-recruit-proto/proto/recruitment.proto`; public-facing service extensions can force gateway and handler test clients to implement new methods, so internal owner contracts should prefer separate internal gRPC services when they are not part of frontend/gateway behavior.
+
+The legacydomain retirement contract adds internal `ApplicationOwnerService` and `AuthService.AuthorizeInternal` without adding new HTTP routes or frontend entry points. `rpc.Clients` may expose generated internal clients, but gateway route behavior remains unchanged unless handlers are explicitly modified.
+
+The platform business timezone is fixed at `Asia/Shanghai`. RFC3339 response strings are normalized to `+08:00`; RFC3339 inputs with `Z` or another legal offset retain their instant and are converted at the business boundary. Unix seconds/milliseconds, JWT claims, TTLs, and durations remain absolute and are never adjusted by eight hours. Daily quota keys and reset timestamps use Beijing civil-day boundaries.
 
 ## Verification
 
-Verified against gateway route setup, gRPC client construction, middleware categories, protobuf definitions, and logic service registration on 2026-07-10.
+Verified against `recruitment.proto` ChatResponse/AgentRunEvent fields, Gateway HR AI handlers, HR API/types/reducer consumers, and focused suggested-question / process-snapshot tests on 2026-07-23.

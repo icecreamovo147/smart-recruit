@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "hr-agent-resumable-stream",
+  "task_id": "TASK-HARS-005",
+  "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "base_tree": "55afd38e7d006c36c69cefea1a30e761603e00f7",
+  "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "baseline_strategy": "pipeline-state task_runs.TASK-HARS-005 base_sha/base_tree",
+  "changed_files": [
+    "web-gin-service/handler/hr/ai.go",
+    "web-gin-service/handler/hr/ai_agent_run_test.go",
+    "web-gin-service/router/router.go",
+    "web-gin-service/rpc/client.go",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-005-report.md",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-005-evidence.json",
+    ".spec/hr-agent-resumable-stream/pipeline-state.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=55afd38e7d006c36c69cefea1a30e761603e00f7 bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-005",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:08:00.000Z",
+      "duration_ms": 100,
+      "status": "passed"
+    },
+    {
+      "command": "TASK_BASE_TREE=55afd38e7d006c36c69cefea1a30e761603e00f7 bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-005",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:08:30.000Z",
+      "duration_ms": 1800,
+      "status": "passed",
+      "notes": "Initial fail was unrelated TASK-HARS-004-evidence.json blob drift vs base_tree; restored from base_tree then re-ran PASS."
+    },
+    {
+      "command": "bash .spec/hr-agent-resumable-stream/scripts/agent-check.sh TASK-HARS-005",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:08:40.000Z",
+      "duration_ms": 12000,
+      "status": "passed"
+    },
+    {
+      "command": "cd web-gin-service && go test ./handler/hr/ ./router/ ./rpc/ -count=1 -timeout 120s",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:07:50.000Z",
+      "duration_ms": 2500,
+      "status": "passed"
+    },
+    {
+      "command": "cd web-gin-service && go build ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:07:55.000Z",
+      "duration_ms": 8000,
+      "status": "passed"
+    }
+  ],
+  "review": {
+    "verdict": "通过",
+    "reviewer_type": "pending",
+    "review_round": 0,
+    "notes": "Implementation complete; ready for independent self-review. Do not start TASK-HARS-006.",
+    "reviewed_at": "2026-07-10T17:38:14.330Z"
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-10T17:05:15.467Z",
+    "confirmation_text": "User requested harness-pipeline through all remaining tasks; advance confirmation for public HTTP API TASK-HARS-005."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Live integration against running logic-grpc durable worker",
+      "reason": "Handler tests use mock AIServiceClient; end-to-end refresh recovery is TASK-HARS-008."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "web-gin-service/handler/hr/ai.go",
+      "web-gin-service/router/router.go",
+      "web-gin-service/rpc/client.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Gateway remains transport/policy boundary; durable run endpoints are thin HTTP wrappers over logic-grpc RPCs.",
+          "Document does not yet list the new /api/v1/hr/ai/runs* paths; knowledge edit out of TASK scope — captured as update_required lag, not STALE/CONFLICT."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "web-gin forwards create/get/active/subscribe/cancel/confirm; no gateway-local run lifecycle ownership.",
+          "logic-grpc continues to own durable state and ownership checks (PermissionDenied mapped at gateway)."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/protobuf-synchronization.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-HARS-005 did not modify proto or generated pb packages.",
+          "Handlers use AgentRun RPCs already generated in TASK-HARS-003."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

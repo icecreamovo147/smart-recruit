@@ -21,6 +21,11 @@ export const getUser = (): User | null => {
       roles: Array.isArray(parsed.roles) ? parsed.roles.map(String) : undefined,
       permissions: Array.isArray(parsed.permissions) ? parsed.permissions.map(String) : undefined,
       email: parsed.email ? String(parsed.email) : undefined,
+      tenant_id: parsed.tenant_id ? Number(parsed.tenant_id) : undefined,
+      membership_id: parsed.membership_id ? Number(parsed.membership_id) : undefined,
+      client_app: parsed.client_app ? String(parsed.client_app) : undefined,
+      available_apps: Array.isArray(parsed.available_apps) ? parsed.available_apps.map(String) : undefined,
+      memberships: Array.isArray(parsed.memberships) ? parsed.memberships : undefined,
     } as User
   } catch {
     removeUser()

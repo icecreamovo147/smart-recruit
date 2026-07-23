@@ -1,155 +1,6 @@
+name: smart-recruit
+
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: recruitment-mysql
-    restart: unless-stopped
-    command: --default-authentication-plugin=mysql_native_password
-    environment:
-      TZ: ${TZ:-Asia/Shanghai}
-      MYSQL_ROOT_PASSWORD: Aa123456
-      MYSQL_DATABASE: recruitment
-    expose:
-      - "3306"
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    container_name: recruitment-redis
-    restart: unless-stopped
-    environment:
-      TZ: ${TZ:-Asia/Shanghai}
-    expose:
-      - "6379"
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-
-  rabbitmq:
-    image: rabbitmq:4.2.3-management-alpine
-    container_name: recruitment-rabbitmq
-    restart: unless-stopped
-    environment:
-      TZ: ${TZ:-Asia/Shanghai}
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    expose:
-      - "5672"
-      - "15672"
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  logic-grpc-service:
-    build:
-      context: ..
-      dockerfile: docker/logic-grpc-service.Dockerfile
-    container_name: recruitment-logic
-    restart: unless-stopped
-    # gRPC 端口仅容器内网通信，不暴露到宿主机。
-    # 如需本地调试 gRPC 直连，临时取消注释下行。
-    # ports:
-    #   - "50051:50051"
-    environment:
-      TZ: ${TZ:-Asia/Shanghai}
-      CONFIG_PATH: /app/config/config.example.yaml
-      MYSQL_DSN: root:Aa123456@tcp(mysql:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local
-      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-at-least-32-chars-long!!}
-      ALLOW_INSECURE_DEV_CONFIG: "true"
-      INITIAL_ADMIN_USERNAME: ""
-      GRPC_INTERNAL_AUTH: "required"
-      GRPC_INTERNAL_TOKEN: ${GRPC_INTERNAL_TOKEN:?GRPC_INTERNAL_TOKEN is required}
-      REDIS_ADDR: redis:6379
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      AI_API_KEY: ${AI_API_KEY:-dev-placeholder}
-      AI_MODEL: ${AI_MODEL:-qwen-plus}
-      AI_AGENT_RUNTIME: "adk"
-      AI_TIMEOUT: "90s"
-      AI_TOTAL_TIMEOUT: "120s"
-      AI_TOOL_MAX_ROUNDS: "5"
-      AI_TOOL_TOTAL_TIMEOUT: "30s"
-      AI_MAX_CONCURRENCY: "10"
-      AI_CIRCUIT_FAILURE_THRESHOLD: "5"
-      AI_CIRCUIT_OPEN_TIMEOUT: "30s"
-      AI_CIRCUIT_HALF_OPEN_MAX_REQUESTS: "2"
-      AI_RETRY_MAX_ATTEMPTS: "2"
-      AI_RETRY_BASE_DELAY: "500ms"
-      AI_SLOW_RESPONSE_THRESHOLD: "5s"
-      OSS_PROVIDER: ${OSS_PROVIDER:-tencent_cos}
-      OSS_ENDPOINT: ${OSS_ENDPOINT:-localhost}
-      OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID:-dev-placeholder}
-      OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET:-dev-placeholder}
-      OSS_BUCKET_NAME: ${OSS_BUCKET_NAME:-recruitment-dev}
-      OSS_PUBLIC_BASE_URL: ${OSS_PUBLIC_BASE_URL:-http://localhost:9000}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USERNAME: ${SMTP_USERNAME:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:-noreply@example.com}
-      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Smart Recruit}
-      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-  web-gin-service:
-    build:
-      context: ..
-      dockerfile: docker/web-gin-service.Dockerfile
-    container_name: recruitment-web
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    environment:
-      TZ: ${TZ:-Asia/Shanghai}
-      GRPC_ADDR: dns:///logic-grpc-service:50051
-      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-at-least-32-chars-long!!}
-      ALLOW_INSECURE_DEV_CONFIG: "true"
-      GRPC_INTERNAL_AUTH: "required"
-      GRPC_INTERNAL_TOKEN: ${GRPC_INTERNAL_TOKEN:?GRPC_INTERNAL_TOKEN is required}
-      REDIS_ADDR: redis:6379
-      HTTP_PORT: "8080"
-      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
-      CANDIDATE_AUTH_COOKIE_NAME: ${CANDIDATE_AUTH_COOKIE_NAME:-recruitment_candidate_token}
-      HR_AUTH_COOKIE_NAME: ${HR_AUTH_COOKIE_NAME:-recruitment_hr_token}
-      INTERVIEWER_AUTH_COOKIE_NAME: ${INTERVIEWER_AUTH_COOKIE_NAME:-recruitment_interviewer_token}
-      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost:5173,http://localhost:5174,http://localhost:5175}
-      RATE_LIMIT_AI_RPS: "1"
-      RATE_LIMIT_AI_BURST: "3"
-      AI_QUOTA_CANDIDATE_DAILY: "20"
-      AI_QUOTA_HR_DAILY: "100"
-      RESUME_PRESIGN_HOURLY_LIMIT: "5"
-      RESUME_PRESIGN_DAILY_LIMIT: "20"
-      RESUME_CONFIRM_HOURLY_LIMIT: "5"
-      RESUME_CONFIRM_DAILY_LIMIT: "20"
-    depends_on:
-      logic-grpc-service:
-        condition: service_started
-
   hr-frontend:
     build:
       context: ..
@@ -158,8 +9,6 @@ services:
     restart: unless-stopped
     ports:
       - "5173:80"
-    depends_on:
-      - web-gin-service
 
   user-frontend:
     build:
@@ -169,21 +18,12 @@ services:
     restart: unless-stopped
     ports:
       - "5174:80"
-    depends_on:
-      - web-gin-service
 
-  interviewer-frontend:
+  platform-frontend:
     build:
       context: ..
-      dockerfile: docker/interviewer-frontend.Dockerfile
-    container_name: recruitment-interviewer-frontend
+      dockerfile: docker/platform-frontend.Dockerfile
+    container_name: recruitment-platform-frontend
     restart: unless-stopped
     ports:
       - "5175:80"
-    depends_on:
-      - web-gin-service
-
-volumes:
-  mysql_data:
-  redis_data:
-  rabbitmq_data:

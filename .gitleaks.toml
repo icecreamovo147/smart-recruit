@@ -5,11 +5,13 @@ useDefault = true
 paths = [
   '''docker/\.env\.example$''',
   '''config/config\.example\.yaml$''',
+  '''smart-recruit-billing-service/config\.example\.yaml$''',
   '''deploy/k8s/secret\.example\.yaml$''',
   '''\.github/''',
   '''docs/''',
 ]
 regexes = [
+  '''test-secret-at-least-32-chars-long''',
   '''abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789''',
   '''abcdef0123456789abcdef0123456789''',
 ]

@@ -13,7 +13,8 @@ RUN echo "registry=https://registry.npmmirror.com" > .npmrc
 # Preserve monorepo structure so Vite @shared alias resolves correctly.
 # vite.config.ts maps @shared → ../packages/shared/src, which needs
 # sibling directories /build/hr-frontend/ and /build/packages/shared/.
-COPY hr-frontend/package.json hr-frontend/pnpm-lock.yaml ./hr-frontend/
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY hr-frontend/package.json ./hr-frontend/
 
 WORKDIR /build/hr-frontend
 RUN pnpm install --frozen-lockfile

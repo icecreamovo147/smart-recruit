@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "github-ci-current-state-refresh",
+  "tasks": {
+    "TASK-GCI-001": {
+      "title": "Align GitHub CI with current repository layout",
+      "status": "completed",
+      "allowedFiles": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/knowledge-validation.yml",
+        ".spec/github-ci-current-state-refresh/**"
+      ],
+      "forbiddenFiles": [
+        "AGENTS.md",
+        ".agents/**",
+        ".knowledge/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "smart-recruit-gateway/**",
+        "smart-recruit-commons/**",
+        "smart-recruit-platform-go/**",
+        "smart-recruit-proto/**",
+        "smart-recruit-identity-service/**",
+        "smart-recruit-recruitment-service/**",
+        "smart-recruit-interview-service/**",
+        "smart-recruit-offer-service/**",
+        "smart-recruit-notification-service/**",
+        "smart-recruit-ai-agent-service/**",
+        "smart-recruit-analytics-service/**",
+        "smart-recruit-worker-service/**",
+        "smart-recruit-deploy/**",
+        "deploy/**",
+        "docker/**",
+        "db.sql",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "**/package.json",
+        "**/go.mod",
+        "**/go.sum"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test",
+        "review"
+      ],
+      "acceptance": ".spec/github-ci-current-state-refresh/acceptance/TASK-GCI-001.md",
+      "report": ".spec/github-ci-current-state-refresh/reports/TASK-GCI-001-report.md",
+      "requiredKnowledgeImpact": false,
+      "knowledge": {
+        "review": [],
+        "modify": [],
+        "candidate": []
+      },
+      "notes": [
+        "This TASK only updates CI workflow orchestration and feature evidence."
+      ]
+    }
+  }
+}

@@ -6,6 +6,7 @@ import { scheduleInterview } from '@/api/interview'
 import { listJobApplications } from '@/api/application'
 import type { Application, StaffUserInfo } from '@/types/domain'
 import InterviewerPickerDialog from '@/components/business/InterviewerPickerDialog.vue'
+import { toShanghaiRFC3339 } from '@shared/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -76,10 +77,10 @@ const handleSubmit = async () => {
       duration_minutes: Number(form.duration_minutes),
       candidate_note: form.candidate_note || undefined,
       internal_note: form.internal_note || undefined,
-      scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : undefined,
+      scheduled_at: form.scheduled_at ? toShanghaiRFC3339(form.scheduled_at) : undefined,
     })
     ElMessage.success('面试安排成功')
-    router.push('/hr/interviews')
+    router.push('/hr/my-interviews')
   } catch (error: unknown) {
     ElMessage.error(error instanceof Error ? error.message : '安排面试失败')
   } finally {

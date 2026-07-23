@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "ai-agent-runtime-recovery",
+  "task_id": "TASK-007",
+  "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "base_tree": "947270a22584868dfe68bbee773b65117f8cc53b",
+  "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "changed_files": [
+    ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-007-evidence.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-007-report.md",
+    "smart-recruit-ai-agent-service/internal/infrastructure/mcp/native_runtime_integration_test.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/mcp/runner.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/mcp/runner_test.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/mcp_skill_store.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/mcp_skill_services.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "947270a22584868dfe68bbee773b65117f8cc53b",
+    "forbidden": [],
+    "out_of_scope": [],
+    "allowed": [
+      ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-007-evidence.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-007-report.md",
+      "smart-recruit-ai-agent-service/internal/infrastructure/mcp/native_runtime_integration_test.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/mcp/runner.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/mcp/runner_test.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/mcp_skill_store.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/mcp_skill_services.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "GOWORK=off go test ./internal/infrastructure/mcp -run 'TestDefaultRunnerHTTPDiscoveryAndCall|TestNativeMCPRuntimeConnectionDiscoveryPolicyAuditAndHRTool' -count=1 -v (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:39:00Z",
+      "duration_ms": 3530
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:40:00Z",
+      "duration_ms": 6146
+    },
+    {
+      "command": "git diff --name-only",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:37:00Z",
+      "duration_ms": 8,
+      "notes": "This command does not list untracked new MCP runner/test files before staging; git status and scope check were also recorded."
+    },
+    {
+      "command": "git status --short",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:37:00Z",
+      "duration_ms": 7
+    },
+    {
+      "command": "TASK_BASE_TREE=947270a22584868dfe68bbee773b65117f8cc53b bash .spec/ai-agent-runtime-recovery/scripts/check-task-scope.sh TASK-007",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:40:00Z",
+      "duration_ms": 717
+    },
+    {
+      "command": "TASK_BASE_TREE=947270a22584868dfe68bbee773b65117f8cc53b bash .spec/ai-agent-runtime-recovery/scripts/agent-check.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:40:10Z",
+      "duration_ms": 7650
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 947270a22584868dfe68bbee773b65117f8cc53b",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:40:10Z",
+      "duration_ms": 834
+    }
+  ],
+  "review": {
+    "type": "independent-read-only-subagent",
+    "round": 2,
+    "verdict": "通过",
+    "reviewers": [
+      {
+        "round": 1,
+        "reviewer": "independent-read-only-subagent: Zeno (019f6227-9cf4-7c23-af64-3e3bfddb9c83)",
+        "verdict": "不通过",
+        "notes": [
+          "HR runtime MCP tool traces did not apply policy-specific redaction.",
+          "Malformed args_json returned before writing an MCP audit log.",
+          "Report listed TASK-007-evidence.json before the file existed."
+        ]
+      },
+      {
+        "round": 2,
+        "reviewer": "independent-read-only-subagent: Kant (019f622c-c9a6-7751-ba6b-93e9e4733b7f)",
+        "verdict": "通过",
+        "notes": [
+          "Verified F1/F2/F3 fixes and found no remaining acceptance, security, or reporting issue."
+        ]
+      }
+    ],
+    "completed_at": "2026-07-14T19:50:52Z",
+    "blocking_reason": ""
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-14T17:08:11Z",
+    "recorded_at": "2026-07-14T19:28:25Z",
+    "confirmation_text": "User explicitly authorized execution of all requiresHumanConfirmation=true TASKs within feature ai-agent-runtime-recovery, including but not limited to TASK-002 and TASK-007, and instructed the pipeline to record this confirmation in pipeline-state.json and corresponding TASK evidence/report without stopping again before those TASKs."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "authorization-changed",
+      "configuration-changed",
+      "covered-path-changed",
+      "database-schema-changed",
+      "fallback-behavior-changed",
+      "memory-behavior-changed",
+      "retrieval-behavior-changed",
+      "sensitive-data-flow-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": "agent-runtime",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-007 binds a native MCP runner into MCP service and HR runtime selected capability execution. Knowledge edits are outside TASK scope."
+        ]
+      },
+      {
+        "document": "mcp-tool-governance",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-007 changes live MCP test/discovery/call from unsupported to runner-backed behavior with explicit SSE unsupported handling."
+        ]
+      },
+      {
+        "document": "mcp-policy-audit",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-007 enforces persisted policy, confirmation, redaction fields, invalid-args audit logging, and mandatory audit writes for MCP call attempts after server lookup."
+        ]
+      },
+      {
+        "document": "ai-configuration-governance",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-007 makes AgentConfig mcp capability bindings affect HR runtime tool execution when selected by request capability keys."
+        ]
+      },
+      {
+        "document": "api-contracts-and-gateway",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No proto, gateway handler, or HTTP route files were changed in TASK-007."
+        ]
+      },
+      {
+        "document": "protobuf-and-migration-change",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No protobuf or migration files were changed."
+        ]
+      },
+      {
+        "document": "persistence-and-migrations",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-007 uses existing MCP server, policy, and log tables without schema changes."
+        ]
+      },
+      {
+        "document": "service-boundaries",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "MCP runner lives inside smart-recruit-ai-agent-service and does not reintroduce monolith runtime dependencies."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Impact detector matched broad service routes; MCP runtime details are candidates for future knowledge update."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "skipped_checks": [
+    {
+      "check": "GOWORK=off go test ./... (smart-recruit-gateway)",
+      "reason": "No gateway files changed in TASK-007; agent-check.sh still ran gateway tests due staged earlier TASK changes and they passed."
+    },
+    {
+      "check": "pnpm --filter hr-frontend typecheck",
+      "reason": "No HR frontend files changed in TASK-007."
+    },
+    {
+      "check": "Live external MCP smoke",
+      "reason": "No configured safe external MCP server is available in the workspace; fake runner and httptest JSON-RPC runner tests cover policy/audit and HTTP runtime behavior."
+    }
+  ],
+  "risks": [
+    "SSE transport remains an explicit unsupported non-success response.",
+    "Private-network HTTP MCP endpoints remain blocked because no current scoped config field allows private network opt-in.",
+    "Richer model-driven MCP tool planning is not implemented; HR runtime calls selected mcp capability bindings deterministically."
+  ],
+  "next_task_can_start": true
+}

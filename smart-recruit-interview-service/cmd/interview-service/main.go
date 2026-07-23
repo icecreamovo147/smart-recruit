@@ -1,0 +1,431 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"flag"
+	"fmt"
+	"net"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+
+	"smart-recruit-commons/oss"
+	interviewapp "smart-recruit-interview-service/internal/application/service"
+	interviewclient "smart-recruit-interview-service/internal/infrastructure/client"
+	interviewmq "smart-recruit-interview-service/internal/infrastructure/mq"
+	interviewpersistence "smart-recruit-interview-service/internal/infrastructure/persistence"
+	interviewgrpc "smart-recruit-interview-service/internal/interfaces/grpc"
+	interviewruntime "smart-recruit-interview-service/internal/runtime"
+	"smart-recruit-platform-go/businessclock"
+	platformconfig "smart-recruit-platform-go/config"
+	"smart-recruit-platform-go/logger"
+	"smart-recruit-platform-go/mysqltime"
+	"smart-recruit-platform-go/nacos"
+	logicobservability "smart-recruit-platform-go/observability"
+	platformobs "smart-recruit-platform-go/observability"
+	"smart-recruit-platform-go/server"
+	logicconfig "smart-recruit-platform-go/serviceconfig"
+	"smart-recruit-platform-go/tenantgorm"
+	"smart-recruit-proto/recruitment/pb"
+)
+
+const nacosServiceName = "interview"
+
+func main() {
+	businessclock.Configure()
+	check := flag.Bool("check", false, "validate Interview service runtime wiring and exit")
+	serve := flag.Bool("serve", false, "start Interview gRPC runtime")
+	addr := flag.String("addr", envOrDefault("GRPC_ADDR", ":50063"), "Interview gRPC listen address")
+	flag.Parse()
+
+	if *check {
+		if err := checkRuntime(); err != nil {
+			fmt.Fprintf(os.Stderr, "interview-service check failed: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Fprintln(os.Stdout, "interview-service runtime check passed")
+		return
+	}
+	if *serve {
+		if err := serveInterview(*addr); err != nil {
+			fmt.Fprintf(os.Stderr, "interview-service failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+	fmt.Fprintln(os.Stderr, "interview-service requires --check or --serve")
+	os.Exit(2)
+}
+
+func checkRuntime() error {
+	runtime, err := interviewruntime.New(interviewruntime.Deps{Interview: noopInterviewAPI{}})
+	if err != nil {
+		return err
+	}
+	server := grpc.NewServer()
+	defer server.Stop()
+	return runtime.RegisterGRPC(server)
+}
+
+func serveInterview(addr string) error {
+	if err := ensureLogicConfigPath(); err != nil {
+		return err
+	}
+	bootstrap, err := loadBootstrap(addr)
+	if err != nil {
+		return fmt.Errorf("load platform bootstrap: %w", err)
+	}
+	traceRuntime, err := platformobs.NewTraceRuntime(context.Background(), platformobs.TraceConfig{
+		ServiceName:    bootstrap.ServiceName,
+		ServiceVersion: bootstrap.ServiceVersion,
+		Env:            bootstrap.ServiceEnv,
+	})
+	if err != nil {
+		return fmt.Errorf("init trace runtime: %w", err)
+	}
+	defer func() { _ = traceRuntime.Shutdown(context.Background()) }()
+
+	cfg, err := logicconfig.Load()
+	if err != nil {
+		return fmt.Errorf("load service config: %w", err)
+	}
+	if err := server.ValidateInternalToken(); err != nil {
+		return fmt.Errorf("gRPC internal token validation: %w", err)
+	}
+	if err := logger.Init(cfg.Logging); err != nil {
+		return fmt.Errorf("init logger: %w", err)
+	}
+	log := logger.L()
+	logicobservability.DefaultMetrics = logicobservability.NewRegistry(interviewruntime.ServiceName)
+
+	dsn, err := mysqltime.NormalizeDSN(cfg.MySQL.DSN)
+	if err != nil {
+		return err
+	}
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		TranslateError: true,
+		Logger:         logger.NewGormLogger(&cfg.Logging.Gorm),
+	})
+	if err != nil {
+		return fmt.Errorf("connect mysql: %w", err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("get sql db: %w", err)
+	}
+	defer sqlDB.Close()
+	sqlDB.SetMaxOpenConns(cfg.MySQL.MaxOpenConns)
+	sqlDB.SetMaxIdleConns(cfg.MySQL.MaxIdleConns)
+	sqlDB.SetConnMaxLifetime(cfg.MySQL.ConnMaxLifetime.Duration)
+	sqlDB.SetConnMaxIdleTime(cfg.MySQL.ConnMaxIdleTime.Duration)
+	if err := mysqltime.ValidateSession(context.Background(), sqlDB); err != nil {
+		return err
+	}
+
+	var redisClient *redis.Client
+	if cfg.Redis.Addr != "" {
+		redisClient = redis.NewClient(redisOptions(cfg))
+		defer redisClient.Close()
+	}
+
+	metricsServer, err := server.StartMetricsServer(cfg.Observability.MetricsAddr)
+	if err != nil {
+		return fmt.Errorf("start metrics server: %w", err)
+	}
+	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
+
+	interviewServer, err := buildInterviewServer(db, cfg)
+	if err != nil {
+		return err
+	}
+	if err := db.Use(tenantgorm.NewWithMixed(
+		[]string{"interview_schedules", "interview_feedback"},
+		[]string{"event_outbox"},
+	)); err != nil {
+		return err
+	}
+	runtime, err := interviewruntime.New(interviewruntime.Deps{Interview: interviewServer})
+	if err != nil {
+		return err
+	}
+
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("listen %s: %w", addr, err)
+	}
+	instance, err := instanceFromAddr(listener.Addr().String(), bootstrap)
+	if err != nil {
+		_ = listener.Close()
+		return err
+	}
+	discovery, err := setupNacos(context.Background(), bootstrap, instance)
+	if err != nil {
+		_ = listener.Close()
+		return err
+	}
+	if discovery != nil {
+		defer func() { _ = discovery.Deregister(context.Background(), instance) }()
+	}
+
+	options := []grpc.ServerOption{
+		grpc.MaxConcurrentStreams(1000),
+		grpc.ChainUnaryInterceptor(
+			server.UnaryAuthInterceptor(),
+			logger.UnaryServerInterceptor(),
+		),
+		grpc.ChainStreamInterceptor(
+			server.StreamAuthInterceptor(),
+			logger.StreamServerInterceptor(),
+		),
+	}
+	if tlsOption, enabled, err := server.TransportSecurityOption(cfg.GRPC.TLSCertFile, cfg.GRPC.TLSKeyFile); err != nil {
+		_ = listener.Close()
+		return err
+	} else if enabled {
+		options = append(options, tlsOption)
+	}
+	grpcServer := grpc.NewServer(options...)
+	if err := runtime.RegisterGRPC(grpcServer); err != nil {
+		_ = listener.Close()
+		return err
+	}
+	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, redisClient, nil))
+	go stopOnSignal(grpcServer)
+
+	log.Info("interview grpc server listening",
+		zap.String("addr", listener.Addr().String()),
+		zap.String("nacos_service", instance.ServiceName),
+		zap.String("env", bootstrap.ServiceEnv),
+	)
+	if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+		return fmt.Errorf("grpc serve: %w", err)
+	}
+	return nil
+}
+
+func buildInterviewServer(db *gorm.DB, cfg logicconfig.Config) (pb.InterviewServiceServer, error) {
+	identityConn, err := dialInternalGRPC(envOrDefault("IDENTITY_GRPC_ADDR", "127.0.0.1:50061"))
+	if err != nil {
+		return nil, err
+	}
+	recruitmentConn, err := dialInternalGRPC(envOrDefault("RECRUITMENT_GRPC_ADDR", "127.0.0.1:50062"))
+	if err != nil {
+		_ = identityConn.Close()
+		return nil, err
+	}
+	applications := interviewclient.NewApplicationAdapter(pb.NewApplicationOwnerServiceClient(recruitmentConn))
+	interviews := interviewpersistence.NewInterviewRepository(db)
+	ossStorage, err := oss.NewStorage(oss.Config{
+		Provider:        cfg.OSS.Provider,
+		Endpoint:        cfg.OSS.Endpoint,
+		AccessKeyID:     cfg.OSS.AccessKeyID,
+		AccessKeySecret: cfg.OSS.AccessKeySecret,
+		BucketName:      cfg.OSS.BucketName,
+		PublicBaseURL:   cfg.OSS.PublicBaseURL,
+	})
+	if err != nil {
+		_ = identityConn.Close()
+		_ = recruitmentConn.Close()
+		return nil, fmt.Errorf("init oss storage: %w", err)
+	}
+
+	interviewService, err := interviewapp.NewInterviewService(interviewapp.Deps{
+		Interviews:   interviews,
+		Applications: applications,
+		Staff:        interviewclient.NewStaffDirectory(db),
+		Lifecycle:    interviewclient.NewApplicationLifecycleAdapter(pb.NewApplicationOwnerServiceClient(recruitmentConn)),
+		Outbox:       interviewmq.NewOutboxPublisher(interviewmq.NewGormOutboxStore(db)),
+		Authorizer: interviewclient.NewAuthorizer(
+			pb.NewAuthServiceClient(identityConn),
+			applications,
+			interviews,
+			interviewclient.NewGormInterviewAssignmentReader(db),
+		),
+		ResumeURLs: ossStorage,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return interviewgrpc.NewServer(interviewService)
+}
+
+func dialInternalGRPC(addr string) (*grpc.ClientConn, error) {
+	return grpc.NewClient(addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(internalClientUnaryInterceptor()),
+	)
+}
+
+func internalClientUnaryInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		if incoming, ok := metadata.FromIncomingContext(ctx); ok {
+			ctx = metadata.NewOutgoingContext(ctx, incoming.Copy())
+		}
+		if token := os.Getenv("GRPC_INTERNAL_TOKEN"); token != "" {
+			ctx = metadata.AppendToOutgoingContext(ctx, "x-internal-token", token)
+		}
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
+
+func loadBootstrap(addr string) (platformconfig.Bootstrap, error) {
+	return platformconfig.LoadWithLookup(func(key string) string {
+		switch key {
+		case "SERVICE_NAME":
+			return envOrDefault(key, interviewruntime.ServiceName)
+		case "SERVICE_ENV":
+			return envOrDefault(key, "local")
+		case "SERVICE_VERSION":
+			return envOrDefault(key, "dev")
+		case "GRPC_ADDR":
+			return envOrDefault(key, addr)
+		default:
+			return os.Getenv(key)
+		}
+	})
+}
+
+func setupNacos(ctx context.Context, bootstrap platformconfig.Bootstrap, instance nacos.Instance) (nacos.Discovery, error) {
+	if strings.TrimSpace(bootstrap.NacosAddr) == "" && !bootstrap.StaticFallback {
+		return nil, nil
+	}
+	configProvider, err := nacos.NewConfigProvider(nacos.ConfigOptions{
+		Addresses: bootstrap.NacosAddr,
+		Namespace: bootstrap.NacosNamespace,
+		Group:     bootstrap.NacosGroup,
+		Env:       bootstrap.ServiceEnv,
+		StaticFallback: map[string]string{
+			"interview-service.yaml": "service:\n  name: interview-service\n",
+		},
+		AllowFallback: bootstrap.StaticFallback,
+		Username:      bootstrap.NacosUsername,
+		Password:      bootstrap.NacosPassword,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("init nacos config: %w", err)
+	}
+	if _, err := configProvider.Load(ctx, "interview-service.yaml"); err != nil {
+		return nil, fmt.Errorf("load interview nacos config: %w", err)
+	}
+	discovery, err := nacos.NewDiscovery(nacos.DiscoveryOptions{
+		Addresses: bootstrap.NacosAddr,
+		Namespace: bootstrap.NacosNamespace,
+		Group:     bootstrap.NacosGroup,
+		Env:       bootstrap.ServiceEnv,
+		StaticFallback: map[string][]nacos.Instance{
+			instance.ServiceName: []nacos.Instance{instance},
+		},
+		AllowFallback: bootstrap.StaticFallback,
+		Username:      bootstrap.NacosUsername,
+		Password:      bootstrap.NacosPassword,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("init nacos discovery: %w", err)
+	}
+	if err := discovery.Register(ctx, instance); err != nil {
+		return nil, fmt.Errorf("register interview in nacos: %w", err)
+	}
+	return discovery, nil
+}
+
+func instanceFromAddr(addr string, bootstrap platformconfig.Bootstrap) (nacos.Instance, error) {
+	host, portText, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nacos.Instance{}, fmt.Errorf("parse grpc addr %q: %w", addr, err)
+	}
+	if host == "" || host == "::" {
+		host = "127.0.0.1"
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		return nacos.Instance{}, fmt.Errorf("parse grpc port %q: %w", portText, err)
+	}
+	instance := nacos.Instance{
+		ServiceName: nacosServiceName,
+		IP:          host,
+		Port:        port,
+		Healthy:     true,
+		Metadata: map[string]string{
+			"service": bootstrap.ServiceName,
+			"env":     bootstrap.ServiceEnv,
+			"version": bootstrap.ServiceVersion,
+		},
+	}
+	return instance, instance.Validate()
+}
+
+func stopOnSignal(grpcServer *grpc.Server) {
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
+	<-shutdown
+	done := make(chan struct{})
+	go func() {
+		grpcServer.GracefulStop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(15 * time.Second):
+		grpcServer.Stop()
+	}
+}
+
+func ensureLogicConfigPath() error {
+	if os.Getenv("CONFIG_PATH") != "" {
+		return nil
+	}
+	for _, candidate := range []string{
+		filepath.Join("smart-recruit-commons", "config", "config.yaml"),
+		filepath.Join("..", "smart-recruit-commons", "config", "config.yaml"),
+	} {
+		if _, err := os.Stat(candidate); err == nil {
+			return os.Setenv("CONFIG_PATH", candidate)
+		}
+	}
+	return nil
+}
+
+func redisOptions(cfg logicconfig.Config) *redis.Options {
+	return &redis.Options{
+		Addr:         cfg.Redis.Addr,
+		Password:     cfg.Redis.Password,
+		DB:           cfg.Redis.DB,
+		PoolSize:     cfg.Redis.PoolSize,
+		MinIdleConns: cfg.Redis.MinIdleConns,
+		DialTimeout:  cfg.Redis.DialTimeout.Duration,
+		ReadTimeout:  cfg.Redis.ReadTimeout.Duration,
+		WriteTimeout: cfg.Redis.WriteTimeout.Duration,
+	}
+}
+
+func envOrDefault(key string, fallback string) string {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+type noopInterviewAPI struct {
+	interviewruntime.InterviewAPI
+}
+
+var _ interviewruntime.InterviewAPI = noopInterviewAPI{}
+
+func (noopInterviewAPI) ScheduleInterview(context.Context, *pb.ScheduleInterviewRequest) (*pb.ScheduleInterviewResponse, error) {
+	return &pb.ScheduleInterviewResponse{}, nil
+}

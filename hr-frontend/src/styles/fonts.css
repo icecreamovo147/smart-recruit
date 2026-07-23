@@ -1,0 +1,61 @@
+/*
+ * HR font stack — HarmonyOS Sans loaded from local assets.
+ */
+
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: local("HarmonyOS Sans SC"), local("HarmonyOS Sans"), url("../assets/fonts/HarmonyOS_Sans_SC_Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: local("HarmonyOS Sans SC Medium"), local("HarmonyOS Sans Medium"), url("../assets/fonts/HarmonyOS_Sans_SC_Medium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: local("HarmonyOS Sans SC Bold"), local("HarmonyOS Sans Bold"), url("../assets/fonts/HarmonyOS_Sans_SC_Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700 900;
+  font-display: swap;
+}
+
+:root {
+  --font-app: "HarmonyOS Sans SC", "HarmonyOS Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+    sans-serif;
+  --font-mono: "HarmonyOS Sans SC", "HarmonyOS Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+    sans-serif;
+  --el-font-family: var(--font-app);
+}
+
+html,
+body,
+#app {
+  font-family: var(--font-app);
+  font-feature-settings: "liga" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+code,
+kbd,
+pre,
+samp,
+.font-mono,
+.mono,
+.font-cjk-serif,
+.markdown-body,
+.rich-content,
+.prose,
+.article-body,
+.el-message-box__message,
+.el-table .cell.mono {
+  font-family: var(--font-app);
+}

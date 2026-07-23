@@ -1,0 +1,825 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "source": "db.sql",
+  "updated_at": "2026-07-11T18:31:00Z",
+  "contexts": [
+    "api-gateway",
+    "identity",
+    "recruitment",
+    "interview",
+    "offer",
+    "notification",
+    "ai-agent",
+    "analytics",
+    "platform-workers"
+  ],
+  "tables": {
+    "users": {
+      "owner": "identity",
+      "allowed_readers": [
+        "identity",
+        "recruitment",
+        "interview",
+        "offer",
+        "notification",
+        "ai-agent",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "identity"
+      ],
+      "transitional_shared_access": []
+    },
+    "refresh_tokens": {
+      "owner": "identity",
+      "allowed_readers": [
+        "identity"
+      ],
+      "allowed_writers": [
+        "identity"
+      ],
+      "transitional_shared_access": []
+    },
+    "jobs": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "interview",
+        "offer",
+        "analytics",
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "candidate_profiles": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "ai-agent",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "resumes": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "resume_parse_runs": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "ai-agent",
+        "platform-workers"
+      ],
+      "allowed_writers": [
+        "recruitment",
+        "platform-workers"
+      ],
+      "transitional_shared_access": []
+    },
+    "resume_profiles": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "resume_educations": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "resume_experiences": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "resume_projects": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "resume_skills": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "applications": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "interview",
+        "offer",
+        "notification",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": [
+        {
+          "table": "applications",
+          "owner": "recruitment",
+          "accessor": "interview/offer via RecruitmentLifecycleProcessManager",
+          "reason": "transitional synchronous lifecycle updates during modular monolith extraction",
+          "risk": "cross-context status mutation can drift from target event ownership",
+          "removal_plan": "replace with domain events or owned Recruitment API after Interview/Offer cutover parity is validated"
+        }
+      ]
+    },
+    "application_status_transitions": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "interview",
+        "offer",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": [
+        {
+          "table": "application_status_transitions",
+          "owner": "recruitment",
+          "accessor": "interview/offer via RecruitmentLifecycleProcessManager",
+          "reason": "preserve current status audit writes while moving lifecycle workflows behind boundaries",
+          "risk": "audit semantics can diverge if process manager is bypassed",
+          "removal_plan": "route lifecycle updates through Recruitment-owned API/events only"
+        }
+      ]
+    },
+    "ai_chat_sessions": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "ai_chat_history": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "ai_session_summaries": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "ai_tool_traces": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "agent_runs": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent",
+        "platform-workers"
+      ],
+      "transitional_shared_access": []
+    },
+    "agent_run_events": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent",
+        "platform-workers"
+      ],
+      "transitional_shared_access": []
+    },
+    "agent_run_steps": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent",
+        "platform-workers"
+      ],
+      "transitional_shared_access": []
+    },
+    "candidate_match_evaluations": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent",
+        "recruitment",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "candidate_match_evidence": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent",
+        "recruitment"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "ai_memories": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "ai_embeddings": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent",
+        "platform-workers"
+      ],
+      "transitional_shared_access": []
+    },
+    "notifications": {
+      "owner": "notification",
+      "allowed_readers": [
+        "notification",
+        "recruitment",
+        "interview",
+        "offer",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "notification"
+      ],
+      "transitional_shared_access": []
+    },
+    "event_outbox": {
+      "owner": "platform-workers",
+      "allowed_readers": [
+        "platform-workers",
+        "notification",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "platform-workers",
+        "recruitment",
+        "interview",
+        "offer",
+        "notification",
+        "ai-agent"
+      ],
+      "transitional_shared_access": [
+        {
+          "table": "event_outbox",
+          "owner": "platform-workers",
+          "accessor": "source domains",
+          "reason": "transactional outbox remains shared until event ownership is split by service",
+          "risk": "producer payload drift across domains",
+          "removal_plan": "move producers behind per-service outbox ports and enforce event contract checks"
+        }
+      ]
+    },
+    "email_logs": {
+      "owner": "notification",
+      "allowed_readers": [
+        "notification",
+        "platform-workers"
+      ],
+      "allowed_writers": [
+        "notification",
+        "platform-workers"
+      ],
+      "transitional_shared_access": []
+    },
+    "event_inbox": {
+      "owner": "platform-workers",
+      "allowed_readers": [
+        "platform-workers"
+      ],
+      "allowed_writers": [
+        "platform-workers"
+      ],
+      "transitional_shared_access": [
+        {
+          "table": "event_inbox",
+          "owner": "platform-workers",
+          "accessor": "all MQ consumers",
+          "reason": "shared idempotency table during worker decomposition",
+          "risk": "consumer naming or retention drift",
+          "removal_plan": "assign per-worker/service inbox ownership during worker cutover"
+        }
+      ]
+    },
+    "analytics_projection_events": {
+      "owner": "analytics",
+      "allowed_readers": [
+        "analytics"
+      ],
+      "allowed_writers": [
+        "analytics",
+        "platform-workers"
+      ],
+      "transitional_shared_access": [
+        {
+          "table": "analytics_projection_events",
+          "owner": "analytics",
+          "accessor": "platform-workers projection consumers",
+          "reason": "projection consumers write Analytics-owned read-model input",
+          "risk": "projection lag or duplicate handling errors",
+          "removal_plan": "move projection workers into Analytics service runtime with lag/readiness evidence"
+        }
+      ]
+    },
+    "analytics_projection_checkpoints": {
+      "owner": "analytics",
+      "allowed_readers": [
+        "analytics"
+      ],
+      "allowed_writers": [
+        "analytics",
+        "platform-workers"
+      ],
+      "transitional_shared_access": [
+        {
+          "table": "analytics_projection_checkpoints",
+          "owner": "analytics",
+          "accessor": "platform-workers projection consumers",
+          "reason": "projection checkpoint writes remain worker-executed until Analytics worker cutover",
+          "risk": "checkpoint drift can hide projection gaps",
+          "removal_plan": "own checkpoint updates inside Analytics projection consumer runtime"
+        }
+      ]
+    },
+    "invite_codes": {
+      "owner": "identity",
+      "allowed_readers": [
+        "identity"
+      ],
+      "allowed_writers": [
+        "identity"
+      ],
+      "transitional_shared_access": []
+    },
+    "third_party_usage_logs": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "roles": {
+      "owner": "identity",
+      "allowed_readers": [
+        "identity",
+        "api-gateway"
+      ],
+      "allowed_writers": [
+        "identity"
+      ],
+      "transitional_shared_access": []
+    },
+    "permissions": {
+      "owner": "identity",
+      "allowed_readers": [
+        "identity",
+        "api-gateway"
+      ],
+      "allowed_writers": [
+        "identity"
+      ],
+      "transitional_shared_access": []
+    },
+    "role_permissions": {
+      "owner": "identity",
+      "allowed_readers": [
+        "identity",
+        "api-gateway"
+      ],
+      "allowed_writers": [
+        "identity"
+      ],
+      "transitional_shared_access": []
+    },
+    "user_roles": {
+      "owner": "identity",
+      "allowed_readers": [
+        "identity",
+        "api-gateway"
+      ],
+      "allowed_writers": [
+        "identity"
+      ],
+      "transitional_shared_access": []
+    },
+    "user_data_scopes": {
+      "owner": "identity",
+      "allowed_readers": [
+        "identity",
+        "api-gateway",
+        "recruitment",
+        "interview",
+        "offer",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "identity"
+      ],
+      "transitional_shared_access": []
+    },
+    "authorization_audit_logs": {
+      "owner": "identity",
+      "allowed_readers": [
+        "identity"
+      ],
+      "allowed_writers": [
+        "identity"
+      ],
+      "transitional_shared_access": []
+    },
+    "interview_schedules": {
+      "owner": "interview",
+      "allowed_readers": [
+        "interview",
+        "recruitment",
+        "notification",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "interview"
+      ],
+      "transitional_shared_access": []
+    },
+    "interview_feedback": {
+      "owner": "interview",
+      "allowed_readers": [
+        "interview",
+        "recruitment",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "interview"
+      ],
+      "transitional_shared_access": []
+    },
+    "offers": {
+      "owner": "offer",
+      "allowed_readers": [
+        "offer",
+        "recruitment",
+        "notification",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "offer"
+      ],
+      "transitional_shared_access": []
+    },
+    "offer_events": {
+      "owner": "offer",
+      "allowed_readers": [
+        "offer",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "offer"
+      ],
+      "transitional_shared_access": []
+    },
+    "departments": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "identity",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "job_locations": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "identity",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "department_locations": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "identity",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "candidate_notes": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "candidate_tags": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "candidate_tag_assignments": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "follow_up_tasks": {
+      "owner": "recruitment",
+      "allowed_readers": [
+        "recruitment",
+        "notification",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "recruitment"
+      ],
+      "transitional_shared_access": []
+    },
+    "ai_usage_auth_contexts": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent",
+        "identity"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "llm_providers": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "llm_models": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "embedding_providers": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "embedding_models": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "prompt_templates": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "prompt_versions": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "agent_configs": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "agent_tool_bindings": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "mcp_servers": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "mcp_tool_logs": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent",
+        "analytics"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "mcp_tool_policies": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "agent_capability_bindings": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "ai_skills": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "ai_skill_versions": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "ai_skill_tools": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "agent_skills": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    },
+    "agent_skill_versions": {
+      "owner": "ai-agent",
+      "allowed_readers": [
+        "ai-agent"
+      ],
+      "allowed_writers": [
+        "ai-agent"
+      ],
+      "transitional_shared_access": []
+    }
+  }
+}

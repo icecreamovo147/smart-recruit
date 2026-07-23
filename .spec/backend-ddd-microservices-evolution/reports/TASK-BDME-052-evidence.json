@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-052",
+  "base_sha": "3f5ed669660b14c829140b656f72d47888a0b261",
+  "base_tree": "8fd01c071a9bc01db215d41f72bb0a9682f7c93b",
+  "head_sha": "3f5ed669660b14c829140b656f72d47888a0b261",
+  "changed_files": [
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/local-development.md",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-052-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-052-evidence.json",
+    "docs/backend-ddd-microservices-evolution-final-readiness-audit.json",
+    "docs/backend-ddd-microservices-evolution-final-readiness-review.md",
+    "docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json",
+    "scripts/backend-final-readiness-audit.mjs"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "8fd01c071a9bc01db215d41f72bb0a9682f7c93b",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/local-development.md",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-052-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-052-evidence.json",
+      "docs/backend-ddd-microservices-evolution-final-readiness-audit.json",
+      "docs/backend-ddd-microservices-evolution-final-readiness-review.md",
+      "docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json",
+      "scripts/backend-final-readiness-audit.mjs"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:23:29Z",
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:23:29Z",
+      "summary": "backend_boundary_result: PASS."
+    },
+    {
+      "command": "node scripts/check-table-ownership.mjs",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:23:29Z",
+      "summary": "table_ownership_result: PASS (67 tables, 6 transitional shared access entries)."
+    },
+    {
+      "command": "node scripts/backend-final-readiness-audit.mjs --feature-dir .spec/backend-ddd-microservices-evolution --allow-current-task TASK-BDME-052 --output docs/backend-ddd-microservices-evolution-final-readiness-audit.json",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:23:29Z",
+      "summary": "Final readiness audit passed with 51 completed prior TASK evidence files and 6 transitional entries with removal plans."
+    },
+    {
+      "command": "node scripts/backend-load-test.mjs --dry-run --output docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:23:29Z",
+      "summary": "Load-test target dry-run evidence regenerated."
+    },
+    {
+      "command": "node --check scripts/backend-final-readiness-audit.mjs",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:23:29Z",
+      "summary": "Final readiness audit script syntax is valid."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 8fd01c071a9bc01db215d41f72bb0a9682f7c93b",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 210,
+      "started_at": "2026-07-11T19:23:29Z",
+      "summary": "impact_result: update_required; final readiness docs/scripts routed to knowledge."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:23:29Z",
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    },
+    {
+      "command": "TASK_BASE_TREE=8fd01c071a9bc01db215d41f72bb0a9682f7c93b bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-052",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 122,
+      "started_at": "2026-07-11T19:23:29Z",
+      "summary": "scope_result: PASS (TASK-BDME-052)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 92,
+      "started_at": "2026-07-11T19:23:29Z",
+      "summary": "Feature validation, whitespace check, and knowledge validation passed."
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:23:29Z",
+      "summary": "No whitespace errors."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T19:23:29Z",
+    "confirmation_text": "用户确认允许继续执行，后面所有人工门禁都取消；任务实现完毕且 self-review 通过即可继续。"
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented final readiness review as closure evidence and approved transitional access debt with removal plans."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented final readiness audit command and generated audit evidence path."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented final readiness review/audit as closure evidence, not production cutover authorization."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Routed final readiness review/audit docs and script for future impact detection."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due feature/report route; topology and high-level architecture remain unchanged by final documentation."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/auth-rbac-security.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due route; final review does not change auth/security policy."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due manifest update; knowledge validation procedure unchanged."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "acceptance": {
+    "final_review": "docs/backend-ddd-microservices-evolution-final-readiness-review.md records boundary, data ownership, security, observability, readiness, load, HA, rollback, and knowledge status",
+    "boundary_checks": "backend boundary and table ownership checks passed",
+    "transitional_exceptions": "6 transitional shared access entries remain approved as architecture debt with removal plans",
+    "operational_artifacts": "security, observability, readiness, load harness, HA/rollback, and knowledge artifacts are current"
+  }
+}

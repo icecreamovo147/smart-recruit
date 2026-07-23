@@ -1,0 +1,16 @@
+ALTER TABLE follow_up_tasks DROP FOREIGN KEY fk_follow_up_tasks_tenant, DROP INDEX idx_follow_up_tenant_assignee, DROP COLUMN tenant_id;
+ALTER TABLE candidate_tag_assignments DROP FOREIGN KEY fk_tag_assignments_tenant, DROP INDEX idx_tag_assignments_tenant_candidate, DROP COLUMN tenant_id;
+ALTER TABLE candidate_tags DROP FOREIGN KEY fk_candidate_tags_tenant, DROP INDEX uk_candidate_tag_tenant_name, ADD UNIQUE KEY uk_tag_name (name), DROP COLUMN tenant_id;
+ALTER TABLE candidate_notes DROP FOREIGN KEY fk_candidate_notes_tenant, DROP INDEX idx_candidate_notes_tenant_candidate, DROP COLUMN tenant_id;
+ALTER TABLE department_locations DROP FOREIGN KEY fk_department_locations_tenant, DROP INDEX idx_department_locations_tenant, DROP COLUMN tenant_id;
+ALTER TABLE job_locations DROP FOREIGN KEY fk_job_locations_tenant, DROP INDEX uk_job_location_tenant_name, DROP INDEX idx_job_locations_tenant_active, ADD UNIQUE KEY uk_job_location_name (name), DROP COLUMN tenant_id;
+ALTER TABLE departments DROP FOREIGN KEY fk_departments_tenant, DROP INDEX uk_department_tenant_parent_name, DROP INDEX idx_departments_tenant_active, ADD UNIQUE KEY uk_department_parent_name (parent_id, name), DROP COLUMN tenant_id;
+ALTER TABLE offer_events DROP FOREIGN KEY fk_offer_events_tenant, DROP INDEX idx_offer_events_tenant_offer, DROP COLUMN tenant_id;
+ALTER TABLE offers DROP FOREIGN KEY fk_offers_tenant, DROP INDEX idx_offers_tenant_status_created, DROP COLUMN tenant_id;
+ALTER TABLE interview_feedback DROP FOREIGN KEY fk_feedback_tenant, DROP INDEX idx_feedback_tenant_interview, DROP COLUMN tenant_id;
+ALTER TABLE interview_schedules DROP FOREIGN KEY fk_interviews_tenant, DROP INDEX idx_interviews_tenant_interviewer, DROP COLUMN tenant_id;
+ALTER TABLE candidate_match_evidence DROP FOREIGN KEY fk_match_evidence_tenant, DROP INDEX idx_match_evidence_tenant_eval, DROP COLUMN tenant_id;
+ALTER TABLE candidate_match_evaluations DROP FOREIGN KEY fk_match_eval_tenant, DROP INDEX idx_match_eval_tenant_app, DROP COLUMN tenant_id;
+ALTER TABLE application_status_transitions DROP FOREIGN KEY fk_app_transitions_tenant, DROP INDEX idx_app_transitions_tenant_app_created, DROP COLUMN tenant_id;
+ALTER TABLE applications DROP FOREIGN KEY fk_applications_tenant, DROP INDEX idx_applications_tenant_job_status, DROP COLUMN tenant_id;
+ALTER TABLE jobs DROP FOREIGN KEY fk_jobs_tenant, DROP INDEX idx_jobs_tenant_status_created, DROP COLUMN tenant_id;

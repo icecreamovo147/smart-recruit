@@ -1,0 +1,388 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "recruiting-intelligence-runtime-parity",
+  "task_id": "TASK-006",
+  "base_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+  "base_tree": "dd2e6bb5a1ad698f88bf624615fb1403d8861106",
+  "head_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+  "started_at": "2026-07-15T08:35:25Z",
+  "ended_at": "2026-07-15T11:55:10Z",
+  "changed_files": [
+    ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json",
+    ".spec/recruiting-intelligence-runtime-parity/reports/TASK-006-evidence.json",
+    ".spec/recruiting-intelligence-runtime-parity/reports/TASK-006-report.md",
+    ".spec/recruiting-intelligence-runtime-parity/task-scope.json",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/candidate_aggregation.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/candidate_aggregation_test.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/candidate_legacy.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/candidate_legacy_test.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/candidate_match.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/job_requirement.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/runtime_policy.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_recruiting_generation_test.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_candidate_match_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_persistence_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_recruiting_generation_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "dd2e6bb5a1ad698f88bf624615fb1403d8861106",
+    "forbidden": [],
+    "out_of_scope": [],
+    "developer_did_not_edit": [
+      ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json",
+      ".spec/recruiting-intelligence-runtime-parity/task-scope.json"
+    ]
+  },
+  "checks": [
+    {
+      "command": "GOWORK=off go test ./internal/application/recruiting_intelligence -run 'TestCandidateMatchAggregator' -count=10",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T08:44:00Z",
+      "duration_ms": 2400,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./internal/interfaces/grpc -run 'TestEvaluateCandidateMatchStructuredPipeline|TestEvaluateCandidateMatchFallbackDisabled|TestEvaluateCandidateMatchDeterministicPrimary|TestNativeStoreCandidateMatchPersistence' -count=10",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T08:44:03Z",
+      "duration_ms": 2700,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./...",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T08:45:00Z",
+      "duration_ms": 5200,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree dd2e6bb5a1ad698f88bf624615fb1403d8861106",
+      "working_directory": ".",
+      "started_at": "2026-07-15T08:47:00Z",
+      "duration_ms": 1200,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-006",
+      "working_directory": ".",
+      "started_at": "2026-07-15T08:47:02Z",
+      "duration_ms": 1000,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh",
+      "working_directory": ".",
+      "started_at": "2026-07-15T08:47:03Z",
+      "duration_ms": 3100,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "working_directory": ".",
+      "started_at": "2026-07-15T08:48:00Z",
+      "duration_ms": 100,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./internal/application/recruiting_intelligence -run 'TestScoreCandidateMatchLegacy|TestCandidateMatchAggregator' -count=10 (repair round 1)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T09:15:00Z",
+      "duration_ms": 276,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./internal/interfaces/grpc -run 'TestEvaluateCandidateMatch|TestCandidateMatchShadow|TestNativeStoreCandidateMatchPersistence' -count=10 (repair round 1)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T09:15:01Z",
+      "duration_ms": 2646,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./... (repair round 1)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T09:16:00Z",
+      "duration_ms": 5600,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree dd2e6bb5a1ad698f88bf624615fb1403d8861106; git diff --name-only; check-task-scope.sh TASK-006; git diff --check (repair round 1)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T09:17:00Z",
+      "duration_ms": 2800,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh (repair round 1)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T09:18:00Z",
+      "duration_ms": 1600,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./internal/application/recruiting_intelligence -run 'TestScoreCandidateMatchLegacy|TestCandidateMatchAggregator' -count=10 (repair round 2)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T09:55:00Z",
+      "duration_ms": 500,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./internal/interfaces/grpc -run 'TestEvaluateCandidateMatch|TestCandidateMatchShadow|TestNativeStoreCandidateMatchPersistence' -count=10 (repair round 2)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T09:55:01Z",
+      "duration_ms": 4000,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./internal/infrastructure/persistence -run 'TestNativeStore(GetRecruitingMatchSource|SaveRecruitingCandidateMatch)' -count=10 (repair round 2)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T09:55:05Z",
+      "duration_ms": 600,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./... (repair round 2)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T09:56:00Z",
+      "duration_ms": 4700,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree dd2e6bb5a1ad698f88bf624615fb1403d8861106 (repair round 2)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T09:57:00Z",
+      "duration_ms": 1500,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "git diff --name-only; bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-006; git diff --check (repair round 2)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T09:58:00Z",
+      "duration_ms": 1400,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh (repair round 2)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T09:58:02Z",
+      "duration_ms": 1700,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/recruiting-intelligence-runtime-parity/reports/TASK-006-evidence.json --allow-pending-review --require-knowledge-impact (repair round 2)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T09:59:00Z",
+      "duration_ms": 100,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./internal/application/recruiting_intelligence -run 'TestScoreCandidateMatchLegacy|TestCandidateMatchAggregator' -count=10 (repair R3)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T11:33:00Z",
+      "duration_ms": 2300,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./internal/interfaces/grpc -run 'TestEvaluateCandidateMatch|TestCandidateMatchShadow|TestDeterministicCandidateMatchUsesCompleteDevScoringInput|TestNativeStoreCandidateMatchPersistence' -count=10 (repair R3)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T11:33:03Z",
+      "duration_ms": 5200,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./internal/infrastructure/persistence -run 'TestNativeStore(GetRecruitingMatchSource|SaveRecruitingCandidateMatch)' -count=10 (repair R3)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T11:33:09Z",
+      "duration_ms": 2600,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./... (repair R3)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T11:33:12Z",
+      "duration_ms": 3800,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree dd2e6bb5a1ad698f88bf624615fb1403d8861106 (repair R3)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T11:36:00Z",
+      "duration_ms": 1600,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "git diff --name-only; bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-006 (repair R3)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T11:38:00Z",
+      "duration_ms": 1700,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh (repair R3)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T11:38:03Z",
+      "duration_ms": 1600,
+      "exit_code": 0,
+      "status": "passed"
+    }
+  ],
+  "review": {
+    "type": "independent_agent",
+    "round": 4,
+    "verdict": "通过",
+    "reviewer_type": "fresh independent read-only subagent",
+    "reviewer": "independent-read-only-subagent:/root/task006_reviewer_r4_retry",
+    "notes": [
+      "Replacement fresh Reviewer R4 independently verified R3-001 and the complete TASK-006 contract with no remaining findings; the original R4 context produced no verdict and modified no files."
+    ],
+    "history": [
+      {
+        "round": 1,
+        "reviewer": "independent-read-only-subagent:/root/task006_reviewer_r1",
+        "verdict": "不通过",
+        "findings": [
+          {"id": "R1-001", "summary": "deterministic primary and enhanced fallback did not use the restored dev legacy five-dimension deterministic scorer"},
+          {"id": "R1-002", "summary": "generation was gated on provider presence, preventing deterministic-primary snapshot persistence without a provider"},
+          {"id": "R1-003", "summary": "the execution plan shadow mode was not consumed and the opposite scorer was never executed read-only"},
+          {"id": "R1-004", "summary": "candidate-match timeout excluded source reads and persistence and reserved no bounded persistence budget"}
+        ]
+      },
+      {
+        "round": 2,
+        "reviewer": "independent-read-only-subagent:/root/task006_reviewer_r2",
+        "verdict": "不通过",
+        "findings": [
+          {"id": "R2-001", "summary": "legacy deterministic scoring substituted aggregate evidence for real candidate-profile, application-education, and raw-resume dev inputs and formulas"},
+          {"id": "R2-002", "summary": "a generic aggregate-LLM candidate route remained reachable and could submit overall score/recommendation"},
+          {"id": "R2-003", "summary": "shadow Prompt/provider/schema/timeout failure isolation and single-save behavior were not proven"}
+        ]
+      },
+      {
+        "round": 3,
+        "reviewer": "independent-read-only-subagent:/root/task006_reviewer_r3",
+        "verdict": "不通过",
+        "findings": [
+          {"id": "R3-001", "summary": "legacy skill matching consumes full evidence snippets instead of skill names, and bounded evidence truncation replaces dev's complete resume child-row scoring text"}
+        ]
+      },
+      {
+        "round": 4,
+        "reviewer": "independent-read-only-subagent:/root/task006_reviewer_r4_retry",
+        "verdict": "通过",
+        "findings": []
+      }
+    ]
+  },
+  "repairs": {
+    "round": 3,
+    "status": "complete_and_independently_verified",
+    "finding_ids": ["R3-001"],
+    "summary": "Legacy skills now tokenize only ResumeSkill.Name. Requirements, experience, and InputHash consume the complete dev-ordered in-memory source text, independent of bounded/redacted persisted evidence.",
+    "review_round_completed": 4
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-15T08:35:25Z",
+    "confirmation_text": "TASK-006 does not require human confirmation."
+  },
+  "exceptions": [
+    {
+      "approved_object": "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go and native_recruiting_generation_test.go scope expansion",
+      "approved_by": "user",
+      "approved_at": "2026-07-15T09:35:14Z",
+      "scope": "TASK-006 may modify only native_store.go and native_recruiting_generation_test.go outside its original scope to load candidate profile fields, completeness, candidate_profiles.education, and the application resume parsed_text; schema, Proto, dependencies, and public APIs remain forbidden.",
+      "reason": "Independent review proved the dev-equivalent legacy deterministic scorer cannot be implemented honestly without production GetRecruitingMatchSource inputs."
+    },
+    {
+      "approved_object": "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_recruiting_generation_test.go test-only scope expansion",
+      "approved_by": "user",
+      "approved_at": "2026-07-15T09:52:15Z",
+      "scope": "TASK-006 may modify this one gRPC test file only to replace stale aggregate-LLM score/recommendation assertions with deterministic/no-generic-call semantics; production scope is unchanged.",
+      "reason": "R2-002 removes the forbidden aggregate model-total route, making the existing 88.5/strong_match test assertion obsolete."
+    },
+    {
+      "approved_object": "one-time review limit extension from 3 to 4 rounds",
+      "approved_by": "user",
+      "approved_at": "2026-07-15T11:30:24Z",
+      "scope": "Reopen TASK-006 after round-3 failure and allow exactly one fresh Fixer R3 plus one independent Reviewer R4 for R3-001; code file scope is unchanged.",
+      "reason": "The user explicitly authorized reopening TASK-006 beyond the original max_review_rounds=3 hard stop."
+    }
+  ],
+  "skipped_checks": [
+    {
+      "check": "live provider smoke test",
+      "reason": "TASK-006 acceptance is deterministic and transactional; exact System/User orchestration is covered with bounded fakes and live credentials are not required."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/candidate_aggregation.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/candidate_legacy.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/runtime_policy.go",
+	  "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+    ],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/agent-runtime.md", "verdict": "CANDIDATE", "evidence": ["native runtime source refs verified; TASK-007 should document the now-wired deterministic recruiting evaluation"]},
+      {"document": ".knowledge/domains/ai-configuration-governance.md", "verdict": "CANDIDATE", "evidence": ["structured Prompt runtime and native orchestration verified; TASK-007 should document all three active Prompt consumers"]},
+      {"document": ".knowledge/domains/resume-intelligence.md", "verdict": "CANDIDATE", "evidence": ["native adapter/store source refs verified; current document still describes evaluation execution as unavailable"]},
+      {"document": ".knowledge/pitfalls/resume-sensitive-data.md", "verdict": "UNCHANGED", "evidence": ["bounded redacted evidence and no-raw-artifact policy remain intact"]},
+      {"document": ".knowledge/architecture/service-boundaries.md", "verdict": "UNCHANGED", "evidence": ["AI Agent remains the owner and uses existing internal persistence without contract changes"]},
+      {"document": ".knowledge/domains/agent-skill.md", "verdict": "UNCHANGED", "evidence": ["Agent Skill behavior is unaffected"]},
+      {"document": ".knowledge/architecture/api-contracts-and-gateway.md", "verdict": "UNCHANGED", "evidence": ["generated Proto and native mapper were inspected; no wire field or route changed"]},
+      {"document": ".knowledge/runbooks/debug-agent-retrieval.md", "verdict": "UNCHANGED", "evidence": ["Agent retrieval diagnostics are unaffected"]},
+      {"document": ".knowledge/pitfalls/embedding-fallback.md", "verdict": "UNCHANGED", "evidence": ["embedding fallback is unaffected"]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["startup and developer commands are unchanged"]},
+      {"document": ".knowledge/pitfalls/mcp-policy-audit.md", "verdict": "UNCHANGED", "evidence": ["MCP policy and audit are unaffected"]},
+      {"document": ".knowledge/domains/mcp-tool-governance.md", "verdict": "UNCHANGED", "evidence": ["MCP governance is unaffected"]},
+      {"document": ".knowledge/domains/memory-and-context.md", "verdict": "UNCHANGED", "evidence": ["chat memory/context are unaffected"]},
+      {"document": ".knowledge/architecture/persistence-and-migrations.md", "verdict": "UNCHANGED", "evidence": ["AI Agent private persistence read mapping changed without a schema, migration, table ownership, or transaction contract change"]},
+      {"document": ".knowledge/pitfalls/migration-model-drift.md", "verdict": "UNCHANGED", "evidence": ["candidate_profiles and resumes columns were verified against the existing schema; no production model/schema drift was introduced"]},
+      {"document": ".knowledge/runbooks/protobuf-and-migration-change.md", "verdict": "UNCHANGED", "evidence": ["no Proto or migration was changed"]},
+      {"document": ".knowledge/pitfalls/protobuf-synchronization.md", "verdict": "UNCHANGED", "evidence": ["canonical generated CandidateMatch fields were read only and remain unchanged"]},
+      {"document": ".knowledge/architecture/semantic-retrieval.md", "verdict": "UNCHANGED", "evidence": ["Agent semantic retrieval is separate and unaffected"]},
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["module topology and ownership are unchanged"]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "privacy": {
+    "status": "passed",
+    "raw_candidate_data_in_artifacts": false,
+    "raw_prompt_or_model_output_in_artifacts": false,
+    "notes": "Only synthetic bounded fixtures and structural descriptions are present."
+  },
+  "next_task_ready": true,
+  "next_task_blocker": null
+}

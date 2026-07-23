@@ -29,6 +29,7 @@ export const PERM = {
   NOTIFICATION_READ: 'notification.read',
   AI_HR_USE: 'ai.hr.use',
   AI_CANDIDATE_USE: 'ai.candidate.use',
+  BILLING_MANAGE: 'billing.manage',
   ADMIN_INVITE_MANAGE: 'admin.invite.manage',
   ADMIN_DEPARTMENT_MANAGE: 'admin.department.manage',
   ADMIN_LOCATION_MANAGE: 'admin.location.manage',
@@ -244,6 +245,23 @@ export interface User {
   roles?: string[]          // RBAC role keys
   permissions?: string[]    // RBAC permission keys
   email?: string
+  tenant_id?: number
+  membership_id?: number
+  client_app?: string
+  available_apps?: string[]
+  memberships?: TenantMembership[]
+}
+
+export interface TenantMembership {
+  membership_id: number
+  tenant_id: number
+  tenant_key: string
+  slug: string
+  name: string
+  tenant_status: string
+  membership_status: string
+  roles: string[]
+  is_default: boolean
 }
 
 export interface LoginPayload {
@@ -259,6 +277,11 @@ export interface LoginResponse {
   roles?: string[]
   permissions?: string[]
   email?: string
+  tenant_id?: number
+  membership_id?: number
+  client_app?: string
+  available_apps?: string[]
+  memberships?: TenantMembership[]
 }
 
 export interface RegisterPayload {
@@ -524,6 +547,26 @@ export interface InterviewSchedule {
   candidate_phone: string
 }
 
+export const INTERVIEW_STATUS_LABEL: Record<string, string> = {
+  pending: '待安排',
+  scheduled: '待面试',
+  completed: '已完成',
+  cancelled: '已取消',
+}
+
+export const INTERVIEW_STATUS_TYPE: Record<string, 'info' | 'warning' | 'success' | 'danger'> = {
+  pending: 'warning',
+  scheduled: 'warning',
+  completed: 'success',
+  cancelled: 'info',
+}
+
+export const INTERVIEW_MODE_LABEL: Record<string, string> = {
+  video: '视频面试',
+  phone: '电话面试',
+  onsite: '现场面试',
+}
+
 // ── Offer ──────────────────────────────────────────────────────────────────
 
 export interface Offer {
@@ -661,6 +704,37 @@ export interface CandidateWorkspace {
   resume_url: string
   interviews: CandidateWorkspaceInterview[]
   offers: CandidateWorkspaceOffer[]
+  city?: string
+  years_of_experience?: number
+  job_status?: string
+  expected_position?: string
+  expected_salary_min?: number
+  expected_salary_max?: number
+  available_from?: string
+  summary?: string
+  educations?: CandidateEducationInfo[]
+  experiences?: CandidateExperienceInfo[]
+}
+
+export interface CandidateEducationInfo {
+  school: string
+  degree?: string
+  major?: string
+  start_date?: string
+  end_date?: string
+  description?: string
+  sort_order?: number
+}
+
+export interface CandidateExperienceInfo {
+  company: string
+  title?: string
+  location?: string
+  start_date?: string
+  end_date?: string
+  is_current?: number
+  description?: string
+  sort_order?: number
 }
 
 export interface CandidateWorkspaceApplication {

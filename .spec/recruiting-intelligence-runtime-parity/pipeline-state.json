@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "recruiting-intelligence-runtime-parity",
+  "current_task": "TASK-007",
+  "current_phase": "completed",
+  "completed_tasks": [
+    "TASK-001",
+    "TASK-002",
+    "TASK-003",
+    "TASK-004",
+    "TASK-005",
+    "TASK-006",
+    "TASK-007"
+  ],
+  "blocked_tasks": [],
+  "failed_tasks": [],
+  "skipped_human_confirmation_tasks": [],
+  "approved_exceptions": [
+    {
+      "task_id": "TASK-001",
+      "approved_object": "smart-recruit-commons/go.sum checksum-only additions",
+      "approved_by": "user",
+      "approved_at": "2026-07-15T02:37:25Z",
+      "scope": "Add exactly 12 missing existing-dependency checksum lines to smart-recruit-commons/go.sum; do not change go.mod or dependency versions.",
+      "reason": "Required Commons GOWORK=off test cannot compile against the pre-existing incomplete module checksum set."
+    },
+    {
+      "task_id": "TASK-003",
+      "approved_object": "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_recruiting_generation_test.go test-only scope expansion",
+      "approved_by": "user",
+      "approved_at": "2026-07-15T06:11:38Z",
+      "scope": "TASK-003 may modify only smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_recruiting_generation_test.go outside its original scope; production persistence, schema, Proto, dependencies, and public APIs remain forbidden.",
+      "reason": "Independent review requires real NativeStore transaction rollback and full resume child/date/JSON mapping evidence."
+    },
+    {
+      "task_id": "TASK-006",
+      "approved_object": "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go and native_recruiting_generation_test.go scope expansion",
+      "approved_by": "user",
+      "approved_at": "2026-07-15T09:35:14Z",
+      "scope": "TASK-006 may modify only native_store.go and native_recruiting_generation_test.go outside its original scope to load candidate profile fields, completeness, candidate_profiles.education, and the application resume parsed_text; schema, Proto, dependencies, and public APIs remain forbidden.",
+      "reason": "Independent review proved the dev-equivalent legacy deterministic scorer cannot be implemented honestly without production GetRecruitingMatchSource inputs."
+    },
+    {
+      "task_id": "TASK-006",
+      "approved_object": "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_recruiting_generation_test.go test-only scope expansion",
+      "approved_by": "user",
+      "approved_at": "2026-07-15T09:52:15Z",
+      "scope": "TASK-006 may modify this one gRPC test file only to replace stale aggregate-LLM score/recommendation assertions with deterministic/no-generic-call semantics; production scope is unchanged.",
+      "reason": "R2-002 removes the forbidden aggregate model-total route, making the existing 88.5/strong_match test assertion obsolete."
+    },
+    {
+      "task_id": "TASK-006",
+      "approved_object": "one-time review limit extension from 3 to 4 rounds",
+      "approved_by": "user",
+      "approved_at": "2026-07-15T11:30:24Z",
+      "scope": "Reopen TASK-006 after round-3 failure and allow exactly one fresh Fixer R3 plus one independent Reviewer R4 for R3-001; code file scope is unchanged.",
+      "reason": "The user explicitly authorized reopening TASK-006 beyond the original max_review_rounds=3 hard stop."
+    },
+    {
+      "task_id": "TASK-007",
+      "approved_object": "one-time review limit extension from 3 to 4 rounds",
+      "approved_by": "user",
+      "approved_at": "2026-07-15T13:11:48Z",
+      "scope": "Reopen TASK-007 after round-3 failure and allow exactly one fresh Fixer R3 plus one independent Reviewer R4 for R3-H1 and R3-H2; file scope is unchanged.",
+      "reason": "The user explicitly authorized reopening TASK-007 beyond the original max_review_rounds=3 hard stop."
+    },
+    {
+      "task_id": "TASK-007",
+      "approved_object": "one-time review limit extension from 4 to 5 rounds",
+      "approved_by": "user",
+      "approved_at": "2026-07-15T13:58:22Z",
+      "scope": "Reopen TASK-007 after round-4 failure and allow exactly one fresh Fixer R4 plus one independent Reviewer R5 for R4-H1; file scope remains unchanged.",
+      "reason": "The user explicitly authorized one additional repair and independent review for the remaining resume terminal-classification defect."
+    }
+  ],
+  "review_round": 0,
+  "status": "completed_with_exceptions",
+  "skip_human_confirm": false,
+  "human_confirmation_grant": {
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-15T02:14:05Z",
+    "confirmation_text": "用户明确选择“授权修改”，仅新增内部结构化 System/User 消息调用能力，不修改依赖、Proto 或公共 HTTP API。"
+  },
+  "task_runs": {
+    "TASK-001": {
+      "base_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "base_tree": "fb76dfce94d5068494f7be7c5b6519df582cae2e",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "review_rounds": 3,
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-15T02:14:05Z",
+        "confirmation_text": "用户明确选择“授权修改”，仅新增内部结构化 System/User 消息调用能力，不修改依赖、Proto 或公共 HTTP API。"
+      },
+      "blocked_at": "2026-07-15T02:33:27Z",
+      "blocked_reason": "TASK-001 review round 1 found two in-scope implementation defects plus a required Commons GOWORK=off test failure caused by baseline smart-recruit-commons/go.sum checksum omissions. go.sum is forbidden and dependency/lockfile scope expansion requires user direction.",
+      "resumed_at": "2026-07-15T02:37:25Z",
+      "resume_reason": "User authorized exactly 12 checksum-only smart-recruit-commons/go.sum additions with no dependency version or go.mod changes.",
+      "head_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "evidence": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-001-evidence.json",
+      "completed_at": "2026-07-15T03:09:38Z"
+    },
+    "TASK-002": {
+      "base_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "base_tree": "338c74c96c20f6f89b2ee8c4166347cbdd997468",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "review_rounds": 2,
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-15T03:09:38Z",
+        "confirmation_text": "TASK-002 does not require human confirmation."
+      },
+      "head_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "evidence": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-002-evidence.json",
+      "completed_at": "2026-07-15T03:40:24Z"
+    },
+    "TASK-003": {
+      "base_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "base_tree": "9fdbe164e5c46b96a17d46f6722ab846d09cf33e",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "review_rounds": 3,
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-15T03:40:24Z",
+        "confirmation_text": "TASK-003 does not require human confirmation."
+      },
+      "blocked_at": "2026-07-15T04:01:09Z",
+      "blocked_reason": "Review round 1 requires a real NativeStore transaction rollback and full mapping test in internal/infrastructure/persistence/native_recruiting_generation_test.go, which is outside TASK-003 scope.",
+      "resumed_at": "2026-07-15T06:11:38Z",
+      "resume_reason": "User authorized a test-only scope expansion for native_recruiting_generation_test.go; production persistence and public contracts remain forbidden.",
+      "head_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "evidence": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-003-evidence.json",
+      "completed_at": "2026-07-15T06:56:47Z"
+    },
+    "TASK-004": {
+      "base_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "base_tree": "4ab11f06d69ea2c3a06912ea4ef95fd8c5ee992c",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "review_rounds": 3,
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-15T06:56:47Z",
+        "confirmation_text": "TASK-004 does not require human confirmation."
+      },
+      "head_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "evidence": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-004-evidence.json",
+      "completed_at": "2026-07-15T07:43:06Z"
+    },
+    "TASK-005": {
+      "base_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "base_tree": "0f73c2d91a874b2981497d8623edbc8630010bd4",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "review_rounds": 3,
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-15T07:43:06Z",
+        "confirmation_text": "TASK-005 does not require human confirmation."
+      },
+      "head_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "evidence": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-005-evidence.json",
+      "completed_at": "2026-07-15T08:35:25Z"
+    },
+    "TASK-006": {
+      "base_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "base_tree": "dd2e6bb5a1ad698f88bf624615fb1403d8861106",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "review_rounds": 4,
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-15T08:35:25Z",
+        "confirmation_text": "TASK-006 does not require human confirmation."
+      },
+      "blocked_at": "2026-07-15T09:45:46Z",
+      "blocked_reason": "After the authorized production source mapping, the focused gRPC suite exposed a stale scope-out test in internal/interfaces/grpc/native_recruiting_generation_test.go that hardcodes the forbidden aggregate-LLM score/recommendation. Updating that test to deterministic/no-generic-call semantics requires explicit TASK-006 authorization.",
+      "resumed_at": "2026-07-15T09:35:14Z",
+      "resume_reason": "User authorized the production source mapping files at 2026-07-15T09:35:14Z and additionally authorized the stale gRPC generation test at 2026-07-15T09:52:15Z; schema, Proto, dependencies, and public APIs remain forbidden.",
+      "failed_at": "2026-07-15T10:06:19Z",
+      "failed_reason": "Independent review round 3 returned verdict 不通过 for R3-001: legacy skill tokens and full resume scoring text still differ from dev. max_review_rounds=3 was exhausted before the user reopened the TASK.",
+      "reopened_at": "2026-07-15T11:30:24Z",
+      "reopen_reason": "User explicitly authorized one additional Fixer R3 and independent Reviewer R4 for R3-001; code scope remains unchanged.",
+      "head_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "evidence": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-006-evidence.json",
+      "completed_at": "2026-07-15T11:55:10Z"
+    },
+    "TASK-007": {
+      "base_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "base_tree": "a3c78ee11f198247c20cf107b3790fd7c5ce61ce",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "review_rounds": 5,
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-15T11:56:23Z",
+        "confirmation_text": "TASK-007 does not require human confirmation; the user also cancelled subsequent ordinary human gates."
+      },
+      "failed_at": "2026-07-15T13:42:58Z",
+      "failed_reason": "Independent review round 4 returned verdict 不通过 for R4-H1 before the user reopened TASK-007.",
+      "reopened_at": "2026-07-15T13:58:22Z",
+      "reopen_reason": "User explicitly authorized one additional Fixer R4 and independent Reviewer R5 for R4-H1; file scope remains unchanged.",
+      "prior_failed_at": "2026-07-15T13:10:00Z",
+      "prior_failed_reason": "Independent review round 3 returned verdict 不通过 for R3-H1 and R3-H2 before the user reopened TASK-007.",
+      "prior_reopened_at": "2026-07-15T13:11:48Z",
+      "prior_reopen_reason": "User explicitly authorized Fixer R3 and Reviewer R4 for R3-H1 and R3-H2.",
+      "head_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+      "evidence": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-007-evidence.json",
+      "completed_at": "2026-07-15T14:14:06Z"
+    }
+  }
+}

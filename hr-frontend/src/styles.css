@@ -27,6 +27,7 @@
   --brand: #2563eb;
   --brand-strong: #1d4ed8;
   --brand-soft: #dbeafe;
+  --chat-sidebar-peek-shadow: 12px 0 28px rgba(15, 23, 42, 0.14);
   --admin-console-surface: var(--surface);
   --admin-console-border: var(--border);
   --admin-console-card-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
@@ -45,7 +46,9 @@
 
   color: var(--text-primary);
   background: var(--bg);
-  font-family: "Manrope", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  /* Font stack defined in styles/fonts.css — HarmonyOS Sans */
+  font-family: var(--font-app);
+  --el-font-family: var(--font-app);
 }
 
 :root[data-theme='dark'] {
@@ -64,6 +67,7 @@
   --shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
   --shadow-hover: 0 18px 42px rgba(0, 0, 0, 0.38);
   --brand-soft: rgba(59, 130, 246, 0.18);
+  --chat-sidebar-peek-shadow: 12px 0 32px rgba(0, 0, 0, 0.45);
   --admin-console-card-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
   --admin-console-page-bg: transparent;
   --admin-console-header-bg: linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(17, 24, 39, 0.96) 58%, rgba(30, 41, 59, 0.9) 100%);
@@ -87,6 +91,16 @@
   --el-color-primary-light-9: rgba(37, 99, 235, 0.18);
   --el-color-primary-light-8: rgba(37, 99, 235, 0.24);
   --el-color-primary-light-7: rgba(37, 99, 235, 0.3);
+  /* 未引入 element-plus dark/css-vars 时，success/warning/danger 浅色阶仍为亮色底，需手动对齐暗色 */
+  --el-color-success-light-9: rgba(103, 194, 58, 0.14);
+  --el-color-success-light-8: rgba(103, 194, 58, 0.2);
+  --el-color-success-light-7: rgba(103, 194, 58, 0.28);
+  --el-color-warning-light-9: rgba(230, 162, 60, 0.14);
+  --el-color-warning-light-8: rgba(230, 162, 60, 0.2);
+  --el-color-warning-light-7: rgba(230, 162, 60, 0.28);
+  --el-color-danger-light-9: rgba(245, 108, 108, 0.14);
+  --el-color-danger-light-8: rgba(245, 108, 108, 0.2);
+  --el-color-danger-light-7: rgba(245, 108, 108, 0.28);
   --el-table-bg-color: var(--surface);
   --el-table-tr-bg-color: var(--surface);
   --el-table-header-bg-color: var(--surface-muted);
@@ -171,23 +185,199 @@
 
 /* ---- Theme transition ---- */
 
-:root.theme-switching *,
-:root.theme-switching *::before,
-:root.theme-switching *::after {
+/*
+ * Soften token repaint when theme flips without the full-screen mask
+ * (e.g. reduced-motion / init edge cases).
+ * IMPORTANT: never target #theme-switch-overlay — `transition: … !important`
+ * would wipe the mask's own opacity/transform fades.
+ */
+:root.theme-switching body,
+:root.theme-switching body *:not(#theme-switch-overlay, #theme-switch-overlay *),
+:root.theme-switching body *:not(#theme-switch-overlay, #theme-switch-overlay *)::before,
+:root.theme-switching body *:not(#theme-switch-overlay, #theme-switch-overlay *)::after {
   transition:
     background-color var(--motion-theme) var(--ease-theme),
     border-color var(--motion-theme) var(--ease-theme),
     box-shadow var(--motion-theme) var(--ease-theme),
     color var(--motion-theme) var(--ease-theme),
     fill var(--motion-theme) var(--ease-theme),
-    opacity var(--motion-theme) var(--ease-theme),
     stroke var(--motion-theme) var(--ease-theme) !important;
 }
 
-:root.theme-switching body {
+/*
+ * Full-screen theme mask:
+ * - Outer shell stays opacity:1 (does not dim children via parent opacity).
+ * - Opaque .__scrim fades 0→1 / 1→0 so the page never shows a half-switched theme.
+ * - --solid locks scrim fully opaque while tokens + Vue theme state commit.
+ */
+.theme-switch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+  color: #e5e7eb;
+}
+
+.theme-switch-overlay[data-theme-target='light'] {
+  color: #0f172a;
+}
+
+.theme-switch-overlay[data-theme-target='dark'] {
+  color: #e5e7eb;
+}
+
+.theme-switch-overlay__scrim {
+  position: absolute;
+  inset: 0;
+  /* Fully opaque solids — never use alpha colors here */
+  background-color: #0f172a;
+  opacity: 0;
+  transition: opacity 280ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
+}
+
+.theme-switch-overlay[data-theme-target='light'] .theme-switch-overlay__scrim {
+  background-color: #f3f6fb;
+}
+
+.theme-switch-overlay[data-theme-target='dark'] .theme-switch-overlay__scrim {
+  background-color: #0f172a;
+}
+
+/* Enter: show shell + fade scrim 0 → 1 */
+.theme-switch-overlay--active {
+  pointer-events: auto;
+  visibility: visible;
+  cursor: progress;
+}
+
+.theme-switch-overlay--active .theme-switch-overlay__scrim {
+  opacity: 1;
+}
+
+/*
+ * Solid lock: force fully opaque, kill transitions while theme commits.
+ * Page repaint happens only in this window and must not leak through.
+ */
+.theme-switch-overlay--active.theme-switch-overlay--solid .theme-switch-overlay__scrim {
+  opacity: 1 !important;
+  transition: none !important;
+}
+
+.theme-switch-overlay--active.theme-switch-overlay--solid .theme-switch-overlay__panel {
+  opacity: 1 !important;
+  transform: translateY(0) scale(1) !important;
+  transition: none !important;
+}
+
+/* Leave: fade scrim back out (page already on new theme) */
+.theme-switch-overlay--active.theme-switch-overlay--leaving {
+  pointer-events: none;
+  cursor: default;
+}
+
+.theme-switch-overlay--active.theme-switch-overlay--leaving .theme-switch-overlay__scrim {
+  opacity: 0;
+}
+
+.theme-switch-overlay__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 28px;
+  border-radius: 16px;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
   transition:
-    background-color var(--motion-theme) var(--ease-theme),
-    color var(--motion-theme) var(--ease-theme) !important;
+    opacity 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity, transform;
+}
+
+.theme-switch-overlay--active .theme-switch-overlay__panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.theme-switch-overlay--active.theme-switch-overlay--leaving .theme-switch-overlay__panel {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}
+
+.theme-switch-overlay[data-theme-target='dark'] .theme-switch-overlay__panel {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.theme-switch-overlay__spinner {
+  position: relative;
+  width: 44px;
+  height: 44px;
+}
+
+.theme-switch-overlay__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  border-top-color: #2563eb;
+  border-right-color: color-mix(in srgb, #2563eb 35%, transparent);
+  animation: theme-switch-spin 0.9s cubic-bezier(0.5, 0.15, 0.5, 0.85) infinite;
+}
+
+.theme-switch-overlay__ring:nth-child(2) {
+  inset: 6px;
+  border-top-color: #60a5fa;
+  border-right-color: color-mix(in srgb, #60a5fa 30%, transparent);
+  animation-duration: 1.15s;
+  animation-direction: reverse;
+}
+
+.theme-switch-overlay__ring:nth-child(3) {
+  inset: 12px;
+  border-top-color: #93c5fd;
+  border-right-color: transparent;
+  animation-duration: 0.75s;
+}
+
+.theme-switch-overlay__text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: inherit;
+  opacity: 0.88;
+}
+
+@keyframes theme-switch-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-switch-overlay__scrim,
+  .theme-switch-overlay__panel {
+    transition: none !important;
+  }
+
+  .theme-switch-overlay__ring {
+    animation: none;
+    border-top-color: #2563eb;
+    border-right-color: #2563eb;
+    border-bottom-color: color-mix(in srgb, #2563eb 25%, transparent);
+    border-left-color: color-mix(in srgb, #2563eb 25%, transparent);
+  }
 }
 
 * {
@@ -262,9 +452,30 @@ a {
 
 .sidebar-nav {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   padding: 0 0 8px;
+}
+
+/* el-scrollbar owns vertical scrolling; never allow horizontal bleed in the rail */
+.sidebar-nav > .el-scrollbar {
+  height: 100%;
+  width: 100%;
+}
+
+.sidebar-nav .el-scrollbar__wrap {
+  overflow-x: hidden !important;
+}
+
+.sidebar-nav .el-scrollbar__bar.is-horizontal {
+  display: none !important;
+}
+
+.sidebar-nav .el-scrollbar__view {
+  min-width: 0;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .sidebar-footer {
@@ -281,12 +492,24 @@ a {
 
 .sidebar--collapsed .sidebar-footer {
   flex-direction: column;
+  align-items: center;
   gap: 8px;
-  padding: 12px 10px;
+  padding: 12px 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sidebar--collapsed .sidebar-footer .el-tooltip__trigger {
+  display: inline-flex;
+  width: 40px;
+  max-width: 100%;
+  flex: 0 0 40px;
 }
 
 .sidebar--collapsed {
   width: 64px;
+  min-width: 64px;
+  max-width: 64px;
 }
 
 .sidebar--collapsed .sidebar-head {
@@ -469,12 +692,36 @@ a {
 }
 
 .sidebar--collapsed .sidebar-link span {
+  /* Collapse text out of layout so nowrap labels do not widen the rail */
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  max-width: 0;
+  margin: 0;
+  padding: 0;
   opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
   transition: opacity 120ms ease;
 }
 
 .sidebar--collapsed .sidebar-link {
-  padding: 0 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.sidebar--collapsed .sidebar-link.router-link-active,
+.sidebar--collapsed .sidebar-link.router-link-active:hover,
+.sidebar--collapsed .sidebar-group-toggle--active {
+  /* Keep active accent without shifting icon off-center in the narrow rail */
+  box-shadow: inset 3px 0 0 var(--brand);
+  border-left-color: transparent;
 }
 
 .sidebar-link.router-link-active,
@@ -533,11 +780,28 @@ a {
 }
 
 .sidebar--collapsed .sidebar-group-toggle {
-  padding: 0 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .sidebar--collapsed .sidebar-group-toggle .group-arrow {
   display: none;
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+.sidebar--collapsed .sidebar-nav-group {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .sidebar-group-toggle--active {
@@ -667,6 +931,55 @@ a {
   border-radius: 10px;
   color: var(--text-secondary);
   cursor: pointer;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tenant-switcher {
+  width: 220px;
+  margin-right: 8px;
+}
+
+.tenant-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 220px;
+  min-height: 40px;
+  margin-right: 8px;
+  padding: 0 12px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tenant-context .el-icon {
+  flex: 0 0 auto;
+  color: var(--brand-strong);
+}
+
+.tenant-context span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .tenant-switcher {
+    width: 132px;
+  }
+
+  .tenant-context {
+    max-width: 132px;
+  }
 }
 
 .user-menu:hover {
@@ -1191,7 +1504,7 @@ a {
 }
 
 .console-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   color: var(--text-secondary);
 }
 
@@ -1584,24 +1897,127 @@ a {
 .chat-page {
   height: 100%;
   min-height: 0;
-  display: grid;
-  grid-template-columns: 288px minmax(0, 1fr);
-  gap: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.chat-page > .chat-sidebar {
-  grid-column: 1;
-  grid-row: 1;
+/* 侧栏 + 主区统一为单一卡片容器，中间仅一条分隔线、无缝隙 */
+.chat-layout {
+  --chat-sidebar-width: 288px;
+  /* 按钮永久收起/展开 */
+  --chat-sidebar-toggle-duration: 0.48s;
+  --chat-sidebar-toggle-ease: cubic-bezier(0.33, 0, 0.2, 1);
+  /* 悬停临时浮出 */
+  --chat-sidebar-peek-duration: 0.28s;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
 }
 
-.chat-page > .chat-main {
-  grid-column: 2;
-  grid-row: 1;
+/*
+ * 收起态侧栏始终保持完整 288px 盒模型（绝对定位 + 位移隐藏），
+ * 禁止 width:0 —— 否则内部列表在 0 宽下不完成布局，浮出时会间歇空白。
+ */
+.chat-sidebar-host {
+  position: relative;
+  flex: 0 0 var(--chat-sidebar-width);
+  width: var(--chat-sidebar-width);
+  max-width: var(--chat-sidebar-width);
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 1;
+  background: var(--surface);
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+  transition:
+    flex-basis var(--chat-sidebar-toggle-duration) var(--chat-sidebar-toggle-ease),
+    width var(--chat-sidebar-toggle-duration) var(--chat-sidebar-toggle-ease),
+    max-width var(--chat-sidebar-toggle-duration) var(--chat-sidebar-toggle-ease),
+    transform var(--chat-sidebar-peek-duration) var(--chat-sidebar-toggle-ease),
+    opacity var(--chat-sidebar-peek-duration) var(--chat-sidebar-toggle-ease),
+    visibility var(--chat-sidebar-peek-duration) var(--chat-sidebar-toggle-ease),
+    box-shadow var(--chat-sidebar-peek-duration) var(--chat-sidebar-toggle-ease);
 }
 
-.chat-page > .mobile-sidebar-backdrop {
-  grid-column: 1;
-  grid-row: 1;
+.chat-sidebar-host .chat-sidebar {
+  flex: 1 1 auto;
+  width: var(--chat-sidebar-width);
+  min-width: var(--chat-sidebar-width);
+  height: 100%;
+  min-height: 0;
+}
+
+/* 收起：脱离文档流并滑出左侧，但宽高仍完整，保证列表已布局 */
+.chat-layout--sidebar-collapsed .chat-sidebar-host {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  flex: none;
+  width: var(--chat-sidebar-width);
+  max-width: var(--chat-sidebar-width);
+  z-index: 40;
+  transform: translateX(-100%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  box-shadow: none;
+}
+
+/* 悬停浮出：仅改位移/显隐，不再改宽度 */
+.chat-layout--sidebar-collapsed.chat-layout--sidebar-peek .chat-sidebar-host {
+  transform: translateX(0);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  box-shadow: var(--chat-sidebar-peek-shadow);
+}
+
+.chat-layout > .chat-main {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 收起态左侧热区：悬停即可触发浮层 */
+.chat-sidebar-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  z-index: 35;
+  cursor: pointer;
+}
+
+.chat-sidebar-rail::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: transparent;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.chat-sidebar-rail:hover::after,
+.chat-layout--sidebar-peek .chat-sidebar-rail::after {
+  background: color-mix(in srgb, var(--brand) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 18%, transparent);
 }
 
 .chat-sidebar {
@@ -1612,8 +2028,8 @@ a {
   gap: 16px;
   padding: 16px;
   background: var(--surface);
-  border-right: 1px solid var(--bg);
-  border-radius: 16px 0 0 16px;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .chat-sidebar__head {
@@ -1752,9 +2168,7 @@ a {
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border-radius: 0 16px 16px 0;
   overflow: hidden;
-  border: 1px solid var(--border);
 }
 
 /* ── Conversation Header ──────────────────────────────── */
@@ -1923,13 +2337,13 @@ a {
 }
 
 .md-content a {
-  color: #3b82f6;
+  color: var(--brand);
   text-decoration: underline;
   word-break: break-all;
 }
 
 .md-content a:hover {
-  color: #1d4ed8;
+  color: var(--brand-strong);
 }
 
 .md-content br {
@@ -1960,7 +2374,7 @@ a {
   padding: 2px 6px;
   background: var(--surface-muted);
   border-radius: 6px;
-  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 
@@ -2186,11 +2600,44 @@ a {
   }
 
   .sidebar--collapsed .sidebar-link {
+    justify-content: flex-start;
+    gap: 10px;
     padding: 0 16px;
+    overflow: visible;
   }
 
   .sidebar--collapsed .sidebar-link span {
+    flex: initial;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    margin: unset;
+    padding: unset;
     opacity: 1;
+    overflow: visible;
+    pointer-events: auto;
+  }
+
+  .sidebar--collapsed .sidebar-link.router-link-active,
+  .sidebar--collapsed .sidebar-link.router-link-active:hover,
+  .sidebar--collapsed .sidebar-group-toggle--active {
+    box-shadow: none;
+    border-left-color: var(--brand);
+  }
+
+  .sidebar--collapsed .sidebar-group-toggle {
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 0 16px;
+    overflow: visible;
+  }
+
+  .sidebar--collapsed .sidebar-group-toggle .group-arrow {
+    display: block;
+  }
+
+  .sidebar--collapsed .sidebar-nav-group {
+    overflow: visible;
   }
 
   .sidebar--collapsed .sidebar-brand__text {
@@ -2204,8 +2651,15 @@ a {
 
   .sidebar--collapsed .sidebar-footer {
     flex-direction: row;
+    align-items: center;
     gap: 8px;
     padding: 12px 14px;
+    overflow: visible;
+  }
+
+  .sidebar--collapsed .sidebar-footer .el-tooltip__trigger {
+    width: auto;
+    flex: 1 1 0;
   }
 
   .sidebar--collapsed .sidebar-footer-action {
@@ -2216,6 +2670,11 @@ a {
 
   .sidebar--collapsed .sidebar-footer-action__label {
     display: inline;
+  }
+
+  .sidebar--collapsed {
+    min-width: 0;
+    max-width: none;
   }
 
   /* Backdrop */
@@ -2351,20 +2810,57 @@ a {
 
 	  /* Chat page → single column, fixed height for internal scroll */
 	  .chat-page {
-	    grid-template-columns: 1fr;
-	    gap: 0;
 	    height: calc(100dvh - 96px);
 	    min-height: 0;
 	  }
 
-	  .chat-sidebar {
+	  .chat-layout,
+	  .chat-layout--sidebar-collapsed,
+	  .chat-layout--sidebar-collapsed.chat-layout--sidebar-peek {
+	    border-radius: 12px;
+	  }
+
+	  .chat-sidebar-rail {
+	    display: none;
+	  }
+
+	  /* 移动端：侧栏改为抽屉；host 不占宽，抽屉由 fixed 的 .chat-sidebar 负责 */
+	  .chat-sidebar-host,
+	  .chat-layout--sidebar-collapsed .chat-sidebar-host,
+	  .chat-layout--sidebar-collapsed.chat-layout--sidebar-peek .chat-sidebar-host {
+	    position: static;
+	    flex: 0 0 0;
+	    width: 0;
+	    max-width: 0;
+	    height: auto;
+	    overflow: visible;
+	    transform: none;
+	    opacity: 1;
+	    visibility: visible;
+	    pointer-events: auto;
+	    box-shadow: none;
+	    transition: none;
+	  }
+
+	  .chat-layout > .chat-main {
+	    flex: 1 1 auto;
+	    width: 100%;
+	  }
+
+	  .chat-sidebar,
+	  .chat-layout--sidebar-collapsed .chat-sidebar {
 	    display: block;
 	    position: fixed;
 	    inset: 0;
 	    z-index: 1100;
 	    width: min(320px, 86vw);
+	    height: 100%;
 	    border-radius: 0;
-	    border-right: none;
+	    border-right: 1px solid var(--border);
+	    box-shadow: var(--shadow);
+	    opacity: 1;
+	    padding: 16px;
+	    pointer-events: auto;
 	    transform: translateX(-100%);
 	    transition: transform 0.35s var(--motion-ease);
 	    overflow-y: auto;
@@ -2504,7 +3000,7 @@ a {
   }
 
   .mobile-invite-card .invite-code__text {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     word-break: break-all;
     color: var(--brand-strong);

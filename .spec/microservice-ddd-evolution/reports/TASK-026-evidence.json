@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-026",
+  "base_sha": "58e788721cc6f69f36ac329b4376ebfc5ac5161b",
+  "base_tree": "44f662e52e4ac2014e2de2a3c41daf64983fcbe6",
+  "head_sha": "58e788721cc6f69f36ac329b4376ebfc5ac5161b",
+  "changed_files": [
+    "smart-recruit-worker-service/README.md",
+    "smart-recruit-worker-service/internal/docs/worker_workload_inventory.md",
+    "smart-recruit-worker-service/internal/runtime/workload_profile.go",
+    "smart-recruit-worker-service/internal/runtime/workload_profile_test.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-026-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-026-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-026",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:08:00Z",
+      "duration_ms": 3856,
+      "status": "passed",
+      "summary": "smart-recruit-worker-service package tests passed."
+    },
+    {
+      "command": "go run ./cmd/worker-service --check",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:08:00Z",
+      "duration_ms": 4239,
+      "status": "passed",
+      "summary": "worker-service runtime check passed"
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:08:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked diff listed smart-recruit-worker-service/README.md; git status also listed new Worker profile and docs files."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-026",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:08:00Z",
+      "duration_ms": 115,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-026. Changed files: 4 before report/evidence creation."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:08:00Z",
+      "duration_ms": 804,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-worker-service passed."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:08:00Z",
+      "duration_ms": 65,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:09:00Z",
+      "duration_ms": 101,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-ddd-evolution/reports/TASK-026-evidence.json",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:10:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "evidence_result: PASS"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-026",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:10:00Z",
+      "duration_ms": 78,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-026. Changed files: 6 after report/evidence creation."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:10:00Z",
+      "duration_ms": 656,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-worker-service passed."
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 44f662e52e4ac2014e2de2a3c41daf64983fcbe6",
+      "exit_code": 1,
+      "started_at": "2026-07-13T10:09:00Z",
+      "duration_ms": 1,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-026 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-13T10:07:00Z",
+    "confirmation_text": "TASK-026 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-worker-service/**"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-026 records worker-service workload profile and confirms the worker binary remains unsplit."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-026 records outbox, notification, email, inbox, and DLQ owner contracts in Worker service."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/event-replay-dead-letter.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-026 records outbox/inbox dead-letter ownership but does not change repair procedures."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/resume-intelligence.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-026 records resume parsing workload owner contract and sensitive-data boundary."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/resume-sensitive-data.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-026 does not change resume parsing behavior and explicitly forbids raw resume text in worker logs/reports."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-026 does not modify migrations, schema, repository status values, or table ownership."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-026 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

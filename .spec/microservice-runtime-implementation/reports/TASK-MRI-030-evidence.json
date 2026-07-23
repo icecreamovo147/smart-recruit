@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-030",
+  "base_sha": "2836756886aa90784958d73311ef4b18b14434ce",
+  "base_tree": "b0d539fc2d203739dd3461ee8097c6c0e4092b11",
+  "head_sha": "2836756886aa90784958d73311ef4b18b14434ce",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-030-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-030-report.md",
+    ".spec/microservice-runtime-implementation/scripts/agent-check.sh",
+    "scripts/export-microservice-repos.mjs",
+    "smart-recruit-deploy/repo-export-manifest.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=b0d539fc2d203739dd3461ee8097c6c0e4092b11 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-030",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-deploy/**",
+      "scripts/**",
+      "docs/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "node scripts/export-microservice-repos.mjs --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:08:00.000Z", "duration_ms": 5},
+    {"command": "node scripts/export-microservice-repos.mjs --dry-run --output-dir /tmp/smart-recruit-export-preview", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:08:00.000Z", "duration_ms": 5},
+    {"command": "node scripts/export-microservice-repos.mjs --execute --output-dir /tmp/smart-recruit-export-test", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:08:00.000Z", "duration_ms": 823},
+    {"command": "verify /tmp/smart-recruit-export-test contains 11 .git repositories on main branch", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:08:01.000Z", "duration_ms": 12},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:09:00.000Z", "duration_ms": 4},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree b0d539fc2d203739dd3461ee8097c6c0e4092b11 --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:09:00.000Z", "duration_ms": 376},
+    {"command": "TASK_BASE_TREE=b0d539fc2d203739dd3461ee8097c6c0e4092b11 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-030", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:09:00.000Z", "duration_ms": 276},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:09:00.000Z", "duration_ms": 726},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-030-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:11:00.000Z", "duration_ms": 5}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T09:10:00Z", "source": "TASK-MRI-030 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed source_refs; TASK-MRI-030 adds export tooling and manifest only, without changing service runtime boundaries or public APIs."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local-development guidance; export script is a release/extraction utility and does not alter local startup flow."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

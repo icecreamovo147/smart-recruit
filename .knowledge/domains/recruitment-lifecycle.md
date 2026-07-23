@@ -1,7 +1,7 @@
 ---
 schema_version: 1
 id: recruitment-lifecycle
-title: Recruitment lifecycle domain
+title: Recruitment lifecycle and status transitions
 kind: domain
 status: active
 owners:
@@ -9,55 +9,39 @@ owners:
 tags:
   - recruitment
   - lifecycle
-  - application
   - status
+  - notification
 applies_to:
-  - logic-grpc-service/service/job_service.go
-  - logic-grpc-service/service/application_service.go
-  - logic-grpc-service/service/interview_service.go
-  - logic-grpc-service/service/offer_service.go
-  - logic-grpc-service/service/collaboration_service.go
-  - logic-grpc-service/model/status.go
+  - smart-recruit-recruitment-service/**
+  - smart-recruit-interview-service/**
+  - smart-recruit-offer-service/**
+  - smart-recruit-notification-service/**
+  - smart-recruit-commons/internal/platform/events/**
 source_refs:
-  - logic-grpc-service/model/status.go
-  - logic-grpc-service/service/application_service.go
-  - logic-grpc-service/service/interview_service.go
-  - logic-grpc-service/service/offer_service.go
-  - logic-grpc-service/service/collaboration_service.go
-  - logic-grpc-service/repository/application_repo.go
-  - logic-grpc-service/proto/recruitment.proto
-last_verified: 2026-07-10
-review_after: 2026-10-08
+  - smart-recruit-recruitment-service/internal/domain/model/recruitment.go
+  - smart-recruit-recruitment-service/internal/domain/policy/recruitment.go
+  - smart-recruit-recruitment-service/internal/application/service/application_collaboration_taxonomy_service.go
+  - smart-recruit-interview-service/internal/domain/service/interview_policy.go
+  - smart-recruit-interview-service/internal/application/service/interview_service.go
+  - smart-recruit-offer-service/internal/domain/model/status.go
+  - smart-recruit-offer-service/internal/application/service/offer_service.go
+  - smart-recruit-interview-service/internal/infrastructure/client/application_adapter.go
+  - smart-recruit-offer-service/internal/infrastructure/client/application_adapter.go
+  - smart-recruit-commons/internal/platform/events/envelope.go
+last_verified: 2026-07-14
+review_after: 2026-10-14
 ---
 
-# Recruitment Lifecycle Domain
+# Recruitment Lifecycle and Status Transitions
 
-The recruitment lifecycle is centered on application rounds. Jobs receive applications, applications move through status keys, interviews and offers mutate or depend on those statuses, and collaboration surfaces aggregate notes, tags, tasks, interviews, offers, and timeline events.
+Recruitment owns application records and status history. Interview and Offer own local lifecycle policies and coordinate application side effects through adapters and events. Status, notification, timeline, and analytics changes should be reviewed together.
 
-## Core Flow
+The internal Recruitment owner contract is `ApplicationOwnerService`: `GetApplicationSnapshot` returns the current application, candidate, job, job owner/scope metadata, resume, status key, round, and current-round flag; `ApplyApplicationLifecycleTransition` applies a conditional status change with an expected status key, actor account type, and optional close-current-round flag through the Recruitment application service.
 
-- `ApplicationService.ApplyJob` requires a complete candidate profile, a valid resume, and an online job, then creates a new application round.
-- `model/status.go` defines stable status keys, legacy numeric mappings, candidate-safe labels, HR labels, and terminal statuses.
-- `ApplicationService.UpdateApplicationStatus` validates target status keys, allowed transitions, reason requirements for closeout states, scope access, and current-round constraints.
-- Interview scheduling and feedback use interview services/repositories and affect HR, candidate, and interviewer surfaces.
-- Offer creation, send, withdraw, accept, and reject update offer state and application status in transactions.
-- Collaboration workspace composes applications, notes, tags, tasks, interviews, offers, and timeline events for staff workflows.
+Interview service no longer carries a local application repository in `internal/legacydomain`. Interview lifecycle code reads application state through `internal/infrastructure/client.ApplicationAdapter`, applies application status side effects through `ApplicationLifecycleAdapter`, and keeps Interview-owned schedule and feedback rows in `internal/infrastructure/persistence`.
 
-## Cross-Surface Impact
-
-- HR surfaces include job management, application lists, candidate detail, interview scheduling, offer management, analytics, and collaboration workspace.
-- Candidate surfaces include application progress, interviews, offers, notifications, profile, and resume.
-- Interviewer surfaces include assigned interview tasks, details, feedback, notifications, and profile.
-- Analytics depends on status history and lifecycle timestamps; lifecycle changes can alter dashboard, funnel, and time-in-stage results.
-
-## Review Triggers
-
-- Adding, renaming, or reclassifying application status keys.
-- Changing transition rules, terminal statuses, reapplication rules, or required reasons.
-- Changing interview or offer behavior that updates application status.
-- Changing timeline, collaboration, analytics, or notification side effects.
-- Changing candidate-facing labels or HR-facing labels.
+Offer service no longer carries a local application repository in `internal/legacydomain`. Offer lifecycle code reads application state through `internal/infrastructure/client.ApplicationAdapter`, applies application status side effects through `ApplicationLifecycleAdapter`, and keeps Offer-owned rows in `internal/infrastructure/persistence`.
 
 ## Verification
 
-Verified against status model, application service, interview service, offer service, collaboration service, application repository, and protobuf messages on 2026-07-10.
+Verified against current repository files on 2026-07-14.

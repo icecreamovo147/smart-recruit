@@ -40,6 +40,23 @@ export interface User {
   roles?: string[]          // RBAC role keys
   permissions?: string[]    // RBAC permission keys
   email?: string
+  tenant_id?: number
+  membership_id?: number
+  client_app?: string
+  available_apps?: string[]
+  memberships?: TenantMembership[]
+}
+
+export interface TenantMembership {
+  membership_id: number
+  tenant_id: number
+  tenant_key: string
+  slug: string
+  name: string
+  tenant_status: string
+  membership_status: string
+  roles: string[]
+  is_default: boolean
 }
 
 export interface LoginPayload {
@@ -55,6 +72,11 @@ export interface LoginResponse {
   roles?: string[]
   permissions?: string[]
   email?: string
+  tenant_id?: number
+  membership_id?: number
+  client_app?: string
+  available_apps?: string[]
+  memberships?: TenantMembership[]
 }
 
 export interface RegisterPayload {
@@ -131,6 +153,27 @@ export interface Application {
 
 // ---- Profile ----
 
+export interface CandidateEducationInfo {
+  school: string
+  degree?: string
+  major?: string
+  start_date?: string
+  end_date?: string
+  description?: string
+  sort_order?: number
+}
+
+export interface CandidateExperienceInfo {
+  company: string
+  title?: string
+  location?: string
+  start_date?: string
+  end_date?: string
+  is_current?: number
+  description?: string
+  sort_order?: number
+}
+
 export interface Profile {
   real_name: string
   phone: string
@@ -139,6 +182,16 @@ export interface Profile {
   work_experience: string
   skills: string[] | string
   is_complete?: boolean
+  city?: string
+  years_of_experience?: number
+  job_status?: string
+  expected_position?: string
+  expected_salary_min?: number
+  expected_salary_max?: number
+  available_from?: string
+  summary?: string
+  educations?: CandidateEducationInfo[]
+  experiences?: CandidateExperienceInfo[]
 }
 
 // ---- Resume ----

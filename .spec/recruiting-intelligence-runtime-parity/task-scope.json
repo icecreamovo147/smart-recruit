@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "recruiting-intelligence-runtime-parity",
+  "tasks": {
+    "TASK-001": {
+      "title": "Structured Provider and Prompt Runtime",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-commons/ai/eino_client.go",
+        "smart-recruit-commons/ai/structured_completion.go",
+        "smart-recruit-commons/ai/structured_completion_test.go",
+        "smart-recruit-commons/go.sum",
+        "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/llm_runtime.go",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/*prompt*test.go",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/*structured*test.go",
+        ".spec/recruiting-intelligence-runtime-parity/reports/**",
+        ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json",
+        ".spec/recruiting-intelligence-runtime-parity/task-scope.json"
+      ],
+      "forbiddenFiles": ["**/.env", "**/.env.*", "**/go.mod", "**/package.json", "**/pnpm-lock.yaml", "smart-recruit-proto/**", "smart-recruit-commons/migrations/**", "db.sql", "smart-recruit-gateway/**", "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "smart-recruit-identity-service/**", "smart-recruit-recruitment-service/**", "smart-recruit-interview-service/**", "smart-recruit-offer-service/**", "smart-recruit-notification-service/**", "smart-recruit-analytics-service/**", "smart-recruit-worker-service/**", "smart-recruit-platform-go/**", "deploy/**", "docker/**", ".github/**", "docs/**", ".spec/recruiting-intelligence-runtime-parity/*-SPEC.md", ".spec/recruiting-intelligence-runtime-parity/*-SDD.md", ".spec/recruiting-intelligence-runtime-parity/TASKS.md", ".spec/recruiting-intelligence-runtime-parity/AGENT_RULES.md", ".spec/recruiting-intelligence-runtime-parity/acceptance/**", ".spec/recruiting-intelligence-runtime-parity/prompts/**", ".spec/recruiting-intelligence-runtime-parity/scripts/**"],
+      "requiresHumanConfirmation": true,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {"review": [".knowledge/architecture/agent-runtime.md", ".knowledge/architecture/service-boundaries.md", ".knowledge/domains/ai-configuration-governance.md", ".knowledge/domains/resume-intelligence.md", ".knowledge/pitfalls/resume-sensitive-data.md"], "modify": [], "candidate": []},
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/recruiting-intelligence-runtime-parity/acceptance/TASK-001.md",
+      "report": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-001-report.md",
+      "approvedExceptions": [
+        {
+          "approved_by": "user",
+          "approved_at": "2026-07-15T02:37:25Z",
+          "scope": "Add exactly 12 missing existing-dependency checksum lines to smart-recruit-commons/go.sum; do not change go.mod or dependency versions.",
+          "reason": "Required Commons GOWORK=off test cannot compile against the pre-existing incomplete module checksum set."
+        }
+      ],
+      "notes": ["The user grant is limited to the listed smart-recruit-commons/ai internal structured-message capability.", "On 2026-07-15 the user additionally authorized exactly 12 missing checksum-only additions to smart-recruit-commons/go.sum, with no go.mod or dependency-version changes; task-scope.json is allowed only to record this exception."]
+    },
+    "TASK-002": {
+      "title": "Runtime Policy Wiring",
+      "status": "pending",
+      "allowedFiles": ["smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go", "smart-recruit-ai-agent-service/cmd/ai-agent-service/main_test.go", "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/**", "smart-recruit-ai-agent-service/internal/domain/recruiting_intelligence/**", "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go", "smart-recruit-ai-agent-service/internal/interfaces/grpc/*policy*test.go", ".spec/recruiting-intelligence-runtime-parity/reports/**", ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json"],
+      "forbiddenFiles": ["smart-recruit-commons/**", "**/.env", "**/.env.*", "**/go.mod", "**/go.sum", "**/package.json", "**/pnpm-lock.yaml", "smart-recruit-proto/**", "db.sql", "smart-recruit-gateway/**", "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "smart-recruit-identity-service/**", "smart-recruit-recruitment-service/**", "smart-recruit-interview-service/**", "smart-recruit-offer-service/**", "smart-recruit-notification-service/**", "smart-recruit-analytics-service/**", "smart-recruit-worker-service/**", "smart-recruit-platform-go/**", "deploy/**", "docker/**", ".github/**", "docs/**", ".spec/recruiting-intelligence-runtime-parity/*-SPEC.md", ".spec/recruiting-intelligence-runtime-parity/*-SDD.md", ".spec/recruiting-intelligence-runtime-parity/TASKS.md", ".spec/recruiting-intelligence-runtime-parity/AGENT_RULES.md", ".spec/recruiting-intelligence-runtime-parity/task-scope.json", ".spec/recruiting-intelligence-runtime-parity/acceptance/**", ".spec/recruiting-intelligence-runtime-parity/prompts/**", ".spec/recruiting-intelligence-runtime-parity/scripts/**"],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {"review": [".knowledge/architecture/agent-runtime.md", ".knowledge/architecture/service-boundaries.md", ".knowledge/domains/ai-configuration-governance.md", ".knowledge/domains/resume-intelligence.md"], "modify": [], "candidate": []},
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/recruiting-intelligence-runtime-parity/acceptance/TASK-002.md",
+      "report": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-002-report.md",
+      "notes": ["Consume existing config fields only; do not edit shared config definitions."]
+    },
+    "TASK-003": {
+      "title": "Restore Resume Profile Extraction",
+      "status": "pending",
+      "allowedFiles": ["smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/**", "smart-recruit-ai-agent-service/internal/domain/recruiting_intelligence/**", "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_recruiting_generation_test.go", "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go", "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_store.go", "smart-recruit-ai-agent-service/internal/interfaces/grpc/*resume*test.go", ".spec/recruiting-intelligence-runtime-parity/reports/**", ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json", ".spec/recruiting-intelligence-runtime-parity/task-scope.json"],
+      "forbiddenFiles": ["smart-recruit-commons/**", "**/.env", "**/.env.*", "**/go.mod", "**/go.sum", "**/package.json", "**/pnpm-lock.yaml", "smart-recruit-proto/**", "db.sql", "smart-recruit-gateway/**", "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "smart-recruit-identity-service/**", "smart-recruit-recruitment-service/**", "smart-recruit-interview-service/**", "smart-recruit-offer-service/**", "smart-recruit-notification-service/**", "smart-recruit-analytics-service/**", "smart-recruit-worker-service/**", "smart-recruit-platform-go/**", "deploy/**", "docker/**", ".github/**", "docs/**", ".spec/recruiting-intelligence-runtime-parity/*-SPEC.md", ".spec/recruiting-intelligence-runtime-parity/*-SDD.md", ".spec/recruiting-intelligence-runtime-parity/TASKS.md", ".spec/recruiting-intelligence-runtime-parity/AGENT_RULES.md", ".spec/recruiting-intelligence-runtime-parity/acceptance/**", ".spec/recruiting-intelligence-runtime-parity/prompts/**", ".spec/recruiting-intelligence-runtime-parity/scripts/**"],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {"review": [".knowledge/architecture/agent-runtime.md", ".knowledge/domains/resume-intelligence.md", ".knowledge/pitfalls/resume-sensitive-data.md"], "modify": [], "candidate": []},
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/recruiting-intelligence-runtime-parity/acceptance/TASK-003.md",
+      "report": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-003-report.md",
+      "notes": ["On 2026-07-15 the user authorized TASK-003 to modify only internal/infrastructure/persistence/native_recruiting_generation_test.go for real transaction and mapping tests; production persistence remains forbidden."]
+    },
+    "TASK-004": {
+      "title": "Restore Job Requirement Extraction",
+      "status": "pending",
+      "allowedFiles": ["smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/**", "smart-recruit-ai-agent-service/internal/domain/recruiting_intelligence/**", "smart-recruit-ai-agent-service/internal/interfaces/grpc/*requirement*test.go", ".spec/recruiting-intelligence-runtime-parity/reports/**", ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json"],
+      "forbiddenFiles": ["smart-recruit-commons/**", "**/.env", "**/.env.*", "**/go.mod", "**/go.sum", "**/package.json", "**/pnpm-lock.yaml", "smart-recruit-proto/**", "db.sql", "smart-recruit-gateway/**", "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "smart-recruit-identity-service/**", "smart-recruit-recruitment-service/**", "smart-recruit-interview-service/**", "smart-recruit-offer-service/**", "smart-recruit-notification-service/**", "smart-recruit-analytics-service/**", "smart-recruit-worker-service/**", "smart-recruit-platform-go/**", "deploy/**", "docker/**", ".github/**", "docs/**", ".spec/recruiting-intelligence-runtime-parity/*-SPEC.md", ".spec/recruiting-intelligence-runtime-parity/*-SDD.md", ".spec/recruiting-intelligence-runtime-parity/TASKS.md", ".spec/recruiting-intelligence-runtime-parity/AGENT_RULES.md", ".spec/recruiting-intelligence-runtime-parity/task-scope.json", ".spec/recruiting-intelligence-runtime-parity/acceptance/**", ".spec/recruiting-intelligence-runtime-parity/prompts/**", ".spec/recruiting-intelligence-runtime-parity/scripts/**"],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {"review": [".knowledge/architecture/agent-runtime.md", ".knowledge/domains/ai-configuration-governance.md", ".knowledge/domains/resume-intelligence.md"], "modify": [], "candidate": []},
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/recruiting-intelligence-runtime-parity/acceptance/TASK-004.md",
+      "report": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-004-report.md",
+      "notes": ["Internal component only; no endpoint or table."]
+    },
+    "TASK-005": {
+      "title": "Restore Per-Requirement Candidate Matching",
+      "status": "pending",
+      "allowedFiles": ["smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/**", "smart-recruit-ai-agent-service/internal/domain/recruiting_intelligence/**", "smart-recruit-ai-agent-service/internal/interfaces/grpc/*match*test.go", ".spec/recruiting-intelligence-runtime-parity/reports/**", ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json"],
+      "forbiddenFiles": ["smart-recruit-commons/**", "**/.env", "**/.env.*", "**/go.mod", "**/go.sum", "**/package.json", "**/pnpm-lock.yaml", "smart-recruit-proto/**", "db.sql", "smart-recruit-gateway/**", "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "smart-recruit-identity-service/**", "smart-recruit-recruitment-service/**", "smart-recruit-interview-service/**", "smart-recruit-offer-service/**", "smart-recruit-notification-service/**", "smart-recruit-analytics-service/**", "smart-recruit-worker-service/**", "smart-recruit-platform-go/**", "deploy/**", "docker/**", ".github/**", "docs/**", ".spec/recruiting-intelligence-runtime-parity/*-SPEC.md", ".spec/recruiting-intelligence-runtime-parity/*-SDD.md", ".spec/recruiting-intelligence-runtime-parity/TASKS.md", ".spec/recruiting-intelligence-runtime-parity/AGENT_RULES.md", ".spec/recruiting-intelligence-runtime-parity/task-scope.json", ".spec/recruiting-intelligence-runtime-parity/acceptance/**", ".spec/recruiting-intelligence-runtime-parity/prompts/**", ".spec/recruiting-intelligence-runtime-parity/scripts/**"],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {"review": [".knowledge/architecture/agent-runtime.md", ".knowledge/architecture/semantic-retrieval.md", ".knowledge/domains/resume-intelligence.md", ".knowledge/pitfalls/resume-sensitive-data.md"], "modify": [], "candidate": []},
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/recruiting-intelligence-runtime-parity/acceptance/TASK-005.md",
+      "report": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-005-report.md",
+      "notes": []
+    },
+    "TASK-006": {
+      "title": "Restore Deterministic Aggregation and Persistence",
+      "status": "pending",
+      "allowedFiles": ["smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/**", "smart-recruit-ai-agent-service/internal/domain/recruiting_intelligence/**", "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go", "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_recruiting_generation_test.go", "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go", "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_store.go", "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_recruiting_generation_test.go", "smart-recruit-ai-agent-service/internal/interfaces/grpc/*match*test.go", "smart-recruit-ai-agent-service/internal/interfaces/grpc/*persistence*test.go", ".spec/recruiting-intelligence-runtime-parity/reports/**", ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json", ".spec/recruiting-intelligence-runtime-parity/task-scope.json"],
+      "forbiddenFiles": ["smart-recruit-commons/**", "**/.env", "**/.env.*", "**/go.mod", "**/go.sum", "**/package.json", "**/pnpm-lock.yaml", "smart-recruit-proto/**", "db.sql", "smart-recruit-gateway/**", "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "smart-recruit-identity-service/**", "smart-recruit-recruitment-service/**", "smart-recruit-interview-service/**", "smart-recruit-offer-service/**", "smart-recruit-notification-service/**", "smart-recruit-analytics-service/**", "smart-recruit-worker-service/**", "smart-recruit-platform-go/**", "deploy/**", "docker/**", ".github/**", "docs/**", ".spec/recruiting-intelligence-runtime-parity/*-SPEC.md", ".spec/recruiting-intelligence-runtime-parity/*-SDD.md", ".spec/recruiting-intelligence-runtime-parity/TASKS.md", ".spec/recruiting-intelligence-runtime-parity/AGENT_RULES.md", ".spec/recruiting-intelligence-runtime-parity/acceptance/**", ".spec/recruiting-intelligence-runtime-parity/prompts/**", ".spec/recruiting-intelligence-runtime-parity/scripts/**"],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {"review": [".knowledge/architecture/service-boundaries.md", ".knowledge/architecture/agent-runtime.md", ".knowledge/domains/resume-intelligence.md", ".knowledge/pitfalls/resume-sensitive-data.md"], "modify": [], "candidate": []},
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/recruiting-intelligence-runtime-parity/acceptance/TASK-006.md",
+      "report": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-006-report.md",
+      "notes": ["Do not rewrite historical evaluations.", "On 2026-07-15 the user authorized TASK-006 to modify only internal/infrastructure/persistence/native_store.go and native_recruiting_generation_test.go to load real dev legacy scorer inputs; schema, Proto, dependencies, and public APIs remain forbidden.", "On 2026-07-15 the user additionally authorized internal/interfaces/grpc/native_recruiting_generation_test.go only to replace stale aggregate-LLM score assertions with deterministic/no-generic-call semantics."]
+    },
+    "TASK-007": {
+      "title": "Integration Observability and Knowledge",
+      "status": "pending",
+      "allowedFiles": ["smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/**", "smart-recruit-ai-agent-service/internal/domain/recruiting_intelligence/**", "smart-recruit-ai-agent-service/internal/infrastructure/persistence/**", "smart-recruit-ai-agent-service/internal/interfaces/grpc/**", "smart-recruit-ai-agent-service/cmd/ai-agent-service/**", ".knowledge/architecture/agent-runtime.md", ".knowledge/architecture/service-boundaries.md", ".knowledge/domains/ai-configuration-governance.md", ".knowledge/domains/resume-intelligence.md", ".knowledge/runbooks/debug-resume-intelligence.md", ".knowledge/pitfalls/resume-sensitive-data.md", ".spec/recruiting-intelligence-runtime-parity/docs/**", ".spec/recruiting-intelligence-runtime-parity/reports/**", ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json"],
+      "forbiddenFiles": ["smart-recruit-commons/**", "**/.env", "**/.env.*", "**/go.mod", "**/go.sum", "**/package.json", "**/pnpm-lock.yaml", "smart-recruit-proto/**", "db.sql", "smart-recruit-gateway/**", "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "smart-recruit-identity-service/**", "smart-recruit-recruitment-service/**", "smart-recruit-interview-service/**", "smart-recruit-offer-service/**", "smart-recruit-notification-service/**", "smart-recruit-analytics-service/**", "smart-recruit-worker-service/**", "smart-recruit-platform-go/**", "deploy/**", "docker/**", ".github/**", "docs/**", ".spec/recruiting-intelligence-runtime-parity/*-SPEC.md", ".spec/recruiting-intelligence-runtime-parity/*-SDD.md", ".spec/recruiting-intelligence-runtime-parity/TASKS.md", ".spec/recruiting-intelligence-runtime-parity/AGENT_RULES.md", ".spec/recruiting-intelligence-runtime-parity/task-scope.json", ".spec/recruiting-intelligence-runtime-parity/acceptance/**", ".spec/recruiting-intelligence-runtime-parity/prompts/**", ".spec/recruiting-intelligence-runtime-parity/scripts/**"],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {"review": [".knowledge/architecture/system-overview.md", ".knowledge/runbooks/local-development.md", ".knowledge/architecture/service-boundaries.md", ".knowledge/architecture/agent-runtime.md", ".knowledge/architecture/semantic-retrieval.md", ".knowledge/domains/memory-and-context.md", ".knowledge/runbooks/debug-agent-retrieval.md", ".knowledge/domains/ai-configuration-governance.md", ".knowledge/domains/agent-skill.md", ".knowledge/pitfalls/embedding-fallback.md", ".knowledge/domains/mcp-tool-governance.md", ".knowledge/pitfalls/mcp-policy-audit.md", ".knowledge/domains/resume-intelligence.md", ".knowledge/runbooks/debug-resume-intelligence.md", ".knowledge/pitfalls/resume-sensitive-data.md", ".knowledge/runbooks/knowledge-coverage-audit.md"], "modify": [".knowledge/architecture/agent-runtime.md", ".knowledge/architecture/service-boundaries.md", ".knowledge/domains/ai-configuration-governance.md", ".knowledge/domains/resume-intelligence.md", ".knowledge/runbooks/debug-resume-intelligence.md", ".knowledge/pitfalls/resume-sensitive-data.md"], "candidate": []},
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/recruiting-intelligence-runtime-parity/acceptance/TASK-007.md",
+      "report": ".spec/recruiting-intelligence-runtime-parity/reports/TASK-007-report.md",
+      "notes": ["If impact detection requires another knowledge edit, record coverage_gap and stop rather than expanding scope."]
+    }
+  }
+}

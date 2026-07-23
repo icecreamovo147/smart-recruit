@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import { getAgentRuns, getToolTraces } from '@/api/ai'
+import { getActiveAgentRun, subscribeAgentRunEvents } from '@/api/agentRun'
+import { isTerminalAgentRunStatus, type AgentRunEvent } from '@shared/types/agentRun'
 import type {
   AgentRunItem,
   AgentRunPlanJSON,
@@ -11,7 +13,29 @@ import type {
   AgentRunStepItem,
   ToolTraceItem,
 } from '@/types/ai'
-import { debugLog } from '@/utils/debugLog'
+import { debugLog } from '@shared/utils/debugLog'
+import { formatShanghaiDateTime } from '@shared/utils/format'
+import TraceOverview from '@/components/agent-trace/TraceOverview.vue'
+import TraceFilterBar from '@/components/agent-trace/TraceFilterBar.vue'
+import TraceRunSection from '@/components/agent-trace/TraceRunSection.vue'
+import TraceLegacySection from '@/components/agent-trace/TraceLegacySection.vue'
+import TraceJsonBlock from '@/components/agent-trace/TraceJsonBlock.vue'
+import {
+  applyTraceFilters,
+  buildTraceSessionVM,
+  DEFAULT_FILTER_STATE,
+  DEFAULT_LIVE_STATE,
+  DEFAULT_TRACE_PAGE_SIZE,
+  formatToolTitle,
+  nextTraceVisibleCount,
+  paginateTraceItems,
+  resetTraceFilters,
+  toolLabel as resolveToolLabel,
+  type TraceFilterState,
+  type TraceLiveState,
+  type TraceRunVM,
+  type TraceLegacyVM,
+} from '@/components/agent-trace/agentTraceViewModel'
 
 const props = defineProps<{
   sessionId: number | null
@@ -29,6 +53,72 @@ const expandedArgs = ref<Set<number>>(new Set())
 const expandedResult = ref<Set<number>>(new Set())
 const expandedStepInput = ref<Set<number>>(new Set())
 const expandedStepOutput = ref<Set<number>>(new Set())
+const liveState = ref<TraceLiveState>({ ...DEFAULT_LIVE_STATE })
+const liveWarning = ref('')
+let liveAbort: AbortController | null = null
+let liveSubscribeToken = 0
+let liveReconnectTimer: ReturnType<typeof setTimeout> | null = null
+let liveReconnectAttempts = 0
+
+const LIVE_RECONNECT_MAX_ATTEMPTS = 5
+const LIVE_RECONNECT_BASE_MS = 400
+const LIVE_RECONNECT_MAX_MS = 8000
+
+const sessionVM = computed(() => buildTraceSessionVM(runs.value, traces.value, liveState.value))
+const hasTraceData = computed(() => sessionVM.value.overview.hasData || liveState.value.active)
+
+const filterState = ref<TraceFilterState>({ ...DEFAULT_FILTER_STATE })
+const activeLayer = ref<'overview' | 'steps' | 'raw' | 'legacy'>('overview')
+const visibleRunCount = ref(DEFAULT_TRACE_PAGE_SIZE)
+const visibleLegacyCount = ref(DEFAULT_TRACE_PAGE_SIZE)
+
+const filteredVM = computed(() => applyTraceFilters(sessionVM.value, filterState.value))
+const visibleRuns = computed(() => filteredVM.value.runs)
+const visibleLegacy = computed(() => filteredVM.value.legacyTraces)
+const isFilterEmpty = computed(() => filteredVM.value.isFilterEmpty)
+
+const pagedRuns = computed(() => paginateTraceItems(visibleRuns.value, visibleRunCount.value))
+const pagedLegacy = computed(() => paginateTraceItems(visibleLegacy.value, visibleLegacyCount.value))
+const historyTruncationHint = computed(() => {
+  const runTotal = visibleRuns.value.length
+  const legacyTotal = visibleLegacy.value.length
+  if (runTotal <= DEFAULT_TRACE_PAGE_SIZE && legacyTotal <= DEFAULT_TRACE_PAGE_SIZE) return ''
+  return `长历史已分段展示：运行 ${Math.min(visibleRunCount.value, runTotal)}/${runTotal}，兼容轨迹 ${Math.min(visibleLegacyCount.value, legacyTotal)}/${legacyTotal}（前端懒加载，未请求后端分页）`
+})
+
+const loadMoreRuns = () => {
+  visibleRunCount.value = nextTraceVisibleCount(visibleRunCount.value, visibleRuns.value.length)
+}
+const loadMoreLegacy = () => {
+  visibleLegacyCount.value = nextTraceVisibleCount(visibleLegacyCount.value, visibleLegacy.value.length)
+}
+
+watch(filterState, () => {
+  visibleRunCount.value = DEFAULT_TRACE_PAGE_SIZE
+  visibleLegacyCount.value = DEFAULT_TRACE_PAGE_SIZE
+}, { deep: true })
+
+// Wider on desktop; Element Plus accepts CSS length. Mobile uses near-full width via 92vw/100%.
+const drawerSize = computed(() => 'min(860px, 100vw)')
+
+const resetFilters = () => {
+  filterState.value = resetTraceFilters()
+}
+
+/** Map filtered run VMs back to original runs but with filtered steps for timeline rendering. */
+const filteredRunItems = computed(() => {
+  return pagedRuns.value.items.map((runVM: TraceRunVM) => {
+    const stepIds = new Set(runVM.steps.map((s) => s.step.id))
+    return {
+      ...runVM.run,
+      steps: (runVM.run.steps || []).filter((step) => stepIds.has(step.id) || runVM.steps.length === 0),
+    } as AgentRunItem
+  })
+})
+
+const filteredLegacyItems = computed(() =>
+  pagedLegacy.value.items.map((item: TraceLegacyVM) => item.trace),
+)
 
 const md = new MarkdownIt({
   html: false,
@@ -85,7 +175,232 @@ const loadTraces = async () => {
   }
 }
 
+const clearLiveReconnectTimer = () => {
+  if (liveReconnectTimer != null) {
+    clearTimeout(liveReconnectTimer)
+    liveReconnectTimer = null
+  }
+}
+
+const resetLiveReconnect = () => {
+  liveReconnectAttempts = 0
+  clearLiveReconnectTimer()
+}
+
+const stopLiveSubscription = () => {
+  clearLiveReconnectTimer()
+  if (liveAbort) {
+    liveAbort.abort()
+    liveAbort = null
+  }
+  liveSubscribeToken += 1
+}
+
+const applyLiveEvent = (event: AgentRunEvent) => {
+  const status = event.status || liveState.value.status || 'running'
+  const processText = event.snapshot_text
+    || event.delta
+    || event.display_message
+    || event.event_message
+    || event.error_message
+    || (event.tool_name ? `工具: ${formatToolTitle(event.tool_name)}` : liveState.value.processText)
+  liveState.value = {
+    active: !isTerminalAgentRunStatus(status),
+    runId: event.run_id || liveState.value.runId,
+    status,
+    processText: processText || '',
+    lastEventSeq: event.seq ?? liveState.value.lastEventSeq,
+    subscriptionWarning: liveWarning.value || undefined,
+  }
+}
+
+const refreshDurableRunsQuietly = async () => {
+  if (!props.sessionId) return
+  try {
+    const runData = await getAgentRuns(props.sessionId)
+    runs.value = runData.list || []
+  } catch {
+    // Keep existing durable data on refresh failure.
+  }
+}
+
+const shouldReconnectLiveSubscription = (runId: number, token: number): boolean => {
+  const status = liveState.value.status || ''
+  return props.visible
+    && Boolean(props.sessionId)
+    && token === liveSubscribeToken
+    && liveState.value.active
+    && liveState.value.runId === runId
+    && !isTerminalAgentRunStatus(status)
+}
+
+const scheduleLiveReconnect = (runId: number, token: number) => {
+  if (!shouldReconnectLiveSubscription(runId, token)) return
+  if (liveReconnectAttempts >= LIVE_RECONNECT_MAX_ATTEMPTS) {
+    liveWarning.value = liveWarning.value || '实时状态订阅中断，请关闭后重新打开轨迹面板'
+    liveState.value = {
+      ...liveState.value,
+      subscriptionWarning: liveWarning.value,
+    }
+    return
+  }
+
+  const attempt = liveReconnectAttempts
+  liveReconnectAttempts += 1
+  const delay = Math.min(LIVE_RECONNECT_MAX_MS, LIVE_RECONNECT_BASE_MS * 2 ** attempt)
+  clearLiveReconnectTimer()
+  liveReconnectTimer = setTimeout(() => {
+    liveReconnectTimer = null
+    if (!shouldReconnectLiveSubscription(runId, token)) return
+    const afterSeq = liveState.value.lastEventSeq || 0
+    debugLog.trace.info('traceSubscription_reconnect_scheduled', {
+      run_id: runId,
+      after_seq: afterSeq,
+      attempt: liveReconnectAttempts,
+    })
+    void startLiveSubscription(runId, afterSeq, { reconnect: true })
+  }, delay)
+}
+
+const startLiveSubscription = async (
+  runId: number,
+  afterSeq = 0,
+  options: { reconnect?: boolean } = {},
+) => {
+  stopLiveSubscription()
+  const token = ++liveSubscribeToken
+  const controller = new AbortController()
+  liveAbort = controller
+  let terminalSeen = false
+  if (!options.reconnect) {
+    liveReconnectAttempts = 0
+  }
+  liveWarning.value = ''
+  liveState.value = {
+    active: true,
+    runId,
+    status: liveState.value.status || 'running',
+    processText: liveState.value.processText || '实时监听中…',
+    lastEventSeq: afterSeq,
+  }
+  debugLog.trace.info('traceSubscription_started', { run_id: runId, after_seq: afterSeq })
+  try {
+    await subscribeAgentRunEvents(
+      runId,
+      afterSeq,
+      {
+        onEvent: (event) => {
+          if (token !== liveSubscribeToken) return
+          liveReconnectAttempts = 0
+          applyLiveEvent(event)
+          if (
+            isTerminalAgentRunStatus(event.status)
+            || event.event_type === 'run.completed'
+            || event.event_type === 'run.canceled'
+            || event.event_type === 'run.error'
+          ) {
+            terminalSeen = true
+            void refreshDurableRunsQuietly().finally(() => {
+              if (token === liveSubscribeToken) {
+                liveState.value = {
+                  ...liveState.value,
+                  active: false,
+                }
+              }
+            })
+          }
+        },
+        onError: (err) => {
+          if (token !== liveSubscribeToken) return
+          liveWarning.value = err?.message || '实时状态订阅失败，历史轨迹仍可查看'
+          liveState.value = {
+            ...liveState.value,
+            subscriptionWarning: liveWarning.value,
+          }
+          debugLog.trace.error('traceSubscription_failed', {
+            run_id: runId,
+            error: err?.message,
+          })
+        },
+        onDone: () => {
+          if (token !== liveSubscribeToken) return
+          debugLog.trace.info('traceSubscription_closed', { run_id: runId })
+          if (!terminalSeen) {
+            scheduleLiveReconnect(runId, token)
+          }
+        },
+      },
+      { signal: controller.signal },
+    )
+  } catch (e) {
+    if (token !== liveSubscribeToken) return
+    if ((e as Error)?.name === 'AbortError') return
+    liveWarning.value = (e as Error)?.message || '实时状态订阅失败，历史轨迹仍可查看'
+    liveState.value = {
+      ...liveState.value,
+      active: Boolean(liveState.value.runId),
+      subscriptionWarning: liveWarning.value,
+    }
+    debugLog.trace.error('traceSubscription_failed', {
+      run_id: runId,
+      error: (e as Error)?.message,
+    })
+    scheduleLiveReconnect(runId, token)
+  }
+}
+
+const checkActiveRun = async () => {
+  if (!props.sessionId) {
+    stopLiveSubscription()
+    resetLiveReconnect()
+    liveState.value = { ...DEFAULT_LIVE_STATE }
+    liveWarning.value = ''
+    return
+  }
+  debugLog.trace.info('activeRun_check_started', { session_id: props.sessionId })
+  try {
+    const active = await getActiveAgentRun(props.sessionId, { silentError: true })
+    const run = active?.run
+    const status = run?.status || ''
+    if (run?.run_id && !isTerminalAgentRunStatus(status)) {
+      liveState.value = {
+        active: true,
+        runId: run.run_id,
+        status,
+        processText: run.process_text || '执行中…',
+        lastEventSeq: run.last_event_seq || 0,
+      }
+      debugLog.trace.info('activeRun_check_finished', {
+        session_id: props.sessionId,
+        run_id: run.run_id,
+        status,
+      })
+      await startLiveSubscription(run.run_id, run.last_event_seq || 0)
+    } else {
+      stopLiveSubscription()
+      resetLiveReconnect()
+      liveState.value = { ...DEFAULT_LIVE_STATE }
+      debugLog.trace.info('activeRun_check_finished', {
+        session_id: props.sessionId,
+        active: false,
+      })
+    }
+  } catch (e) {
+    // Non-blocking: keep historical traces.
+    liveWarning.value = '无法检查进行中的运行，已展示历史轨迹'
+    liveState.value = {
+      ...liveState.value,
+      subscriptionWarning: liveWarning.value,
+    }
+    debugLog.trace.error('activeRun_check_finished', {
+      session_id: props.sessionId,
+      error: (e as Error)?.message,
+    })
+  }
+}
+
 const close = () => {
+  stopLiveSubscription()
   emit('update:visible', false)
 }
 
@@ -118,11 +433,7 @@ const toggleStepOutput = (id: number) => {
 }
 
 const formatTime = (iso: string): string => {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return iso
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  return formatShanghaiDateTime(iso, '')
 }
 
 const formatJson = (json: string): string => {
@@ -170,6 +481,10 @@ const agentLabels: Record<string, string> = {
 }
 
 const runtimeLabels: Record<string, string> = {
+  'native-hr-runtime': 'HR 招聘运行时',
+  hr_recruiting_agent: 'HR 招聘助手',
+  candidate_ai_assistant: '候选人 AI 助手',
+  candidate_assistant: '候选人 AI 助手',
   adk: 'ADK 运行时',
   legacy: '兼容运行时',
   mock: '模拟运行时',
@@ -179,30 +494,15 @@ const runtimeLabels: Record<string, string> = {
 const intentLabels: Record<string, string> = {
   candidate_match_evaluation: '候选人匹配评估',
   candidate_comparison: '候选人对比',
+  candidate_lookup: '候选人查询',
+  job_listing: '职位列表查询',
+  job_detail: '职位详情查询',
+  application_listing: '投递列表查询',
   analytics: '招聘数据分析',
   status_change_proposal: '状态变更建议',
   interview_prep: '面试准备',
   offer_support: 'Offer 支持',
   unknown: '待澄清意图',
-}
-
-const toolLabels: Record<string, string> = {
-  search_candidates: '搜索候选人',
-  get_candidate_detail: '获取候选人详情',
-  parse_resume_profile: '解析简历画像',
-  evaluate_candidate_match: '评估候选人匹配度',
-  get_candidate_match_evaluation: '读取匹配评估结果',
-  search_jobs: '搜索职位',
-  list_applications_by_job: '查询职位投递列表',
-  compare_candidates_for_job: '对比职位候选人',
-  query_total_applications: '查询累计投递数',
-  query_today_applications: '查询今日投递数',
-  get_job_heat_ranking: '获取职位热度排行',
-  get_application_status_summary: '获取投递状态分布',
-  get_application_trend: '获取投递趋势',
-  propose_application_status_update: '生成状态变更建议',
-  get_resume_profile: '获取简历画像',
-  get_job_detail: '获取职位详情',
 }
 
 const dataLabels: Record<string, string> = {
@@ -292,6 +592,9 @@ const decisionKeyLabels: Record<string, string> = {
   required_tool_count: '所需工具数',
   required_data_count: '所需数据数',
   risk_flag_count: '风险检查数',
+  runtime_warning: '运行告警',
+  warning_count: '告警数',
+  warning_messages: '告警信息',
   unavailable_tool_risk: '工具不可用风险',
   requires_human_confirm: '需要人工确认',
   requires_evidence_citation: '需要证据引用',
@@ -356,6 +659,15 @@ const parseNestedPlanner = (value: unknown): AgentRunRecruitingPlan | null => {
 const runPlan = (run: AgentRunItem): AgentRunPlanJSON | null =>
   parseJsonObject<AgentRunPlanJSON>(run.plan_json)
 
+const runModelDisplayName = (run: AgentRunItem): string => {
+  const fromRun = String(run.model_name || '').trim()
+  if (fromRun) return fromRun
+  const plan = runPlan(run)
+  const fromPlan = typeof plan?.model === 'string' ? plan.model.trim() : ''
+  if (fromPlan) return fromPlan
+  return run.model_id > 0 ? `模型 #${run.model_id}` : '默认模型'
+}
+
 const recruitingPlan = (run: AgentRunItem): AgentRunRecruitingPlan | null => {
   const plan = runPlan(run)
   if (!plan) return null
@@ -405,7 +717,7 @@ const labelFrom = (labels: Record<string, string>, value: unknown): string => {
 const agentLabel = (value: unknown): string => labelFrom(agentLabels, value)
 const runtimeLabel = (value: unknown): string => labelFrom(runtimeLabels, value)
 const intentLabel = (value: unknown): string => labelFrom(intentLabels, value)
-const toolLabel = (value: string): string => labelFrom(toolLabels, value)
+const toolLabel = (value: string): string => resolveToolLabel(value)
 const dataLabel = (value: string): string => labelFrom(dataLabels, value)
 const riskLabel = (value: string): string => labelFrom(riskLabels, value)
 const outputFieldLabel = (value: string): string => labelFrom(outputFieldLabels, value)
@@ -562,7 +874,7 @@ const stepTagType = (step: AgentRunStepItem): 'success' | 'warning' | 'danger' |
 }
 
 const stepTitle = (step: AgentRunStepItem): string => {
-  if (step.tool_name) return step.tool_name
+  if (step.tool_name) return formatToolTitle(step.tool_name)
   if (step.capability_key) return step.capability_key
   return step.step_type
 }
@@ -611,18 +923,34 @@ const previewJson = (json: string, expanded: boolean): string => {
 }
 
 // Reload when drawer opens with a valid session
-watch(() => props.visible, (val) => {
+watch(() => props.visible, async (val) => {
   if (val) {
-    loadTraces()
+    await loadTraces()
+    await checkActiveRun()
+  } else {
+    stopLiveSubscription()
+    resetLiveReconnect()
+    liveState.value = { ...DEFAULT_LIVE_STATE }
+    liveWarning.value = ''
   }
 })
 
 // Reload (or clear) when session changes while the panel is open.
 // loadTraces() already clears runs/traces when sessionId is null.
-watch(() => props.sessionId, () => {
+watch(() => props.sessionId, async () => {
+  stopLiveSubscription()
+  resetLiveReconnect()
+  liveState.value = { ...DEFAULT_LIVE_STATE }
+  liveWarning.value = ''
   if (props.visible) {
-    loadTraces()
+    await loadTraces()
+    await checkActiveRun()
   }
+})
+
+onBeforeUnmount(() => {
+  stopLiveSubscription()
+  resetLiveReconnect()
 })
 </script>
 
@@ -631,17 +959,60 @@ watch(() => props.sessionId, () => {
     :model-value="visible"
     @update:model-value="(val: boolean) => emit('update:visible', val)"
     title="Agent 执行轨迹"
-    size="560px"
-    :close-on-click-modal="false"
+    :size="drawerSize"
+    class="agent-trace-drawer"
+    :close-on-click-modal="true"
   >
     <div class="trace-panel" v-loading="loading">
-      <template v-if="runs.length === 0 && traces.length === 0 && !loading">
+      <template v-if="!hasTraceData && !loading">
         <el-empty description="本次会话暂无 Agent 执行记录" />
       </template>
 
-      <div v-if="runs.length > 0" class="run-list">
+      <template v-if="hasTraceData">
+        <TraceOverview :overview="sessionVM.overview" />
+        <div v-if="liveState.active || liveWarning" class="live-status" data-testid="trace-live-status">
+          <el-alert
+            v-if="liveState.active"
+            :title="`实时执行中${liveState.status ? ' · ' + (statusLabels[liveState.status] || liveState.status) : ''}`"
+            :description="liveState.processText || '正在接收执行事件'"
+            type="info"
+            :closable="false"
+            show-icon
+          />
+          <el-alert
+            v-if="liveWarning"
+            class="live-status__warning"
+            :title="liveWarning"
+            type="warning"
+            :closable="false"
+            show-icon
+          />
+        </div>
+        <TraceFilterBar v-model="filterState" @reset="resetFilters" />
+        <el-alert
+          v-if="historyTruncationHint"
+          class="history-truncation"
+          data-testid="trace-history-truncation"
+          :title="historyTruncationHint"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+
+        <div v-if="isFilterEmpty" class="filter-empty" data-testid="trace-filter-empty">
+          <el-empty description="没有符合当前筛选条件的轨迹">
+            <el-button type="primary" @click="resetFilters">重置筛选</el-button>
+          </el-empty>
+        </div>
+
+        <el-tabs v-else v-model="activeLayer" class="trace-layers" data-testid="trace-layers">
+          <el-tab-pane label="概览/计划" name="overview">
+            <TraceRunSection :is-empty="filteredRunItems.length === 0" empty-text="当前筛选下没有运行计划">
+              <div v-if="filteredRunItems.length > 0" class="run-list">
+
         <section
-          v-for="run in runs"
+          v-for="run in filteredRunItems"
+          :id="'run-' + run.id"
           :key="run.id"
           class="run-item"
         >
@@ -649,7 +1020,7 @@ watch(() => props.sessionId, () => {
             <div>
               <div class="run-item__title">{{ runAgentName(run) }}</div>
               <div class="run-item__meta">
-                {{ run.model_name || '未记录模型' }} · {{ formatTime(run.started_at || run.created_at) }}
+                {{ runModelDisplayName(run) }} · {{ formatTime(run.started_at || run.created_at) }}
               </div>
             </div>
             <el-tag :type="statusTagType(run.status)" size="small">
@@ -817,14 +1188,19 @@ watch(() => props.sessionId, () => {
             <div class="final-answer__content md-content" v-html="renderMarkdown(run.final_answer)"></div>
           </div>
 
-          <el-timeline class="run-steps">
+          <!-- steps moved to 执行步骤 tab; keep compact error only in overview -->
+          <el-timeline v-if="false" class="run-steps">
             <el-timeline-item
               v-for="step in run.steps"
               :key="step.id"
               :color="step.status === 'failed' ? 'var(--el-color-danger)' : isEvidenceStep(step) ? 'var(--el-color-warning)' : 'var(--el-color-primary)'"
               :timestamp="formatTime(step.started_at || step.created_at)"
             >
-              <div class="trace-item" :class="{ 'trace-item--evidence': isEvidenceStep(step) }">
+              <div
+                :id="'step-' + run.id + '-' + step.id"
+                class="trace-item"
+                :class="{ 'trace-item--evidence': isEvidenceStep(step) }"
+              >
                 <div class="trace-item__header">
                   <span class="trace-item__name" :class="{ 'trace-item__name--error': step.status === 'failed' }">
                     {{ stepTitle(step) }}
@@ -899,22 +1275,145 @@ watch(() => props.sessionId, () => {
             </el-timeline-item>
           </el-timeline>
         </section>
-      </div>
+              </div>
+            </TraceRunSection>
+            <div v-if="pagedRuns.hasMore" class="lazy-more">
+              <el-button data-testid="trace-load-more-runs" @click="loadMoreRuns">
+                加载更多运行（{{ pagedRuns.visibleCount }}/{{ pagedRuns.total }}）
+              </el-button>
+            </div>
+          </el-tab-pane>
 
-      <div v-if="traces.length > 0" class="legacy-traces">
-        <div class="legacy-traces__title">兼容工具调用明细</div>
+          <el-tab-pane label="执行步骤" name="steps">
+            <TraceRunSection :is-empty="filteredRunItems.length === 0" empty-text="当前筛选下没有执行步骤">
+              <div v-if="filteredRunItems.length > 0" class="run-list">
+                <section
+                  v-for="run in filteredRunItems"
+                  :key="'steps-' + run.id"
+                  class="run-item"
+                >
+                  <div class="run-item__header">
+                    <div>
+                      <div class="run-item__title">{{ runAgentName(run) }}</div>
+                      <div class="run-item__meta">
+                        {{ runModelDisplayName(run) }} · {{ formatTime(run.started_at || run.created_at) }}
+                      </div>
+                    </div>
+                    <el-tag :type="statusTagType(run.status)" size="small">
+                      {{ statusLabels[run.status] || run.status }}
+                    </el-tag>
+                  </div>
+                  <el-timeline class="run-steps">
+                    <el-timeline-item
+                      v-for="step in run.steps"
+                      :key="step.id"
+                      :color="step.status === 'failed' ? 'var(--el-color-danger)' : isEvidenceStep(step) ? 'var(--el-color-warning)' : 'var(--el-color-primary)'"
+                      :timestamp="formatTime(step.started_at || step.created_at)"
+                    >
+                      <div
+                        :id="'step-' + run.id + '-' + step.id"
+                        class="trace-item"
+                        :class="{ 'trace-item--evidence': isEvidenceStep(step) }"
+                      >
+                        <div class="trace-item__header">
+                          <span class="trace-item__name" :class="{ 'trace-item__name--error': step.status === 'failed' }">
+                            {{ stepTitle(step) }}
+                          </span>
+                          <el-tag :type="stepTagType(step)" size="small" effect="plain">
+                            {{ stepTypeLabel(step) }} · {{ statusLabels[step.status] || step.status }}
+                          </el-tag>
+                          <el-tag v-if="isEvidenceStep(step)" type="warning" size="small" effect="dark">
+                            Evidence
+                          </el-tag>
+                        </div>
+                        <div class="trace-item__duration">
+                          耗时：<strong>{{ step.duration_ms || 0 }}</strong> ms
+                          <span v-if="step.capability_source || step.capability_key">
+                            · {{ step.capability_source }} {{ step.capability_key }}
+                          </span>
+                          <span v-if="stepSummary(step)"> · {{ stepSummary(step) }}</span>
+                        </div>
+                        <div v-if="policyDecisionFromJson(step.output_json)" class="policy-decision">
+                          <el-tag
+                            :type="policyDecisionTagType(policyDecisionFromJson(step.output_json)?.decision || '')"
+                            size="small"
+                            effect="plain"
+                          >
+                            MCP 策略：{{ policyDecisionLabels[policyDecisionFromJson(step.output_json)?.decision || ''] || policyDecisionFromJson(step.output_json)?.decision }}
+                          </el-tag>
+                          <span v-if="policyDecisionFromJson(step.output_json)?.reason" class="policy-decision__reason">
+                            {{ policyDecisionFromJson(step.output_json)?.reason }}
+                          </span>
+                        </div>
+                        <el-alert
+                          v-if="step.error_message"
+                          :title="step.error_message"
+                          type="error"
+                          :closable="false"
+                          show-icon
+                        />
+                      </div>
+                    </el-timeline-item>
+                  </el-timeline>
+                </section>
+              </div>
+            </TraceRunSection>
+            <div v-if="pagedRuns.hasMore" class="lazy-more">
+              <el-button data-testid="trace-load-more-runs-steps" @click="loadMoreRuns">
+                加载更多运行（{{ pagedRuns.visibleCount }}/{{ pagedRuns.total }}）
+              </el-button>
+            </div>
+          </el-tab-pane>
+
+          <el-tab-pane label="原始数据" name="raw">
+            <TraceRunSection :is-empty="filteredRunItems.every(r => !(r.steps || []).length)" empty-text="当前筛选下没有原始数据">
+              <div class="run-list">
+                <section v-for="run in filteredRunItems" :key="'raw-' + run.id" class="run-item">
+                  <div class="run-item__title">{{ runAgentName(run) }}</div>
+                  <div class="raw-step-list">
+                    <div
+                      v-for="step in run.steps"
+                      :key="'raw-step-' + step.id"
+                      class="trace-item raw-step"
+                    >
+                      <div class="raw-step__header">
+                        <div class="trace-item__name">{{ stepTitle(step) }}</div>
+                      </div>
+                      <div class="raw-step__body">
+                        <div v-if="step.input_json" class="trace-item__section">
+                          <TraceJsonBlock :content="step.input_json" label="输入" />
+                        </div>
+                        <div v-if="step.output_json" class="trace-item__section">
+                          <TraceJsonBlock :content="step.output_json" label="输出" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </TraceRunSection>
+            <div v-if="pagedRuns.hasMore" class="lazy-more">
+              <el-button @click="loadMoreRuns">
+                加载更多运行（{{ pagedRuns.visibleCount }}/{{ pagedRuns.total }}）
+              </el-button>
+            </div>
+          </el-tab-pane>
+
+          <el-tab-pane label="兼容轨迹" name="legacy">
+            <TraceLegacySection :is-empty="filteredLegacyItems.length === 0">
+              <div v-if="filteredLegacyItems.length > 0" class="legacy-traces">
         <el-timeline>
           <el-timeline-item
-            v-for="item in traces"
+            v-for="item in filteredLegacyItems"
             :key="item.id"
             :color="item.error_msg ? 'var(--el-color-danger)' : 'var(--el-color-primary)'"
             :timestamp="formatTime(item.created_at)"
           >
-            <div class="trace-item">
+            <div :id="'legacy-' + item.id" class="trace-item">
               <!-- Tool name -->
               <div class="trace-item__header">
                 <span class="trace-item__name" :class="{ 'trace-item__name--error': !!item.error_msg }">
-                  {{ item.tool_name }}
+                  {{ formatToolTitle(item.tool_name) }}
                 </span>
                 <el-tag
                   v-if="item.error_msg"
@@ -953,38 +1452,12 @@ watch(() => props.sessionId, () => {
 
               <!-- Args -->
               <div v-if="item.args_json" class="trace-item__section">
-                <div class="trace-item__label">入参：</div>
-                <div
-                  class="trace-item__code"
-                  :class="{ 'trace-item__code--collapsed': item.args_json.length > 200 && !expandedArgs.has(item.id) }"
-                >
-                  <pre>{{ expandedArgs.has(item.id) ? formatJson(item.args_json) : formatJson(item.args_json).slice(0, 200) }}</pre>
-                </div>
-                <button
-                  v-if="item.args_json.length > 200"
-                  class="trace-item__toggle"
-                  @click="toggleArgs(item.id)"
-                >
-                  {{ expandedArgs.has(item.id) ? '收起' : '展开全部' }}
-                </button>
+                <TraceJsonBlock :content="item.args_json" label="入参" />
               </div>
 
               <!-- Result -->
               <div v-if="item.result_content" class="trace-item__section">
-                <div class="trace-item__label">结果：</div>
-                <div
-                  class="trace-item__result"
-                  :class="{ 'trace-item__result--collapsed': item.result_content.length > 200 && !expandedResult.has(item.id) }"
-                >
-                  {{ expandedResult.has(item.id) ? item.result_content : item.result_content.slice(0, 200) }}
-                </div>
-                <button
-                  v-if="item.result_content.length > 200"
-                  class="trace-item__toggle"
-                  @click="toggleResult(item.id)"
-                >
-                  {{ expandedResult.has(item.id) ? '收起' : '展开全部' }}
-                </button>
+                <TraceJsonBlock :content="item.result_content" label="结果" />
               </div>
 
               <!-- Error message -->
@@ -999,7 +1472,16 @@ watch(() => props.sessionId, () => {
             </div>
           </el-timeline-item>
         </el-timeline>
-      </div>
+              </div>
+            </TraceLegacySection>
+            <div v-if="pagedLegacy.hasMore" class="lazy-more">
+              <el-button data-testid="trace-load-more-legacy" @click="loadMoreLegacy">
+                加载更多兼容轨迹（{{ pagedLegacy.visibleCount }}/{{ pagedLegacy.total }}）
+              </el-button>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </template>
     </div>
   </el-drawer>
 </template>
@@ -1168,25 +1650,101 @@ watch(() => props.sessionId, () => {
 
 .final-answer {
   border-left: 3px solid var(--el-color-success);
+  border-radius: 0 6px 6px 0;
   padding: 8px 10px;
   margin-bottom: 12px;
-  background: var(--el-color-success-light-9);
+  /* color-mix 随 surface 自适应，避免 success-light-9 在未加载 EP dark css-vars 时仍为浅底 */
+  background: color-mix(in srgb, var(--el-color-success) 12%, var(--surface));
+  color: var(--text-primary);
 }
 
 .final-answer__content {
   font-size: 13px;
   line-height: 1.6;
-  color: var(--el-text-color-primary);
+  color: var(--text-primary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .final-answer__content.md-content {
   white-space: normal;
+  color: inherit;
+}
+
+.final-answer__content.md-content :deep(h1),
+.final-answer__content.md-content :deep(h2),
+.final-answer__content.md-content :deep(h3),
+.final-answer__content.md-content :deep(strong),
+.final-answer__content.md-content :deep(b) {
+  color: var(--text-primary);
+}
+
+.final-answer__content.md-content :deep(a) {
+  color: var(--brand);
+}
+
+.final-answer__content.md-content :deep(a:hover) {
+  color: var(--brand-strong);
+}
+
+.final-answer__content.md-content :deep(code) {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+
+.final-answer__content.md-content :deep(th),
+.final-answer__content.md-content :deep(td) {
+  border-color: var(--border);
+}
+
+.final-answer__content.md-content :deep(th) {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+
+.final-answer__content.md-content :deep(blockquote) {
+  background: var(--brand-soft);
+  color: var(--text-primary);
+  border-left-color: var(--brand);
 }
 
 .run-steps {
   margin-top: 8px;
+}
+
+.raw-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.raw-step {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
+  overflow: hidden;
+}
+
+.raw-step__header {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+  background: var(--el-fill-color-extra-light);
+}
+
+.raw-step__header .trace-item__name {
+  margin: 0;
+}
+
+.raw-step__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.raw-step__body .trace-item__section {
+  margin-bottom: 0;
 }
 
 .legacy-traces {
@@ -1205,10 +1763,21 @@ watch(() => props.sessionId, () => {
   line-height: 1.5;
 }
 
+/* Evidence：轻量 callout，避免黄色横向渐变在亮/暗色下都显脏 */
 .trace-item--evidence {
+  margin-top: 2px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--el-color-warning) 22%, var(--border));
   border-left: 3px solid var(--el-color-warning);
-  padding-left: 8px;
-  background: linear-gradient(90deg, var(--el-color-warning-light-9), transparent 70%);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--el-color-warning) 8%, var(--surface));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--el-color-warning) 10%, transparent);
+}
+
+.trace-item--evidence .trace-item__code,
+.trace-item--evidence .trace-item__result {
+  background: color-mix(in srgb, var(--surface-muted) 88%, var(--el-color-warning) 12%);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--el-color-warning) 20%);
 }
 
 .trace-item__header {
@@ -1322,5 +1891,44 @@ watch(() => props.sessionId, () => {
   .selection-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.agent-trace-drawer :deep(.el-drawer) {
+  max-width: 100vw;
+}
+
+.agent-trace-drawer :deep(.el-drawer__body) {
+  overflow-x: hidden;
+}
+
+@media (max-width: 767px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .selection-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.live-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.live-status__warning {
+  margin-top: 0;
+}
+
+.history-truncation {
+  margin-bottom: 10px;
+}
+
+.lazy-more {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 4px;
 }
 </style>

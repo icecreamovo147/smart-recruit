@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-025",
+  "base_sha": "c2b542c7424ebc6ca38049c300462f971c1d0e40",
+  "base_tree": "813f042dfec1bcd1a876ce1231abbde65e62f513",
+  "head_sha": "c2b542c7424ebc6ca38049c300462f971c1d0e40",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-025-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-025-report.md",
+    ".spec/microservice-runtime-implementation/scripts/agent-check.sh",
+    "logic-grpc-service/internal/platform/events/boundary.go",
+    "logic-grpc-service/internal/platform/events/boundary_test.go",
+    "logic-grpc-service/mq/envelope.go",
+    "logic-grpc-service/mq/envelope_test.go",
+    "scripts/check-idempotent-consumers.mjs"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=813f042dfec1bcd1a876ce1231abbde65e62f513 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-025",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-*/**",
+      "logic-grpc-service/internal/platform/events/**",
+      "logic-grpc-service/mq/**",
+      "scripts/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "cd logic-grpc-service && GOWORK=off go test ./internal/platform/events ./mq", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:52:00.000Z", "duration_ms": 2028},
+    {"command": "node scripts/check-idempotent-consumers.mjs", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:52:00.000Z", "duration_ms": 9},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:54:00.000Z", "duration_ms": 9},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 813f042dfec1bcd1a876ce1231abbde65e62f513 --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:54:01.000Z", "duration_ms": 327},
+    {"command": "TASK_BASE_TREE=813f042dfec1bcd1a876ce1231abbde65e62f513 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-025", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:56:00.000Z", "duration_ms": 337},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:56:30.000Z", "duration_ms": 16737},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-025-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:00:00.000Z", "duration_ms": 60}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T12:00:00Z", "source": "TASK-MRI-025 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [
+    {"check": "Live RabbitMQ publish/consume integration", "reason": "Integration test remains gated by RABBITMQ_TEST_URL; this TASK adds unit-level envelope/consumer safety checks and a runnable idempotency check without requiring a live broker."}
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed", "recurring-defect-fixed", "service-boundary-changed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/service-boundaries.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active source_refs; TASK-MRI-025 adds explicit cross-service event consumer boundaries, envelope-aware mq APIs, retry/DLQ/replay plans, and idempotency checks without changing public APIs."]},
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active source_refs; event boundaries reinforce existing microservice runtime direction and preserve single MySQL plus RabbitMQ service communication constraints."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local guidance; no start-dev or compose commands changed."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

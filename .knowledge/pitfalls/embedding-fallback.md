@@ -10,43 +10,22 @@ tags:
   - embedding
   - fallback
   - retrieval
-  - debug
 applies_to:
-  - logic-grpc-service/service/embedding_service.go
-  - logic-grpc-service/service/embedding_provider_factory.go
-  - logic-grpc-service/service/agent_skill_selector.go
-  - logic-grpc-service/service/agent_context.go
+  - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
+  - platform-frontend/src/views/ai/SemanticRetrievalDebugView.vue
 source_refs:
-  - logic-grpc-service/service/embedding_service.go
-  - logic-grpc-service/service/embedding_provider_factory.go
-  - logic-grpc-service/service/agent_skill_selector.go
-  - logic-grpc-service/service/agent_skill_service.go
-last_verified: 2026-07-10
-review_after: 2026-10-08
+  - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/provider/doc.go
+  - smart-recruit-ai-agent-service/internal/domain/policy/capability.go
+  - platform-frontend/src/views/ai/SemanticRetrievalDebugView.vue
+last_verified: 2026-07-23
+review_after: 2026-10-21
 ---
 
 # Embedding Fallback Pitfall
 
-Embedding unavailable is a valid runtime state, not a successful semantic retrieval. The code has explicit unavailable provider behavior, status values, and debug metadata. Treating fallback as a normal vector-backed result can mislead ranking review and product debugging.
-
-## Trigger Conditions
-
-- Provider configuration is missing, invalid, or cannot be built.
-- Provider call fails during embedding creation or search.
-- Vector data is empty, invalid, or has mismatched dimensions.
-- Debug endpoints reuse stale or overwritten search metadata.
-
-## Risk
-
-Agent Skill ranking or memory recall may still produce results, but the results are not evidence that embedding search worked. Debug UIs can look healthy if they show candidates without also surfacing provider availability and fallback reason.
-
-## Prevention
-
-- Preserve explicit unavailable status and fallback reason.
-- Keep provider/model/dimension/candidate count/latency metadata accurate for the current request.
-- Test fallback paths separately from vector-backed paths.
-- Do not use semantic score alone as proof of relevance.
+Embedding outages, disabled provider/model config, dimension mismatches, or credential failures must degrade explicitly. Retrieval should fall back to rule/lexical behavior with visible status instead of silently losing context. `ResolveEmbeddingRuntime` marks unavailable/invalid embedding configuration with `FallbackUsed` and a concrete `FallbackReason` rather than pretending vectors remain available.
 
 ## Verification
 
-This pitfall was verified from `EmbeddingService`, provider factory, Skill selector, and semantic debug service code on 2026-07-10.
+Verified against embedding runtime resolution in capability policy/service and the Semantic Retrieval debug surface on 2026-07-23.

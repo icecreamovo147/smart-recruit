@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "recruiting-intelligence-runtime-parity",
+  "task_id": "TASK-002",
+  "base_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+  "base_tree": "338c74c96c20f6f89b2ee8c4166347cbdd997468",
+  "head_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+  "started_at": "2026-07-15T03:09:38Z",
+  "ended_at": "2026-07-15T03:30:33Z",
+  "changed_files": [
+    ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json",
+    ".spec/recruiting-intelligence-runtime-parity/reports/TASK-002-evidence.json",
+    ".spec/recruiting-intelligence-runtime-parity/reports/TASK-002-report.md",
+    "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go",
+    "smart-recruit-ai-agent-service/cmd/ai-agent-service/main_test.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/runtime_policy.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/runtime_policy_test.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_recruiting_policy_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "338c74c96c20f6f89b2ee8c4166347cbdd997468",
+    "forbidden": [],
+    "out_of_scope": [],
+    "fixer_did_not_edit": [".spec/recruiting-intelligence-runtime-parity/pipeline-state.json"]
+  },
+  "checks": [
+    {"command": "GOWORK=off go test -count=1 ./internal/application/recruiting_intelligence ./internal/interfaces/grpc ./cmd/ai-agent-service", "working_directory": "smart-recruit-ai-agent-service", "started_at": "2026-07-15T03:25:00Z", "duration_ms": 4500, "exit_code": 0, "status": "passed"},
+    {"command": "GOWORK=off go test ./...", "working_directory": "smart-recruit-ai-agent-service", "started_at": "2026-07-15T03:29:45Z", "duration_ms": 380, "exit_code": 0, "status": "passed"},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 338c74c96c20f6f89b2ee8c4166347cbdd997468", "working_directory": ".", "started_at": "2026-07-15T03:29:00Z", "duration_ms": 1120, "exit_code": 0, "status": "passed"},
+    {"command": "git diff --name-only inventory; git diff --check", "working_directory": ".", "started_at": "2026-07-15T03:30:20Z", "duration_ms": 100, "exit_code": 0, "status": "passed"},
+    {"command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-002", "working_directory": ".", "started_at": "2026-07-15T03:29:02Z", "duration_ms": 860, "exit_code": 0, "status": "passed"},
+    {"command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh", "working_directory": ".", "started_at": "2026-07-15T03:29:03Z", "duration_ms": 5650, "exit_code": 0, "status": "passed"},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/recruiting-intelligence-runtime-parity/reports/TASK-002-evidence.json --allow-pending-review --require-knowledge-impact", "working_directory": ".", "started_at": "2026-07-15T03:31:00Z", "duration_ms": 100, "exit_code": 0, "status": "passed"}
+  ],
+  "review": {
+    "type": "independent_agent",
+    "round": 2,
+    "verdict": "通过",
+    "reviewer_type": "fresh independent read-only subagent",
+    "reviewer": "independent-read-only-subagent:/root/task002_reviewer_r2",
+    "completed_at": "2026-07-15T03:40:24Z",
+    "notes": ["No critical, high, medium, or low findings; R1-H1 and R1-M1 are closed and all required checks were independently reproduced."],
+    "history": [
+      {
+        "round": 1,
+        "reviewer": "independent-read-only-subagent:/root/task002_reviewer_r1",
+        "verdict": "不通过",
+        "findings": [
+          {"id": "R1-H1", "severity": "High", "summary": "semantic=false was incorrectly treated as total candidate-match failure, breaking deterministic primary and enhanced shadow intent"},
+          {"id": "R1-M1", "severity": "Medium", "summary": "tests did not independently cover all seven mappings, candidate_match overall disablement, and semantic/shadow combinations"}
+        ]
+      },
+      {
+        "round": 2,
+        "reviewer": "independent-read-only-subagent:/root/task002_reviewer_r2",
+        "verdict": "通过",
+        "findings": []
+      }
+    ]
+  },
+  "repair": {
+    "round": 1,
+    "mode": "fix-check-failures",
+    "fixed_findings": ["R1-H1", "R1-M1"],
+    "root_cause": "candidate_match_semantic was modeled as a capability gate rather than a primary execution selector, and mapping/combination tests were incomplete",
+    "files_changed": [
+      "smart-recruit-ai-agent-service/cmd/ai-agent-service/main_test.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/runtime_policy.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/runtime_policy_test.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go",
+      ".spec/recruiting-intelligence-runtime-parity/reports/TASK-002-report.md",
+      ".spec/recruiting-intelligence-runtime-parity/reports/TASK-002-evidence.json"
+    ],
+    "status": "completed"
+  },
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_by": "not_required", "confirmed_at": "2026-07-15T03:09:38Z", "confirmation_text": "TASK-002 does not require human confirmation."},
+  "exceptions": [],
+  "skipped_checks": [
+    {"check": "live provider smoke test", "reason": "TASK-002 policy and execution intent are covered with deterministic fakes and have no live-provider acceptance behavior."}
+  ],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/runtime_policy.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+    ],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/agent-runtime.md", "verdict": "CANDIDATE", "evidence": ["source_refs verified; immutable recruiting execution intent and operation deadlines should be documented in TASK-007"]},
+      {"document": ".knowledge/domains/agent-skill.md", "verdict": "UNCHANGED", "evidence": ["Agent Skill selection and persistence are unaffected"]},
+      {"document": ".knowledge/domains/ai-configuration-governance.md", "verdict": "CANDIDATE", "evidence": ["source_refs verified; runtime consumes existing seven settings and distinguishes overall, primary, and shadow intent"]},
+      {"document": ".knowledge/architecture/api-contracts-and-gateway.md", "verdict": "UNCHANGED", "evidence": ["no wire or gateway contract changed"]},
+      {"document": ".knowledge/runbooks/debug-agent-retrieval.md", "verdict": "UNCHANGED", "evidence": ["retrieval diagnostics are unaffected"]},
+      {"document": ".knowledge/pitfalls/embedding-fallback.md", "verdict": "UNCHANGED", "evidence": ["embedding fallback is unaffected"]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["startup and validation commands remain unchanged"]},
+      {"document": ".knowledge/pitfalls/mcp-policy-audit.md", "verdict": "UNCHANGED", "evidence": ["MCP policy and audit are unaffected"]},
+      {"document": ".knowledge/domains/mcp-tool-governance.md", "verdict": "UNCHANGED", "evidence": ["MCP governance is unaffected"]},
+      {"document": ".knowledge/domains/memory-and-context.md", "verdict": "UNCHANGED", "evidence": ["chat memory and context assembly are unaffected"]},
+      {"document": ".knowledge/runbooks/protobuf-and-migration-change.md", "verdict": "UNCHANGED", "evidence": ["no Proto, migration, schema, or persistence contract changed"]},
+      {"document": ".knowledge/pitfalls/protobuf-synchronization.md", "verdict": "UNCHANGED", "evidence": ["canonical Proto and generated contracts are unchanged"]},
+      {"document": ".knowledge/domains/resume-intelligence.md", "verdict": "CANDIDATE", "evidence": ["source_refs verified; candidate matching now exposes immutable deterministic/enhanced primary and opposite-shadow intent for TASK-007 documentation"]},
+      {"document": ".knowledge/pitfalls/resume-sensitive-data.md", "verdict": "UNCHANGED", "evidence": ["no candidate PII, raw prompts, or model output was added to logs or evidence"]},
+      {"document": ".knowledge/architecture/semantic-retrieval.md", "verdict": "UNCHANGED", "evidence": ["candidate matching policy does not alter Agent Skill or memory semantic retrieval"]},
+      {"document": ".knowledge/runbooks/service-binary-convention.md", "verdict": "UNCHANGED", "evidence": ["service identity and deployment conventions are unchanged"]},
+      {"document": ".knowledge/architecture/service-boundaries.md", "verdict": "UNCHANGED", "evidence": ["AI Agent ownership and cross-service boundaries remain unchanged"]},
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["repository service and shared-component ownership remain unchanged"]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "privacy": {"status": "passed", "candidate_pii_present": false, "raw_prompts_present": false, "raw_model_output_present": false, "secrets_present": false},
+  "next_task_ready": true,
+  "next_task_blocker": ""
+}

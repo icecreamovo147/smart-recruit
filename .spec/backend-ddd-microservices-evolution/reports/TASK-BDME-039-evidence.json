@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-039",
+  "base_sha": "185f2137a027096b1facc151ac405cbcdce76b08",
+  "base_tree": "fdc6491610228ff62082e6d83dd3fc9ebbf7ec5a",
+  "head_sha": "185f2137a027096b1facc151ac405cbcdce76b08",
+  "changed_files": [
+    ".knowledge/architecture/api-contracts-and-gateway.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/domains/recruitment-lifecycle.md",
+    ".knowledge/domains/recruitment.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-039-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-039-evidence.json",
+    "deploy/k8s/configmap.yaml",
+    "docker/docker-compose.yml",
+    "docs/backend-ddd-microservices-evolution-recruitment-gateway-cutover.md",
+    "web-gin-service/config/config.go",
+    "web-gin-service/config/config_test.go",
+    "web-gin-service/main.go",
+    "web-gin-service/rpc/client.go",
+    "web-gin-service/rpc/client_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "fdc6491610228ff62082e6d83dd3fc9ebbf7ec5a",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/api-contracts-and-gateway.md",
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/domains/recruitment-lifecycle.md",
+      ".knowledge/domains/recruitment.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-039-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-039-evidence.json",
+      "deploy/k8s/configmap.yaml",
+      "docker/docker-compose.yml",
+      "docs/backend-ddd-microservices-evolution-recruitment-gateway-cutover.md",
+      "web-gin-service/config/config.go",
+      "web-gin-service/config/config_test.go",
+      "web-gin-service/main.go",
+      "web-gin-service/rpc/client.go",
+      "web-gin-service/rpc/client_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T17:51:00Z",
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "cd web-gin-service && go test ./config ./rpc",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 1571,
+      "started_at": "2026-07-11T17:50:00Z",
+      "summary": "Focused gateway config and rpc tests passed."
+    },
+    {
+      "command": "TASK_BASE_TREE=fdc6491610228ff62082e6d83dd3fc9ebbf7ec5a bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-039",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 482,
+      "started_at": "2026-07-11T17:51:00Z",
+      "summary": "scope_result: PASS (TASK-BDME-039)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 6490,
+      "started_at": "2026-07-11T17:51:00Z",
+      "summary": "Feature validation, git diff whitespace check, web-gin-service gofmt check, web-gin-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "cd web-gin-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 5912,
+      "started_at": "2026-07-11T17:51:00Z",
+      "summary": "All web-gin-service packages passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 1105,
+      "started_at": "2026-07-11T17:51:00Z",
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree fdc6491610228ff62082e6d83dd3fc9ebbf7ec5a --json",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 195,
+      "started_at": "2026-07-11T17:51:00Z",
+      "summary": "impact_result: update_required; no coverage gaps."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T17:51:00Z",
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T17:50:00Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "public-api-changed",
+      "recurring-defect-fixed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented the Recruitment route switch, rollback default, and target-address requirement."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented default monolith routing and explicit Recruitment route mode."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented Recruitment generated client routing to RECRUITMENT_GRPC_ADDR only when explicitly configured."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented ApplicationService route mode behavior and rollback."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented the Recruitment gateway route switch and fail-fast target requirement."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added the Recruitment gateway cutover document to service-binary routing."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend boundary route; active topology remains unchanged because default routing stays on the monolith."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due compose/config changes; local defaults remain rollback-safe and require no procedure change."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-binary route; notification/outbox behavior is unchanged by the gateway switch default."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge route; no audit procedure changes were required."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

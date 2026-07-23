@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 2,
+  "changeRequestId": "CR-0006",
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "baseRevision": 6,
+  "status": "applied",
+  "classification": "scope_correction",
+  "approvalLevel": "L0",
+  "reason": "TASK-004 changes durable Agent Run identity, privacy-safe governance evidence, and streaming event semantics. Independent Review correctly found that requiredKnowledgeImpact is true while TASK-004 knowledge.modify is empty, so the routed active documents cannot be updated and passing Evidence would be untruthful. This correction adds only the three already-reviewed routed documents to TASK-004 write scope and changes no product behavior, requirement, API, schema, dependency, security policy, acceptance criterion, or check.",
+  "evidenceRefs": [
+    "repo://.knowledge/architecture/agent-runtime.md",
+    "repo://.knowledge/domains/ai-configuration-governance.md",
+    "repo://.knowledge/domains/agent-skill.md",
+    "repo://smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go#agentRunResultPayload",
+    "repo://smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go#agentRunEventTypeFromChatEvent"
+  ],
+  "trigger": {
+    "task_id": "TASK-004",
+    "phase": "review"
+  },
+  "impact": {
+    "requirements": [
+      "OBS-001",
+      "EVT-001",
+      "KNOW-001"
+    ],
+    "tasks": [
+      "TASK-004",
+      "TASK-005"
+    ],
+    "completedTasksRequiringRevalidation": []
+  },
+  "revalidationPlan": [
+    "TASK-004",
+    "TASK-005"
+  ],
+  "resultingRevision": 7,
+  "approval": {
+    "approved_by": "cr6-reviewer-r1",
+    "approved_at": "2026-07-16T15:45:00+08:00",
+    "decision": "approve"
+  },
+  "updates": [
+    {
+      "target": "contract.json",
+      "staged_file": "changes/CR-0006/contract.json",
+      "before_sha256": "4e2f9040e32052d119ccc1d91313204b0415e98ded81e4ce086ae65ef09b9b83",
+      "after_sha256": "30ef3cd0ac9c24c63e55c9f8ba17307fa0db4cc2b8588748eff9a6c7ec21144a"
+    },
+    {
+      "target": "task-scope.json",
+      "staged_file": "changes/CR-0006/task-scope.json",
+      "before_sha256": "82557ea60e05655cceff5cbfce2af6960859aaedefdc7981766c5d17bd74c166",
+      "after_sha256": "7ea9de85987ed4329fd481074a4f49aa27dc609f199111e0b0fef5e2dc3cc32a"
+    },
+    {
+      "target": "traceability.json",
+      "staged_file": "changes/CR-0006/traceability.json",
+      "before_sha256": "f7f0c8e81465f634d2c7965c906a0b55705bcfae072a653eaf5f64c5622ee57a",
+      "after_sha256": "64e59830d374b9c588ffd5e81d1658afa4cda0fdc1a0d196c56daeab761a2e35"
+    }
+  ],
+  "applied_at": "2026-07-16T07:46:33.172Z"
+}

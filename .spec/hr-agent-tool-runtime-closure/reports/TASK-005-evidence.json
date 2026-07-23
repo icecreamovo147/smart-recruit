@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 2,
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "task_id": "TASK-005",
+  "contract_revision": 7,
+  "task_definition_hash": "e184ef20fc498817e59b7a2b9a270cdacf38c015d7b87242fa159bc170fbc26c",
+  "traceability_hash": "c6e57759b4473ee3b937c8caa408d1aa4f89325594481ff9ce863fd91e714f5c",
+  "base_sha": "45b9508fa830528666b1c74d1cc46a3ebc9d6108",
+  "head_sha": "45b9508fa830528666b1c74d1cc46a3ebc9d6108",
+  "changed_files": [
+    ".knowledge/architecture/agent-runtime.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/domains/agent-skill.md",
+    ".knowledge/domains/ai-configuration-governance.md",
+    ".knowledge/domains/mcp-tool-governance.md",
+    ".knowledge/pitfalls/mcp-policy-audit.md",
+    "smart-recruit-ai-agent-service/internal/application/hr_tools/executor_applications.go",
+    "smart-recruit-ai-agent-service/internal/application/hr_tools/executor_applications_test.go"
+  ],
+  "scope": {"status":"passed","out_of_scope":[],"forbidden":[]},
+  "checks": [
+    {"id":"CHECK-008","kind":"unit","covers":["NFR-001","FLOW-007"],"command":"cd smart-recruit-ai-agent-service && go test -count=1 ./internal/application/hr_tools","exit_code":0,"status":"passed","started_at":"2026-07-16T16:20:00+08:00","duration_ms":1762,"artifact":"reports/TASK-005-report.md#checks"},
+    {"id":"CHECK-009","kind":"integration","covers":["FR-001","MCP-001","ERR-001","FR-002","CFG-001","FR-003","FR-004","FR-005","OBS-001","EVT-001"],"command":"cd smart-recruit-ai-agent-service && go test -count=1 ./...","exit_code":0,"status":"passed","started_at":"2026-07-16T16:20:02+08:00","duration_ms":9600,"artifact":"reports/TASK-005-report.md#checks"},
+    {"id":"CHECK-010","kind":"integration","covers":["CFG-001","FR-002"],"command":"cd smart-recruit-commons && go test -count=1 ./ai","exit_code":0,"status":"passed","started_at":"2026-07-16T16:15:50+08:00","duration_ms":612,"artifact":"reports/TASK-005-report.md#checks"},
+    {"id":"CHECK-011","kind":"build","covers":["FR-004"],"command":"pnpm --filter hr-frontend typecheck && pnpm --filter hr-frontend test","exit_code":0,"status":"passed","started_at":"2026-07-16T16:15:51+08:00","duration_ms":8500,"artifact":"reports/TASK-005-report.md#checks"},
+    {"id":"CHECK-012","kind":"contract","covers":["KNOW-001"],"command":"node .knowledge/scripts/validate-knowledge.mjs --root . && node .knowledge/scripts/check-references.mjs --root .","exit_code":0,"status":"passed","started_at":"2026-07-16T16:16:10+08:00","duration_ms":300,"artifact":"reports/TASK-005-report.md#checks"}
+  ],
+  "skipped_checks": [],
+  "coverage_claims": [
+    {"id":"NFR-001","status":"verified"}, {"id":"KNOW-001","status":"verified"},
+    {"id":"FR-001","status":"verified"}, {"id":"MCP-001","status":"verified"}, {"id":"ERR-001","status":"verified"},
+    {"id":"FR-002","status":"verified"}, {"id":"CFG-001","status":"verified"}, {"id":"FR-003","status":"verified"},
+    {"id":"FR-004","status":"verified"}, {"id":"FR-005","status":"verified"}, {"id":"OBS-001","status":"verified"}, {"id":"EVT-001","status":"verified"}
+  ],
+  "review": {"reviewer_type":"independent_agent","implementer_run_id":"root-task005-impl-r1","reviewer_run_id":"root-task005-reviewer-r2","outcome":"pass","verdict":"通过","round":2},
+  "human_confirmation": {"required":false,"confirmed":false},
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result":"update_required",
+    "triggeredBy":["covered-path-changed","service-boundary-changed","configuration-changed"],
+    "reviewResults":[
+      {"document":".knowledge/architecture/agent-runtime.md","verdict":"UPDATED","evidence":["smart-recruit-ai-agent-service/internal/application/hr_tools/executor_applications.go","smart-recruit-ai-agent-service/internal/application/hr_tools/executor_applications_test.go"]},
+      {"document":".knowledge/architecture/service-boundaries.md","verdict":"UPDATED","evidence":["smart-recruit-ai-agent-service/internal/application/hr_tools/executor_applications.go"]},
+      {"document":".knowledge/domains/ai-configuration-governance.md","verdict":"UPDATED","evidence":["smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"]},
+      {"document":".knowledge/domains/agent-skill.md","verdict":"UPDATED","evidence":["smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"]},
+      {"document":".knowledge/domains/mcp-tool-governance.md","verdict":"UPDATED","evidence":["smart-recruit-ai-agent-service/internal/infrastructure/mcp/native_runtime_integration_test.go"]},
+      {"document":".knowledge/pitfalls/mcp-policy-audit.md","verdict":"UPDATED","evidence":["smart-recruit-ai-agent-service/internal/infrastructure/mcp/native_runtime_integration_test.go"]}
+    ],
+    "coverageGap":false,
+    "validationExitCode":0
+  }
+}

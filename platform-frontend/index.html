@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>平台运营控制台</title>
+    <script>
+      try {
+        const savedTheme = localStorage.getItem('recruitment_theme_mode')
+        const initialTheme = savedTheme === 'light' || savedTheme === 'dark'
+          ? savedTheme
+          : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        document.documentElement.dataset.theme = initialTheme
+      } catch {}
+    </script>
+    <style>
+      html, body, #app { min-height: 100%; margin: 0; }
+      .app-bootstrap {
+        position: relative;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        color: #17345f;
+        background: #edf4fd;
+        font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+      :root[data-theme='dark'] .app-bootstrap { color: #dce9ff; background: #06101d; }
+      .app-bootstrap__content { position: relative; display: grid; justify-items: center; gap: 14px; }
+      .app-bootstrap__brand { font-size: 18px; font-weight: 750; letter-spacing: -.01em; }
+      .app-bootstrap__text { margin: 0; font-size: 13px; letter-spacing: .04em; opacity: .8; }
+      .app-bootstrap__loader { display: flex; gap: 5px; }
+      .app-bootstrap__loader i {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+        animation: app-bootstrap-pulse 1s ease-in-out infinite;
+      }
+      .app-bootstrap__loader i:nth-child(2) { animation-delay: .15s; }
+      .app-bootstrap__loader i:nth-child(3) { animation-delay: .3s; }
+      @keyframes app-bootstrap-pulse {
+        0%, 100% { opacity: .25; transform: translateY(0); }
+        50% { opacity: 1; transform: translateY(-3px); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .app-bootstrap__loader i { animation: none; opacity: .7; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="app-bootstrap" role="status" aria-live="polite">
+        <div class="app-bootstrap__content">
+          <strong class="app-bootstrap__brand">Smart Recruit</strong>
+          <p class="app-bootstrap__text">正在加载平台运营控制台</p>
+          <span class="app-bootstrap__loader" aria-hidden="true"><i></i><i></i><i></i></span>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -8,7 +8,7 @@ export const getResume = (): Promise<{ resume: ResumeInfo | null }> =>
 export const presignResume = (data: PresignPayload): Promise<PresignResponse> =>
   request.post('/api/v1/candidate/resume/presign', data)
 
-export const confirmResume = (data: ConfirmPayload): Promise<{ resume_id: number }> =>
+export const confirmResume = (data: ConfirmPayload): Promise<{ resume_id: number; fill_suggested?: boolean }> =>
   request.post('/api/v1/candidate/resume/confirm', data)
 
 export const putResumeFile = (uploadUrl: string, file: File): Promise<void> =>

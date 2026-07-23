@@ -1,0 +1,38 @@
+groups:
+  - name: smart-recruit-billing
+    rules:
+      - alert: BillingAlipaySignatureFailures
+        expr: increase(smart_recruit_billing_events_total{operation="alipay_webhook",outcome="signature_failed"}[5m]) > 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "支付宝通知验签失败"
+          description: "检查支付宝验签公钥、应用和卖家标识；失败通知已写入 billing_webhook_events。"
+      - alert: BillingPaymentSettlementBacklog
+        expr: smart_recruit_billing_state_count{resource="payment",state="oldest_age_seconds"} > 300
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "支付确认积压超过五分钟"
+          description: "检查支付宝查询可用性、对账租约和 billing_payments.last_reconcile_error。"
+      - alert: BillingPaymentUnknown
+        expr: smart_recruit_billing_state_count{resource="payment",state="unknown"} > 0
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "存在长期未知支付"
+          description: "支付结果连续十五分钟无法确认，需要检查渠道状态但不得创建第二笔交易。"
+      - alert: BillingRefundUnknown
+        expr: smart_recruit_billing_state_count{resource="refund",state="unknown"} > 0
+        for: 15m
+        labels: { severity: critical }
+        annotations:
+          summary: "存在长期未知退款"
+          description: "使用原 refund_no/out_request_no 核对，禁止换号退款。"
+      - alert: BillingDuplicateSuccessfulPayment
+        expr: increase(smart_recruit_billing_events_total{operation="payment",outcome="duplicate_success"}[5m]) > 0
+        for: 0m
+        labels: { severity: critical }
+        annotations:
+          summary: "同一业务订单出现第二笔成功扣款"
+          description: "权益不会重复发放；立即核对并处理多余成功交易。"

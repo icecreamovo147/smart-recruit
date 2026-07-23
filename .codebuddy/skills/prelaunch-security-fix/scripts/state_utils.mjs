@@ -1,0 +1,40 @@
+import { asList, loadPlanFile, SUCCESS_STATES, TASK_STATES, TERMINAL_STATES } from './plan_utils.mjs'
+
+export const stateSummary = (state) => {
+  const byId = new Map(asList(state.tasks).map((task) => [task.id, task]))
+  const ready = asList(state.tasks)
+    .filter((task) => ['PENDING', 'READY'].includes(task.status))
+    .filter((task) => asList(task.dependencies).every((id) => SUCCESS_STATES.has(byId.get(id)?.status)))
+    .sort((left, right) => left.order - right.order)
+  const dependencyBlocked = asList(state.tasks).filter((task) =>
+    ['PENDING', 'READY'].includes(task.status) && asList(task.dependencies).some((id) => TERMINAL_STATES.has(byId.get(id)?.status) && !SUCCESS_STATES.has(byId.get(id)?.status)))
+  return {
+    next_task: ready[0]?.id || null,
+    ready_tasks: ready.map((task) => task.id),
+    dependency_blocked: dependencyBlocked.map((task) => task.id),
+    terminal: asList(state.tasks).filter((task) => TERMINAL_STATES.has(task.status)).map((task) => task.id),
+  }
+}
+
+export const validateState = (state, planPath) => {
+  const errors = []
+  if (state?.schema_version !== 1) errors.push('state schema_version must be 1')
+  if (!state?.plan?.path || !state?.plan?.sha256) errors.push('state plan identity is incomplete')
+  if (!state?.repository?.initial_head || !Array.isArray(state?.repository?.initial_worktree_paths)) errors.push('repository baseline is incomplete')
+  if (!Array.isArray(state?.tasks) || state.tasks.length === 0) errors.push('state tasks must not be empty')
+  const ids = new Set()
+  asList(state?.tasks).forEach((task, index) => {
+    if (ids.has(task.id)) errors.push(`duplicate task ID: ${task.id}`)
+    ids.add(task.id)
+    if (!TASK_STATES.has(task.status)) errors.push(`tasks[${index}] has invalid status ${task.status}`)
+    if (!Array.isArray(task.allowed_paths) || !Array.isArray(task.excluded_paths)) errors.push(`tasks[${index}] scope is invalid`)
+  })
+  asList(state?.tasks).forEach((task) => asList(task.dependencies).forEach((dependency) => {
+    if (!ids.has(dependency)) errors.push(`${task.id} references unavailable selected dependency ${dependency}`)
+  }))
+  const loaded = loadPlanFile(planPath || state?.plan?.path)
+  if (loaded.sha256 !== state?.plan?.sha256) errors.push('remediation plan hash changed; start a new run or explicitly reconcile the plan')
+  if (errors.length > 0) throw new Error(`fix state validation failed:\n- ${errors.join('\n- ')}`)
+  return stateSummary(state)
+}
+

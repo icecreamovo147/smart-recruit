@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 2,
+  "changeRequestId": "CR-0002",
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "baseRevision": 2,
+  "status": "applied",
+  "classification": "scope_correction",
+  "approvalLevel": "L0",
+  "reason": "TASK-002 now renders deterministic factual replies after the live-data evidence gate. The existing shared formatter reads an obsolete candidates field while list_all_applications returns applications, so successful real Tool evidence is incorrectly rendered as empty. The correction only adds the directly owning formatter and its tests to TASK-002 scope; it changes no requirement, public API, schema, dependency, security policy, or intended behavior.",
+  "evidenceRefs": [
+    "repo://smart-recruit-commons/ai/fallback.go#formatApplicationList",
+    "repo://smart-recruit-ai-agent-service/internal/application/hr_tools/executor_applications.go#pageApplications",
+    "repo://smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go#TestHRLiveDataGateCoversApplicationCandidateAndAnalyticsFamilies"
+  ],
+  "trigger": {
+    "task_id": "TASK-002",
+    "phase": "implement"
+  },
+  "impact": {
+    "requirements": [
+      "FR-002",
+      "FR-003"
+    ],
+    "tasks": [
+      "TASK-002"
+    ],
+    "completedTasksRequiringRevalidation": []
+  },
+  "revalidationPlan": [
+    "TASK-002"
+  ],
+  "resultingRevision": 3,
+  "approval": {
+    "approved_by": "/root/cr2_reviewer",
+    "approved_at": "2026-07-16T13:38:07+08:00",
+    "decision": "approve"
+  },
+  "updates": [
+    {
+      "target": "contract.json",
+      "staged_file": "changes/CR-0002/contract.json",
+      "before_sha256": "d7ba558eb1623061092f15b750adb4fa8c5a9cfc3619d2969c07956018e30e61",
+      "after_sha256": "9cd7988c8705f0faa9ac35e3a90682601b6f559d0b5a43329db85ce1e56adb2b"
+    },
+    {
+      "target": "task-scope.json",
+      "staged_file": "changes/CR-0002/task-scope.json",
+      "before_sha256": "37a7df689666173692fc3c6384ac435e033043439773fdeb5afa36ebe396256e",
+      "after_sha256": "4d3aa7a65342e7e16eacf0f571ccce164976f682d18489af2a8c09926049384a"
+    },
+    {
+      "target": "traceability.json",
+      "staged_file": "changes/CR-0002/traceability.json",
+      "before_sha256": "24c7e97adbc4d50fd3291483d5ff2b7951d8ad114d2e6d29bd057241c309107e",
+      "after_sha256": "fc543132ff82e95205c45e8aa10c4661592c3b03076972f97b3cd4dc6b7a7a3a"
+    }
+  ],
+  "applied_at": "2026-07-16T05:39:39.462Z"
+}

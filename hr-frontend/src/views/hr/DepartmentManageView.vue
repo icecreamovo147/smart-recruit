@@ -397,7 +397,7 @@ onMounted(load)
     </div>
     </div>
 
-    <el-drawer v-model="dialogVisible" :title="editing ? '编辑部门' : '新增部门'" size="480px">
+    <el-drawer v-model="dialogVisible" :title="editing ? '编辑部门' : '新增部门'" size="480px" :close-on-click-modal="true">
       <el-form label-width="80px">
         <el-form-item v-if="!editing && form.parent_id > 0" label="父部门">
           <el-input disabled :model-value="parentName" />
@@ -416,7 +416,7 @@ onMounted(load)
     </el-drawer>
 
     <!-- Location config dialog -->
-    <el-drawer v-model="locDialogVisible" :title="`地点配置 - ${locDept?.name || ''}`" size="540px">
+    <el-drawer v-model="locDialogVisible" :title="`地点配置 - ${locDept?.name || ''}`" size="540px" :close-on-click-modal="true">
       <el-form v-if="locConfig" label-width="120px">
         <el-form-item label="继承上级地点">
           <el-switch

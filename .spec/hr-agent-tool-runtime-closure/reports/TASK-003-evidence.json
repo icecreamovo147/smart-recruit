@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 2,
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "task_id": "TASK-003",
+  "contract_revision": 6,
+  "task_definition_hash": "a0cef4900808e06d645da4bb129117db95658edffe91908082fcf86e41de1f0a",
+  "traceability_hash": "89c93a8665854e103632ef015cbd3e82915ff680c0688be4a7552e874ec055cf",
+  "base_sha": "45b9508fa830528666b1c74d1cc46a3ebc9d6108",
+  "head_sha": "45b9508fa830528666b1c74d1cc46a3ebc9d6108",
+  "changed_files": [
+    ".knowledge/architecture/agent-runtime.md",
+    ".knowledge/domains/agent-skill.md",
+    ".knowledge/domains/ai-configuration-governance.md",
+    "hr-frontend/src/views/hr/admin/AgentManagePromptFilter.test.ts",
+    "hr-frontend/src/views/hr/admin/AgentManageView.vue",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/config_store.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/config_store_agent_prompt_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+  ],
+  "scope": {"status":"passed","out_of_scope":[],"forbidden":[]},
+  "checks": [
+    {"id":"CHECK-005","kind":"integration","covers":["FR-004","FR-005","FLOW-005"],"command":"cd smart-recruit-ai-agent-service && go test -count=1 ./internal/interfaces/grpc ./internal/infrastructure/persistence","exit_code":0,"status":"passed","started_at":"2026-07-16T14:48:20+08:00","duration_ms":1636,"artifact":"reports/TASK-003-report.md#checks"},
+    {"id":"CHECK-006","kind":"build","covers":["FR-004"],"command":"pnpm --filter hr-frontend typecheck","exit_code":0,"status":"passed","started_at":"2026-07-16T14:48:22+08:00","duration_ms":2380,"artifact":"reports/TASK-003-report.md#checks"}
+  ],
+  "skipped_checks": [],
+  "coverage_claims": [
+    {"id":"FR-004","status":"verified"},
+    {"id":"FR-005","status":"verified"}
+  ],
+  "review": {
+    "reviewer_type": "independent_agent",
+    "implementer_run_id": "root-task003-impl-r1",
+    "reviewer_run_id": "task003-reviewer-r3",
+    "outcome": "pass",
+    "verdict": "通过",
+    "round": 3
+  },
+  "human_confirmation": {"required":false,"confirmed":false},
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["covered-path-changed", "configuration-changed", "frontend-changed"],
+    "reviewResults": [
+      {"document":".knowledge/domains/ai-configuration-governance.md","verdict":"UPDATED","evidence":["smart-recruit-ai-agent-service/internal/infrastructure/persistence/config_store.go","smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"]},
+      {"document":".knowledge/domains/agent-skill.md","verdict":"UPDATED","evidence":["smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go","smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go"]},
+      {"document":".knowledge/architecture/agent-runtime.md","verdict":"UPDATED","evidence":["smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go","smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go"]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

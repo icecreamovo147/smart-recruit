@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-014",
+  "base_sha": "7ded96233d4d5959cf210db8573f2caf31fff6ca",
+  "base_tree": "8974214a5fbf2009eda362569d9104200c1b58aa",
+  "head_sha": "7ded96233d4d5959cf210db8573f2caf31fff6ca",
+  "changed_files": [
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-014-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-014-evidence.json",
+    "logic-grpc-service/internal/offer/application/ports.go",
+    "logic-grpc-service/internal/offer/application/ports_test.go",
+    "logic-grpc-service/internal/offer/domain/offer.go",
+    "logic-grpc-service/internal/offer/domain/offer_test.go",
+    "logic-grpc-service/internal/offer/infrastructure/repositories.go",
+    "logic-grpc-service/internal/offer/infrastructure/repositories_test.go",
+    "logic-grpc-service/internal/offer/interfaces/offer_api.go",
+    "logic-grpc-service/internal/offer/interfaces/offer_api_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "8974214a5fbf2009eda362569d9104200c1b58aa",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-014-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-014-evidence.json",
+      "logic-grpc-service/internal/offer/application/ports.go",
+      "logic-grpc-service/internal/offer/application/ports_test.go",
+      "logic-grpc-service/internal/offer/domain/offer.go",
+      "logic-grpc-service/internal/offer/domain/offer_test.go",
+      "logic-grpc-service/internal/offer/infrastructure/repositories.go",
+      "logic-grpc-service/internal/offer/infrastructure/repositories_test.go",
+      "logic-grpc-service/internal/offer/interfaces/offer_api.go",
+      "logic-grpc-service/internal/offer/interfaces/offer_api_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:08:00Z",
+      "duration_ms": 50,
+      "summary": "Listed changed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=8974214a5fbf2009eda362569d9104200c1b58aa bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-014",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:08:00Z",
+      "duration_ms": 826,
+      "summary": "scope_result: PASS (TASK-BDME-014)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:08:00Z",
+      "duration_ms": 5454,
+      "summary": "Feature validation, git diff whitespace, gofmt check, and logic-grpc-service go test passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:08:00Z",
+      "duration_ms": 4868,
+      "summary": "All logic-grpc-service packages passed, including Offer boundary compatibility tests."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 8974214a5fbf2009eda362569d9104200c1b58aa",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:08:00Z",
+      "duration_ms": 1035,
+      "summary": "impact_result: update_required; matched local-development, service-boundaries, and system-overview routes."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T15:08:00Z",
+    "confirmation_text": "TASK-BDME-014 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs",
+      "reason": ".knowledge files were reviewed but not changed by TASK-BDME-014."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "logic-grpc-service/internal/offer/application/ports.go",
+      "logic-grpc-service/internal/offer/domain/offer.go",
+      "logic-grpc-service/internal/offer/infrastructure/repositories.go",
+      "logic-grpc-service/internal/offer/interfaces/offer_api.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed current backend topology; TASK-BDME-014 adds Offer boundary contracts and does not change runtime topology."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed service boundary guidance; Offer contracts preserve logic-service behavior and do not change protobuf or HTTP contracts."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed recruitment model guidance; offer lifecycle remains compatible and current service behavior is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed lifecycle guidance; offer status constants and API contracts are isolated without changing application status side effects."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed notification/outbox guidance; no notification or outbox payload behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/status-notification-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed drift pitfall; this TASK adds compile-time boundary contracts only and does not alter status or notification flows."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed local-development route triggered by logic service changes; no startup command or local workflow changed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "contractRevision": 1,
+  "contract_hash": "57066fe0cad2525da7baa019b63aebb8d87e4dbf8ce0a5d2aff601aa1ecc1a46",
+  "reviewer_type": "independent_agent",
+  "planner_run_id": "root-plan-20260716-r1",
+  "reviewer_run_id": "plan-reviewer-20260716-r2",
+  "outcome": "pass",
+  "verdict": "通过",
+  "reviewed_at": "2026-07-16T12:30:00+08:00",
+  "findings": [],
+  "summary": "Revision 1 defines explicit live-data evidence groups, fail-closed tool governance, truthful errors, shared-module human gate, published Skill and Prompt semantics, durable audit/event behavior, fixed aggregation bounds, cumulative checks, and a single ready TASK within rollingWindow=1."
+}

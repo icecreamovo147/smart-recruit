@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-001",
+  "base_sha": "96ffcaf562ebb4e49176f589563068a14f0a9ab4",
+  "base_tree": "b8ffa2719d35cca0d0d0fbef835e0ca7e3b52bc0",
+  "head_sha": "96ffcaf562ebb4e49176f589563068a14f0a9ab4",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-001-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-001-report.md",
+    "go.work",
+    "smart-recruit-ai-agent-service/README.md",
+    "smart-recruit-ai-agent-service/doc.go",
+    "smart-recruit-ai-agent-service/go.mod",
+    "smart-recruit-analytics-service/README.md",
+    "smart-recruit-analytics-service/doc.go",
+    "smart-recruit-analytics-service/go.mod",
+    "smart-recruit-deploy/README.md",
+    "smart-recruit-gateway/README.md",
+    "smart-recruit-gateway/doc.go",
+    "smart-recruit-gateway/go.mod",
+    "smart-recruit-identity-service/README.md",
+    "smart-recruit-identity-service/doc.go",
+    "smart-recruit-identity-service/go.mod",
+    "smart-recruit-interview-service/README.md",
+    "smart-recruit-interview-service/doc.go",
+    "smart-recruit-interview-service/go.mod",
+    "smart-recruit-notification-service/README.md",
+    "smart-recruit-notification-service/doc.go",
+    "smart-recruit-notification-service/go.mod",
+    "smart-recruit-offer-service/README.md",
+    "smart-recruit-offer-service/doc.go",
+    "smart-recruit-offer-service/go.mod",
+    "smart-recruit-platform-go/README.md",
+    "smart-recruit-platform-go/doc.go",
+    "smart-recruit-platform-go/go.mod",
+    "smart-recruit-proto/README.md",
+    "smart-recruit-proto/doc.go",
+    "smart-recruit-proto/go.mod",
+    "smart-recruit-recruitment-service/README.md",
+    "smart-recruit-recruitment-service/doc.go",
+    "smart-recruit-recruitment-service/go.mod",
+    "smart-recruit-worker-service/README.md",
+    "smart-recruit-worker-service/doc.go",
+    "smart-recruit-worker-service/go.mod"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=b8ffa2719d35cca0d0d0fbef835e0ca7e3b52bc0 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-001",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-*/**",
+      "go.work",
+      "README.md",
+      "docs/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:29:06.616Z",
+      "duration_ms": 40
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree b8ffa2719d35cca0d0d0fbef835e0ca7e3b52bc0 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:29:06.666Z",
+      "duration_ms": 726
+    },
+    {
+      "command": "TASK_BASE_TREE=b8ffa2719d35cca0d0d0fbef835e0ca7e3b52bc0 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-001",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:29:07.393Z",
+      "duration_ms": 97
+    },
+    {
+      "command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:29:07.491Z",
+      "duration_ms": 3942
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-001-evidence.json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:30:51.112Z",
+      "duration_ms": 34
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_at": "2026-07-12T06:29:12Z",
+    "source": "TASK-MRI-001 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Live service startup",
+      "reason": "TASK-MRI-001 creates scaffold modules only; runtime startup is assigned to later service-specific TASKs."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "new-top-level-module"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active source_refs and current SPEC/SDD; TASK-MRI-001 adds scaffold roots without changing active runtime behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active startup guidance; TASK-MRI-001 does not change existing docker/start-dev local runtime commands."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

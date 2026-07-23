@@ -9,46 +9,43 @@ owners:
 tags:
   - notification
   - outbox
-  - sse
+  - events
   - email
 applies_to:
-  - logic-grpc-service/service/notification_service.go
-  - logic-grpc-service/service/notification_worker.go
-  - logic-grpc-service/service/outbox_publisher.go
-  - logic-grpc-service/repository/notification_repo.go
-  - logic-grpc-service/model/model.go
-  - web-gin-service/handler/notification.go
+  - smart-recruit-notification-service/**
+  - smart-recruit-interview-service/internal/infrastructure/mq/**
+  - smart-recruit-offer-service/internal/infrastructure/mq/**
+  - smart-recruit-recruitment-service/internal/infrastructure/persistence/**
+  - smart-recruit-worker-service/**
+  - smart-recruit-commons/internal/platform/events/**
+  - smart-recruit-commons/mq/**
+  - smart-recruit-commons/migrations/00005*.sql
+  - smart-recruit-gateway/handler/notification.go
 source_refs:
-  - logic-grpc-service/service/application_service.go
-  - logic-grpc-service/service/offer_service.go
-  - logic-grpc-service/service/notification_service.go
-  - logic-grpc-service/service/notification_worker.go
-  - logic-grpc-service/service/outbox_publisher.go
-  - web-gin-service/handler/notification.go
-  - logic-grpc-service/model/model.go
-last_verified: 2026-07-10
-review_after: 2026-10-08
+  - smart-recruit-notification-service/internal/application/service/notification_service.go
+  - smart-recruit-notification-service/internal/infrastructure/persistence/notification_repository.go
+  - smart-recruit-notification-service/internal/interfaces/grpc/notification_server.go
+  - smart-recruit-notification-service/internal/runtime/runtime.go
+  - smart-recruit-worker-service/internal/runtime/runtime.go
+  - smart-recruit-worker-service/internal/runtime/workload_profile.go
+  - smart-recruit-commons/internal/platform/events/envelope.go
+  - smart-recruit-commons/mq/publisher.go
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000051_standardize_event_outbox.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000052_add_event_inbox.sql
+  - smart-recruit-interview-service/internal/infrastructure/mq/outbox_publisher.go
+  - smart-recruit-offer-service/internal/infrastructure/mq/outbox_publisher.go
+  - smart-recruit-recruitment-service/internal/infrastructure/persistence/native_adapters.go
+  - smart-recruit-gateway/handler/notification.go
+last_verified: 2026-07-14
+review_after: 2026-10-14
 ---
 
 # Notification and Outbox Domain
 
-Notifications are produced by recruitment workflows and delivered through database records, cache invalidation, Redis/SSE events, and email outbox events where applicable. Notification behavior is part of recruitment correctness because users rely on it to see application, interview, offer, and collaboration events.
+Notification APIs are served by Notification service. Shared outbox/inbox schema, event envelope, and MQ support live in Commons and Worker service profiles. Gateway notification endpoints expose list, unread count, summary, mark-read, mark-all-read, and stream behavior through generated clients.
 
-## Main Responsibilities
-
-- Recruitment services write notification and email intents through `OutboxPublisher` inside workflow transactions.
-- `NotificationService` reads, summarizes, marks, and publishes notification-created events with account-type scoping.
-- `NotificationWorkerPool` throttles asynchronous notification writes and publishes created events through the cache layer.
-- `web-gin-service/handler/notification.go` exposes list, unread count, summary, mark-read, mark-all-read, and stream endpoints.
-- Frontend notification components subscribe to stream endpoints and display unread counts.
-
-## Impact Guidance
-
-- Workflow changes that create, suppress, or reorder notifications should review outbox payloads and user-facing notification surfaces.
-- Account type matters. Candidate, staff, and interviewer notifications should not share cache keys or cookie assumptions.
-- SSE changes should check gateway stream handling and frontend event parsing.
-- Email outbox changes should be reviewed with notification changes because some workflows emit both.
+Recruitment, Interview, and Offer write their domain events through local GORM outbox adapters using the shared `event_outbox` table shape instead of copied legacy outbox repositories. Recruitment's active outbox writes live in `smart-recruit-recruitment-service/internal/infrastructure/persistence/native_adapters.go`; Interview and Offer keep dedicated `internal/infrastructure/mq` adapters.
 
 ## Verification
 
-Verified against application and offer services, notification service, notification worker, outbox publisher, notification handler, and model definitions on 2026-07-10.
+Verified against current repository files on 2026-07-14.

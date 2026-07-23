@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-022",
+  "base_sha": "3937a700d60f861618f9cd21fd2a306939dc6421",
+  "base_tree": "9bb08f57cdd84cdb2450c33f6bd6dc05fd4c319b",
+  "head_sha": "3937a700d60f861618f9cd21fd2a306939dc6421",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-022-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-022-report.md",
+    "smart-recruit-analytics-service/README.md",
+    "smart-recruit-analytics-service/cmd/analytics-service/main.go",
+    "smart-recruit-analytics-service/cmd/analytics-service/main_test.go",
+    "smart-recruit-analytics-service/doc.go",
+    "smart-recruit-analytics-service/go.mod",
+    "smart-recruit-analytics-service/go.sum",
+    "smart-recruit-analytics-service/internal/runtime/runtime.go",
+    "smart-recruit-analytics-service/internal/runtime/runtime_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=9bb08f57cdd84cdb2450c33f6bd6dc05fd4c319b bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-022",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-analytics-service/**",
+      "logic-grpc-service/internal/analytics/**",
+      "logic-grpc-service/cmd/analytics-service/**",
+      "smart-recruit-proto/**",
+      "smart-recruit-platform-go/**",
+      "**/go.mod",
+      "**/go.sum",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "cd smart-recruit-analytics-service && GOWORK=off go test ./...", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:58:00.000Z", "duration_ms": 10829},
+    {"command": "cd smart-recruit-analytics-service && GOWORK=off go build ./cmd/analytics-service", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:58:00.000Z", "duration_ms": 10829},
+    {"command": "cd smart-recruit-analytics-service && GOWORK=off go run ./cmd/analytics-service --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:58:00.000Z", "duration_ms": 10829},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:59:00.000Z", "duration_ms": 9},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 9bb08f57cdd84cdb2450c33f6bd6dc05fd4c319b --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:59:01.000Z", "duration_ms": 467},
+    {"command": "TASK_BASE_TREE=9bb08f57cdd84cdb2450c33f6bd6dc05fd4c319b bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-022", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:59:02.000Z", "duration_ms": 281},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:00:00.000Z", "duration_ms": 4143},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-022-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:03:00.000Z", "duration_ms": 60}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T11:03:00Z", "source": "TASK-MRI-022 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [
+    {"check": "Live Analytics reporting RPC against shared MySQL", "reason": "The runtime wires real MySQL-backed Analytics reporting and projection/read-model policy; live database and gateway smoke are deferred to later compose/smoke TASKs."}
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed", "recurring-defect-fixed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active source_refs; TASK-MRI-022 adds an extracted Analytics service root with reporting-only AdminService registration and no public HTTP/protobuf contract change."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local startup guidance; Analytics standalone build/check is documented in its service README while full compose runtime remains scoped to later TASKs."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

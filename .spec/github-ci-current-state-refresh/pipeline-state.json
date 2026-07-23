@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "github-ci-current-state-refresh",
+  "status": "completed",
+  "task_runs": {
+    "TASK-GCI-001": {
+      "status": "completed",
+      "base_commit": "af59521b454c05a329ff7b4b5fdb4c40f8438436",
+      "base_tree": "e5ad3b9c44c71294e185ec70a2f6a005e9e7ef5f",
+      "completed_at": "2026-07-13T17:34:56Z",
+      "report": ".spec/github-ci-current-state-refresh/reports/TASK-GCI-001-report.md",
+      "evidence": ".spec/github-ci-current-state-refresh/reports/TASK-GCI-001-evidence.json"
+    }
+  }
+}

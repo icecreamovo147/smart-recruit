@@ -12,49 +12,45 @@ tags:
   - memory
   - embedding
 applies_to:
-  - logic-grpc-service/service/agent_skill_selector.go
-  - logic-grpc-service/service/agent_skill_service.go
-  - logic-grpc-service/service/agent_context.go
-  - logic-grpc-service/service/embedding_service.go
-  - logic-grpc-service/repository/memory_repo.go
+  - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
+  - smart-recruit-ai-agent-service/internal/application/memory/service.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/provider/embedding.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_memory.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_memory_runtime.go
+  - platform-frontend/src/views/ai/SemanticRetrievalDebugView.vue
 source_refs:
-  - logic-grpc-service/service/agent_skill_selector.go
-  - logic-grpc-service/service/agent_skill_service.go
-  - logic-grpc-service/service/agent_context.go
-  - logic-grpc-service/service/embedding_service.go
-  - .spec/skill-memory-ranking/skill-memory-ranking-SDD.md
-last_verified: 2026-07-10
-review_after: 2026-10-08
+  - smart-recruit-ai-agent-service/internal/domain/memory/ranking.go
+  - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
+  - smart-recruit-ai-agent-service/internal/application/memory/service.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/provider/embedding.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/provider/embedding_test.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_memory_runtime.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/mcp_skill_services.go
+  - platform-frontend/src/views/ai/SemanticRetrievalDebugView.vue
+  - platform-frontend/src/api/memory.ts
+  - smart-recruit-commons/config/config.example.yaml
+last_verified: 2026-07-22
+review_after: 2026-10-14
 ---
 
 # Semantic Retrieval for Agent Skills and Memories
 
-Semantic retrieval is used as an input to Agent Skill ranking and memory recall. It is not the only ranking signal. Skill selection still filters by agent type, manual invocation, runtime capability, and request limits before ranking candidates. Memory recall scopes are derived from the current HR/session/application/job context and then ranked and trimmed by count and character budget.
+Semantic retrieval lives in AI Agent service. Agent Skill and AI Memory recall both combine eligibility filters, lexical/vector signals, metadata scope boosts, business boost gating, and context limits. Embedding failures degrade through explicit lexical+metadata fallback rather than silently returning empty context.
 
-`EmbeddingService` owns embedding object storage, provider selection, fallback status, vector validation, and search metadata. When embedding calls fail or are unavailable, callers must handle the unavailable state explicitly instead of pretending semantic scoring succeeded.
+## Memory pool (live)
 
-Embedding provider and model configuration is managed separately by `EmbeddingConfigService`. Configuration changes can rebuild the embedding provider, alter the default model, or trigger backfill. Retrieval callers should treat embedding availability, vector dimension, model name, and fallback reason as observable runtime state rather than static assumptions.
+The platform **Semantic Retrieval Debug** page runs real recall against both Skill and Memory pools. Memory results show scope, type, vector score, final rank score, importance, and relevance mode. A **Memory 校正** drawer supports list/create/revoke for platform debugging via gateway Memory APIs.
 
-## Agent Skill Retrieval
+Runtime recall (`native_memory_runtime.go`) builds owner-scoped scopes, calls `embedding.SemanticMemoryScores` when a ready provider exists, and passes vector scores into `memory.Service.Recall`. When embeddings are unavailable, ranking uses lexical+metadata only (`RelevanceMode=fallback`).
 
-- Manual `agent_skill_ids` are handled before automatic selection and do not receive automatic backfill.
-- Automatic candidates are filtered by agent type, seen IDs, required capabilities, and max selection count.
-- Semantic scores can enrich ranking, but rules and metadata still participate in final pool selection.
-- Debug retrieval exposes selected skills, memories, confidence, provider, model, dimension, candidate count, and latency through the current debug API.
+## Ranking config (consumed)
 
-## Memory Retrieval
+Memory ranking reads `RankingConfigFromService(cfg.Ranking)` with defaults: vector 0.6, lexical 0.3, metadata 0.1, `relevance_gate` 0.15, `business_boost_max` 1.5. Business boost (importance/confidence) applies only when relevance ≥ gate. Zero-score candidates are dropped before truncation.
 
-- Context builder reads recent messages, summaries, prompt template, and scoped memory candidates.
-- Memory candidates are ranked, capped by configured count, and trimmed by total character budget.
-- Debug memory ranking should remain request-local; shared mutable debug state is a concurrency risk.
+## ai_memory embeddings
 
-## Impact Guidance
-
-- If `EmbeddingService.Search`, Agent Skill ranking, memory ranking, or debug retrieval changes, run knowledge impact detection for Skill and Memory routes.
-- If embedding provider/model admin behavior changes, review `ai-configuration-governance` and `debug-ai-configuration`.
-- If embedding fallback behavior changes, also review `pitfalls/embedding-fallback.md` after TASK-004 exists.
-- If protobuf debug response fields change, treat it as a public contract change.
+`EmbeddingService.UpsertMemoryEmbedding` writes vectors for active memories on create/update. Backfill supports `ai_memory` entity type. Cleanup invalidates embeddings when memories are archived or purged. Semantic debug reports `memory_pool_confidence` (high/medium/low/none) based on top-gap heuristics shared with Skill pool.
 
 ## Verification
 
-This document was verified from current selector, debug, context builder, embedding service, and the active Skill/Memory ranking SDD on 2026-07-10.
+Verified against embedding provider tests, memory ranking/domain tests, native memory runtime wiring, SemanticRetrievalDebugView Memory pool UI, and config defaults on 2026-07-22.

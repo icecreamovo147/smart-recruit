@@ -1,0 +1,16 @@
+ALTER TABLE follow_up_tasks DROP FOREIGN KEY fk_follow_up_tenant_application;
+ALTER TABLE candidate_tag_assignments DROP FOREIGN KEY fk_tag_assignments_tenant_tag;
+ALTER TABLE candidate_notes DROP FOREIGN KEY fk_candidate_notes_tenant_application;
+ALTER TABLE candidate_tags DROP INDEX uk_candidate_tags_tenant_id;
+ALTER TABLE department_locations DROP FOREIGN KEY fk_department_locations_tenant_department, DROP FOREIGN KEY fk_department_locations_tenant_location;
+ALTER TABLE job_locations DROP INDEX uk_job_locations_tenant_id;
+ALTER TABLE departments DROP INDEX uk_departments_tenant_id;
+ALTER TABLE offer_events DROP FOREIGN KEY fk_offer_events_tenant_offer;
+ALTER TABLE offers DROP FOREIGN KEY fk_offers_tenant_application, DROP FOREIGN KEY fk_offers_tenant_job, DROP INDEX uk_offers_tenant_id;
+ALTER TABLE interview_feedback DROP FOREIGN KEY fk_feedback_tenant_interview, DROP FOREIGN KEY fk_feedback_tenant_application;
+ALTER TABLE interview_schedules DROP FOREIGN KEY fk_interviews_tenant_application, DROP INDEX uk_interviews_tenant_id;
+ALTER TABLE candidate_match_evidence DROP FOREIGN KEY fk_match_evidence_tenant_evaluation;
+ALTER TABLE candidate_match_evaluations DROP FOREIGN KEY fk_match_eval_tenant_application, DROP FOREIGN KEY fk_match_eval_tenant_job, DROP INDEX uk_match_eval_tenant_id;
+ALTER TABLE application_status_transitions DROP FOREIGN KEY fk_app_transitions_tenant_application;
+ALTER TABLE applications DROP FOREIGN KEY fk_applications_tenant_job, DROP INDEX uk_applications_tenant_id;
+ALTER TABLE jobs DROP INDEX uk_jobs_tenant_id;

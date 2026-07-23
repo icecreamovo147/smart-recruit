@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 2,
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "profile": "feature_delivery",
+  "contractRevision": 4,
+  "planningStatus": "approved",
+  "rollingWindow": 1,
+  "requiredCompletionLevel": "behavior_verified",
+  "baseline": null,
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "HR builtin tools can remain behind Recruitment gRPC owner contracts without direct database reads or Proto changes.",
+      "status": "verified",
+      "blocking": true,
+      "evidenceRefs": [
+        "repo://smart-recruit-ai-agent-service/internal/application/hr_tools/executor.go",
+        "repo://smart-recruit-proto/proto/recruitment.proto"
+      ],
+      "affects": [
+        "FR-001",
+        "FR-003",
+        "NFR-001",
+        "TASK-001",
+        "TASK-002",
+        "TASK-005"
+      ]
+    },
+    {
+      "id": "ASM-002",
+      "statement": "Existing Agent, Prompt, Agent Skill, Tool Trace, Agent Run, and Run Step storage can represent the required governance and audit evidence without a schema migration.",
+      "status": "verified",
+      "blocking": true,
+      "evidenceRefs": [
+        "repo://smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+        "repo://smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+      ],
+      "affects": [
+        "FR-004",
+        "FR-005",
+        "OBS-001",
+        "EVT-001",
+        "TASK-003",
+        "TASK-004"
+      ]
+    },
+    {
+      "id": "ASM-003",
+      "statement": "Per-Agent max_iterations requires an internal shared smart-recruit-commons AI tool-loop option but no dependency, public HTTP/gRPC, Proto, or configuration-schema change.",
+      "status": "verified",
+      "blocking": true,
+      "evidenceRefs": [
+        "repo://smart-recruit-commons/ai/eino_client.go#ChatWithTools",
+        "repo://smart-recruit-ai-agent-service/internal/infrastructure/persistence/llm_runtime.go#ChatWithRecruitingTools"
+      ],
+      "affects": [
+        "CFG-001",
+        "TASK-002"
+      ]
+    },
+    {
+      "id": "ASM-004",
+      "statement": "The current branch is clean and commit 8a26a8c is the implementation under repair; commit 45b9508 changes Harness tooling only.",
+      "status": "verified",
+      "blocking": true,
+      "evidenceRefs": [
+        "git://45b9508",
+        "git://8a26a8c"
+      ],
+      "affects": [
+        "TASK-001",
+        "TASK-002",
+        "TASK-003",
+        "TASK-004",
+        "TASK-005"
+      ]
+    }
+  ],
+  "reviewPolicy": {
+    "plan": "independent_required",
+    "highRiskTask": "independent_required",
+    "amendment": "independent_required",
+    "deleteSource": "independent_and_human"
+  }
+}

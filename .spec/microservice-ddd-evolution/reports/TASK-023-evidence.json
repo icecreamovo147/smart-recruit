@@ -1,0 +1,231 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-023",
+  "base_sha": "7b989171016bd3c65a1253373b4a2afd5d6ee076",
+  "base_tree": "c1cf72200dd5f06b8719834c13236660741f97c2",
+  "head_sha": "7b989171016bd3c65a1253373b4a2afd5d6ee076",
+  "changed_files": [
+    "smart-recruit-ai-agent-service/internal/application/command/agent.go",
+    "smart-recruit-ai-agent-service/internal/application/dto/agent.go",
+    "smart-recruit-ai-agent-service/internal/application/port/agent.go",
+    "smart-recruit-ai-agent-service/internal/application/service/agent_service.go",
+    "smart-recruit-ai-agent-service/internal/application/service/agent_service_test.go",
+    "smart-recruit-ai-agent-service/internal/docs/ai_agent_dependency_inventory.md",
+    "smart-recruit-ai-agent-service/internal/domain/model/agent.go",
+    "smart-recruit-ai-agent-service/internal/domain/policy/agent.go",
+    "smart-recruit-ai-agent-service/internal/domain/policy/agent_test.go",
+    "smart-recruit-ai-agent-service/internal/domain/repository/agent.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-023-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-023-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-023",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "go test ./internal/domain/policy ./internal/application/service",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:36:00Z",
+      "duration_ms": 534,
+      "status": "passed",
+      "summary": "Agent run state/fallback/prompt policy and durable application service targeted tests passed."
+    },
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:35:00Z",
+      "duration_ms": 2686,
+      "status": "passed",
+      "summary": "smart-recruit-ai-agent-service package tests passed."
+    },
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:37:00Z",
+      "duration_ms": 907,
+      "status": "passed",
+      "summary": "Final smart-recruit-ai-agent-service package test pass before evidence generation."
+    },
+    {
+      "command": "go run ./cmd/ai-agent-service --check",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:40:00Z",
+      "duration_ms": 783,
+      "status": "passed",
+      "summary": "ai-agent-service runtime check passed"
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:41:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked diff listed smart-recruit-ai-agent-service/internal/docs/ai_agent_dependency_inventory.md; git status also listed new TASK-023 Go files."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-023",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:38:00Z",
+      "duration_ms": 26,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-023 before report/evidence creation."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:39:00Z",
+      "duration_ms": 1199,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-ai-agent-service passed."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:40:00Z",
+      "duration_ms": 294,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:40:00Z",
+      "duration_ms": 512,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-023",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:48:00Z",
+      "duration_ms": 96,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-023. Changed files: 12 after report/evidence creation."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:48:00Z",
+      "duration_ms": 1065,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-ai-agent-service passed."
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-ddd-evolution/reports/TASK-023-evidence.json",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:48:00Z",
+      "duration_ms": 92,
+      "status": "passed",
+      "summary": "evidence_result: PASS"
+    },
+    {
+      "command": "go test ./internal/domain/policy ./internal/application/service",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:52:00Z",
+      "duration_ms": 1581,
+      "status": "passed",
+      "summary": "Targeted tests passed after making audit sink errors explicit."
+    },
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:53:00Z",
+      "duration_ms": 630,
+      "status": "passed",
+      "summary": "Final smart-recruit-ai-agent-service package tests passed after self-review repair."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-023",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:53:00Z",
+      "duration_ms": 239,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-023. Changed files: 12 after self-review repair."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:53:00Z",
+      "duration_ms": 1182,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-ai-agent-service passed after self-review repair."
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree c1cf72200dd5f06b8719834c13236660741f97c2",
+      "exit_code": 1,
+      "started_at": "2026-07-13T09:41:00Z",
+      "duration_ms": 200,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-023 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-13T11:22:00Z",
+    "confirmation_text": "User confirmed continuing TASK-012 and cancelled future human gates unless a blocking issue needs human intervention; applying that confirmation to TASK-023."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-ai-agent-service/internal/domain/**",
+      "smart-recruit-ai-agent-service/internal/application/**",
+      "smart-recruit-ai-agent-service/internal/docs/ai_agent_dependency_inventory.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-023 localizes agent run state, durable dispatch boundary, prompt versioning, cancel/confirm, audit, and provider fallback application semantics."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/ai-configuration-governance.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-023 adds local model config and provider candidate fallback policy boundaries."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/mcp-tool-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-023 does not change MCP policy, tool allowlist, private-network restriction, or tool log behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/semantic-retrieval.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-023 does not change embedding, retrieval, memory, or skill selection behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-023 does not change AI Agent service binary command surface or runtime registration."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-023 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

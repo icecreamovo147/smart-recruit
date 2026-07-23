@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-013",
+  "base_sha": "2c18149e73da96d76a13edbc0df56c4cb3490877",
+  "base_tree": "af01b6c0c0cf5568cf58b63fc2cffd264f898879",
+  "head_sha": "2c18149e73da96d76a13edbc0df56c4cb3490877",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-013-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-013-report.md",
+    "smart-recruit-deploy/nacos/seed-config/gateway.yaml",
+    "smart-recruit-gateway/internal/runtime/recruitment_cutover.go",
+    "smart-recruit-gateway/internal/runtime/recruitment_cutover_test.go"
+  ],
+  "scope": {"status": "passed", "command": "TASK_BASE_TREE=af01b6c0c0cf5568cf58b63fc2cffd264f898879 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-013", "classification": "current", "out_of_scope": [], "forbidden": [], "allowed_patterns": ["smart-recruit-gateway/**", "web-gin-service/**", "smart-recruit-recruitment-service/**", "smart-recruit-deploy/**", ".spec/microservice-runtime-implementation/**"]},
+  "checks": [
+    {"command": "cd smart-recruit-gateway && GOWORK=off go test ./...", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T08:05:00.000Z", "duration_ms": 3737},
+    {"command": "cd web-gin-service && GOWORK=off go test ./rpc ./config", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T08:05:04.000Z", "duration_ms": 627},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T08:05:05.000Z", "duration_ms": 9},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree af01b6c0c0cf5568cf58b63fc2cffd264f898879 --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T08:05:06.000Z", "duration_ms": 93},
+    {"command": "TASK_BASE_TREE=af01b6c0c0cf5568cf58b63fc2cffd264f898879 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-013", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T08:05:07.000Z", "duration_ms": 290},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T08:05:08.000Z", "duration_ms": 1314},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-013-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T08:06:00.000Z", "duration_ms": 60}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T08:06:00Z", "source": "TASK-MRI-013 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [{"check": "Live jobs/profile/resume/application HTTP smoke", "reason": "Automated cutover plan passed; live HTTP smoke requires running shared MySQL/Recruitment/Gateway stack and is covered by later compose/smoke TASKs."}],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed", "recurring-defect-fixed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active source_refs; TASK-MRI-013 validates recruitment cutover without changing HTTP route ownership or protobuf contracts."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local startup guidance; TASK-MRI-013 does not replace current start-dev or docker commands."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

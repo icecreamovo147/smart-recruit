@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 2,
+  "changeRequestId": "CR-0004",
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "baseRevision": 4,
+  "status": "applied",
+  "classification": "scope_correction",
+  "approvalLevel": "L0",
+  "reason": "TASK-003 verifies new Prompt and exact current Agent Skill runtime semantics, and the mandatory knowledge impact detector reports update_required for three routed active documents. TASK-003 currently has an empty knowledge.modify scope, while passing Evidence cannot retain STALE verdicts. This correction adds only those three already-routed documents to TASK-003 write scope and changes no product behavior, requirement, API, schema, dependency, security policy, or acceptance criterion.",
+  "evidenceRefs": [
+    "reports/TASK-003-knowledge-impact.txt",
+    "repo://smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go#loadHRRuntimePrompt",
+    "repo://smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go#enrichHRRuntimeAgentSkillBodies"
+  ],
+  "trigger": {
+    "task_id": "TASK-003",
+    "phase": "review"
+  },
+  "impact": {
+    "requirements": [
+      "FR-004",
+      "FR-005",
+      "KNOW-001"
+    ],
+    "tasks": [
+      "TASK-003",
+      "TASK-005"
+    ],
+    "completedTasksRequiringRevalidation": []
+  },
+  "revalidationPlan": [
+    "TASK-003",
+    "TASK-005"
+  ],
+  "resultingRevision": 5,
+  "approval": {
+    "approved_by": "cr4-reviewer-r1",
+    "approved_at": "2026-07-16T15:03:00+08:00",
+    "decision": "approve"
+  },
+  "updates": [
+    {
+      "target": "contract.json",
+      "staged_file": "changes/CR-0004/contract.json",
+      "before_sha256": "8c42fb1e626eac4cc141b2646bdca7f9ebefc69dddd1fb9cf5b47c695a36eed3",
+      "after_sha256": "80d3457f2a1903e41d8c51b5680825f789e6179e4114fe0b3bd3e757a84ba765"
+    },
+    {
+      "target": "task-scope.json",
+      "staged_file": "changes/CR-0004/task-scope.json",
+      "before_sha256": "62bfd15926bc4eea587712bac520aaad97636accaf6b821ab29ba97c646298bb",
+      "after_sha256": "df4ba1cea668455eb6b32cdfa00fd87421860792aeb6c7b841e02083ea62583e"
+    },
+    {
+      "target": "traceability.json",
+      "staged_file": "changes/CR-0004/traceability.json",
+      "before_sha256": "73c11233cc8dc90eabfdcd5fa46197f0ffb67792a707a71f14adbce98f52e7f3",
+      "after_sha256": "0a549a149c37b86820dca5ad37f99d7f0a08428264e02057e78bb7e3a40691f4"
+    }
+  ],
+  "applied_at": "2026-07-16T07:00:05.650Z"
+}

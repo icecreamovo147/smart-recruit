@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import type { Session } from '@/types/ai'
+import { formatShanghaiDateTime, parseBusinessDateTime } from '@shared/utils/format'
 
 const props = defineProps<{
   sessions: Session[]
   currentSession: Session | null
   menuSessionId: number
   sessionSidebarOpen: boolean
+  chatDisabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -14,9 +17,65 @@ const emit = defineEmits<{
   (e: 'create-session'): void
   (e: 'rename-session', session: Session): void
   (e: 'remove-session', session: Session): void
+  (e: 'batch-remove-sessions', sessionIds: number[]): void
   (e: 'menu-toggle', id: number): void
   (e: 'close-sidebar'): void
 }>()
+
+const selectMode = ref(false)
+const selectedIds = ref<Set<number>>(new Set())
+
+const toggleSelectMode = () => {
+  selectMode.value = !selectMode.value
+  if (!selectMode.value) {
+    selectedIds.value = new Set()
+  }
+}
+
+const toggleSession = (id: number) => {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) {
+    next.delete(id)
+  } else {
+    next.add(id)
+  }
+  selectedIds.value = next
+}
+
+const allSessionsSelected = computed(() => {
+  if (props.sessions.length === 0) return false
+  return props.sessions.every((s) => selectedIds.value.has(s.id))
+})
+
+const selectAllSessions = () => {
+  if (allSessionsSelected.value) {
+    selectedIds.value = new Set()
+  } else {
+    selectedIds.value = new Set(props.sessions.map((s) => s.id))
+  }
+}
+
+const cancelSelect = () => {
+  selectMode.value = false
+  selectedIds.value = new Set()
+}
+
+const batchRemove = async () => {
+  const ids = [...selectedIds.value]
+  if (ids.length === 0) return
+  try {
+    await ElMessageBox.confirm(
+      `确认删除选中的 ${ids.length} 个会话？删除后不可恢复。`,
+      '批量删除会话',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  emit('batch-remove-sessions', ids)
+  selectMode.value = false
+  selectedIds.value = new Set()
+}
 
 type TimeGroup = 'today' | 'yesterday' | 'older'
 
@@ -28,11 +87,10 @@ const GROUP_LABELS: Record<TimeGroup, string> = {
 
 const getTimeGroup = (dateStr?: string): TimeGroup => {
   if (!dateStr) return 'older'
-  const now = new Date()
-  const then = new Date(dateStr)
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const todayKey = formatShanghaiDateTime(Date.now(), '', false).slice(0, 10)
+  const todayStart = parseBusinessDateTime(`${todayKey} 00:00:00`).getTime()
   const yesterdayStart = todayStart - 86400000
-  const thenTime = then.getTime()
+  const thenTime = parseBusinessDateTime(dateStr).getTime()
   if (thenTime >= todayStart) return 'today'
   if (thenTime >= yesterdayStart) return 'yesterday'
   return 'older'
@@ -55,12 +113,12 @@ const groupedSessions = computed(() => {
 const formatSessionTime = (dateStr?: string): string => {
   if (!dateStr) return ''
   const now = Date.now()
-  const then = new Date(dateStr).getTime()
+  const then = parseBusinessDateTime(dateStr).getTime()
   const diff = Math.floor((now - then) / 1000)
   if (diff < 60) return '刚刚'
   if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`
   if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`
-  return new Date(dateStr).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+  return formatShanghaiDateTime(dateStr, '', false).slice(5, 10)
 }
 </script>
 
@@ -68,9 +126,20 @@ const formatSessionTime = (dateStr?: string): string => {
   <aside class="chat-sidebar" :class="{ 'chat-sidebar--mobile-open': sessionSidebarOpen }">
     <div class="chat-sidebar__head">
       <h2 class="chat-sidebar__title">AI 会话</h2>
-      <el-button size="small" type="primary" class="chat-sidebar__new-btn" @click="emit('create-session')">
-        新建对话
-      </el-button>
+      <div class="chat-sidebar__head-actions">
+        <el-button
+          v-if="!selectMode"
+          size="small"
+          text
+          class="chat-sidebar__manage-btn"
+          @click="toggleSelectMode"
+        >
+          管理
+        </el-button>
+        <el-button size="small" type="primary" class="chat-sidebar__new-btn" :disabled="chatDisabled" @click="chatDisabled ? undefined : emit('create-session')">
+          新建对话
+        </el-button>
+      </div>
     </div>
     <div class="session-list">
       <template v-if="sessions.length === 0">
@@ -83,11 +152,20 @@ const formatSessionTime = (dateStr?: string): string => {
           :key="session.id"
           class="session-item"
           :class="{
-            'session-item--active': currentSession?.id === session.id,
+            'session-item--active': !selectMode && currentSession?.id === session.id,
             'session-item--menu-open': menuSessionId === session.id,
+            'session-item--selecting': selectMode,
+            'session-item--checked': selectMode && selectedIds.has(session.id),
           }"
-          @click="emit('select-session', session)"
+          @click="selectMode ? toggleSession(session.id) : emit('select-session', session)"
         >
+          <div v-if="selectMode" class="session-item__checkbox" @click.stop="toggleSession(session.id)">
+            <span class="session-item__checkmark" :class="{ 'session-item__checkmark--checked': selectedIds.has(session.id) }">
+              <svg v-if="selectedIds.has(session.id)" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2.5 6l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </div>
           <div class="session-item__content">
             <div class="session-item__header">
               <span class="session-item__title">{{ session.title }}</span>
@@ -99,7 +177,7 @@ const formatSessionTime = (dateStr?: string): string => {
               </span>
             </div>
           </div>
-          <div class="session-item__actions">
+          <div v-if="!selectMode" class="session-item__actions">
             <button
               class="session-item__more"
               @click.stop="emit('menu-toggle', menuSessionId === session.id ? 0 : session.id)"
@@ -118,6 +196,29 @@ const formatSessionTime = (dateStr?: string): string => {
         </div>
       </template>
     </div>
+
+    <!-- Multi-select action bar -->
+    <transition name="slide-up">
+      <div v-if="selectMode" class="chat-sidebar__select-bar">
+        <div class="chat-sidebar__select-bar-inner">
+          <label class="chat-sidebar__select-all" @click="selectAllSessions">
+            <span class="session-item__checkmark" :class="{ 'session-item__checkmark--checked': allSessionsSelected }">
+              <svg v-if="allSessionsSelected" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2.5 6l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span>全选</span>
+          </label>
+          <span class="chat-sidebar__select-count">已选 {{ selectedIds.size }} 项</span>
+          <div class="chat-sidebar__select-actions">
+            <el-button size="small" @click="cancelSelect">取消</el-button>
+            <el-button size="small" type="danger" :disabled="selectedIds.size === 0" @click="batchRemove">
+              删除
+            </el-button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </aside>
 </template>
 
@@ -202,5 +303,107 @@ const formatSessionTime = (dateStr?: string): string => {
 
 .session-item__more svg {
   display: block;
+}
+
+/* ---- Multi-select mode ---- */
+.chat-sidebar__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-sidebar__manage-btn {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.chat-sidebar__manage-btn:hover {
+  color: var(--brand);
+}
+
+.session-item--selecting {
+  cursor: pointer;
+}
+
+.session-item--selecting.session-item--checked {
+  background: var(--brand-soft);
+}
+
+.session-item__checkbox {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0 4px 0 8px;
+}
+
+.session-item__checkmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: #fff;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.session-item__checkmark--checked {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.chat-sidebar__select-bar {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.chat-sidebar__select-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.chat-sidebar__select-all {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.chat-sidebar__select-all:hover {
+  color: var(--brand);
+}
+
+.chat-sidebar__select-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.chat-sidebar__select-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* slide-up transition */
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
 }
 </style>

@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox, ElTag } from 'element-plus'
 import { listMyOffers, acceptOffer, rejectOffer } from '@/api/offer'
 import type { Offer } from '@/types/domain'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const loading = ref(false)
 const offers = ref<Offer[]>([])
@@ -12,13 +13,7 @@ const hasMore = ref(false)
 const pageSize = 10
 const actionLoading = ref<number | null>(null)
 
-const formatDateTime = (value: string): string => {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const pad = (num: number): string => String(num).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
+const formatDateTime = (value: string): string => formatShanghaiDateTime(value, '-', false)
 
 const offerStatusLabel = (status: string): string => {
   const map: Record<string, string> = {

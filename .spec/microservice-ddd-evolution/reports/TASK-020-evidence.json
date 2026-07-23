@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-020",
+  "base_sha": "e39daa9342c127024193526697173cd5ee80b8bc",
+  "base_tree": "5d4d34f952b01f453f8df22fe515c06293eb0439",
+  "head_sha": "e39daa9342c127024193526697173cd5ee80b8bc",
+  "changed_files": [
+    "smart-recruit-analytics-service/internal/application/dto/reporting.go",
+    "smart-recruit-analytics-service/internal/application/port/reporting.go",
+    "smart-recruit-analytics-service/internal/application/query/reporting.go",
+    "smart-recruit-analytics-service/internal/application/service/reporting_service.go",
+    "smart-recruit-analytics-service/internal/application/service/reporting_service_test.go",
+    "smart-recruit-analytics-service/internal/docs/projection_strategy_inventory.md",
+    "smart-recruit-analytics-service/internal/domain/model/reporting.go",
+    "smart-recruit-analytics-service/internal/domain/policy/reporting.go",
+    "smart-recruit-analytics-service/internal/domain/policy/reporting_test.go",
+    "smart-recruit-analytics-service/internal/domain/repository/reporting.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-020-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-020-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-020",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:36:00Z",
+      "duration_ms": 4102,
+      "status": "passed",
+      "summary": "smart-recruit-analytics-service package tests passed, including reporting/projection application and policy tests."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-020",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:37:00Z",
+      "duration_ms": 96,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-020. Changed files: 10 before report/evidence creation."
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:41:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked diff listed smart-recruit-analytics-service/internal/docs/projection_strategy_inventory.md; new untracked files are covered by scope check and changed_files."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-020",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:41:00Z",
+      "duration_ms": 15,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-020. Changed files: 12 after report/evidence creation."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:37:00Z",
+      "duration_ms": 3705,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-analytics-service passed."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:37:00Z",
+      "duration_ms": 162,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:37:00Z",
+      "duration_ms": 238,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-ddd-evolution/reports/TASK-020-evidence.json",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:41:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "evidence_result: PASS"
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 5d4d34f952b01f453f8df22fe515c06293eb0439",
+      "exit_code": 1,
+      "started_at": "2026-07-13T10:38:00Z",
+      "duration_ms": 91,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-020 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-13T10:25:00Z",
+    "confirmation_text": "TASK-020 does not require human confirmation; user authorized continuing future TASKs unless a blocking issue needs intervention."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-analytics-service/internal/application/**",
+      "smart-recruit-analytics-service/internal/domain/**",
+      "smart-recruit-analytics-service/internal/docs/projection_strategy_inventory.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-020 localizes Analytics reporting/projection application contracts and keeps transitional reads read-only."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-020 preserves lifecycle-derived analytics metrics without changing application status behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-020 defines projection event/checkpoint ports and keeps notification unread count as transitional read debt."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Validation remains go test ./... from smart-recruit-analytics-service plus existing harness checks."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-020 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

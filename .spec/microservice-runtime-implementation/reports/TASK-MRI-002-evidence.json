@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-002",
+  "base_sha": "719e87e1f4651c7b5990c3de15cfa2768d241c8f",
+  "base_tree": "b75a09d505e5c3306fdc235a1d0b4d032caffb6b",
+  "head_sha": "719e87e1f4651c7b5990c3de15cfa2768d241c8f",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-002-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-002-report.md",
+    "scripts/check-proto-sync.mjs",
+    "smart-recruit-proto/README.md",
+    "smart-recruit-proto/go.mod",
+    "smart-recruit-proto/go.sum",
+    "smart-recruit-proto/proto/README.md",
+    "smart-recruit-proto/proto/recruitment.proto",
+    "smart-recruit-proto/proto_contract_test.go",
+    "smart-recruit-proto/recruitment/pb/recruitment.pb.go",
+    "smart-recruit-proto/recruitment/pb/recruitment_grpc.pb.go",
+    "smart-recruit-proto/scripts/generate-go.sh"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=b75a09d505e5c3306fdc235a1d0b4d032caffb6b bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-002",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-proto/**",
+      "logic-grpc-service/proto/**",
+      "logic-grpc-service/recruitment/pb/**",
+      "web-gin-service/proto/**",
+      "web-gin-service/recruitment/pb/**",
+      "scripts/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:36:48.215Z",
+      "duration_ms": 30
+    },
+    {
+      "command": "node scripts/check-proto-sync.mjs --check",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:36:48.254Z",
+      "duration_ms": 52
+    },
+    {
+      "command": "cd smart-recruit-proto && GOWORK=off go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:36:48.307Z",
+      "duration_ms": 624
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree b75a09d505e5c3306fdc235a1d0b4d032caffb6b --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:36:48.932Z",
+      "duration_ms": 297
+    },
+    {
+      "command": "TASK_BASE_TREE=b75a09d505e5c3306fdc235a1d0b4d032caffb6b bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-002",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:36:49.229Z",
+      "duration_ms": 274
+    },
+    {
+      "command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:36:49.503Z",
+      "duration_ms": 474
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-002-evidence.json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:37:15.070Z",
+      "duration_ms": 29
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": [
+      "Knowledge impact reported coverage_gap for smart-recruit-proto/proto/**; TASK-MRI-002 scope does not allow .knowledge edits, so the debt is recorded for a later knowledge-scope task."
+    ]
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_at": "2026-07-12T06:39:00Z",
+    "source": "TASK-MRI-002 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "protoc regeneration live run",
+      "reason": "TASK-MRI-002 records the generation command and validates checked-in generated code drift; live protoc availability is environment-dependent and later proto-changing TASKs must regenerate when contracts change."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "coverage_gap",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "public-api-changed",
+      "recurring-defect-fixed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active source_refs; TASK-MRI-002 adds a canonical proto root and drift tooling without changing active HTTP or gRPC runtime behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active local startup guidance; TASK-MRI-002 adds proto generation/check commands but does not alter existing docker/start-dev flows."
+        ]
+      },
+      {
+        "document": "smart-recruit-proto/proto/** route",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "detect-impact reported coverage_gap for smart-recruit-proto/proto/README.md and smart-recruit-proto/proto/recruitment.proto."
+        ]
+      }
+    ],
+    "coverageGap": true,
+    "validationExitCode": 0
+  }
+}

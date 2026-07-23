@@ -1,0 +1,4 @@
+interface:
+  display_name: "Knowledge Current-State Fix"
+  short_description: "Execute and verify knowledge remediation plans"
+  default_prompt: "Use $knowledge-current-state-fix to execute the current knowledge remediation plan safely and verify each task."

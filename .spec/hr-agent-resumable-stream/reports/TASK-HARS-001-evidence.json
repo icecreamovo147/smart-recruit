@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "hr-agent-resumable-stream",
+  "task_id": "TASK-HARS-001",
+  "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "base_tree": "dd2280e566fadae98b97ae5edeef6ef6572108bb",
+  "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "baseline_strategy": "pipeline-state task_runs.TASK-HARS-001 base_sha/base_tree (refreshed after orchestrator F2 allowlist correction; prior tree 6302bf6c589b4e6458cc6b900567ce6352015a3e)",
+  "changed_files": [
+    ".spec/hr-agent-resumable-stream/pipeline-state.json",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-001-evidence.json",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-001-report.md",
+    "db.sql",
+    "logic-grpc-service/migrations/000050_add_resumable_agent_runs.down.sql",
+    "logic-grpc-service/migrations/000050_add_resumable_agent_runs.sql",
+    "logic-grpc-service/model/model.go",
+    "logic-grpc-service/repository/agent_run_repo_test.go",
+    "logic-grpc-service/repository/repo_test_helper.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-001",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:26:30.000Z",
+      "duration_ms": 50,
+      "status": "passed"
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./migration -run TestLoadMigrations -count=1",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:26:00.000Z",
+      "duration_ms": 2800,
+      "status": "passed"
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./migration -run 'TestLoadMigrations|Test.*Down.*' -count=1",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:26:20.000Z",
+      "duration_ms": 2400,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-001",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:27:40.000Z",
+      "duration_ms": 1300,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/hr-agent-resumable-stream/scripts/agent-check.sh TASK-HARS-001",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:26:40.000Z",
+      "duration_ms": 4500,
+      "status": "passed"
+    }
+  ],
+  "review": {
+    "verdict": "通过",
+    "reviewer_type": "independent",
+    "reviewed_at": "2026-07-10T16:30:59.774Z",
+    "notes": "Re-review after fix round 1: down migration *.down.sql fixed; TestLoadMigrations PASS; schema/model/db.sql aligned."
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-10T16:14:45Z",
+    "confirmation_text": "User requested harness-pipeline from TASK-HARS-001 through all tasks without human confirmation gates; treat as advance confirmation for requiresHumanConfirmation tasks."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "go test -tags=mysql ./migration -run TestMySQLMigrationConsistency",
+      "reason": "Requires MYSQL_DSN and MySQL 8.0; not available in this local harness run."
+    },
+    {
+      "check": "Update agent-check.sh to include ./migration tests for TASK-HARS-001",
+      "reason": "scripts/ not in TASK allowedFiles; migration TestLoadMigrations run and documented manually instead."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "logic-grpc-service/migrations/000050_add_resumable_agent_runs.sql",
+      "logic-grpc-service/model/model.go",
+      "db.sql"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Architecture guidance for migrations/model/db.sql alignment remains accurate.",
+          "Knowledge edit out of TASK scope; last_verified refresh deferred."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Migration path steps were followed for this schema-only TASK.",
+          "No protobuf changes in TASK-HARS-001.",
+          "Down file now uses runner convention *.down.sql."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Prevention steps applied: paired migration, db.sql, model, and repository test helper AutoMigrate.",
+          "Focused persistence test added for new constraints."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "repair": {
+    "round": 1,
+    "fixed_findings": [
+      "F1",
+      "F2"
+    ],
+    "summary": "Renamed down migration to 000050_add_resumable_agent_runs.down.sql; verified allowlist; refreshed base_tree for orchestrator allowlist correction; TestLoadMigrations PASS (50 migrations)."
+  }
+}

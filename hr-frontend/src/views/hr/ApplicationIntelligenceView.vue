@@ -19,7 +19,8 @@ import type {
   ResumeExperienceInfo,
   ResumeProfileSnapshotInfo,
 } from '@/types/recruitingIntelligence'
-import { debugLog } from '@/utils/debugLog'
+import { debugLog } from '@shared/utils/debugLog'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 type JsonRecord = Record<string, unknown>
 type JsonListItem = string | number | JsonRecord
@@ -67,13 +68,7 @@ const jobId = computed(() => Number(route.query.job_id || evaluation.value?.job_
 const evaluation = computed<CandidateMatchEvaluationInfo | null>(() => evaluationSnapshot.value?.evaluation || null)
 const evidence = computed<CandidateMatchEvidenceInfo[]>(() => evaluationSnapshot.value?.evidence || [])
 
-const formatDateTime = (value?: string): string => {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const pad = (num: number): string => String(num).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
+const formatDateTime = (value?: string): string => formatShanghaiDateTime(value, '-', false)
 
 const formatRange = (start?: string, end?: string, isCurrent?: number): string => {
   const left = start || '未知'

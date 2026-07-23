@@ -12,55 +12,78 @@ tags:
   - ai
   - context
 applies_to:
-  - logic-grpc-service/ai/**
-  - logic-grpc-service/service/ai_service.go
-  - logic-grpc-service/service/agent_context.go
-  - logic-grpc-service/service/agent_run_recorder.go
+  - smart-recruit-ai-agent-service/**
+  - smart-recruit-commons/ai/**
   - hr-frontend/src/views/hr/AIChatView.vue
 source_refs:
-  - README.md
-  - logic-grpc-service/service/ai_service.go
-  - logic-grpc-service/service/agent_context.go
-  - logic-grpc-service/service/agent_run_recorder.go
-  - logic-grpc-service/ai/adk_agent.go
-last_verified: 2026-07-10
-review_after: 2026-10-08
+  - smart-recruit-ai-agent-service/internal/runtime/runtime.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/config_services.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/mcp_skill_services.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/config_store.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/mcp_skill_store.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/provider/doc.go
+  - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go
+  - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/resume_profile.go
+  - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/job_requirement.go
+  - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/candidate_match.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/recruiting_observability.go
+  - smart-recruit-commons/ai/fallback.go
+  - smart-recruit-commons/ai/anthropic_chatmodel.go
+  - smart-recruit-commons/ai/planner.go
+  - smart-recruit-proto/proto/recruitment.proto
+  - hr-frontend/src/views/hr/AIChatView.vue
+  - hr-frontend/src/api/ai.ts
+  - hr-frontend/src/utils/hrAgentRunReducer.ts
+last_verified: 2026-07-23
+review_after: 2026-10-21
 ---
 
 # Agent Runtime Architecture
 
-Smart Recruit has an HR AI assistant and candidate AI assistant backed by logic-service AI orchestration. The runtime uses an ADK-style path and a legacy path controlled by configuration. The Agent context builder assembles recent messages, session summary, active system prompt template, long-term memories, and prompt budget estimates for a request.
+AI Agent runtime is owned by `smart-recruit-ai-agent-service/`. The current implementation combines domain/application capability models with native runtime, gRPC, provider, and persistence adapters for HR AI chat, candidate AI chat, tool traces, context assembly, memory, embedding, MCP, Agent Skills, and durable agent runs. Shared AI client/fallback/tool support lives in `smart-recruit-commons/ai/`.
 
-Agent runtime behavior belongs in `logic-grpc-service/service/` and `logic-grpc-service/ai/`. Frontend chat views and gateway handlers should pass request state, render stream events, and expose trace or debug information, but they should not decide core runtime selection, memory ranking, or tool execution semantics.
+Runtime-facing configuration services for LLM, prompt, agent, and embedding config use focused optional store capabilities layered on the native `AIStore`. This keeps chat/runtime persistence contracts stable while exposing DB-backed configuration management and explicit non-success responses for unavailable stores, unsupported live provider tests, and unconfigured embedding backfills.
 
-## Runtime Inputs
+MCP, Skill registry, and Agent Skill admin services use the same native runtime pattern. Schema-backed server, policy, log, skill, version, tool, and Agent Skill management paths are DB-backed; MCP network/command execution and semantic debug paths return explicit non-success unsupported responses unless a runtime runner is bound.
 
-- Session and current message state from chat repositories.
-- Session summaries and long-term memories from repository-backed context layers.
-- Active prompt templates for the HR agent.
-- Available Agent Skills and runtime capabilities.
-- Embedding-backed semantic scores when the embedding provider is available.
+Native AI chat/session/agent-run methods require a configured store for database-backed behavior and a configured provider for model-backed behavior. Missing dependencies must return explicit failures rather than synthetic sessions, empty lists, fallback runs, or provider placeholder text.
 
-## Configuration Boundary
+Candidate chat treats pre-provider billing and capability failures as durable conversation outcomes: it persists the User message first, then stores a structured failed Assistant message before returning the transport error. Clients render that metadata as an actionable state card and can recover the same state after refresh; failed content is not added to provider-generated context as a successful answer.
 
-Runtime selection and request assembly are downstream of admin configuration. LLM providers and models are managed by `LlmConfigService`; prompt templates are managed by `PromptService`; agent configs and capability bindings are managed by `AgentConfigService`; feature gates and timeouts are represented by `AgentRuntimePolicy`.
+HR model selection is session-scoped for the next turn while every persisted message keeps the model actually used for that turn. `PreviewChatContext` recompiles persisted conversation history for a requested model without provider or Tool execution and without summary generation, then persists the selected-model state and `model_preview` context snapshot. The frontend treats this snapshot as model-relative: switching models shows the new denominator immediately in a calculating state and accepts only a matching-model snapshot as the numerator. The actual run and post-turn snapshot continue through the same budget controller, preventing preview/runtime context-policy drift.
 
-Runtime code should consume the active, enabled configuration and handle missing or unavailable dependencies explicitly. Admin configuration code should validate, persist, test, and expose configuration state, but it should not embed request-time orchestration decisions in the HR frontend or gateway handlers.
+Application-analysis session creation persists and returns a canonical non-empty User message that explicitly requests resume-to-job match evaluation. Both HR analysis entry paths reuse that message, with a planner-recognizable frontend fallback for legacy responses. Durable Run creation rejects blank messages before governance loading or dispatch. The Anthropic Messages adapter also rejects System-only input locally, so it never sends `messages: null` or an empty conversation to the provider.
 
-## Runtime Outputs
+HR AI chat resolves builtin Tool schemas from the effective Agent's explicitly enabled concrete bindings. A configured Agent with empty, disabled-only, abstract-only, unknown, or unimplemented bindings receives no default recruiting Tool authority. Executor argument, authorization/not-found, unsupported, and downstream failures are classified as non-success errors and persist as error Tool Traces/Run Steps; JSON error payloads are not useful Tool evidence. Recruitment-owned facts continue to be read through Recruitment gRPC clients.
 
-- Streamed chat events for frontend clients.
-- Persisted chat history and run trace records.
-- Debug metadata for retrieval, ranking, embedding provider, and pool confidence where exposed by current APIs.
+Live recruiting questions pass through the same deterministic planner before either a model-native Tool Calling provider or a completion-only provider may answer. The planner declares mandatory evidence groups for job inventory, application listing, candidate search/detail, requested analytics metric families, comparison/match, interview preparation, and offer support. Every group must have a matching successful Tool Trace; missing inputs, disabled/unavailable Tools, and failed calls short-circuit to a deterministic clarification or limitation response. Direct factual inventory/metric answers are rendered only from Tool results, including authoritative empty results, so model free text cannot bypass the evidence gate. Status-change action Tools are excluded from automatic schemas and execution until a separate explicit-confirmation transport exists.
 
-## Impact Guidance
+Prompt and Agent Skill compilation is fail closed. HR Prompts must be active compatible system templates and render only the four allowlisted stable runtime variables; malformed or unknown expressions omit the Prompt and create governance evidence. Selected Agent Skills contribute instructions only when their exact current version is valid and non-empty, and evidence records the exact version without persisting its body. Tool schemas and the actual model ToolRunner both enforce the active Agent allowlist, so Prompt or Skill text cannot cause an unbound builtin Tool to reach Recruitment services; attempted calls become classified error Traces.
 
-- Changes to context assembly should check memory and prompt budget tests.
-- Changes to runtime path selection should check config defaults and both ADK and legacy behavior when present.
-- Changes to LLM provider/model, prompt template, agent config, capability binding, or runtime policy defaults should review `ai-configuration-governance`.
-- Changes to trace recording should check agent run recorder tests and HR trace UI expectations.
-- Changes to Agent Skill selection or semantic retrieval should also review `semantic-retrieval` and domain knowledge for Skill and Memory.
+Durable HR Agent Runs snapshot the effective persisted Agent ID, type, and name when the Run is created. Every successful Run emits a privacy-safe `run.result` whose raw governance evidence contains Prompt ID/version, Agent Skill ID/version, Tool name/status, and selection mode without Prompt/Skill bodies, Tool arguments/results, or recruiting personal data. Model-generated text chunks map to `assistant.delta`; planning, context, fallback, and generating statuses without text remain `process.delta`. When chunks were emitted, completion persists the final answer snapshot without appending a duplicate full-answer delta; non-streaming answers retain one assistant delta so consumers do not lose content. Tool Traces remain linked to their Run and Run Step with matching success/error state.
+
+### Suggested follow-up questions
+
+Successful HR chat and Agent Run completions may return `suggested_questions` as a repeated string field on `ChatResponse`, `ChatStreamResponse`, and `AgentRunResultMetadata`. Generation extracts a model-only JSON block from the reply, strips that block from user-visible streaming deltas, and normalizes to exactly three questions. Normalization fails closed to planner fallbacks when count, length, uniqueness, high-PII classification, or candidate/job-name leakage checks fail. Clients must consume the wire field rather than parsing hidden markers from assistant text. Candidate chat uses a separate extraction path and must not share HR privacy filters or copy.
+
+### Process snapshot persistence
+
+Near successful Agent Run completion the runtime appends a `process.snapshot` event whose payload includes `snapshot_text`: a privacy-safe multi-line display summary built from plan intent, tool-trace outcomes, context usage, and fallback flags—not raw tool arguments, resume text, or provider payloads. `NativeStore.AppendAgentRunEvent` mirrors a present `snapshot_text` onto `agent_runs.process_text` for reload. Gateway exposes `snapshot_text` on Agent Run events; the HR reducer treats `process.snapshot` as a full replacement of process text, while `process.delta` may replace when `snapshot_text` is present or otherwise append `delta`/`event_message`. Older clients that only read `process_text` or ignore `snapshot_text` remain compatible as long as the mirrored column stays populated.
+
+Agent Run failures that contain `insufficient_credits` map to a stable `error_type` of `insufficient_credits` and a fixed user-facing credit message; the transport must not surface provider or ledger internals.
+
+HR-wide application and candidate aggregation remains inside the AI Agent service and uses existing Recruitment RPCs. It sorts and limits the HR inventory to 100 jobs, fetches with at most four workers and ten 100-row pages per job, then sorts by job ID/application ID and returns at most 5,000 rows. Context cancellation stops the aggregation. Some failed jobs produce successful rows plus `partial`, bounded `failed_job_count`, and non-sensitive warnings; an all-job failure is a non-nil Tool error and contributes no useful facts.
+
+MCP pre-context execution requires an explicit `skill_capability_keys` selection intersected with enabled Agent MCP bindings. An empty selection executes no MCP tool. The MCP runner and policy path enforce configured policy, confirmation, argument redaction, and audit persistence before a selected call can succeed.
+
+Recruiting intelligence uses an internal structured runtime rather than the generic HR Markdown completion path. On every structured operation it loads the current active `system` Prompt for the exact `resume_profile_extractor`, `job_requirement_extractor`, or `candidate_match_evaluator` agent type, then sends distinct System and User messages through the shared structured provider controls. Resume extraction, job-requirement extraction, deterministic-first per-requirement matching, deterministic aggregation, and versioned persistence remain internal to the AI Agent service; public gRPC shapes are unchanged.
+
+Recruiting stage diagnostics pass through an idempotent fail-closed normalization boundary before application observers and again before Zap logging. Every non-empty externally propagated request ID becomes a process-keyed, domain-separated HMAC correlation token; safe-looking syntax is never trusted and low-entropy values are not reversibly logged. Operation, resource type, stage, category, agent type, fallback, and outcome use explicit fixed mappings. Database Prompt/model identities become bounded domain-separated correlations after UTF-8/control validation and their 256/128-byte schema limits are recognized; only exact internal parser/scorer constants remain readable. Unknown classifications become `unknown`, invalid UTF-8/control identity text is omitted, and numeric resource/count/duration fields are bounded. Prompt bodies, User messages, resume/job text, raw model output, evidence content, error bodies, and credentials are not observability fields.
+
+`ParseResumeProfile` and `EvaluateCandidateMatch` install one deferred method-boundary finalizer before request validation. Every return path therefore emits exactly one terminal outcome, including nil/invalid input, dependency and authorization failures, disabled or compatibility paths, source/generation/aggregation/timeout/persistence failures, fallback, and success. Intermediate success remains non-terminal, and overall success is not emitted until persistence or a compatibility read has succeeded.
 
 ## Verification
 
-This document was verified against `logic-grpc-service/service/agent_context.go`, `logic-grpc-service/service/ai_service.go`, `logic-grpc-service/service/agent_run_recorder.go`, and `logic-grpc-service/ai/adk_agent.go` on 2026-07-10.
+Verified against current repository files and cumulative HR Tool, bounded aggregation, MCP, live-data evidence-gate, Prompt/Skill, durable Run, suggested-questions privacy filters, process.snapshot persistence, application-analysis message, Anthropic envelope, and recruiting runtime tests on 2026-07-23.

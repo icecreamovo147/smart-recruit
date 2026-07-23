@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-012",
+  "base_sha": "6215164331c6d4543e8542403c62f4866c26fedb",
+  "base_tree": "cfad0b1bb24e8309ef2dc0c8e1371af28ded5adc",
+  "head_sha": "6215164331c6d4543e8542403c62f4866c26fedb",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-012-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-012-report.md",
+    "smart-recruit-recruitment-service/README.md",
+    "smart-recruit-recruitment-service/cmd/recruitment-service/main.go",
+    "smart-recruit-recruitment-service/cmd/recruitment-service/main_test.go",
+    "smart-recruit-recruitment-service/go.mod",
+    "smart-recruit-recruitment-service/go.sum",
+    "smart-recruit-recruitment-service/internal/runtime/runtime.go",
+    "smart-recruit-recruitment-service/internal/runtime/runtime_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=cfad0b1bb24e8309ef2dc0c8e1371af28ded5adc bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-012",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-recruitment-service/**",
+      "logic-grpc-service/internal/recruitment/**",
+      "logic-grpc-service/cmd/recruitment-service/**",
+      "smart-recruit-proto/**",
+      "smart-recruit-platform-go/**",
+      "**/go.mod",
+      "**/go.sum",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "cd smart-recruit-recruitment-service && GOWORK=off go test ./...", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T07:55:00.000Z", "duration_ms": 11733},
+    {"command": "cd smart-recruit-recruitment-service && GOWORK=off go build ./cmd/recruitment-service && rm -f recruitment-service", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T07:55:12.000Z", "duration_ms": 3000},
+    {"command": "cd smart-recruit-recruitment-service && GOWORK=off go run ./cmd/recruitment-service --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T07:55:16.000Z", "duration_ms": 2000},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T07:55:19.000Z", "duration_ms": 1},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree cfad0b1bb24e8309ef2dc0c8e1371af28ded5adc --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T07:55:20.000Z", "duration_ms": 329},
+    {"command": "TASK_BASE_TREE=cfad0b1bb24e8309ef2dc0c8e1371af28ded5adc bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-012", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T07:55:21.000Z", "duration_ms": 379},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T07:55:22.000Z", "duration_ms": 5449},
+    {"command": "rm -f go.work.sum smart-recruit-recruitment-service/recruitment-service", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T07:55:28.000Z", "duration_ms": 5},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-012-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T07:56:00.000Z", "duration_ms": 60}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T07:56:00Z", "source": "TASK-MRI-012 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [{"check": "Live MySQL-backed gRPC serve", "reason": "The service builds and --check validates gRPC registration; live --serve requires shared MySQL/JWT local runtime and is covered by later compose/smoke TASKs."}],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed", "recurring-defect-fixed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active source_refs; TASK-MRI-012 adds an extracted recruitment service root while preserving current gateway fallback."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local startup guidance; TASK-MRI-012 adds a new explicit service command but does not replace current start-dev or docker commands."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

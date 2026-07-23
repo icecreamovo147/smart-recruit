@@ -7,11 +7,21 @@ export interface CandidateChatMessage {
   failed?: boolean
   waitingText?: string
   suggestedQuestions?: string[]
+  model_name?: string
 }
+
+export type CandidateAISessionType = 'general' | 'resume' | 'job_match' | 'interview' | 'offer' | 'progress'
 
 export interface CandidateSession {
   session_id: number
   title: string
+  session_type?: CandidateAISessionType | string
+  source_type?: string
+  source_id?: number
+  source_title?: string
+  summary?: string
+  last_message_preview?: string
+  message_count?: number
   created_at?: string
   updated_at?: string
 }
@@ -31,10 +41,20 @@ export interface StreamPayload {
   suggested_questions?: string[] | string
   suggestedQuestions?: string[] | string
   // Phase 4: streaming UX status events
-  event_type?: string // thinking | tool_calling | tool_done | generating | timeout_warning | partial_done | done | error
+  event_type?: string // thinking | tool_calling | tool_done | generating | timeout_warning | partial_done | done | error | model_info
   event_message?: string
   error_type?: string
   tool_name?: string
+  model_name?: string
+  context_usage?: {
+    model_id?: number
+    model_name?: string
+    requested_model_id?: number
+    effective_model_id?: number
+    model_fallback_reason?: string
+    capability_version_id?: number
+    capability_snapshot_hash?: string
+  }
 }
 
 export interface StreamHandlers {

@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-029",
+  "base_sha": "f1f8fbc91e0a1739493fc8d1decc5c2ce889fe5f",
+  "base_tree": "b7b905153ca53eea1cf3b7bf7618a4345fc82514",
+  "head_sha": "55de088eb2328a6ebc38dae66c515634328ca0ad",
+  "changed_files": [
+    ".knowledge/architecture/api-contracts-and-gateway.md",
+    ".knowledge/domains/notification-outbox.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-029-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-029-evidence.json",
+    "deploy/k8s/configmap.yaml",
+    "docker/docker-compose.yml",
+    "docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md",
+    "web-gin-service/config/config.go",
+    "web-gin-service/config/config_test.go",
+    "web-gin-service/main.go",
+    "web-gin-service/rpc/client.go",
+    "web-gin-service/rpc/client_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "b7b905153ca53eea1cf3b7bf7618a4345fc82514",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/api-contracts-and-gateway.md",
+      ".knowledge/domains/notification-outbox.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-029-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-029-evidence.json",
+      "deploy/k8s/configmap.yaml",
+      "docker/docker-compose.yml",
+      "docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md",
+      "web-gin-service/config/config.go",
+      "web-gin-service/config/config_test.go",
+      "web-gin-service/main.go",
+      "web-gin-service/rpc/client.go",
+      "web-gin-service/rpc/client_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:44:00Z",
+      "duration_ms": 27,
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:39:00Z",
+      "duration_ms": 492,
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    },
+    {
+      "command": "cd web-gin-service && go test ./config ./rpc",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:41:00Z",
+      "duration_ms": 2043,
+      "summary": "Focused gateway config and gRPC client cutover tests passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:42:00Z",
+      "duration_ms": 1773,
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "cd web-gin-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:42:00Z",
+      "duration_ms": 7119,
+      "summary": "All web-gin-service packages passed."
+    },
+    {
+      "command": "TASK_BASE_TREE=b7b905153ca53eea1cf3b7bf7618a4345fc82514 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-029",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:42:00Z",
+      "duration_ms": 306,
+      "summary": "scope_result: PASS (TASK-BDME-029)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:42:00Z",
+      "duration_ms": 7648,
+      "summary": "Feature validation, git diff whitespace check, gofmt check, web-gin-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree b7b905153ca53eea1cf3b7bf7618a4345fc82514 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:44:00Z",
+      "duration_ms": 173,
+      "summary": "impact_result: update_required; no coverage gaps."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": [],
+    "fix_check_failures": [
+      {
+        "issue": "Readiness only checked the main logic gRPC target after Notification route cutover.",
+        "resolution": "Added Notification target health check when the cutover uses a separate gRPC connection, with tests."
+      }
+    ]
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T16:34:14Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [
+    {
+      "type": "task_scope_expansion_authorized",
+      "description": "User allowed expanding the TASK scope to format out-of-scope Go files if agent-check.sh required it. No extra out-of-scope Go formatting was needed."
+    }
+  ],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "public-api-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented gateway configuration ownership and Notification route control."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented Notification API cutover routing and Redis/SSE compatibility."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added gateway cutover review expectation and rollback-safe defaults."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Routed new cutover documentation, configmap, and gateway files to relevant knowledge."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge route; no audit procedure changes were required."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due docker/config route; existing local development guidance remains sufficient."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-boundary route; public contract and bounded-context ownership remain unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due broad backend route; checked-in deployment topology still defaults to logic route."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

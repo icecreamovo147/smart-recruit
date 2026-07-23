@@ -7,10 +7,44 @@ on:
     branches: [dev, main]
 
 jobs:
+  schema-governance:
+    name: Schema Governance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify MySQL table ownership
+        run: node scripts/check-mysql-table-ownership.mjs
+      - name: Verify tenant data classification
+        run: node scripts/check-tenant-classification.mjs
+      - name: Verify UTC+8 timezone contract
+        run: node scripts/check-timezone-contract.mjs
+      - name: Verify immutable migration baseline
+        run: node scripts/check-migration-baseline.mjs
+
   # ── Go Backend Tests ──────────────────────────────────────────────
   go-test:
-    name: Go Tests
+    name: Go Tests (${{ matrix.module }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - smart-recruit-proto
+          - smart-recruit-platform-go
+          - smart-recruit-commons
+          - smart-recruit-gateway
+          - smart-recruit-identity-service
+          - smart-recruit-recruitment-service
+          - smart-recruit-interview-service
+          - smart-recruit-offer-service
+          - smart-recruit-notification-service
+          - smart-recruit-ai-agent-service
+          - smart-recruit-analytics-service
+          - smart-recruit-billing-service
+          - smart-recruit-worker-service
     services:
       mysql:
         image: mysql:8.0
@@ -26,25 +60,40 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.25"
+          go-version: "1.25.5"
           cache-dependency-path: |
-            logic-grpc-service/go.sum
-            web-gin-service/go.sum
-      - name: Logic service tests
-        working-directory: logic-grpc-service
+            smart-recruit-*/go.sum
+      - name: Go tests
+        working-directory: ${{ matrix.module }}
         run: go test ./...
         env:
           MYSQL_DSN: root:test@tcp(127.0.0.1:3306)/recruitment_test?parseTime=true
+          BILLING_TEST_MYSQL_DSN: root:test@tcp(127.0.0.1:3306)/recruitment_test?parseTime=true
           ALLOW_INSECURE_DEV_CONFIG: "true"
       - name: MySQL migration consistency test
-        working-directory: logic-grpc-service
+        if: matrix.module == 'smart-recruit-commons'
+        working-directory: smart-recruit-commons
         run: go test -tags=mysql -run 'TestMySQLMigrationConsistency|TestBaselineScenarios' ./migration/
         env:
           MYSQL_DSN: root:test@tcp(127.0.0.1:3306)/recruitment_test?parseTime=true
           ALLOW_INSECURE_DEV_CONFIG: "true"
-      - name: Web service tests
-        working-directory: web-gin-service
-        run: go test ./...
+
+  billing-image:
+    name: Billing Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate all microservice image targets
+        run: bash scripts/build-microservice-images.sh --check
+      - name: Build Billing image
+        run: |
+          docker build \
+            --file smart-recruit-deploy/docker/go-service.Dockerfile \
+            --build-arg SERVICE_DIR=smart-recruit-billing-service \
+            --build-arg CMD_PATH=./cmd/billing-service \
+            --build-arg BINARY_NAME=billing-service \
+            --tag smart-recruit/smart-recruit-billing-service:ci \
+            .
 
   # ── Frontend Type Check + Build ──────────────────────────────────
   frontend:
@@ -53,32 +102,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [hr-frontend, user-frontend, interviewer-frontend]
+        app: [hr-frontend, user-frontend, platform-frontend]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 10.19.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        working-directory: ${{ matrix.app }}
       - name: Type check
-        run: pnpm typecheck
-        working-directory: ${{ matrix.app }}
+        run: pnpm --filter ${{ matrix.app }} typecheck
       - name: Build
-        run: pnpm build
-        working-directory: ${{ matrix.app }}
+        run: pnpm --filter ${{ matrix.app }} build
       - name: Run tests
-        run: pnpm test
-        working-directory: ${{ matrix.app }}
+        run: pnpm --filter ${{ matrix.app }} test
 
-  # ── Proto Lint (TASK-FU-002) ──────────────────────────────────────
-  # 重生成两侧 recruitment.pb.go 并与 committed diff 必须为空。
-  # 防止 proto 字段被无意修改；protoc 版本与本地 TASK-005 一致（25.x）。
+  # ── Proto Lint ────────────────────────────────────────────────────
+  # Regenerate canonical smart-recruit-proto Go contracts and require an empty diff.
   proto-lint:
     name: Proto Lint
     runs-on: ubuntu-latest
@@ -88,57 +132,44 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.25"
+          go-version: "1.25.5"
           cache-dependency-path: |
-            logic-grpc-service/go.sum
-            web-gin-service/go.sum
-      - name: Install protoc 25.3
+            smart-recruit-proto/go.sum
+      - name: Bootstrap pinned protobuf toolchain
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y wget unzip
-          PROTOC_VERSION=25.3
-          wget -q "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip" -O /tmp/protoc.zip
-          PROTOC_DIR="$HOME/.local/protoc"
-          mkdir -p "$PROTOC_DIR"
-          unzip -q -o /tmp/protoc.zip -d "$PROTOC_DIR"
-          export PATH="$PROTOC_DIR/bin:$PATH"
-          echo "$PROTOC_DIR/bin" >> "$GITHUB_PATH"
-          protoc --version
-      - name: Install protoc-gen-go
-        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
-      - name: Regenerate recruitment.pb.go
+          tool_bin="$(smart-recruit-proto/scripts/bootstrap-tools.sh)"
+          echo "$tool_bin" >> "$GITHUB_PATH"
+      - name: Regenerate protobuf contracts
         run: |
           set -euo pipefail
-          export PATH="$PATH:$(go env GOPATH)/bin"
-          cd logic-grpc-service
-          protoc \
-            --proto_path=. \
-            --go_out=. \
-            proto/recruitment.proto
-          cp recruitment/pb/recruitment.pb.go ../web-gin-service/recruitment/pb/recruitment.pb.go
-      - name: Verify pb diff is empty
+          cd smart-recruit-proto
+          ./scripts/generate-go.sh
+      - name: Verify protobuf diff is empty
         run: |
           set -euo pipefail
+          node scripts/check-proto-sync.mjs --check
           if ! git diff --quiet \
-              logic-grpc-service/recruitment/pb/recruitment.pb.go \
-              web-gin-service/recruitment/pb/recruitment.pb.go; then
+              smart-recruit-proto/proto/recruitment.proto \
+              smart-recruit-proto/recruitment/pb/recruitment.pb.go \
+              smart-recruit-proto/recruitment/pb/recruitment_grpc.pb.go; then
             echo "ERROR: proto regeneration produced changes."
             echo ""
-            echo "This means the committed .pb.go is out of sync with .proto."
+            echo "This means the committed protobuf contracts are out of sync with the canonical proto source."
             echo "To fix locally:"
-            echo "  1. cd logic-grpc-service"
-            echo "  2. protoc --proto_path=. --go_out=. proto/recruitment.proto"
-            echo "  3. cp recruitment/pb/recruitment.pb.go ../web-gin-service/recruitment/pb/recruitment.pb.go"
-            echo "  4. Commit both .pb.go files"
+            echo "  1. cd smart-recruit-proto"
+            echo "  2. ./scripts/bootstrap-tools.sh"
+            echo "  3. ./scripts/generate-go.sh"
+            echo "  4. Commit the generated smart-recruit-proto files"
             echo ""
             echo "Diff summary:"
             git diff --stat \
-              logic-grpc-service/recruitment/pb/recruitment.pb.go \
-              web-gin-service/recruitment/pb/recruitment.pb.go
+              smart-recruit-proto/proto/recruitment.proto \
+              smart-recruit-proto/recruitment/pb/recruitment.pb.go \
+              smart-recruit-proto/recruitment/pb/recruitment_grpc.pb.go
             exit 1
           fi
-          echo "OK: protoc regeneration matches committed pb"
+          echo "OK: protobuf regeneration matches committed contracts"
 
   # ── Secret Scanning ──────────────────────────────────────────────
   secret-scan:

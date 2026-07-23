@@ -1,0 +1,297 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "ai-agent-runtime-recovery",
+  "task_id": "TASK-003",
+  "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "base_tree": "306c8e8abef5b321b5c0ce0131e808cbe752a748",
+  "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "changed_files": [
+    ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-003-evidence.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-003-report.md",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store_owner_role_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_run_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "306c8e8abef5b321b5c0ce0131e808cbe752a748",
+    "forbidden": [],
+    "out_of_scope": [],
+    "allowed": [
+      ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-003-evidence.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-003-report.md",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store_owner_role_test.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_run_test.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "GOWORK=off go test ./internal/interfaces/grpc -run 'Test(CreateAgentRun|CancelAgentRun|ConfirmAgentRun|SubscribeAgentRunEvents)' -count=1 -timeout 30s (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:10:00Z",
+      "duration_ms": 3765
+    },
+    {
+      "command": "GOWORK=off go test ./internal/infrastructure/persistence -run TestNativeStoreCompleteAgentRunCanceledSetsCanceledAt -count=1 -v (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:09:28Z",
+      "duration_ms": 4361
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:10:05Z",
+      "duration_ms": 4619
+    },
+    {
+      "command": "git diff --name-only",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:13:07Z",
+      "duration_ms": 8
+    },
+    {
+      "command": "bash .spec/ai-agent-runtime-recovery/scripts/check-task-scope.sh TASK-003",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:10:10Z",
+      "duration_ms": 800
+    },
+    {
+      "command": "bash .spec/ai-agent-runtime-recovery/scripts/agent-check.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:10:11Z",
+      "duration_ms": 6681
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 306c8e8abef5b321b5c0ce0131e808cbe752a748 --json",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:13:20Z",
+      "duration_ms": 88
+    }
+  ],
+  "review": {
+    "type": "independent-read-only-subagent",
+    "round": 1,
+    "verdict": "通过",
+    "reviewers": [
+      {
+        "round": 1,
+        "reviewer": "independent-read-only-subagent: Hume (019f61c8-ca22-7c72-9b3d-cbf0afb18f89)",
+        "verdict": "不通过",
+        "notes": [
+          "Reported control-plane diff visibility for .spec files and missing canceled_at in NativeStore canceled runs."
+        ]
+      },
+      {
+        "round": 2,
+        "reviewer": "independent-read-only-subagent: Peirce (019f61cd-4162-79f2-933c-e4853c0b6fd1)",
+        "verdict": "不通过",
+        "notes": [
+          "Reported ConfirmAgentRun did not persist or apply confirmed Agent Skill selection metadata."
+        ]
+      },
+      {
+        "round": 3,
+        "reviewer": "independent-read-only-subagent: Kuhn (019f61d2-5596-7443-95ac-19d7a4c2d405)",
+        "verdict": "不通过",
+        "notes": [
+          "Reported missing TASK-003 report/evidence at review time and duplicate user-message risk during confirmation continuation."
+        ]
+      }
+    ],
+    "completed_at": "2026-07-14T18:21:41Z",
+    "blocking_reason": "",
+    "resumed_at": "2026-07-14T18:18:35Z",
+    "resume_reason": "Continuation resumed TASK-003 fix-check-failures and fixed the duplicate user-message risk before the next self-review.",
+    "resumed_reviewer": "independent-read-only-subagent: Einstein (019f61da-f897-7392-a468-e85d7b30cf67)",
+    "resumed_review_notes": [
+      "No blocking findings.",
+      "Duplicate-user-message issue is resolved by runHRChatRuntimeWithOptions reuseExistingUserMessage and regression coverage.",
+      "Scope is clean against TASK-003 base tree."
+    ]
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T18:13:07Z",
+    "confirmation_text": "TASK-003 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "authorization-changed",
+      "configuration-changed",
+      "covered-path-changed",
+      "database-schema-changed",
+      "fallback-behavior-changed",
+      "memory-behavior-changed",
+      "public-api-changed",
+      "retrieval-behavior-changed",
+      "sensitive-data-flow-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": "agent-runtime",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-003 materially changes durable Agent Run execution, event replay, cancellation, and confirmation persistence. .knowledge edits are outside TASK scope, so record candidate knowledge debt."
+        ]
+      },
+      {
+        "document": "agent-skill",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for confirmation-selection impact; Agent Skill domain rules still apply and no Agent Skill registry behavior was changed in TASK-003."
+        ]
+      },
+      {
+        "document": "ai-configuration-governance",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for runtime/governance impact; no LLM/prompt/agent configuration governance behavior was changed."
+        ]
+      },
+      {
+        "document": "api-contracts-and-gateway",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for public API impact; TASK-003 reused existing protobuf fields and did not change gateway routes or contracts."
+        ]
+      },
+      {
+        "document": "debug-agent-retrieval",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due AI Agent runtime route; semantic retrieval debug behavior was not changed."
+        ]
+      },
+      {
+        "document": "embedding-fallback",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due runtime route; embedding fallback behavior was not changed."
+        ]
+      },
+      {
+        "document": "local-development",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due pipeline-state route; local development commands and service startup were not changed."
+        ]
+      },
+      {
+        "document": "mcp-policy-audit",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due runtime route; MCP policy/audit behavior was not changed."
+        ]
+      },
+      {
+        "document": "mcp-tool-governance",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due runtime route; no live MCP behavior or policy surface changed."
+        ]
+      },
+      {
+        "document": "memory-and-context",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due HR runtime context changes; existing context guidance remains applicable."
+        ]
+      },
+      {
+        "document": "migration-model-drift",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due persistence adapter changes; no schema or migration file was changed."
+        ]
+      },
+      {
+        "document": "persistence-and-migrations",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due NativeStore changes; TASK-003 reused existing columns and added no migration."
+        ]
+      },
+      {
+        "document": "protobuf-and-migration-change",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due persistence/proto route; no protobuf or migration changes were made."
+        ]
+      },
+      {
+        "document": "protobuf-synchronization",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due gRPC adapter changes; existing generated fields were reused without modifying protobuf definitions."
+        ]
+      },
+      {
+        "document": "resume-intelligence",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due AI Agent route; resume intelligence behavior was not changed."
+        ]
+      },
+      {
+        "document": "resume-sensitive-data",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due AI prompt/data-flow route; no raw resume handling or logging behavior was changed."
+        ]
+      },
+      {
+        "document": "semantic-retrieval",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due runtime route; semantic retrieval behavior was not changed in TASK-003."
+        ]
+      },
+      {
+        "document": "service-boundaries",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for boundary impact; changes remained inside AI Agent service and existing owner contracts."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due broad route; service topology and shared contract ownership were not changed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "skipped_checks": [
+    {
+      "check": "live durable Agent Run provider/browser smoke",
+      "reason": "No live provider credentials or local HR data fixture were available; fake-provider and in-memory persistence tests covered the implemented behavior."
+    }
+  ],
+  "blocked": {
+    "status": false,
+    "reason": "",
+    "unresolved_findings": []
+  }
+}

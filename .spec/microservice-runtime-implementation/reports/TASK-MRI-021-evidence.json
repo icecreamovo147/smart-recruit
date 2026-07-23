@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-021",
+  "base_sha": "4cb7ba36988f3da234914470662cf0962e70a478",
+  "base_tree": "ccab226ef3c8dd4ddc49168e255f4c892ac86b36",
+  "head_sha": "4cb7ba36988f3da234914470662cf0962e70a478",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-021-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-021-report.md",
+    "smart-recruit-deploy/nacos/seed-config/gateway.yaml",
+    "smart-recruit-gateway/internal/runtime/ai_agent_cutover.go",
+    "smart-recruit-gateway/internal/runtime/ai_agent_cutover_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=ccab226ef3c8dd4ddc49168e255f4c892ac86b36 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-021",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-gateway/**",
+      "web-gin-service/**",
+      "smart-recruit-ai-agent-service/**",
+      "smart-recruit-deploy/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "cd smart-recruit-gateway && GOWORK=off go test ./...", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:37:00.000Z", "duration_ms": 3887},
+    {"command": "cd web-gin-service && GOWORK=off go test ./rpc ./config", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:37:00.000Z", "duration_ms": 606},
+    {"command": "cd smart-recruit-ai-agent-service && GOWORK=off go test ./... && GOWORK=off go run ./cmd/ai-agent-service --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:37:00.000Z", "duration_ms": 1532},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:38:00.000Z", "duration_ms": 9},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree ccab226ef3c8dd4ddc49168e255f4c892ac86b36 --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:38:01.000Z", "duration_ms": 369},
+    {"command": "TASK_BASE_TREE=ccab226ef3c8dd4ddc49168e255f4c892ac86b36 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-021", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:38:02.000Z", "duration_ms": 227},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:39:00.000Z", "duration_ms": 1100},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-021-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:42:00.000Z", "duration_ms": 60}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T10:42:00Z", "source": "TASK-MRI-021 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [
+    {"check": "Live AI chat/agent/prompt/embedding HTTP smoke", "reason": "TASK-MRI-021 validates gateway cutover/rollback smoke coverage and AI Agent runtime readiness without starting shared MySQL/Gateway/AI-provider stack; live compose smoke is deferred to later runtime TASKs."}
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed", "recurring-defect-fixed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active source_refs; TASK-MRI-021 adds AI Agent cutover validation and Nacos seed example while preserving public HTTP/protobuf contracts and default rollback route mode."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local startup guidance; TASK-MRI-021 does not change start-dev, compose commands, or required manual local setup."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

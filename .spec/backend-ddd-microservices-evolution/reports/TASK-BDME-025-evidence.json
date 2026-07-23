@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-025",
+  "base_sha": "0c23190ef71529b321802892496e66debcddba90",
+  "base_tree": "20cffd8525006dfdff95feb8e36d14e907c71354",
+  "head_sha": "0c23190ef71529b321802892496e66debcddba90",
+  "changed_files": [
+    ".knowledge/INDEX.md",
+    ".knowledge/domains/notification-outbox.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/event-replay-dead-letter.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-025-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-025-evidence.json",
+    "docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md",
+    "scripts/event-replay-dead-letter.sh"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "20cffd8525006dfdff95feb8e36d14e907c71354",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/INDEX.md",
+      ".knowledge/domains/notification-outbox.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/event-replay-dead-letter.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-025-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-025-evidence.json",
+      "docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md",
+      "scripts/event-replay-dead-letter.sh"
+    ]
+  },
+  "checks": [
+    {
+      "command": "bash -n scripts/event-replay-dead-letter.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:49:00Z",
+      "duration_ms": 30,
+      "summary": "Shell syntax check passed."
+    },
+    {
+      "command": "scripts/event-replay-dead-letter.sh --help",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:49:00Z",
+      "duration_ms": 288,
+      "summary": "Usage output rendered successfully."
+    },
+    {
+      "command": "scripts/event-replay-dead-letter.sh outbox-replay-sql --event-id evt_123 --event-id \"evt'456\"",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:50:00Z",
+      "duration_ms": 62,
+      "summary": "Generated replay SQL and escaped single quotes in event ids."
+    },
+    {
+      "command": "scripts/event-replay-dead-letter.sh inbox-repair-sql --consumer notification-worker --event-id evt_123",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:50:00Z",
+      "duration_ms": 40,
+      "summary": "Generated inbox dead-letter repair SQL."
+    },
+    {
+      "command": "scripts/event-replay-dead-letter.sh retention-sql --published-days 30 --processed-days 30 --dead-days 90 --batch-size 100",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:50:00Z",
+      "duration_ms": 42,
+      "summary": "Generated batched retention SQL for successful and dead-letter records."
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:49:00Z",
+      "duration_ms": 18,
+      "summary": "Listed tracked TASK diff files; untracked files were also captured with git status for evidence."
+    },
+    {
+      "command": "git status --short",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:50:00Z",
+      "duration_ms": 62,
+      "summary": "Confirmed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=20cffd8525006dfdff95feb8e36d14e907c71354 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-025",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:50:00Z",
+      "duration_ms": 208,
+      "summary": "scope_result: PASS (TASK-BDME-025)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:50:00Z",
+      "duration_ms": 200,
+      "summary": "Feature validation, git diff whitespace check, knowledge validation, and shell syntax check passed."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:49:00Z",
+      "duration_ms": 176,
+      "summary": "knowledge_result: PASS (35 formal documents)."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 20cffd8525006dfdff95feb8e36d14e907c71354 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:50:00Z",
+      "duration_ms": 267,
+      "summary": "impact_result: update_required; no coverage gaps."
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:50:00Z",
+      "duration_ms": 1,
+      "summary": "No whitespace errors."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T15:43:05Z",
+    "confirmation_text": "TASK-BDME-025 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "live mysql --execute mutation verification",
+      "reason": "The TASK scope is runbook and safe dry-run scripting. Mutation actions intentionally generate SQL only and must be executed through a reviewed operational DB change path.",
+      "approved": true
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      ".knowledge/INDEX.md",
+      ".knowledge/domains/notification-outbox.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/event-replay-dead-letter.md",
+      "docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md",
+      "scripts/event-replay-dead-letter.sh"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/runbooks/event-replay-dead-letter.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Created active runbook knowledge for outbox/inbox replay, dead-letter repair, stale lock unlock, retention defaults, and safe SQL generation."
+        ]
+      },
+      {
+        "document": ".knowledge/INDEX.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added navigation entry for event replay and dead-letter repair."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Linked outbox/inbox replay, repair, and retention operations to the new runbook and helper script."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added narrow route for the new docs and script paths to event-replay-dead-letter and notification-outbox knowledge."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge route; the new narrow manifest route avoids a coverage gap without changing the audit procedure."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due pipeline-state route; no local development startup or validation procedure changed."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due pipeline-state route; no service topology or runtime ownership changed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}
+

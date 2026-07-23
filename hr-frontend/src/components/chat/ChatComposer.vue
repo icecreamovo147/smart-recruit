@@ -2,18 +2,24 @@
 import { computed } from 'vue'
 import { Close, Position } from '@element-plus/icons-vue'
 import type { Session, ContextUsageInfo } from '@/types/ai'
-import type { LlmModel } from '@/types/llm'
-import type { CapabilityInfo } from '@/types/agent'
-import type { AvailableAgentSkill } from '@/types/agentSkill'
-
-const sessionTokensUsed = computed(() => props.contextUsage?.prompt_tokens_estimated || 0)
-
-const hasProviderActual = computed(() =>
-  Boolean(props.contextUsage?.prompt_tokens_actual && props.contextUsage.prompt_tokens_actual > 0),
-)
+import type { LlmModel } from '@shared/types/llm'
+import type { CapabilityInfo } from '@shared/types/agent'
+import type { AvailableAgentSkill } from '@shared/types/agentSkill'
+import {
+  contextBudgetRatio,
+  contextBudgetSeverity,
+  contextUsageSourceLabel,
+  contextUsageStageLabel,
+  contextWindowProgressRatio,
+  contextWindowRatio,
+  contextWindowTokens,
+  currentEffectiveContextTokens,
+  formatCompactTokens,
+  inputBudgetTokens,
+} from '@/utils/contextUsage'
 
 const hasEstimatedBreakdownDetails = computed(() => {
-  const breakdown = props.contextUsage?.breakdown
+  const breakdown = visibleContextUsage.value?.breakdown
   if (!breakdown) return false
   return [
     breakdown.summary_tokens,
@@ -21,7 +27,9 @@ const hasEstimatedBreakdownDetails = computed(() => {
     breakdown.current_message_tokens,
     breakdown.skill_tokens,
     breakdown.tool_result_tokens,
-  ].some((tokens) => tokens > 0)
+    breakdown.tool_schema_tokens,
+    breakdown.protocol_overhead_tokens,
+  ].some((tokens) => Number(tokens) > 0)
 })
 
 const props = defineProps<{
@@ -31,12 +39,14 @@ const props = defineProps<{
   modelList: LlmModel[]
   selectedModelId: number | null
   contextUsage: ContextUsageInfo | null
+  contextPreviewing: boolean
   dataSource: string
   currentSession: Session | null
   skillCapabilities: CapabilityInfo[]
   selectedSkillKeys: string[]
   agentSkills: AvailableAgentSkill[]
   selectedAgentSkillIds: number[]
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -72,7 +82,7 @@ const slashQuery = computed(() => {
 })
 
 const skillMenuVisible = computed(() =>
-  !props.streaming && activeSlashIndex.value >= 0,
+  !props.disabled && !props.streaming && activeSlashIndex.value >= 0,
 )
 
 const filteredSkillCapabilities = computed(() => {
@@ -128,6 +138,7 @@ const clearSlashToken = () => {
 }
 
 const selectSkill = (cap: CapabilityInfo) => {
+  if (props.disabled) return
   if (!props.selectedSkillKeys.includes(cap.key)) {
     emit('update:selectedSkillKeys', [...props.selectedSkillKeys, cap.key])
   }
@@ -135,6 +146,7 @@ const selectSkill = (cap: CapabilityInfo) => {
 }
 
 const selectAgentSkill = (skill: AvailableAgentSkill) => {
+  if (props.disabled) return
   if (!props.selectedAgentSkillIds.includes(skill.id)) {
     emit('update:selectedAgentSkillIds', [...props.selectedAgentSkillIds, skill.id])
   }
@@ -142,46 +154,69 @@ const selectAgentSkill = (skill: AvailableAgentSkill) => {
 }
 
 const removeSkill = (key: string) => {
+  if (props.disabled) return
   emit('update:selectedSkillKeys', props.selectedSkillKeys.filter((item) => item !== key))
 }
 
 const removeAgentSkill = (id: number) => {
+  if (props.disabled) return
   emit('update:selectedAgentSkillIds', props.selectedAgentSkillIds.filter((item) => item !== id))
 }
 
-const formatContextUsage = (tokens: number): string => {
-  if (!tokens && tokens !== 0) return '-'
-  if (tokens >= 1_000_000) return (tokens / 1_000_000).toFixed(1) + 'M'
-  if (tokens >= 1_000) return (tokens / 1_000).toFixed(1) + 'K'
-  return String(tokens)
-}
-
-const hasContextWindow = computed(() =>
-  Boolean(props.contextUsage && props.contextUsage.context_window_tokens > 0),
+const selectedModel = computed(() => props.selectedModelId == null
+  ? props.modelList.find((model) => model.is_default) || props.modelList.find((model) => model.is_enabled)
+  : props.modelList.find((model) => model.id === props.selectedModelId))
+const contextUsageMatchesSelection = computed(() => {
+  if (!props.contextUsage) return false
+  if (!selectedModel.value) return true
+  return props.contextUsage.model_id === selectedModel.value.id
+})
+const visibleContextUsage = computed(() => props.contextPreviewing || !contextUsageMatchesSelection.value
+  ? null
+  : props.contextUsage)
+const sessionTokensUsed = computed(() => currentEffectiveContextTokens(visibleContextUsage.value))
+const totalContextWindow = computed(() => contextWindowTokens(visibleContextUsage.value)
+  || selectedModel.value?.context_window_tokens)
+const windowRatio = computed(() => contextWindowRatio(visibleContextUsage.value))
+const windowProgressRatio = computed(() => contextWindowProgressRatio(visibleContextUsage.value))
+const availableInputBudget = computed(() => inputBudgetTokens(visibleContextUsage.value))
+const budgetRatio = computed(() => contextBudgetRatio(visibleContextUsage.value))
+const hasKnownBudget = computed(() => availableInputBudget.value != null)
+const unknownConfiguration = computed(() =>
+  Boolean(visibleContextUsage.value && (!hasKnownBudget.value || visibleContextUsage.value.budget_status === 'unknown_config')),
 )
+const windowUsagePercent = computed(() => windowRatio.value == null
+  ? '无法计算'
+  : `${Number((windowRatio.value * 100).toFixed(1))}%`)
+const windowUsageLabel = computed(() => windowRatio.value == null
+  ? windowUsagePercent.value
+  : `${windowUsagePercent.value} 已用`)
+const budgetUsagePercent = computed(() => budgetRatio.value == null
+  ? '无法计算'
+  : `${(budgetRatio.value * 100).toFixed(1)}%`)
+const contextIndicatorLabel = computed(() => {
+  if (props.contextPreviewing) return `Context 计算中 / ${formatCompactTokens(totalContextWindow.value)}`
+  if (!visibleContextUsage.value) return `Context — / ${formatCompactTokens(totalContextWindow.value)}`
+  return `Context ${formatCompactTokens(sessionTokensUsed.value)} / ${formatCompactTokens(totalContextWindow.value)}${windowRatio.value == null ? '' : `，${windowUsageLabel.value}`}`
+})
 
 const contextUsageSeverityClass = computed(() => {
-  const cu = props.contextUsage
-  if (!cu) return ''
-  if (cu.context_window_tokens === 0) return 'chat-composer__context-indicator--unknown'
-  const ratio = cu.usage_ratio
-  if (ratio > 0.85) return 'chat-composer__context-indicator--warning'
-  if (ratio > 0.6) return 'chat-composer__context-indicator--caution'
-  return 'chat-composer__context-indicator--normal'
+  return `chat-composer__context-indicator--${contextBudgetSeverity(visibleContextUsage.value)}`
 })
 
 const contextUsageRatioClass = computed(() => {
-  const cu = props.contextUsage
-  if (!cu || !hasContextWindow.value) return ''
-  if (cu.usage_ratio > 0.85) return 'context-usage-popover__value--warning'
-  if (cu.usage_ratio > 0.6) return 'context-usage-popover__value--caution'
+  const severity = contextBudgetSeverity(visibleContextUsage.value)
+  if (severity === 'danger' || severity === 'warning') return 'context-usage-popover__value--warning'
+  if (severity === 'caution') return 'context-usage-popover__value--caution'
   return ''
 })
+
+const positive = (value: number | undefined): boolean => Number.isFinite(value) && Number(value) > 0
 
 </script>
 
 <template>
-  <div class="chat-composer">
+  <div class="chat-composer" :class="{ 'chat-composer--disabled': disabled }">
     <Transition name="chat-composer-skill-menu">
       <div v-if="skillMenuVisible" class="chat-composer__skill-menu">
         <template v-if="skillCapabilities.length > 0">
@@ -225,6 +260,7 @@ const contextUsageRatioClass = computed(() => {
         :key="skill.key"
         type="button"
         class="chat-composer__skill-badge"
+        :disabled="disabled"
         @click="removeSkill(skill.key)"
       >
         <span>/{{ skillLabel(skill) }}</span>
@@ -235,6 +271,7 @@ const contextUsageRatioClass = computed(() => {
         :key="skill.id"
         type="button"
         class="chat-composer__skill-badge"
+        :disabled="disabled"
         @click="removeAgentSkill(skill.id)"
       >
         <span>/{{ agentSkillLabel(skill) }}</span>
@@ -244,13 +281,13 @@ const contextUsageRatioClass = computed(() => {
     <div class="chat-composer__input-area">
       <el-input
         :model-value="input"
-        :disabled="streaming"
+        :disabled="streaming || disabled"
         :placeholder="placeholderText"
         type="textarea"
         :autosize="{ minRows: 2, maxRows: 6 }"
         resize="none"
         class="chat-composer__text-input"
-        @keydown.enter.exact.prevent="streaming ? undefined : emit('submit')"
+        @keydown.enter.exact.prevent="streaming || contextPreviewing || disabled ? undefined : emit('submit')"
         @update:model-value="(val: string) => emit('update:input', val)"
       />
     </div>
@@ -264,6 +301,7 @@ const contextUsageRatioClass = computed(() => {
           placeholder="默认模型"
           class="chat-composer__model-select"
           clearable
+          :disabled="streaming || contextPreviewing || disabled"
           @update:model-value="(val: number | null) => emit('update:selectedModelId', val)"
         >
           <el-option
@@ -276,99 +314,118 @@ const contextUsageRatioClass = computed(() => {
         <el-popover
           placement="top"
           trigger="hover"
-          :width="320"
+          :width="340"
           popper-class="context-usage-popover"
-          :disabled="!contextUsage"
+          :disabled="!visibleContextUsage || contextPreviewing"
         >
           <template #reference>
-            <div
-              v-if="contextUsage"
+            <button
+              type="button"
               class="chat-composer__context-indicator"
               :class="contextUsageSeverityClass"
+              :aria-label="contextIndicatorLabel"
+              :title="contextIndicatorLabel"
             >
               <span class="chat-composer__context-label">Context</span>
-              <span v-if="contextUsage.context_window_tokens > 0" class="chat-composer__context-value">
-                {{ formatContextUsage(sessionTokensUsed) }} / {{ formatContextUsage(contextUsage.context_window_tokens) }}
+              <span v-if="contextPreviewing" class="chat-composer__context-unknown">
+                计算中 / {{ formatCompactTokens(totalContextWindow) }}
               </span>
-              <span v-else class="chat-composer__context-unknown">未配置</span>
-            </div>
+              <span v-else-if="visibleContextUsage" class="chat-composer__context-value">
+                {{ formatCompactTokens(sessionTokensUsed) }} / {{ formatCompactTokens(totalContextWindow) }}
+              </span>
+              <span v-else class="chat-composer__context-unknown">— / {{ formatCompactTokens(totalContextWindow) }}</span>
+            </button>
           </template>
-          <template v-if="contextUsage">
+          <template v-if="visibleContextUsage">
             <div class="context-usage-popover__header">
-              <span class="context-usage-popover__title">会话累计占用</span>
-              <span class="context-usage-popover__badge">累计估算</span>
+              <span class="context-usage-popover__title">上下文窗口</span>
+              <span class="context-usage-popover__badge">{{ windowUsageLabel }}</span>
+            </div>
+            <div v-if="unknownConfiguration" class="context-usage-popover__notice" role="status">
+              模型上下文窗口未配置，已使用摘要 + 最近消息的安全降级策略。
             </div>
             <div class="context-usage-popover__grid">
               <div class="context-usage-popover__item">
                 <span class="context-usage-popover__label">模型</span>
-                <span class="context-usage-popover__value">{{ contextUsage.model_name || '-' }}</span>
+                <span class="context-usage-popover__value">{{ visibleContextUsage.model_name || '-' }}</span>
               </div>
               <div class="context-usage-popover__item">
-                <span class="context-usage-popover__label">上下文窗口</span>
-                <span class="context-usage-popover__value">{{ contextUsage.context_window_tokens > 0 ? formatContextUsage(contextUsage.context_window_tokens) : '未配置' }}</span>
+                <span class="context-usage-popover__label">总上下文窗口</span>
+                <span class="context-usage-popover__value">{{ positive(visibleContextUsage.context_window_tokens) ? formatCompactTokens(visibleContextUsage.context_window_tokens) : '未配置' }}</span>
               </div>
               <div class="context-usage-popover__item">
-                <span class="context-usage-popover__label">已用（累计估算）</span>
-                <span class="context-usage-popover__value">{{ formatContextUsage(sessionTokensUsed) }}</span>
-              </div>
-              <div v-if="hasProviderActual && contextUsage.prompt_tokens_estimated > 0" class="context-usage-popover__item">
-                <span class="context-usage-popover__label">本次输入（Provider）</span>
-                <span class="context-usage-popover__value">{{ formatContextUsage(contextUsage.prompt_tokens_actual) }}</span>
+                <span class="context-usage-popover__label">最大输出预留</span>
+                <span class="context-usage-popover__value">{{ positive(visibleContextUsage.max_output_tokens) ? formatCompactTokens(visibleContextUsage.max_output_tokens) : '—' }}</span>
               </div>
               <div class="context-usage-popover__item">
-                <span class="context-usage-popover__label">占比</span>
+                <span class="context-usage-popover__label">安全余量</span>
+                <span class="context-usage-popover__value">{{ positive(visibleContextUsage.safety_margin_tokens) ? formatCompactTokens(visibleContextUsage.safety_margin_tokens) : '—' }}</span>
+              </div>
+              <div class="context-usage-popover__item">
+                <span class="context-usage-popover__label">可用输入预算</span>
+                <span class="context-usage-popover__value">{{ formatCompactTokens(availableInputBudget) }}</span>
+              </div>
+              <div class="context-usage-popover__item">
+                <span class="context-usage-popover__label">当前会话已用</span>
+                <span class="context-usage-popover__value">{{ formatCompactTokens(sessionTokensUsed) }}</span>
+              </div>
+              <div class="context-usage-popover__item">
+                <span class="context-usage-popover__label">窗口占用</span>
                 <span class="context-usage-popover__value" :class="contextUsageRatioClass">
-                  {{ hasContextWindow ? `${(contextUsage.usage_ratio * 100).toFixed(1)}%` : '无法计算' }}
+                  {{ windowUsagePercent }}
                 </span>
               </div>
               <div class="context-usage-popover__item">
-                <span class="context-usage-popover__label">剩余（估算）</span>
-                <span class="context-usage-popover__value">
-                  {{ hasContextWindow ? formatContextUsage(contextUsage.remaining_tokens_estimated) : '无法计算' }}
+                <span class="context-usage-popover__label">安全预算占用</span>
+                <span class="context-usage-popover__value" :class="contextUsageRatioClass">
+                  {{ budgetUsagePercent }}
                 </span>
-              </div>
-              <div class="context-usage-popover__item">
-                <span class="context-usage-popover__label">输出上限</span>
-                <span class="context-usage-popover__value">{{ formatContextUsage(contextUsage.max_output_tokens) }}</span>
               </div>
             </div>
-            <template v-if="hasProviderActual && (contextUsage.prompt_tokens_actual || contextUsage.completion_tokens_actual || contextUsage.total_tokens_actual)">
-              <div class="context-usage-popover__section-title">Provider 实际用量</div>
-              <div class="context-usage-popover__breakdown">
-                <div v-if="contextUsage.prompt_tokens_actual > 0" class="context-usage-popover__breakdown-item">
-                  <span>输入 Tokens</span><span>{{ formatContextUsage(contextUsage.prompt_tokens_actual) }}</span>
-                </div>
-                <div v-if="contextUsage.completion_tokens_actual > 0" class="context-usage-popover__breakdown-item">
-                  <span>输出 Tokens</span><span>{{ formatContextUsage(contextUsage.completion_tokens_actual) }}</span>
-                </div>
-                <div v-if="contextUsage.total_tokens_actual > 0" class="context-usage-popover__breakdown-item">
-                  <span>总计 Tokens</span><span>{{ formatContextUsage(contextUsage.total_tokens_actual) }}</span>
-                </div>
-              </div>
-            </template>
-            <template v-if="hasEstimatedBreakdownDetails && contextUsage.breakdown">
+            <div v-if="hasKnownBudget" class="context-usage-popover__progress" aria-hidden="true">
+              <span :style="{ width: `${windowProgressRatio * 100}%` }"></span>
+            </div>
+            <template v-if="hasEstimatedBreakdownDetails && visibleContextUsage.breakdown">
               <div class="context-usage-popover__section-title">细分（估算）</div>
               <div class="context-usage-popover__breakdown">
-                <div v-if="contextUsage.breakdown.summary_tokens > 0" class="context-usage-popover__breakdown-item">
-                  <span>会话摘要</span><span>{{ formatContextUsage(contextUsage.breakdown.summary_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.system_prompt_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>系统指令</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.system_prompt_tokens) }}</span>
                 </div>
-                <div v-if="contextUsage.breakdown.memory_tokens > 0" class="context-usage-popover__breakdown-item">
-                  <span>长期记忆</span><span>{{ formatContextUsage(contextUsage.breakdown.memory_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.recent_message_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>最近消息</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.recent_message_tokens) }}</span>
                 </div>
-                <div v-if="contextUsage.breakdown.current_message_tokens > 0" class="context-usage-popover__breakdown-item">
-                  <span>当前消息</span><span>{{ formatContextUsage(contextUsage.breakdown.current_message_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.summary_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>会话摘要</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.summary_tokens) }}</span>
                 </div>
-                <div v-if="contextUsage.breakdown.skill_tokens > 0" class="context-usage-popover__breakdown-item">
-                  <span>技能指令</span><span>{{ formatContextUsage(contextUsage.breakdown.skill_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.memory_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>长期记忆</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.memory_tokens) }}</span>
                 </div>
-                <div v-if="contextUsage.breakdown.tool_result_tokens > 0" class="context-usage-popover__breakdown-item">
-                  <span>工具结果</span><span>{{ formatContextUsage(contextUsage.breakdown.tool_result_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.current_message_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>当前消息</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.current_message_tokens) }}</span>
+                </div>
+                <div v-if="positive(visibleContextUsage.breakdown.skill_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>技能指令</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.skill_tokens) }}</span>
+                </div>
+                <div v-if="positive(visibleContextUsage.breakdown.tool_schema_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>工具定义</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.tool_schema_tokens) }}</span>
+                </div>
+                <div v-if="positive(visibleContextUsage.breakdown.tool_result_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>工具结果</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.tool_result_tokens) }}</span>
+                </div>
+                <div v-if="positive(visibleContextUsage.breakdown.protocol_overhead_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>协议开销</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.protocol_overhead_tokens) }}</span>
                 </div>
               </div>
             </template>
+            <div v-if="visibleContextUsage.included_message_count != null || visibleContextUsage.omitted_message_count != null || visibleContextUsage.summary_applied || visibleContextUsage.memory_applied" class="context-usage-popover__meta">
+              <span v-if="visibleContextUsage.included_message_count != null">纳入 {{ visibleContextUsage.included_message_count }} 条消息</span>
+              <span v-if="visibleContextUsage.omitted_message_count != null">省略 {{ visibleContextUsage.omitted_message_count }} 条消息</span>
+              <span v-if="visibleContextUsage.summary_applied">已应用会话摘要</span>
+              <span v-if="visibleContextUsage.memory_applied">已应用长期记忆</span>
+            </div>
             <div class="context-usage-popover__footer">
-              <span>{{ contextUsage.stage === 'final' ? '最终值' : '实时值' }}</span>
-              <span>{{ contextUsage.source }}</span>
+              <span>{{ contextUsageStageLabel(visibleContextUsage.stage) }}</span>
+              <span>{{ contextUsageSourceLabel(visibleContextUsage) }}</span>
             </div>
           </template>
         </el-popover>
@@ -391,7 +448,7 @@ const contextUsageRatioClass = computed(() => {
         type="primary"
         :icon="Position"
         :loading="loading"
-        :disabled="!input.trim()"
+        :disabled="!input.trim() || contextPreviewing || disabled"
         class="chat-composer__send-btn"
         @click="emit('submit')"
       >
@@ -419,6 +476,12 @@ const contextUsageRatioClass = computed(() => {
 .chat-composer:focus-within {
   border-color: var(--el-color-primary-light-7);
   box-shadow: 0 10px 28px rgba(37, 99, 235, 0.08);
+}
+
+.chat-composer--disabled:hover,
+.chat-composer--disabled:focus-within {
+  border-color: var(--border);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
 }
 
 .chat-composer__skill-menu {
@@ -586,6 +649,8 @@ const contextUsageRatioClass = computed(() => {
 }
 
 .chat-composer__context-indicator {
+  border: 0;
+  font-family: inherit;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -599,6 +664,11 @@ const contextUsageRatioClass = computed(() => {
   transition: background var(--motion-fast) var(--motion-ease);
 }
 
+.chat-composer__context-indicator:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+
 .chat-composer__context-indicator--normal {
   background: rgba(52, 199, 89, 0.10);
   color: #34c759;
@@ -610,6 +680,11 @@ const contextUsageRatioClass = computed(() => {
 }
 
 .chat-composer__context-indicator--warning {
+  background: rgba(255, 149, 0, 0.12);
+  color: #c66a00;
+}
+
+.chat-composer__context-indicator--danger {
   background: rgba(255, 69, 58, 0.10);
   color: #ff453a;
 }
@@ -661,6 +736,16 @@ const contextUsageRatioClass = computed(() => {
   color: #b8860b;
 }
 
+:global(.context-usage-popover__notice) {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 :global(.context-usage-popover__grid) {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -693,6 +778,22 @@ const contextUsageRatioClass = computed(() => {
   color: #b8860b;
 }
 
+:global(.context-usage-popover__progress) {
+  height: 4px;
+  overflow: hidden;
+  margin: 2px 0 10px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+:global(.context-usage-popover__progress span) {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  transition: width var(--motion-normal) var(--motion-ease);
+}
+
 :global(.context-usage-popover__section-title) {
   font-size: 12px;
   font-weight: 600;
@@ -717,6 +818,14 @@ const contextUsageRatioClass = computed(() => {
 :global(.context-usage-popover__breakdown-item span:last-child) {
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+}
+
+:global(.context-usage-popover__meta) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 :global(.context-usage-popover__footer) {

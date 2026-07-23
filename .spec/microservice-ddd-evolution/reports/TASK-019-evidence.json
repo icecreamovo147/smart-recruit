@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-019",
+  "base_sha": "f90e3b6e90b2cdffa8cf04e9a2892108766945a1",
+  "base_tree": "681e0c2339b9d3a57ed413f61ff2e35d4373f8d2",
+  "head_sha": "f90e3b6e90b2cdffa8cf04e9a2892108766945a1",
+  "changed_files": [
+    "smart-recruit-analytics-service/internal/application/doc.go",
+    "smart-recruit-analytics-service/internal/application/dto/doc.go",
+    "smart-recruit-analytics-service/internal/application/port/doc.go",
+    "smart-recruit-analytics-service/internal/application/query/doc.go",
+    "smart-recruit-analytics-service/internal/application/service/doc.go",
+    "smart-recruit-analytics-service/internal/docs/projection_strategy_inventory.md",
+    "smart-recruit-analytics-service/internal/domain/doc.go",
+    "smart-recruit-analytics-service/internal/domain/event/doc.go",
+    "smart-recruit-analytics-service/internal/domain/model/doc.go",
+    "smart-recruit-analytics-service/internal/domain/policy/doc.go",
+    "smart-recruit-analytics-service/internal/domain/repository/doc.go",
+    "smart-recruit-analytics-service/internal/domain/service/doc.go",
+    "smart-recruit-analytics-service/internal/infrastructure/doc.go",
+    "smart-recruit-analytics-service/internal/infrastructure/client/doc.go",
+    "smart-recruit-analytics-service/internal/infrastructure/persistence/doc.go",
+    "smart-recruit-analytics-service/internal/infrastructure/projection/doc.go",
+    "smart-recruit-analytics-service/internal/interfaces/doc.go",
+    "smart-recruit-analytics-service/internal/interfaces/grpc/doc.go",
+    "smart-recruit-analytics-service/internal/interfaces/mapper/doc.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-019-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-019-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-019",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:17:00Z",
+      "duration_ms": 4139,
+      "status": "passed",
+      "summary": "smart-recruit-analytics-service package tests passed with new DDD skeleton packages."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:17:00Z",
+      "duration_ms": 597,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:17:00Z",
+      "duration_ms": 756,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:18:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked diff was empty before report creation because TASK-019 added untracked files; git status listed all new files."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-019",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:17:00Z",
+      "duration_ms": 534,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-019. Changed files: 21"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:17:00Z",
+      "duration_ms": 3794,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-analytics-service passed."
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 681e0c2339b9d3a57ed413f61ff2e35d4373f8d2",
+      "exit_code": 1,
+      "started_at": "2026-07-13T10:18:00Z",
+      "duration_ms": 186,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-019 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-13T10:12:00Z",
+    "confirmation_text": "TASK-019 does not require human confirmation; user authorized continuing future TASKs unless a blocking issue needs intervention."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-analytics-service/internal/docs/projection_strategy_inventory.md",
+      "smart-recruit-analytics-service/internal/domain/**",
+      "smart-recruit-analytics-service/internal/application/**",
+      "smart-recruit-analytics-service/internal/infrastructure/**",
+      "smart-recruit-analytics-service/internal/interfaces/**"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-019 establishes the Analytics DDD target boundary and records reporting/projection ownership under smart-recruit-analytics-service."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-019 records Analytics-owned projection tables and explicitly avoids schema or migration changes."
+        ]
+      },
+      {
+        "document": ".knowledge/inbox/analytics-projection-knowledge.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-019 turns the earlier Analytics projection candidate into service-local inventory context, without modifying .knowledge scope."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-019 adds Analytics service-local package anchors for DDD/projection work."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-019 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

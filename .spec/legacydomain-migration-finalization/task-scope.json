@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "legacydomain-migration-finalization",
+  "tasks": {
+    "TASK-001": {
+      "title": "Baseline finalization guardrails",
+      "status": "pending",
+      "allowedFiles": [
+        ".spec/legacydomain-migration-finalization/**",
+        "scripts/check-backend-boundaries.mjs",
+        "scripts/check-mysql-table-ownership.mjs",
+        ".knowledge/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-*/**/*.go",
+        "smart-recruit-proto/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/legacydomain-migration-finalization/acceptance/TASK-001.md",
+      "report": ".spec/legacydomain-migration-finalization/reports/TASK-001-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "notes": ["Do not implement runtime behavior in TASK-001."]
+    },
+    "TASK-002": {
+      "title": "Refine Recruitment runtime adapters",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-recruitment-service/cmd/recruitment-service/main.go",
+        "smart-recruit-recruitment-service/internal/runtime/**",
+        "smart-recruit-recruitment-service/internal/application/**",
+        "smart-recruit-recruitment-service/internal/domain/**",
+        "smart-recruit-recruitment-service/internal/infrastructure/**",
+        "smart-recruit-recruitment-service/internal/interfaces/**",
+        "smart-recruit-recruitment-service/internal/docs/**",
+        ".spec/legacydomain-migration-finalization/**",
+        ".knowledge/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "smart-recruit-gateway/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["modify", "create", "delete", "test"],
+      "acceptance": ".spec/legacydomain-migration-finalization/acceptance/TASK-002.md",
+      "report": ".spec/legacydomain-migration-finalization/reports/TASK-002-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "notes": ["Preserve Recruitment runtime behavior while extracting focused adapters."]
+    },
+    "TASK-003": {
+      "title": "Implement AI Agent configuration services",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go",
+        "smart-recruit-ai-agent-service/internal/runtime/**",
+        "smart-recruit-ai-agent-service/internal/application/**",
+        "smart-recruit-ai-agent-service/internal/domain/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/**",
+        "smart-recruit-ai-agent-service/internal/interfaces/**",
+        ".spec/legacydomain-migration-finalization/**",
+        ".knowledge/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "smart-recruit-gateway/router/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["modify", "create", "delete", "test"],
+      "acceptance": ".spec/legacydomain-migration-finalization/acceptance/TASK-003.md",
+      "report": ".spec/legacydomain-migration-finalization/reports/TASK-003-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "notes": ["Do not change Gateway routes or protobuf contracts."]
+    },
+    "TASK-004": {
+      "title": "Implement AI Agent MCP and Skill governance services",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/internal/application/**",
+        "smart-recruit-ai-agent-service/internal/domain/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/**",
+        "smart-recruit-ai-agent-service/internal/interfaces/**",
+        ".spec/legacydomain-migration-finalization/**",
+        ".knowledge/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "smart-recruit-gateway/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["modify", "create", "delete", "test"],
+      "acceptance": ".spec/legacydomain-migration-finalization/acceptance/TASK-004.md",
+      "report": ".spec/legacydomain-migration-finalization/reports/TASK-004-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "notes": ["Keep MCP and skill tests deterministic and secret-safe."]
+    },
+    "TASK-005": {
+      "title": "Complete AI Agent runtime and recruiting intelligence behavior",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go",
+        "smart-recruit-ai-agent-service/internal/runtime/**",
+        "smart-recruit-ai-agent-service/internal/application/**",
+        "smart-recruit-ai-agent-service/internal/domain/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/**",
+        "smart-recruit-ai-agent-service/internal/interfaces/**",
+        ".spec/legacydomain-migration-finalization/**",
+        ".knowledge/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "smart-recruit-gateway/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["modify", "create", "delete", "test"],
+      "acceptance": ".spec/legacydomain-migration-finalization/acceptance/TASK-005.md",
+      "report": ".spec/legacydomain-migration-finalization/reports/TASK-005-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "notes": ["Stop if completing recruiting intelligence needs schema or public API changes."]
+    },
+    "TASK-006": {
+      "title": "Final verification and knowledge convergence",
+      "status": "pending",
+      "allowedFiles": [
+        ".spec/legacydomain-migration-finalization/**",
+        ".knowledge/**",
+        "scripts/check-backend-boundaries.mjs",
+        "scripts/check-mysql-table-ownership.mjs"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-*/**/*.go",
+        "smart-recruit-proto/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/legacydomain-migration-finalization/acceptance/TASK-006.md",
+      "report": ".spec/legacydomain-migration-finalization/reports/TASK-006-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "notes": ["No business code changes in final verification TASK."]
+    }
+  }
+}

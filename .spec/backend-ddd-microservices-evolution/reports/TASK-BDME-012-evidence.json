@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-012",
+  "base_sha": "94e9504fb0b1dee401ccb78c826c5eb3bd9377d5",
+  "base_tree": "d60b73545cdc438720d6a44fa8d5da417a3a4f92",
+  "head_sha": "94e9504fb0b1dee401ccb78c826c5eb3bd9377d5",
+  "changed_files": [
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-012-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-012-evidence.json",
+    "logic-grpc-service/internal/recruitment/application/candidate_application_ports.go",
+    "logic-grpc-service/internal/recruitment/application/candidate_application_ports_test.go",
+    "logic-grpc-service/internal/recruitment/domain/candidate_application.go",
+    "logic-grpc-service/internal/recruitment/domain/candidate_application_test.go",
+    "logic-grpc-service/internal/recruitment/infrastructure/candidate_application_repositories.go",
+    "logic-grpc-service/internal/recruitment/infrastructure/candidate_application_repositories_test.go",
+    "logic-grpc-service/internal/recruitment/interfaces/candidate_application_api.go",
+    "logic-grpc-service/internal/recruitment/interfaces/candidate_application_api_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "d60b73545cdc438720d6a44fa8d5da417a3a4f92",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-012-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-012-evidence.json",
+      "logic-grpc-service/internal/recruitment/application/candidate_application_ports.go",
+      "logic-grpc-service/internal/recruitment/application/candidate_application_ports_test.go",
+      "logic-grpc-service/internal/recruitment/domain/candidate_application.go",
+      "logic-grpc-service/internal/recruitment/domain/candidate_application_test.go",
+      "logic-grpc-service/internal/recruitment/infrastructure/candidate_application_repositories.go",
+      "logic-grpc-service/internal/recruitment/infrastructure/candidate_application_repositories_test.go",
+      "logic-grpc-service/internal/recruitment/interfaces/candidate_application_api.go",
+      "logic-grpc-service/internal/recruitment/interfaces/candidate_application_api_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:55:57Z",
+      "duration_ms": 50,
+      "summary": "Listed changed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=d60b73545cdc438720d6a44fa8d5da417a3a4f92 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-012",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:55:57Z",
+      "duration_ms": 670,
+      "summary": "scope_result: PASS (TASK-BDME-012)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:55:57Z",
+      "duration_ms": 6565,
+      "summary": "Feature validation, git diff whitespace, gofmt check, and logic-grpc-service go test passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:55:57Z",
+      "duration_ms": 6865,
+      "summary": "All logic-grpc-service packages passed, including Recruitment candidate/application boundary compatibility tests."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree d60b73545cdc438720d6a44fa8d5da417a3a4f92",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:55:57Z",
+      "duration_ms": 931,
+      "summary": "impact_result: update_required; matched local-development, service-boundaries, and system-overview routes."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T14:52:18Z",
+    "confirmation_text": "TASK-BDME-012 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs",
+      "reason": ".knowledge files were reviewed but not changed by TASK-BDME-012."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "logic-grpc-service/internal/recruitment/application/candidate_application_ports.go",
+      "logic-grpc-service/internal/recruitment/domain/candidate_application.go",
+      "logic-grpc-service/internal/recruitment/infrastructure/candidate_application_repositories.go",
+      "logic-grpc-service/internal/recruitment/interfaces/candidate_application_api.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed current backend topology; TASK-BDME-012 adds Recruitment candidate/application boundary contracts and does not change runtime topology."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed service boundary guidance; new contracts preserve logic-service behavior and do not change protobuf or HTTP contracts."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed recruitment domain model; candidate profile, resume, and application lifecycle ownership is now represented in Recruitment ports and APIs."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed lifecycle guidance; application status behavior is unchanged and protected by existing go test coverage."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/resume-intelligence.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed resume intelligence boundary; TASK-BDME-012 intentionally did not adapt AI-derived resume profile repositories into Recruitment."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/resume-sensitive-data.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed resume sensitive-data pitfall; no data flow, logging, parsing, or storage behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed local-development route triggered by logic service changes; no startup command or local workflow changed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

@@ -4,7 +4,9 @@
 .env.local
 .env.development
 .env.production
-logic-grpc-service/config/config.yaml
+smart-recruit-commons/config/config.yaml
+smart-recruit-commons/config/*.local.yaml
+smart-recruit-billing-service/internal/config/config.yaml
 docker/.env
 
 # Dependency caches and installed packages.
@@ -14,8 +16,10 @@ node_modules/
 
 # Build outputs, local binaries, and test artifacts.
 dist/
+bin/
 *.exe
 *.test
+*.tsbuildinfo
 
 # Local development stack outputs.
 .dev/
@@ -25,6 +29,9 @@ dist/
 !.ai-guides/README.md
 .codex/
 .codegraph/
+.code-review-sdd/
+.security-review/
+.knowledge-review/
 .reasonix/
 
 # OS/editor noise.

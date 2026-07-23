@@ -1,0 +1,15 @@
+base_tree: 649ba4a7671bf11841c2f3bb74e377914075bdca
+detector_result: update_required
+reported_result: update_required
+reviewed_documents:
+- .knowledge/domains/ai-configuration-governance.md: UPDATED
+- .knowledge/domains/agent-skill.md: UPDATED
+- .knowledge/architecture/agent-runtime.md: UPDATED
+update_paths:
+- .knowledge/domains/ai-configuration-governance.md
+- .knowledge/domains/agent-skill.md
+- .knowledge/architecture/agent-runtime.md
+coverage_gap: false
+validation_result: PASS
+reference_result: PASS
+reason: CR-0004 added the routed documents to TASK-003 knowledge.modify; all three were updated and validated against the implemented Prompt, Skill-version, audit, and ToolRunner authorization semantics.

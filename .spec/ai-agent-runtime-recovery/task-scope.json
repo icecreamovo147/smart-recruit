@@ -1,0 +1,530 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "ai-agent-runtime-recovery",
+  "tasks": {
+    "TASK-001": {
+      "title": "Validation Baseline and Dev Reference Inventory",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/go.sum",
+        "smart-recruit-gateway/go.sum",
+        ".spec/ai-agent-runtime-recovery/docs/dev-reference-inventory.md",
+        ".spec/ai-agent-runtime-recovery/reports/**",
+        ".spec/ai-agent-runtime-recovery/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "**/.env",
+        "**/.env.*",
+        "**/go.mod",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "smart-recruit-proto/**",
+        "smart-recruit-commons/migrations/**",
+        "deploy/k8s/**",
+        "docs/**",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/runbooks/local-development.md",
+          ".knowledge/architecture/service-boundaries.md"
+        ],
+        "modify": [],
+        "candidate": []
+      },
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "acceptance": ".spec/ai-agent-runtime-recovery/acceptance/TASK-001.md",
+      "report": ".spec/ai-agent-runtime-recovery/reports/TASK-001-report.md",
+      "notes": [
+        "Do not implement runtime behavior in this TASK."
+      ]
+    },
+    "TASK-002": {
+      "title": "Restore HR AI Chat Runtime",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/internal/application/**",
+        "smart-recruit-ai-agent-service/internal/domain/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/provider/**",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/**",
+        "smart-recruit-ai-agent-service/internal/runtime/**",
+        "smart-recruit-ai-agent-service/cmd/ai-agent-service/**",
+        "smart-recruit-commons/ai/**",
+        ".spec/ai-agent-runtime-recovery/reports/**",
+        ".spec/ai-agent-runtime-recovery/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "**/.env",
+        "**/.env.*",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "smart-recruit-proto/**",
+        "smart-recruit-commons/migrations/**",
+        "deploy/k8s/**",
+        "docs/**",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": true,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/architecture/semantic-retrieval.md",
+          ".knowledge/domains/ai-configuration-governance.md",
+          ".knowledge/domains/agent-skill.md",
+          ".knowledge/domains/memory-and-context.md",
+          ".knowledge/pitfalls/embedding-fallback.md"
+        ],
+        "modify": [],
+        "candidate": []
+      },
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "acceptance": ".spec/ai-agent-runtime-recovery/acceptance/TASK-002.md",
+      "report": ".spec/ai-agent-runtime-recovery/reports/TASK-002-report.md",
+      "notes": [
+        "Requires confirmation because shared smart-recruit-commons/ai is allowed."
+      ]
+    },
+    "TASK-003": {
+      "title": "Restore Durable HR Agent Runs",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/internal/application/**",
+        "smart-recruit-ai-agent-service/internal/domain/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/**",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/**",
+        "smart-recruit-ai-agent-service/internal/runtime/**",
+        ".spec/ai-agent-runtime-recovery/reports/**",
+        ".spec/ai-agent-runtime-recovery/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "**/.env",
+        "**/.env.*",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "smart-recruit-proto/**",
+        "smart-recruit-commons/migrations/**",
+        "deploy/k8s/**",
+        "docs/**",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/domains/ai-configuration-governance.md",
+          ".knowledge/runbooks/debug-agent-retrieval.md"
+        ],
+        "modify": [],
+        "candidate": []
+      },
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "acceptance": ".spec/ai-agent-runtime-recovery/acceptance/TASK-003.md",
+      "report": ".spec/ai-agent-runtime-recovery/reports/TASK-003-report.md",
+      "notes": []
+    },
+    "TASK-004": {
+      "title": "Restore Candidate AI Runtime and Compatibility Route",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/internal/application/**",
+        "smart-recruit-ai-agent-service/internal/domain/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/provider/**",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/**",
+        "smart-recruit-ai-agent-service/internal/runtime/**",
+        "smart-recruit-gateway/handler/candidate/**",
+        "smart-recruit-gateway/router/**",
+        "smart-recruit-gateway/docs/**",
+        "user-frontend/src/api/ai.ts",
+        "user-frontend/src/types/**",
+        ".spec/ai-agent-runtime-recovery/reports/**",
+        ".spec/ai-agent-runtime-recovery/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "**/.env",
+        "**/.env.*",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "smart-recruit-proto/**",
+        "smart-recruit-commons/migrations/**",
+        "deploy/k8s/**",
+        "docs/**",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/architecture/api-contracts-and-gateway.md",
+          ".knowledge/domains/recruitment.md",
+          ".knowledge/domains/recruitment-lifecycle.md",
+          ".knowledge/pitfalls/resume-sensitive-data.md",
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/runbooks/frontend-validation.md"
+        ],
+        "modify": [],
+        "candidate": []
+      },
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "acceptance": ".spec/ai-agent-runtime-recovery/acceptance/TASK-004.md",
+      "report": ".spec/ai-agent-runtime-recovery/reports/TASK-004-report.md",
+      "notes": [
+        "Prefer gateway aggregation for non-stream compatibility before considering proto changes."
+      ]
+    },
+    "TASK-005": {
+      "title": "Restore Recruiting Intelligence Generation",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/internal/application/**",
+        "smart-recruit-ai-agent-service/internal/domain/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/provider/**",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/**",
+        "smart-recruit-ai-agent-service/internal/runtime/**",
+        "smart-recruit-gateway/handler/hr/recruiting_intelligence.go",
+        "smart-recruit-gateway/handler/hr/*recruiting*test.go",
+        "hr-frontend/src/api/recruitingIntelligence.ts",
+        "hr-frontend/src/types/recruitingIntelligence.ts",
+        "hr-frontend/src/views/hr/ApplicationIntelligenceView.vue",
+        ".spec/ai-agent-runtime-recovery/reports/**",
+        ".spec/ai-agent-runtime-recovery/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "**/.env",
+        "**/.env.*",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "smart-recruit-proto/**",
+        "smart-recruit-commons/migrations/**",
+        "deploy/k8s/**",
+        "docs/**",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/domains/resume-intelligence.md",
+          ".knowledge/runbooks/debug-resume-intelligence.md",
+          ".knowledge/pitfalls/resume-sensitive-data.md",
+          ".knowledge/domains/recruitment.md",
+          ".knowledge/architecture/api-contracts-and-gateway.md"
+        ],
+        "modify": [],
+        "candidate": []
+      },
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "acceptance": ".spec/ai-agent-runtime-recovery/acceptance/TASK-005.md",
+      "report": ".spec/ai-agent-runtime-recovery/reports/TASK-005-report.md",
+      "notes": [
+        "Stop if generation requires proto or schema changes."
+      ]
+    },
+    "TASK-006": {
+      "title": "Connect Agent, Prompt, Skill, and Capability Governance to Runtime",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/internal/application/**",
+        "smart-recruit-ai-agent-service/internal/domain/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/**",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/**",
+        "smart-recruit-ai-agent-service/internal/runtime/**",
+        "smart-recruit-gateway/handler/hr/agent_config.go",
+        "smart-recruit-gateway/handler/hr/prompt.go",
+        "smart-recruit-gateway/handler/hr/skill.go",
+        "smart-recruit-gateway/handler/hr/agent_skill.go",
+        "hr-frontend/src/api/agent.ts",
+        "hr-frontend/src/api/prompt.ts",
+        "hr-frontend/src/api/skill.ts",
+        "hr-frontend/src/api/agentSkill.ts",
+        "hr-frontend/src/types/agent.ts",
+        "hr-frontend/src/types/agentSkill.ts",
+        ".spec/ai-agent-runtime-recovery/reports/**",
+        ".spec/ai-agent-runtime-recovery/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "**/.env",
+        "**/.env.*",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "smart-recruit-proto/**",
+        "smart-recruit-commons/migrations/**",
+        "deploy/k8s/**",
+        "docs/**",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/domains/ai-configuration-governance.md",
+          ".knowledge/domains/agent-skill.md",
+          ".knowledge/architecture/semantic-retrieval.md",
+          ".knowledge/runbooks/debug-ai-configuration.md",
+          ".knowledge/runbooks/debug-agent-retrieval.md"
+        ],
+        "modify": [],
+        "candidate": []
+      },
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "acceptance": ".spec/ai-agent-runtime-recovery/acceptance/TASK-006.md",
+      "report": ".spec/ai-agent-runtime-recovery/reports/TASK-006-report.md",
+      "notes": []
+    },
+    "TASK-007": {
+      "title": "Restore MCP Runtime Execution",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/internal/application/**",
+        "smart-recruit-ai-agent-service/internal/domain/policy/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/mcp/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/mcp_skill_store.go",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/mcp_skill_services.go",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+        "smart-recruit-ai-agent-service/internal/runtime/**",
+        "smart-recruit-gateway/handler/hr/mcp.go",
+        "smart-recruit-gateway/handler/hr/*mcp*test.go",
+        "hr-frontend/src/api/mcp.ts",
+        "hr-frontend/src/views/hr/admin/McpManageView.vue",
+        ".spec/ai-agent-runtime-recovery/reports/**",
+        ".spec/ai-agent-runtime-recovery/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "**/.env",
+        "**/.env.*",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "smart-recruit-proto/**",
+        "smart-recruit-commons/migrations/**",
+        "deploy/k8s/**",
+        "docs/**",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": true,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/domains/mcp-tool-governance.md",
+          ".knowledge/pitfalls/mcp-policy-audit.md",
+          ".knowledge/domains/ai-configuration-governance.md",
+          ".knowledge/architecture/api-contracts-and-gateway.md"
+        ],
+        "modify": [],
+        "candidate": []
+      },
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "acceptance": ".spec/ai-agent-runtime-recovery/acceptance/TASK-007.md",
+      "report": ".spec/ai-agent-runtime-recovery/reports/TASK-007-report.md",
+      "notes": [
+        "Requires confirmation because MCP execution is security-sensitive."
+      ]
+    },
+    "TASK-008": {
+      "title": "Restore Embedding and Semantic Retrieval Runtime",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/internal/application/**",
+        "smart-recruit-ai-agent-service/internal/domain/**",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/config_store.go",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/mcp_skill_store.go",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+        "smart-recruit-ai-agent-service/internal/infrastructure/provider/**",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/config_services.go",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/mcp_skill_services.go",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+        "smart-recruit-ai-agent-service/internal/runtime/**",
+        "smart-recruit-gateway/handler/hr/embedding_config.go",
+        "smart-recruit-gateway/handler/hr/agent_skill.go",
+        "hr-frontend/src/api/embedding.ts",
+        "hr-frontend/src/api/agentSkill.ts",
+        "hr-frontend/src/views/hr/EmbeddingConfigView.vue",
+        "hr-frontend/src/views/hr/admin/AgentSkillManageView.vue",
+        "hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue",
+        "hr-frontend/src/types/embedding.ts",
+        "hr-frontend/src/types/agentSkill.ts",
+        ".spec/ai-agent-runtime-recovery/reports/**",
+        ".spec/ai-agent-runtime-recovery/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "**/.env",
+        "**/.env.*",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "smart-recruit-proto/**",
+        "smart-recruit-commons/migrations/**",
+        "deploy/k8s/**",
+        "docs/**",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/architecture/semantic-retrieval.md",
+          ".knowledge/domains/agent-skill.md",
+          ".knowledge/domains/memory-and-context.md",
+          ".knowledge/domains/ai-configuration-governance.md",
+          ".knowledge/pitfalls/embedding-fallback.md",
+          ".knowledge/runbooks/debug-agent-retrieval.md"
+        ],
+        "modify": [],
+        "candidate": []
+      },
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "acceptance": ".spec/ai-agent-runtime-recovery/acceptance/TASK-008.md",
+      "report": ".spec/ai-agent-runtime-recovery/reports/TASK-008-report.md",
+      "notes": [
+        "Adding or upgrading dependencies is a Hard Stop."
+      ]
+    },
+    "TASK-009": {
+      "title": "Verify Frontend Contract Compatibility",
+      "status": "pending",
+      "allowedFiles": [
+        "hr-frontend/src/api/**",
+        "hr-frontend/src/components/hr/ai/**",
+        "hr-frontend/src/types/**",
+        "hr-frontend/src/views/hr/AIChatView.vue",
+        "hr-frontend/src/views/hr/ApplicationIntelligenceView.vue",
+        "hr-frontend/src/views/hr/EmbeddingConfigView.vue",
+        "hr-frontend/src/views/hr/admin/**",
+        "user-frontend/src/api/ai.ts",
+        "user-frontend/src/types/**",
+        "user-frontend/src/views/**",
+        ".spec/ai-agent-runtime-recovery/reports/**",
+        ".spec/ai-agent-runtime-recovery/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "**/.env",
+        "**/.env.*",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "smart-recruit-ai-agent-service/**",
+        "smart-recruit-gateway/**",
+        "smart-recruit-proto/**",
+        "smart-recruit-commons/migrations/**",
+        "deploy/k8s/**",
+        "docs/**",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/runbooks/frontend-validation.md",
+          ".knowledge/pitfalls/frontend-menu-consistency.md",
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/domains/resume-intelligence.md"
+        ],
+        "modify": [],
+        "candidate": []
+      },
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "acceptance": ".spec/ai-agent-runtime-recovery/acceptance/TASK-009.md",
+      "report": ".spec/ai-agent-runtime-recovery/reports/TASK-009-report.md",
+      "notes": [
+        "Do not add package dependencies or change frontend global config."
+      ]
+    },
+    "TASK-010": {
+      "title": "Regression Hardening and Final Evidence",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/**/*_test.go",
+        "smart-recruit-gateway/**/*_test.go",
+        "hr-frontend/src/**/*.test.ts",
+        "user-frontend/src/**/*.test.ts",
+        ".spec/ai-agent-runtime-recovery/docs/**",
+        ".spec/ai-agent-runtime-recovery/reports/**",
+        ".spec/ai-agent-runtime-recovery/scripts/**",
+        ".spec/ai-agent-runtime-recovery/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "**/.env",
+        "**/.env.*",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "smart-recruit-proto/**",
+        "smart-recruit-commons/migrations/**",
+        "deploy/k8s/**",
+        "docs/**",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/architecture/api-contracts-and-gateway.md",
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/runbooks/frontend-validation.md",
+          ".knowledge/domains/resume-intelligence.md",
+          ".knowledge/domains/mcp-tool-governance.md",
+          ".knowledge/pitfalls/embedding-fallback.md",
+          ".knowledge/pitfalls/mcp-policy-audit.md"
+        ],
+        "modify": [],
+        "candidate": []
+      },
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "acceptance": ".spec/ai-agent-runtime-recovery/acceptance/TASK-010.md",
+      "report": ".spec/ai-agent-runtime-recovery/reports/TASK-010-report.md",
+      "notes": [
+        "Do not implement production runtime behavior in this TASK."
+      ]
+    }
+  }
+}

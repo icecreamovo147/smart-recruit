@@ -12,3 +12,6 @@ export const validateInviteCode = (inviteCode: string): Promise<{ code: number; 
 
 export const updateEmail = (email: string): Promise<{ code: number; msg: string }> =>
   request.put('/api/v1/auth/email', { email })
+
+export const switchTenant = (tenantId: number): Promise<LoginResponse> =>
+  request.post('/api/v1/auth/tenant/switch', { tenant_id: tenantId })

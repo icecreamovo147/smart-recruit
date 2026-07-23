@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "ai-agent-runtime-recovery",
+  "task_id": "TASK-008",
+  "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "base_tree": "d037ab7dc3d115ff168264a629917e41fc080ee6",
+  "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "changed_files": [
+    ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-008-evidence.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-008-report.md",
+    "smart-recruit-ai-agent-service/internal/domain/policy/capability_test.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/config_store.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/provider/embedding.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/provider/embedding_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/config_services.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/mcp_skill_services.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "d037ab7dc3d115ff168264a629917e41fc080ee6",
+    "forbidden": [],
+    "out_of_scope": [],
+    "allowed": [
+      ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-008-evidence.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-008-report.md",
+      "smart-recruit-ai-agent-service/internal/domain/policy/capability_test.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/config_store.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/provider/embedding.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/provider/embedding_test.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/config_services.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/mcp_skill_services.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "GOWORK=off go test ./internal/infrastructure/provider -run 'TestHTTPEmbeddingRunnerCallsConfiguredEndpoint|TestEmbeddingServiceBackfillDebugAndSemanticScores|TestEmbeddingServiceExplicitFallbackWhenRunnerFails' -count=1 -v (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:03:00Z",
+      "duration_ms": 1515
+    },
+    {
+      "command": "GOWORK=off go test ./internal/domain/policy -run 'TestSkillVersionAndSelectionPolicy' -count=1 -v (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:03:00Z",
+      "duration_ms": 891
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:04:00Z",
+      "duration_ms": 4838
+    },
+    {
+      "command": "git diff --name-only",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:58:00Z",
+      "duration_ms": 8,
+      "notes": "This command does not list untracked new embedding provider files before staging; git status and scope check were also recorded."
+    },
+    {
+      "command": "git status --short smart-recruit-ai-agent-service/internal/infrastructure/provider/embedding.go smart-recruit-ai-agent-service/internal/infrastructure/provider/embedding_test.go",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:06:00Z",
+      "duration_ms": 7
+    },
+    {
+      "command": "TASK_BASE_TREE=d037ab7dc3d115ff168264a629917e41fc080ee6 bash .spec/ai-agent-runtime-recovery/scripts/check-task-scope.sh TASK-008",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:03:00Z",
+      "duration_ms": 260
+    },
+    {
+      "command": "TASK_BASE_TREE=d037ab7dc3d115ff168264a629917e41fc080ee6 bash .spec/ai-agent-runtime-recovery/scripts/agent-check.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:04:00Z",
+      "duration_ms": 6850
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree d037ab7dc3d115ff168264a629917e41fc080ee6",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:59:00Z",
+      "duration_ms": 127
+    }
+  ],
+  "review": {
+    "type": "independent-read-only-subagent",
+    "round": 3,
+    "verdict": "通过",
+    "reviewers": [
+      {
+        "round": 1,
+        "reviewer": "independent-read-only-subagent: Sagan (019f6238-ae5d-76d0-8650-88ef2acb8a1b)",
+        "verdict": "不通过",
+        "notes": [
+          "Stale Agent Skill embeddings remained ready after content/version updates because the unique key includes text_hash."
+        ]
+      },
+      {
+        "round": 2,
+        "reviewer": "independent-read-only-subagent: Nash (019f623b-4b3c-7640-b45e-3d5d725ea416)",
+        "verdict": "不通过",
+        "notes": [
+          "Required TASK-008 report and evidence artifacts were missing.",
+          "No code findings after the stale-embedding invalidation fix."
+        ]
+      },
+      {
+        "round": 3,
+        "reviewer": "independent-read-only-subagent: Boyle (019f6240-9271-7271-8a07-2c3f17c1d508)",
+        "verdict": "通过",
+        "notes": [
+          "Verified runtime embedding test/backfill/debug paths, Agent Skill sync hooks, stale-row invalidation, semantic HR selection, and report/evidence artifacts.",
+          "No blocking findings."
+        ]
+      }
+    ],
+    "completed_at": "2026-07-14T20:13:51Z",
+    "blocking_reason": ""
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T19:52:17Z",
+    "confirmation_text": "TASK-008 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "database-schema-changed",
+      "fallback-behavior-changed",
+      "memory-behavior-changed",
+      "retrieval-behavior-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": "agent-runtime",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-008 wires a native embedding runtime service into config, Agent Skill, and HR AI runtime services. Knowledge edits are outside TASK scope."
+        ]
+      },
+      {
+        "document": "semantic-retrieval",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-008 changes Semantic Retrieval Debug from unsupported to runner-backed vector ranking for agent_skill embeddings with score breakdown and fallback reason."
+        ]
+      },
+      {
+        "document": "agent-skill",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-008 makes Agent Skill create/update/activate/status/version-activate flows trigger embedding upsert or invalidation."
+        ]
+      },
+      {
+        "document": "memory-and-context",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Impact detector matched memory/retrieval routes; TASK-008 leaves memory debug empty while restoring Agent Skill semantic retrieval."
+        ]
+      },
+      {
+        "document": "ai-configuration-governance",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-008 changes embedding model testing from unsupported store response to configured provider/model runtime validation."
+        ]
+      },
+      {
+        "document": "embedding-fallback",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-008 makes provider failures explicit in TestEmbeddingModel and Semantic Retrieval Debug fallback_reason fields."
+        ]
+      },
+      {
+        "document": "debug-agent-retrieval",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-008 populates provider/model/dim/latency/candidate count and score breakdowns for semantic debug."
+        ]
+      },
+      {
+        "document": "api-contracts-and-gateway",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No proto, gateway handler, or HTTP route files were changed in TASK-008."
+        ]
+      },
+      {
+        "document": "protobuf-and-migration-change",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No protobuf or migration files were changed."
+        ]
+      },
+      {
+        "document": "persistence-and-migrations",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-008 uses existing embedding_providers, embedding_models, agent_skills, agent_skill_versions, and ai_embeddings tables without schema changes."
+        ]
+      },
+      {
+        "document": "service-boundaries",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Embedding runtime lives inside smart-recruit-ai-agent-service and does not reintroduce monolith runtime dependencies."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Impact detector matched broad service routes; embedding runtime details are candidates for future knowledge update."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "skipped_checks": [
+    {
+      "check": "GOWORK=off go test ./... (smart-recruit-gateway)",
+      "reason": "No gateway files changed in TASK-008; agent-check.sh still ran gateway tests due staged earlier TASK changes and they passed."
+    },
+    {
+      "check": "pnpm --filter hr-frontend typecheck",
+      "reason": "No HR frontend files changed in TASK-008."
+    },
+    {
+      "check": "Live external embedding provider smoke",
+      "reason": "No safe external embedding provider credentials are available in the workspace; httptest and fake runner tests cover provider/model call shape, semantic scoring, fallback, and stale invalidation."
+    }
+  ],
+  "risks": [
+    "The default runner uses an OpenAI-compatible HTTP embeddings request shape; non-compatible provider types may need a separately scoped adapter.",
+    "Agent Skill embedding upsert is synchronous best-effort through the native service.",
+    "Memory retrieval debug remains empty in this TASK because no memory embedding store/runtime was in TASK scope."
+  ],
+  "next_task_can_start": true
+}

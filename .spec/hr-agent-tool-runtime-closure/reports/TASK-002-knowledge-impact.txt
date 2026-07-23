@@ -1,0 +1,8 @@
+base_tree: 070107c2611c645c006d4c6e34fe6b6dbaa02aef
+impact_result: update_required
+directly_affected_active_documents:
+- .knowledge/architecture/agent-runtime.md: UPDATED
+- .knowledge/domains/ai-configuration-governance.md: UPDATED
+coverage_gap: false
+validation_result: PASS
+reference_result: PASS

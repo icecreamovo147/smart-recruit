@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-026",
+  "base_sha": "2396ff845688a05f79e3e3a3a9680d3860968f40",
+  "base_tree": "63b68f8273cfd5581db3d5d6fee170a85c80cf35",
+  "head_sha": "2396ff845688a05f79e3e3a3a9680d3860968f40",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-026-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-026-report.md",
+    ".spec/microservice-runtime-implementation/scripts/agent-check.sh",
+    "docs/mysql-table-ownership.md",
+    "scripts/check-mysql-table-ownership.mjs",
+    "smart-recruit-deploy/mysql-table-ownership.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=63b68f8273cfd5581db3d5d6fee170a85c80cf35 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-026",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-deploy/**",
+      "scripts/**",
+      "docs/**",
+      ".knowledge/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "node scripts/check-mysql-table-ownership.mjs", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:04:00.000Z", "duration_ms": 131},
+    {"command": "negative mysql ownership check with removed applications grant", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:05:00.000Z", "duration_ms": 14},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:07:00.000Z", "duration_ms": 107},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 63b68f8273cfd5581db3d5d6fee170a85c80cf35 --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:06:00.000Z", "duration_ms": 223},
+    {"command": "TASK_BASE_TREE=63b68f8273cfd5581db3d5d6fee170a85c80cf35 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-026", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:07:00.000Z", "duration_ms": 377},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:07:00.000Z", "duration_ms": 345},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-026-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:08:00.000Z", "duration_ms": 96}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T12:08:00Z", "source": "TASK-MRI-026 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed source_refs; TASK-MRI-026 adds an ownership manifest and check script without changing HTTP APIs, protobufs, runtime service ownership, or database topology."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local-development guidance; this TASK adds a validation command but does not change local startup order, Docker prerequisites, or service run commands."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

@@ -171,7 +171,7 @@ onMounted(load)
       </div>
     </div>
 
-    <el-drawer v-model="dialogVisible" :title="editing ? '编辑地点' : '新增地点'" size="480px">
+    <el-drawer v-model="dialogVisible" :title="editing ? '编辑地点' : '新增地点'" size="480px" :close-on-click-modal="true">
       <el-form label-width="80px">
         <el-form-item label="地点名称">
           <el-input v-model="form.name" placeholder="请输入地点名称" />

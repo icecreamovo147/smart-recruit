@@ -1,0 +1,28 @@
+/* Surface recipes: glass (chrome) / soft (workspace) / solid (dense). */
+
+.surface-glass {
+  border: 1px solid var(--surface-glass-border);
+  background: var(--surface-glass-bg);
+  box-shadow: var(--surface-glass-shadow);
+  -webkit-backdrop-filter: var(--surface-glass-blur);
+  backdrop-filter: var(--surface-glass-blur);
+}
+
+.surface-soft {
+  border: 1px solid var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius);
+  background: var(--surface-soft-bg);
+  box-shadow: var(--surface-soft-shadow);
+}
+
+.surface-solid {
+  border: 1px solid var(--surface-solid-border);
+  background: var(--surface-solid-bg);
+  box-shadow: var(--surface-solid-shadow);
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .surface-glass {
+    background: var(--surface-strong);
+  }
+}

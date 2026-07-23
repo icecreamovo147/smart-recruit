@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-021",
+  "base_sha": "47e580fc59d9355d2ab727b1b148d40db54f0013",
+  "base_tree": "1d2cb5c094b2d83b905fb1f6ff11a635bdcd616f",
+  "head_sha": "47e580fc59d9355d2ab727b1b148d40db54f0013",
+  "changed_files": [
+    ".knowledge/architecture/persistence-and-migrations.md",
+    ".knowledge/domains/notification-outbox.md",
+    ".knowledge/pitfalls/migration-model-drift.md",
+    ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+    ".knowledge/runbooks/protobuf-and-migration-change.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-021-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-021-evidence.json",
+    "db.sql",
+    "logic-grpc-service/migrations/000052_add_event_inbox.sql",
+    "logic-grpc-service/migrations/000052_add_event_inbox.down.sql",
+    "logic-grpc-service/model/model.go",
+    "logic-grpc-service/repository/inbox_repo.go",
+    "logic-grpc-service/repository/inbox_repo_test.go",
+    "logic-grpc-service/repository/repo_test_helper.go",
+    "logic-grpc-service/service/agent_run_consumer.go",
+    "logic-grpc-service/service/email_consumer.go",
+    "logic-grpc-service/service/embedding_event_consumer.go",
+    "logic-grpc-service/service/inbox_consumer.go",
+    "logic-grpc-service/service/inbox_consumer_test.go",
+    "logic-grpc-service/service/notification_consumer.go",
+    "logic-grpc-service/service/resume_parse_consumer.go",
+    "logic-grpc-service/service/services.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "1d2cb5c094b2d83b905fb1f6ff11a635bdcd616f",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/persistence-and-migrations.md",
+      ".knowledge/domains/notification-outbox.md",
+      ".knowledge/pitfalls/migration-model-drift.md",
+      ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+      ".knowledge/runbooks/protobuf-and-migration-change.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-021-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-021-evidence.json",
+      "db.sql",
+      "logic-grpc-service/migrations/000052_add_event_inbox.sql",
+      "logic-grpc-service/migrations/000052_add_event_inbox.down.sql",
+      "logic-grpc-service/model/model.go",
+      "logic-grpc-service/repository/inbox_repo.go",
+      "logic-grpc-service/repository/inbox_repo_test.go",
+      "logic-grpc-service/repository/repo_test_helper.go",
+      "logic-grpc-service/service/agent_run_consumer.go",
+      "logic-grpc-service/service/email_consumer.go",
+      "logic-grpc-service/service/embedding_event_consumer.go",
+      "logic-grpc-service/service/inbox_consumer.go",
+      "logic-grpc-service/service/inbox_consumer_test.go",
+      "logic-grpc-service/service/notification_consumer.go",
+      "logic-grpc-service/service/resume_parse_consumer.go",
+      "logic-grpc-service/service/services.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "go test ./repository -run 'TestInbox'",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T17:03:00Z",
+      "duration_ms": 2740,
+      "summary": "Inbox repository tests passed for duplicate skip, failed reclaim, dead-letter skip, stats, and retention."
+    },
+    {
+      "command": "go test ./service -run 'TestConsumeWithInbox|TestInboxIdentity'",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T17:03:00Z",
+      "duration_ms": 3663,
+      "summary": "Inbox consumer helper tests passed for duplicate skip and body-hash identity fallback."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T17:01:00Z",
+      "duration_ms": 29347,
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T17:05:00Z",
+      "duration_ms": 50,
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=1d2cb5c094b2d83b905fb1f6ff11a635bdcd616f bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-021",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T17:01:00Z",
+      "duration_ms": 446,
+      "summary": "scope_result: PASS (TASK-BDME-021)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T17:02:00Z",
+      "duration_ms": 29210,
+      "summary": "Feature validation, git diff whitespace, gofmt check, logic-grpc-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 1d2cb5c094b2d83b905fb1f6ff11a635bdcd616f",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T17:05:00Z",
+      "duration_ms": 307,
+      "summary": "impact_result: update_required; matched inbox/outbox, persistence, recruitment, AI/MCP/resume broad routes, local-development, service-boundaries, and system-overview."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T17:01:00Z",
+      "duration_ms": 266,
+      "summary": "knowledge_result: PASS (33 formal documents)."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T16:50:00Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "db.sql",
+      "logic-grpc-service/migrations/000052_add_event_inbox.sql",
+      "logic-grpc-service/model/model.go",
+      "logic-grpc-service/repository/inbox_repo.go",
+      "logic-grpc-service/service/inbox_consumer.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented event_inbox, consumer-side idempotency, retention, and MQ Start wrapper behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Recorded Inbox schema/model/repository/consumer alignment requirements."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added event_inbox drift prevention for uniqueness, status, retention, and consumer wiring."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added Inbox duplicate/failed/dead diagnostics to missing notification debugging."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added Inbox migration and consumer helper verification steps."
+        ]
+      },
+      {
+        "document": "agent-runtime, agent-skill, ai-configuration-governance, auth-rbac-security, debug-ai-configuration, debug-resume-intelligence, embedding-fallback, mcp-policy-audit, mcp-tool-governance, resume-intelligence, resume-sensitive-data, semantic-retrieval",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed as broad model/service routes; TASK-BDME-021 adds generic MQ Inbox idempotency and does not change AI, MCP, auth, embedding, resume extraction semantics, or sensitive data policy."
+        ]
+      },
+      {
+        "document": "knowledge-coverage-audit, local-development, recruitment, recruitment-lifecycle, service-boundaries, status-notification-drift, system-overview",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed as routed documents; no startup commands, public API, service ownership, recruitment status lifecycle, or system topology changed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

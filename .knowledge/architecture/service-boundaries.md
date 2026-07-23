@@ -12,41 +12,70 @@ tags:
   - gateway
   - rbac
 applies_to:
-  - web-gin-service/**
-  - logic-grpc-service/**
-  - logic-grpc-service/proto/**
+  - smart-recruit-gateway/**
+  - smart-recruit-*-service/**
+  - smart-recruit-proto/**
+  - smart-recruit-platform-go/servicebinary/**
+  - smart-recruit-commons/**
+  - smart-recruit-deploy/**
 source_refs:
-  - web-gin-service/router/router.go
-  - logic-grpc-service/proto/recruitment.proto
-  - logic-grpc-service/service/auth_service.go
-  - logic-grpc-service/repository/user_repo.go
-last_verified: 2026-07-10
-review_after: 2026-10-08
+  - smart-recruit-gateway/router/router.go
+  - smart-recruit-gateway/rpc/client.go
+  - smart-recruit-gateway/config/config.go
+  - smart-recruit-proto/proto/recruitment.proto
+  - smart-recruit-proto/recruitment/pb/recruitment.pb.go
+  - smart-recruit-platform-go/servicebinary/convention.go
+  - smart-recruit-deploy/mysql-table-ownership.json
+  - smart-recruit-deploy/docker-compose.microservices.yml
+  - smart-recruit-identity-service/internal/runtime/runtime.go
+  - smart-recruit-recruitment-service/internal/runtime/runtime.go
+  - smart-recruit-recruitment-service/cmd/recruitment-service/main.go
+  - smart-recruit-recruitment-service/internal/infrastructure/persistence/native_adapters.go
+  - smart-recruit-interview-service/internal/runtime/runtime.go
+  - smart-recruit-offer-service/internal/runtime/runtime.go
+  - smart-recruit-notification-service/internal/runtime/runtime.go
+  - smart-recruit-ai-agent-service/internal/runtime/runtime.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
+  - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/billing_settlement_outbox.go
+  - smart-recruit-billing-service/internal/application/service/billing.go
+  - smart-recruit-billing-service/internal/application/service/commerce.go
+  - smart-recruit-analytics-service/internal/runtime/runtime.go
+  - smart-recruit-worker-service/internal/runtime/runtime.go
+  - smart-recruit-interview-service/internal/infrastructure/client/application_adapter.go
+  - smart-recruit-interview-service/internal/infrastructure/client/authorizer.go
+  - smart-recruit-interview-service/internal/infrastructure/persistence/interview_repository.go
+  - smart-recruit-interview-service/internal/infrastructure/mq/outbox_publisher.go
+  - smart-recruit-offer-service/internal/infrastructure/client/application_adapter.go
+  - smart-recruit-offer-service/internal/infrastructure/client/authorizer.go
+  - smart-recruit-offer-service/internal/infrastructure/persistence/offer_repository.go
+  - smart-recruit-offer-service/internal/infrastructure/mq/outbox_publisher.go
+  - smart-recruit-commons/internal/platform/events/envelope.go
+last_verified: 2026-07-21
+review_after: 2026-10-14
 ---
 
 # Service Boundaries and Ownership
 
-The HTTP gateway is a transport and policy boundary. It should translate HTTP requests to gRPC calls, enforce request-level middleware, require roles and permissions, apply quotas and limits, and stream responses where needed. It should not own domain state machines or persistence rules.
+The gateway is a transport and policy boundary; service packages own business behavior. Each service runtime registers its bounded-context gRPC servers and uses internal domain/application/infrastructure/interfaces layering where extraction is complete. 
 
-The logic gRPC service is the business boundary. It owns domain services, repositories, model persistence, AI runtime composition, embedding and memory behavior, outbox and message queue behavior, and generated protobuf service implementations.
+Cross-context business reads/writes should use owner contracts instead of copied repositories. Identity exposes `AuthService.GetPrincipal` and internal `AuthService.AuthorizeInternal` for principal, permission, data-scope, and audit checks. Recruitment exposes internal `ApplicationOwnerService` for application snapshot and lifecycle transitions while preserving the existing public-facing `ApplicationService` shape.
 
-Generated protobuf files are contract artifacts. When proto definitions change, generated code in both Go services must stay aligned with the source `.proto` files.
+Identity also owns the platform control plane for tenants, platform accounts and roles, platform audit records, plan versions, tenant subscriptions and entitlement overrides, usage snapshots, and quota alerts. It reads Recruitment-owned job and application tables for cross-tenant operational projections in the current single-MySQL deployment. Recruitment reads the Identity-owned active subscription and entitlement tables only through the shared quota checker when enforcing job, application, and resume limits at write boundaries; these cross-owner reads are declared in `smart-recruit-deploy/mysql-table-ownership.json`.
 
-## Boundary Checklist
+Recruitment has retired its service-local `internal/legacydomain/` copy. Its active runtime constructs the gRPC surface through explicit `runtime.Deps` backed by focused local persistence adapters in `internal/infrastructure/persistence/native_adapters.go` for job, taxonomy, admin/invite, usage, candidate/resume, application lifecycle, application-owner contract, and collaboration responsibilities.
 
-- Add or change HTTP endpoints in the gateway only when there is a matching gRPC or handler contract.
-- Keep RBAC declarations close to gateway routes and verify equivalent permissions exist in authz packages.
-- Keep domain invariants in logic services and repositories.
-- Keep request deadlines and body limits in the gateway unless the logic service owns a deeper operation timeout.
-- Treat protobuf and database schema changes as public-contract or persistence changes that require explicit scope.
+AI Agent has retired and deleted its service-local `internal/legacydomain/` copy; `cmd/ai-agent-service` wires `internal/interfaces/grpc/native_servers.go` with `internal/infrastructure/persistence/native_store.go` for chat, sessions, tool traces, and durable agent runs. Interview and Offer services have retired their service-local `internal/legacydomain/` copies. Their active runtimes now use local persistence and outbox adapters under `internal/infrastructure/**`, while application snapshots, lifecycle transitions, and authorization are reached through explicit Recruitment and Identity owner adapters. Interviewer assignment checks are Interview-owned local reads over `interview_schedules`. Backend boundary and MySQL table-ownership checks now fail if any targeted service reintroduces `internal/legacydomain`.
 
-## Common Review Questions
+Billing owns AI commercial entitlements, grants, reservations, rate cards, usage events, and ledger mutations. AI Agent owns provider execution and `ai_billing_settlement_outbox`, which durably delivers actual token usage or cancellation to Billing. Billing has read-only access to that outbox solely to prevent maintenance from expiring reservations with unresolved delivery evidence, and read-only access to AI Agent's `llm_providers`/`llm_models` catalog to ensure every new rate card targets an enabled runtime provider/model pair.
 
-- Does this change alter HTTP behavior, gRPC behavior, or both?
-- Are generated protobufs synchronized?
-- Are gateway permissions and logic-side authorization assumptions still aligned?
-- Did the change modify a transport concern when it should have modified a domain service, or the reverse?
+Recruitment continues to own applications, resumes, candidate profiles, and resume-profile source rows. AI Agent reads those authorized sources for scoped recruiting intelligence and owns structured generation, deterministic matching/aggregation, `candidate_match_evaluations`, `candidate_match_evidence`, Prompt/model runtime access, and durable Agent-run association. This flow does not introduce a cross-service write, new table, or public contract.
+
+For HR-wide application/candidate reads, AI Agent composes the existing HR job inventory and per-job application RPCs rather than reading Recruitment tables or adding a new public aggregate RPC. The composition is bounded to 100 jobs, ten pages per job, four concurrent fetches, and 5,000 returned rows; partial failures are explicit and all-job failure remains non-success.
+
+`smart-recruit-proto/proto/recruitment.proto` is the canonical wire contract. `smart-recruit-deploy/mysql-table-ownership.json` is the table ownership source for the current single-MySQL deployment.
 
 ## Verification
 
-The boundary was verified from gateway route registration, protobuf service definitions, and representative logic service/repository files on 2026-07-10.
+Verified against current service adapters, bounded HR aggregation, AI credit delivery, persistence mappings, table ownership, and generated contracts on 2026-07-21.

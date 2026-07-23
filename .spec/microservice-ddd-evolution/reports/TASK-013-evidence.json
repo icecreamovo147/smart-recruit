@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-013",
+  "base_sha": "4ed3f290f7ec20d45febd9cf2a668ed6f083811e",
+  "base_tree": "4504fb9dcf3899f71556904c9b06180c87562c26",
+  "head_sha": "4ed3f290f7ec20d45febd9cf2a668ed6f083811e",
+  "changed_files": [
+    "smart-recruit-identity-service/internal/application/command/identity.go",
+    "smart-recruit-identity-service/internal/application/dto/identity.go",
+    "smart-recruit-identity-service/internal/application/port/identity.go",
+    "smart-recruit-identity-service/internal/application/query/identity.go",
+    "smart-recruit-identity-service/internal/application/service/auth_service.go",
+    "smart-recruit-identity-service/internal/application/service/admin_service.go",
+    "smart-recruit-identity-service/internal/application/service/auth_service_test.go",
+    "smart-recruit-identity-service/internal/application/service/admin_service_test.go",
+    "smart-recruit-identity-service/internal/application/service/test_fakes_test.go",
+    "smart-recruit-identity-service/internal/domain/model/security.go",
+    "smart-recruit-identity-service/internal/domain/policy/security.go",
+    "smart-recruit-identity-service/internal/domain/policy/security_test.go",
+    "smart-recruit-identity-service/internal/domain/repository/identity.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-013-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-013-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-013",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T08:40:00Z",
+      "duration_ms": 3838,
+      "status": "passed",
+      "summary": "smart-recruit-identity-service package tests passed after adding Identity domain/application services and tests."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T08:42:00Z",
+      "duration_ms": 107,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T08:42:00Z",
+      "duration_ms": 276,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T08:42:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked diff was empty because TASK-013 files were newly untracked at the time; changed_files and scope check list the complete added file set."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-013",
+      "exit_code": 0,
+      "started_at": "2026-07-13T08:42:00Z",
+      "duration_ms": 2,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-013. Changed files: 15"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T08:42:00Z",
+      "duration_ms": 3524,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-identity-service passed."
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 4504fb9dcf3899f71556904c9b06180c87562c26",
+      "exit_code": 1,
+      "started_at": "2026-07-13T08:42:00Z",
+      "duration_ms": 150,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-013 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-13T08:10:00Z",
+    "confirmation_text": "用户确认继续执行 TASK-012，并授权后续 requiresHumanConfirmation TASK 继续执行；除非遇到需要人工介入的阻塞性问题才停下。"
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-identity-service/internal/domain/model/security.go",
+      "smart-recruit-identity-service/internal/domain/policy/security.go",
+      "smart-recruit-identity-service/internal/domain/repository/identity.go",
+      "smart-recruit-identity-service/internal/application/**"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/auth-rbac-security.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-013 localizes Identity domain/application security contracts while active knowledge still points to legacy logic-grpc-service/web-gin-service paths."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-auth-permissions.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-013 introduces local auth/admin application services and token-version cache fail-safe behavior that future runbooks should reference once knowledge scope is available."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/auth-permission-alignment.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-013 adds local tests for RBAC/data-scope mutation and token-version invalidation semantics that should anchor future permission-alignment guidance."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-013 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

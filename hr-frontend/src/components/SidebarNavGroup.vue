@@ -113,8 +113,17 @@ const handleItemClick = () => {
 </template>
 
 <style scoped>
-.sidebar-nav-group :deep(.el-tooltip__trigger) {
-  display: block;
+/*
+ * el-popover merges el-tooltip__trigger onto the reference button itself (OnlyChild),
+ * so never set display:block here — that would override .sidebar-link { display:flex }
+ * and break collapsed icon centering.
+ */
+.sidebar-nav-group :deep(.el-tooltip__trigger),
+.sidebar-nav-group :deep(.el-popover__reference),
+.sidebar-nav-group :deep(.el-only-child__content) {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 </style>

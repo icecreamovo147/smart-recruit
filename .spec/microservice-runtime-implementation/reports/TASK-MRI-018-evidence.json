@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-018",
+  "base_sha": "30f7bbdc11ad882102523f05c5f42e44dcad74e7",
+  "base_tree": "daf0a47fec221b77dd278f9dcaec78a9af31871b",
+  "head_sha": "30f7bbdc11ad882102523f05c5f42e44dcad74e7",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-018-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-018-report.md",
+    "smart-recruit-notification-service/README.md",
+    "smart-recruit-notification-service/cmd/notification-service/main.go",
+    "smart-recruit-notification-service/cmd/notification-service/main_test.go",
+    "smart-recruit-notification-service/doc.go",
+    "smart-recruit-notification-service/go.mod",
+    "smart-recruit-notification-service/go.sum",
+    "smart-recruit-notification-service/internal/runtime/runtime.go",
+    "smart-recruit-notification-service/internal/runtime/runtime_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=daf0a47fec221b77dd278f9dcaec78a9af31871b bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-018",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-notification-service/**",
+      "logic-grpc-service/internal/notification/**",
+      "logic-grpc-service/cmd/notification-service/**",
+      "smart-recruit-proto/**",
+      "smart-recruit-platform-go/**",
+      "**/go.mod",
+      "**/go.sum",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "cd smart-recruit-notification-service && GOWORK=off go test ./...", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:50:00.000Z", "duration_ms": 11116},
+    {"command": "cd smart-recruit-notification-service && GOWORK=off go build ./cmd/notification-service", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:50:00.000Z", "duration_ms": 11116},
+    {"command": "cd smart-recruit-notification-service && GOWORK=off go run ./cmd/notification-service --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:50:00.000Z", "duration_ms": 11116},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:51:00.000Z", "duration_ms": 9},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree daf0a47fec221b77dd278f9dcaec78a9af31871b --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:51:01.000Z", "duration_ms": 470},
+    {"command": "TASK_BASE_TREE=daf0a47fec221b77dd278f9dcaec78a9af31871b bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-018", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:51:02.000Z", "duration_ms": 290},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:51:03.000Z", "duration_ms": 4946},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-018-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:52:00.000Z", "duration_ms": 60}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T09:52:00Z", "source": "TASK-MRI-018 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [
+    {"check": "Live --serve RabbitMQ consumer smoke", "reason": "The runtime wires RabbitMQ/outbox/inbox/email consumers; live broker and delivery smoke is deferred to later compose/smoke TASKs."}
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed", "recurring-defect-fixed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active source_refs; TASK-MRI-018 adds an extracted Notification service root but does not change public HTTP/protobuf contracts or the shared MySQL schema."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local startup guidance; full local microservice compose and queue smoke remain scoped to later runtime TASKs."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

@@ -9,54 +9,52 @@ owners:
 tags:
   - protobuf
   - migration
-  - contract
   - database
 applies_to:
-  - logic-grpc-service/proto/**
-  - web-gin-service/proto/**
-  - logic-grpc-service/recruitment/pb/**
-  - web-gin-service/recruitment/pb/**
-  - logic-grpc-service/migrations/**
-  - logic-grpc-service/model/**
-  - logic-grpc-service/repository/**
+  - smart-recruit-proto/**
+  - scripts/check-proto-sync.mjs
+  - .github/workflows/ci.yml
+  - smart-recruit-commons/migration/**
+  - smart-recruit-commons/migrations/**
+  - smart-recruit-*-service/internal/infrastructure/persistence/**
+  - db.sql
 source_refs:
-  - logic-grpc-service/proto/recruitment.proto
-  - logic-grpc-service/recruitment/pb/recruitment.pb.go
-  - web-gin-service/recruitment/pb/recruitment.pb.go
-  - logic-grpc-service/migration/runner.go
-  - logic-grpc-service/migration/mysql_consistency_test.go
-  - logic-grpc-service/model/model.go
-last_verified: 2026-07-10
-review_after: 2026-10-08
+  - smart-recruit-proto/proto/recruitment.proto
+  - smart-recruit-proto/recruitment/pb/recruitment.pb.go
+  - smart-recruit-proto/scripts/tool-versions.env
+  - smart-recruit-proto/scripts/bootstrap-tools.sh
+  - smart-recruit-proto/scripts/generate-go.sh
+  - scripts/check-proto-sync.mjs
+  - .github/workflows/ci.yml
+  - smart-recruit-commons/migration/runner.go
+  - smart-recruit-commons/migration/schema_compare.go
+  - smart-recruit-commons/migration/mysql_consistency_test.go
+  - smart-recruit-commons/migrations/000089_schema_baseline.sql
+  - smart-recruit-commons/migrations/baseline-lock.json
+  - smart-recruit-commons/migrations/README.md
+  - scripts/check-migration-baseline.mjs
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000053_add_analytics_projection_events.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000084_candidate_profile_screening_fields.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000085_candidate_profile_structured_history.sql
+  - smart-recruit-commons/migrations/archive/pre-baseline-000089/000086_extend_profile_city_length.sql
+  - smart-recruit-deploy/mysql-table-ownership.json
+  - db.sql
+last_verified: 2026-07-23
+review_after: 2026-10-21
 ---
 
 # Protobuf and Migration Change Runbook
 
-Use this runbook when a TASK changes public contracts or persistence structure.
+For proto changes, edit `smart-recruit-proto/proto/recruitment.proto`, run `smart-recruit-proto/scripts/bootstrap-tools.sh`, regenerate with `smart-recruit-proto/scripts/generate-go.sh`, update gateway/service usages, run `node scripts/check-proto-sync.mjs --check`, run Proto module tests, and confirm a second generation produces no Git diff. Never regenerate with an arbitrary `protoc` from `PATH`; the generator intentionally fails on version mismatch. If a new method is internal-only, consider defining a separate service so existing public-facing generated client interfaces and unrelated handler fakes do not need to change.
 
-## Protobuf Path
+For schema changes, start at migration `000090`, add a Commons up/down pair,
+update `db.sql`, update service persistence adapters, review table ownership,
+run `node scripts/check-migration-baseline.mjs`, and run MySQL migration
+consistency tests. Do not edit `000089_schema_baseline.sql` or archived
+`000001`–`000088` files. A database with the full historical migration records
+must use `--adopt-baseline 89`; a matching `db.sql` import with no history uses
+`--baseline 89`.
 
-1. Update the source `.proto` contract first.
-2. Regenerate Go code for both logic and gateway service trees.
-3. Update logic service implementations and gateway handlers/clients together.
-4. Update frontend API clients and types only after the server contract is known.
-5. Run targeted Go tests in both services.
+## Verification
 
-## Migration Path
-
-1. Add a new ordered migration pair under `logic-grpc-service/migrations/`.
-2. Update GORM models only when the runtime model needs the changed columns or tables.
-3. Update repositories and services that own the new persistence behavior.
-4. Keep `db.sql` aligned when it serves as current schema reference.
-5. Run migration runner tests and MySQL consistency checks when available.
-
-## Review Questions
-
-- Is this a public contract change, a database schema change, or both?
-- Are generated protobuf files synchronized in both service trees?
-- Are model fields, repository queries, indexes, and constraints aligned with SQL?
-- Does the gateway need new body limits, timeouts, route permissions, or frontend types?
-
-## Safety
-
-Do not treat generated code edits, migration files, or schema changes as incidental documentation work. They require explicit TASK scope.
+Verified against current pinned protobuf tooling, generated contracts, CI regeneration checks, the v89 baseline/adoption runner, ownership manifest, and baseline schema on 2026-07-23.

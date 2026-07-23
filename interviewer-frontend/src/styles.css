@@ -220,23 +220,204 @@ a:hover {
 
 /* ── Theme transition ───────────────────────────────────────────── */
 
-.theme-switching,
-.theme-switching *,
-.theme-switching *::before,
-.theme-switching *::after {
+/*
+ * Soften token repaint when theme flips without the full-screen mask
+ * (e.g. reduced-motion / init edge cases).
+ * IMPORTANT: never target #theme-switch-overlay — `transition: … !important`
+ * would wipe the mask's own opacity/transform fades.
+ */
+:root.theme-switching body,
+:root.theme-switching body *:not(#theme-switch-overlay, #theme-switch-overlay *),
+:root.theme-switching body *:not(#theme-switch-overlay, #theme-switch-overlay *)::before,
+:root.theme-switching body *:not(#theme-switch-overlay, #theme-switch-overlay *)::after {
   transition:
     background-color 500ms ease,
     border-color 500ms ease,
+    box-shadow 500ms ease,
     color 500ms ease,
     fill 500ms ease,
     stroke 500ms ease !important;
 }
 
+/*
+ * Full-screen theme mask:
+ * - Outer shell stays opacity:1 (does not dim children via parent opacity).
+ * - Opaque .__scrim fades 0→1 / 1→0 so the page never shows a half-switched theme.
+ * - --solid locks scrim fully opaque while tokens + Vue theme state commit.
+ */
+.theme-switch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+  color: #e5e7eb;
+}
+
+.theme-switch-overlay[data-theme-target='light'] {
+  color: #0f172a;
+}
+
+.theme-switch-overlay[data-theme-target='dark'] {
+  color: #e5e7eb;
+}
+
+.theme-switch-overlay__scrim {
+  position: absolute;
+  inset: 0;
+  /* Fully opaque solids — never use alpha colors here */
+  background-color: #0b1220;
+  opacity: 0;
+  transition: opacity 280ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
+}
+
+.theme-switch-overlay[data-theme-target='light'] .theme-switch-overlay__scrim {
+  background-color: #f6f8fb;
+}
+
+.theme-switch-overlay[data-theme-target='dark'] .theme-switch-overlay__scrim {
+  background-color: #0b1220;
+}
+
+/* Enter: show shell + fade scrim 0 → 1 */
+.theme-switch-overlay--active {
+  pointer-events: auto;
+  visibility: visible;
+  cursor: progress;
+}
+
+.theme-switch-overlay--active .theme-switch-overlay__scrim {
+  opacity: 1;
+}
+
+/*
+ * Solid lock: force fully opaque, kill transitions while theme commits.
+ * Page repaint happens only in this window and must not leak through.
+ */
+.theme-switch-overlay--active.theme-switch-overlay--solid .theme-switch-overlay__scrim {
+  opacity: 1 !important;
+  transition: none !important;
+}
+
+.theme-switch-overlay--active.theme-switch-overlay--solid .theme-switch-overlay__panel {
+  opacity: 1 !important;
+  transform: translateY(0) scale(1) !important;
+  transition: none !important;
+}
+
+/* Leave: fade scrim back out (page already on new theme) */
+.theme-switch-overlay--active.theme-switch-overlay--leaving {
+  pointer-events: none;
+  cursor: default;
+}
+
+.theme-switch-overlay--active.theme-switch-overlay--leaving .theme-switch-overlay__scrim {
+  opacity: 0;
+}
+
+.theme-switch-overlay__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 28px;
+  border-radius: 16px;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+  transition:
+    opacity 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity, transform;
+}
+
+.theme-switch-overlay--active .theme-switch-overlay__panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.theme-switch-overlay--active.theme-switch-overlay--leaving .theme-switch-overlay__panel {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}
+
+.theme-switch-overlay[data-theme-target='dark'] .theme-switch-overlay__panel {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.theme-switch-overlay__spinner {
+  position: relative;
+  width: 44px;
+  height: 44px;
+}
+
+.theme-switch-overlay__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  border-top-color: #2563eb;
+  border-right-color: color-mix(in srgb, #2563eb 35%, transparent);
+  animation: theme-switch-spin 0.9s cubic-bezier(0.5, 0.15, 0.5, 0.85) infinite;
+}
+
+.theme-switch-overlay__ring:nth-child(2) {
+  inset: 6px;
+  border-top-color: #60a5fa;
+  border-right-color: color-mix(in srgb, #60a5fa 30%, transparent);
+  animation-duration: 1.15s;
+  animation-direction: reverse;
+}
+
+.theme-switch-overlay__ring:nth-child(3) {
+  inset: 12px;
+  border-top-color: #93c5fd;
+  border-right-color: transparent;
+  animation-duration: 0.75s;
+}
+
+.theme-switch-overlay__text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: inherit;
+  opacity: 0.88;
+}
+
+@keyframes theme-switch-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .theme-switching,
-  .theme-switching *,
-  .theme-switching *::before,
-  .theme-switching *::after {
+  .theme-switch-overlay__scrim,
+  .theme-switch-overlay__panel {
+    transition: none !important;
+  }
+
+  .theme-switch-overlay__ring {
+    animation: none;
+    border-top-color: #2563eb;
+    border-right-color: #2563eb;
+    border-bottom-color: color-mix(in srgb, #2563eb 25%, transparent);
+    border-left-color: color-mix(in srgb, #2563eb 25%, transparent);
+  }
+
+  :root.theme-switching body,
+  :root.theme-switching body *:not(#theme-switch-overlay, #theme-switch-overlay *),
+  :root.theme-switching body *:not(#theme-switch-overlay, #theme-switch-overlay *)::before,
+  :root.theme-switching body *:not(#theme-switch-overlay, #theme-switch-overlay *)::after {
     transition-duration: 0ms !important;
   }
 }

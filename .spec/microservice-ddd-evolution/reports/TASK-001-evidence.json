@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-001",
+  "base_sha": "c64f221e6342b48c45f63a32eec97c6e3fef1d8d",
+  "base_tree": "9dfcb9f86f9a46398a27d14b07f1d36aee6cb50b",
+  "head_sha": "c64f221e6342b48c45f63a32eec97c6e3fef1d8d",
+  "changed_files": [
+    ".knowledge/inbox/microservice-ddd-evolution-boundaries.md",
+    "docs/architecture/microservice-ddd-evolution-guidelines.md",
+    "scripts/check-backend-boundaries.mjs",
+    ".spec/microservice-ddd-evolution/reports/TASK-001-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-001-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-001",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T02:28:11.369Z",
+      "duration_ms": 50,
+      "status": "passed",
+      "summary": "输出 scripts/check-backend-boundaries.mjs；未跟踪新文件另由 changed_files 记录。"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-001",
+      "exit_code": 0,
+      "started_at": "2026-07-13T02:28:11.424Z",
+      "duration_ms": 123,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-001. Changed files: 5"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T02:28:11.547Z",
+      "duration_ms": 80,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. No Go module changes detected; skipped go test."
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T02:28:11.627Z",
+      "duration_ms": 116,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 9dfcb9f86f9a46398a27d14b07f1d36aee6cb50b",
+      "exit_code": 1,
+      "started_at": "2026-07-13T02:28:11.743Z",
+      "duration_ms": 62,
+      "status": "failed",
+      "summary": "既有 active knowledge 中大量旧 logic-grpc-service/web-gin-service source_refs 缺失；本 TASK 已新增 inbox candidate 记录。"
+    }
+  ],
+  "review": {
+    "type": "independent-agent",
+    "round": 1,
+    "verdict": "通过",
+    "findings": [
+      {
+        "severity": "Low",
+        "summary": "报告/evidence 中 check-task-scope 摘要曾记录为 Changed files: 3，当前重跑后为 Changed files: 5；已更新摘要。"
+      }
+    ]
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-13T02:28:11.743Z",
+    "confirmation_text": "TASK-001 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "docs/architecture/microservice-ddd-evolution-guidelines.md",
+      "scripts/check-backend-boundaries.mjs",
+      ".knowledge/inbox/microservice-ddd-evolution-boundaries.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Active document still describes the older logic-grpc-service/web-gin-service topology while the active SPEC uses smart-recruit-* service roots."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Active document source_refs and service boundary text remain centered on logic-grpc-service skeletons; TASK-001 created a candidate for current microservice DDD boundaries."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Runbook still references older service layout and should be updated after current microservice roots become the active knowledge baseline."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Runbook instructed using inbox candidates for coverage gaps and knowledge routing updates; TASK-001 followed that path."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection could not complete because pre-existing source_refs are missing; candidate records the required active knowledge update."
+  },
+  "skipped_checks": []
+}

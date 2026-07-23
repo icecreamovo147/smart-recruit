@@ -1,0 +1,32 @@
+defaults:
+  nacosGroup: DEFAULT_GROUP
+  metricsAddr: :9091
+  redisPrefixSeparator: ":"
+services:
+  identity:
+    grpcAddr: smart-recruit-identity-service:50061
+    redisPrefix: identity
+  recruitment:
+    grpcAddr: smart-recruit-recruitment-service:50062
+    redisPrefix: recruitment
+  interview:
+    grpcAddr: smart-recruit-interview-service:50063
+    redisPrefix: interview
+  offer:
+    grpcAddr: smart-recruit-offer-service:50064
+    redisPrefix: offer
+  notification:
+    grpcAddr: smart-recruit-notification-service:50065
+    redisPrefix: notification
+  aiAgent:
+    grpcAddr: smart-recruit-ai-agent-service:50066
+    redisPrefix: ai-agent
+  analytics:
+    grpcAddr: smart-recruit-analytics-service:50067
+    redisPrefix: analytics
+  billing:
+    grpcAddr: smart-recruit-billing-service:50069
+    redisPrefix: billing
+  worker:
+    grpcAddr: smart-recruit-worker-service:50068
+    redisPrefix: worker

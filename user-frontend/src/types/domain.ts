@@ -142,17 +142,47 @@ export interface Job {
   status?: number
   application_count?: number
   created_at?: string
+  department_id?: number
+  location_id?: number
   // camelCase fallbacks for API inconsistency
   jobId?: number
   salaryRange?: string
   applicationCount?: number
   createdAt?: string
+  departmentId?: number
+  locationId?: number
 }
 
 export interface JobQuery {
   page: number
   page_size: number
   keyword?: string
+  department_ids?: number[]
+  location_ids?: number[]
+}
+
+export interface DepartmentNode {
+  id: number
+  parent_id: number
+  name: string
+  full_name: string
+  is_active: number
+  sort_order: number
+  depth: number
+  children: DepartmentNode[]
+}
+
+export interface LocationOption {
+  id: number
+  name: string
+  code: string
+  is_active: number
+  sort_order: number
+}
+
+export interface JobOptionsResponse {
+  department_tree: DepartmentNode[]
+  locations: LocationOption[]
 }
 
 export interface JobCreatePayload {
@@ -195,6 +225,27 @@ export interface Application {
 
 // ---- Profile ----
 
+export interface CandidateEducationInfo {
+  school: string
+  degree?: string
+  major?: string
+  start_date?: string
+  end_date?: string
+  description?: string
+  sort_order?: number
+}
+
+export interface CandidateExperienceInfo {
+  company: string
+  title?: string
+  location?: string
+  start_date?: string
+  end_date?: string
+  is_current?: number
+  description?: string
+  sort_order?: number
+}
+
 export interface Profile {
   real_name: string
   phone: string
@@ -203,10 +254,47 @@ export interface Profile {
   work_experience: string
   skills: string[] | string
   is_complete?: boolean
+  city?: string
+  years_of_experience?: number
+  job_status?: string
+  expected_position?: string
+  expected_salary_min?: number
+  expected_salary_max?: number
+  available_from?: string
+  summary?: string
+  educations?: CandidateEducationInfo[]
+  experiences?: CandidateExperienceInfo[]
   // camelCase fallback
   realName?: string
   workExperience?: string
   isComplete?: boolean
+  yearsOfExperience?: number
+  jobStatus?: string
+  expectedPosition?: string
+  expectedSalaryMin?: number
+  expectedSalaryMax?: number
+  availableFrom?: string
+}
+
+export interface ProfileFillFieldDiff {
+  field: string
+  label: string
+  action: 'fill' | 'overwrite' | 'skip' | 'unsupported' | string
+  before?: string
+  after?: string
+}
+
+export interface ProfileFillDraft {
+  draft?: Profile
+  refreshed?: boolean
+  refresh_reason?: string
+  field_diffs?: ProfileFillFieldDiff[]
+  warnings?: string[]
+  resume_id?: number
+  // camelCase fallbacks
+  refreshReason?: string
+  fieldDiffs?: ProfileFillFieldDiff[]
+  resumeId?: number
 }
 
 // ---- Resume ----

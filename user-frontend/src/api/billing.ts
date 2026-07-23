@@ -1,0 +1,18 @@
+import request from './request'
+import type { BillingAccount, BillingOrder, BillingProduct } from '@shared/types/billing'
+
+export type { BillingAccount, BillingOrder, BillingPrice, BillingProduct } from '@shared/types/billing'
+
+export const getBillingCatalog = (): Promise<{ products: BillingProduct[]; payment_environment: string }> => request.get('/api/v1/candidate/billing/catalog')
+export const getBillingAccount = (): Promise<BillingAccount> => request.get('/api/v1/candidate/billing/subscription')
+export const listBillingOrders = (): Promise<{ orders: BillingOrder[]; total: number }> => request.get('/api/v1/candidate/billing/orders')
+export const createBillingOrder = (priceVersionId: number, orderType: string): Promise<{ order: BillingOrder }> => request.post('/api/v1/candidate/billing/orders', { price_version_id: priceVersionId, order_type: orderType, idempotency_key: crypto.randomUUID() })
+export const payBillingOrder = (
+  orderNo: string,
+  scene: 'desktop' | 'wap' | 'sync',
+  options?: { silentError?: boolean },
+): Promise<{ redirect_url: string; payment_environment: string; payment_no?: string; reused: boolean; status: string; expires_at_unix_ms: number }> => (
+  request.post(`/api/v1/candidate/billing/orders/${orderNo}/pay`, { scene }, { silentError: options?.silentError })
+)
+export const syncBillingPaymentReturn = (returnToken: string): Promise<{ status: string; payment_no?: string }> => request.post(`/api/v1/candidate/billing/payment-returns/${encodeURIComponent(returnToken)}/sync`, {})
+export const refundBillingOrder = (orderNo: string, reason: string) => request.post(`/api/v1/candidate/billing/orders/${orderNo}/refund`, { reason, idempotency_key: crypto.randomUUID() })

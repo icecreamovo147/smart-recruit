@@ -1,0 +1,3 @@
+-- Candidate release bindings are operational identity data. Restoring the
+-- cross-audience HR release written by migration 000078 would make candidate AI
+-- unusable again, so this corrective data migration is intentionally retained.
