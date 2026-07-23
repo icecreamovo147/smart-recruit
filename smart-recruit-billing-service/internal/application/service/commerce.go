@@ -184,6 +184,9 @@ func (s *Commerce) ReconcilePendingRefunds(ctx context.Context, limit int) error
 	if limit <= 0 || limit > 500 {
 		limit = 100
 	}
+	if err := s.advanceWaitingRefunds(ctx, limit); err != nil {
+		return err
+	}
 	type refundRow struct {
 		RefundNo, MerchantOrderNo, Reason string
 		AmountFen                         uint64
@@ -247,17 +250,153 @@ func (s *Commerce) ReconcilePendingRefunds(ctx context.Context, limit int) error
 	return nil
 }
 
+func (s *Commerce) advanceWaitingRefunds(ctx context.Context, limit int) error {
+	var refundNos []string
+	now := s.businessNow()
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Raw(`SELECT refund_no
+			FROM billing_refunds
+			WHERE status = 'waiting_usage' AND next_reconcile_at <= ?
+			ORDER BY next_reconcile_at, id
+			LIMIT ? FOR UPDATE SKIP LOCKED`, now, limit).Scan(&refundNos).Error; err != nil {
+			return err
+		}
+		if len(refundNos) == 0 {
+			return nil
+		}
+		return tx.Table("billing_refunds").Where("refund_no IN ?", refundNos).
+			Updates(map[string]any{"next_reconcile_at": now.Add(2 * time.Minute), "updated_at": now}).Error
+	}); err != nil {
+		return err
+	}
+	type submission struct {
+		RefundNo, MerchantOrderNo, Reason string
+		AmountFen                         uint64
+	}
+	for _, refundNo := range refundNos {
+		var submit *submission
+		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			var row struct {
+				OrderID, OwnerID, AmountFen                           uint64
+				OwnerType, OrderType, MerchantOrderNo, Reason, Status string
+			}
+			if err := tx.Raw(`SELECT refund.order_id, refund.amount_fen, refund.reason, refund.status,
+				orders.owner_type, orders.owner_id, orders.order_type, payment.merchant_order_no
+				FROM billing_refunds refund
+				JOIN billing_orders orders ON orders.id = refund.order_id
+				JOIN billing_payments payment ON payment.id = refund.payment_id
+				WHERE refund.refund_no = ? FOR UPDATE`, refundNo).Scan(&row).Error; err != nil {
+				return err
+			}
+			if row.Status != "waiting_usage" {
+				return nil
+			}
+			owner := model.Owner{Type: model.OwnerType(row.OwnerType), ID: row.OwnerID}
+			grants, err := loadRefundSourceGrants(ctx, tx, owner, row.OrderID, true)
+			if err != nil {
+				return err
+			}
+			grantIDs := make([]uint64, 0, len(grants))
+			for _, grant := range grants {
+				grantIDs = append(grantIDs, grant.ID)
+			}
+			hasOpen, hasConsumption, err := refundGrantActivity(ctx, tx, grantIDs)
+			if err != nil {
+				return err
+			}
+			if hasOpen {
+				return tx.Table("billing_refunds").Where("refund_no = ? AND status = 'waiting_usage'", refundNo).
+					Updates(map[string]any{"next_reconcile_at": now.Add(2 * time.Minute), "updated_at": now}).Error
+			}
+			if hasConsumption || row.OrderType == "renew" || row.OrderType == "upgrade" {
+				if err := tx.Table("billing_refunds").Where("refund_no = ? AND status = 'waiting_usage'", refundNo).
+					Updates(map[string]any{"status": "reviewing", "review_mode": "manual", "next_reconcile_at": nil, "updated_at": now}).Error; err != nil {
+					return err
+				}
+				platformobservability.DefaultMetrics.RecordBillingEvent("refund", "reviewing")
+				return nil
+			}
+			if err := tx.Table("billing_refunds").Where("refund_no = ? AND status = 'waiting_usage'", refundNo).
+				Updates(map[string]any{"status": "processing", "next_reconcile_at": now.Add(time.Minute), "updated_at": now}).Error; err != nil {
+				return err
+			}
+			submit = &submission{RefundNo: refundNo, MerchantOrderNo: row.MerchantOrderNo, Reason: row.Reason, AmountFen: row.AmountFen}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		if submit != nil {
+			if _, err := s.submitRefund(ctx, submit.RefundNo, submit.MerchantOrderNo, submit.Reason, submit.AmountFen, now); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (s *Commerce) failRefund(ctx context.Context, refundNo string, cause error, now time.Time) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var orderID uint64
-		if err := tx.Table("billing_refunds").Where("refund_no = ?", refundNo).Select("order_id").Scan(&orderID).Error; err != nil {
+		var refund struct {
+			OrderID   uint64
+			OwnerID   uint64
+			OwnerType string
+		}
+		if err := tx.Raw(`SELECT refund.order_id, orders.owner_id, orders.owner_type
+			FROM billing_refunds refund JOIN billing_orders orders ON orders.id = refund.order_id
+			WHERE refund.refund_no = ?`, refundNo).Scan(&refund).Error; err != nil {
 			return err
 		}
 		if err := tx.Table("billing_refunds").Where("refund_no = ? AND status IN ('processing','unknown')", refundNo).Updates(map[string]any{"status": "failed", "active_slot": nil, "next_reconcile_at": nil, "last_error": truncateError(cause), "updated_at": now}).Error; err != nil {
 			return err
 		}
-		return tx.Table("billing_orders").Where("id = ? AND status = 'refunding'", orderID).Updates(map[string]any{"status": "paid", "updated_at": now}).Error
+		owner := model.Owner{Type: model.OwnerType(refund.OwnerType), ID: refund.OwnerID}
+		if err := restoreRefundGrants(ctx, tx, owner, refund.OrderID, now); err != nil {
+			return err
+		}
+		return tx.Table("billing_orders").Where("id = ? AND status = 'refunding'", refund.OrderID).Updates(map[string]any{"status": "paid", "updated_at": now}).Error
 	})
+}
+
+func restoreRefundGrants(ctx context.Context, tx *gorm.DB, owner model.Owner, orderID uint64, now time.Time) error {
+	grants, err := loadRefundSourceGrants(ctx, tx, owner, orderID, true)
+	if err != nil {
+		return err
+	}
+	for _, grant := range grants {
+		if grant.Status != "refund_frozen" {
+			continue
+		}
+		statusValue := "active"
+		remaining := grant.RemainingCredits
+		if remaining == 0 {
+			statusValue = "exhausted"
+		} else if grant.ExpiresAt != nil && !grant.ExpiresAt.After(now) {
+			statusValue = "expired"
+			remaining = 0
+		}
+		if err := tx.WithContext(ctx).Table("ai_credit_grants").Where("id = ? AND status = 'refund_frozen'", grant.ID).
+			Updates(map[string]any{"status": statusValue, "remaining_credits": remaining, "updated_at": now}).Error; err != nil {
+			return err
+		}
+		if statusValue == "expired" && grant.RemainingCredits > 0 {
+			var balance uint64
+			if err := tx.WithContext(ctx).Table("ai_credit_grants").
+				Where("owner_type = ? AND owner_id = ? AND status = 'active' AND valid_from <= ? AND (expires_at IS NULL OR expires_at > ?)", owner.Type, owner.ID, now, now).
+				Select("COALESCE(SUM(remaining_credits), 0)").Scan(&balance).Error; err != nil {
+				return err
+			}
+			if err := tx.WithContext(ctx).Table("ai_credit_ledger").Create(map[string]any{
+				"entry_id": uuid.NewString(), "owner_type": owner.Type, "owner_id": owner.ID,
+				"grant_id": grant.ID, "entry_type": "expire", "credits_delta": -int64(grant.RemainingCredits),
+				"balance_after": int64(balance), "idempotency_key": fmt.Sprintf("refund-restore-expire:%d", grant.ID),
+				"description": "refund failed after grant expiry", "created_at": now,
+			}).Error; err != nil && !errors.Is(err, gorm.ErrDuplicatedKey) {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Commerce) finalizeRefund(ctx context.Context, refundNo, channelNo string, now time.Time) error {
@@ -282,6 +421,9 @@ func (s *Commerce) finalizeRefund(ctx context.Context, refundNo, channelNo strin
 		if statusValue == "succeeded" {
 			return nil
 		}
+		if statusValue != "processing" && statusValue != "unknown" {
+			return fmt.Errorf("refund %s cannot be finalized from status %s", refundNo, statusValue)
+		}
 		if err := tx.Table("billing_refunds").Where("refund_no = ?", refundNo).Updates(map[string]any{"status": "succeeded", "active_slot": nil, "channel_refund_no": channelNo, "succeeded_at": now, "next_reconcile_at": nil, "last_error": nil, "updated_at": now}).Error; err != nil {
 			return err
 		}
@@ -291,36 +433,42 @@ func (s *Commerce) finalizeRefund(ctx context.Context, refundNo, channelNo strin
 		if err := tx.Table("billing_payments").Where("id = ?", refund.PaymentID).Update("status", "refunded").Error; err != nil {
 			return err
 		}
-		var subscriptionIDs []uint64
-		if err := tx.Table("billing_subscriptions").Where("activated_by_order_id = ?", refund.OrderID).Pluck("id", &subscriptionIDs).Error; err != nil {
+		grants, err := loadRefundSourceGrants(ctx, tx, owner, refund.OrderID, true)
+		if err != nil {
 			return err
 		}
-		var grants []struct{ ID, RemainingCredits uint64 }
-		grantQuery := tx.Table("ai_credit_grants").Where("owner_type = ? AND owner_id = ? AND ((source_type = 'order' AND source_id = ?) OR (source_type = 'subscription' AND source_id IN ?)) AND status = 'active'", owner.Type, owner.ID, refund.OrderID, subscriptionIDs)
-		if err := grantQuery.Find(&grants).Error; err != nil {
+		grantIDs := make([]uint64, 0, len(grants))
+		for _, grant := range grants {
+			grantIDs = append(grantIDs, grant.ID)
+		}
+		hasOpen, _, err := refundGrantActivity(ctx, tx, grantIDs)
+		if err != nil {
 			return err
+		}
+		if hasOpen {
+			return errors.New("refund cannot finalize while source grants have open reservations")
 		}
 		var balance uint64
-		if err := tx.Table("ai_credit_grants").Where("owner_type = ? AND owner_id = ? AND status = 'active' AND valid_from <= ? AND (expires_at IS NULL OR expires_at > ?)", owner.Type, owner.ID, now, now).Select("COALESCE(SUM(remaining_credits), 0)").Scan(&balance).Error; err != nil {
+		if err := tx.Table("ai_credit_grants").Where("owner_type = ? AND owner_id = ? AND status IN ('active','refund_frozen') AND valid_from <= ? AND (expires_at IS NULL OR expires_at > ?)", owner.Type, owner.ID, now, now).Select("COALESCE(SUM(remaining_credits), 0)").Scan(&balance).Error; err != nil {
 			return err
 		}
 		for _, grant := range grants {
-			if grant.RemainingCredits == 0 {
-				continue
+			if grant.RemainingCredits > 0 {
+				if grant.RemainingCredits <= balance {
+					balance -= grant.RemainingCredits
+				} else {
+					balance = 0
+				}
+				if err := tx.Table("ai_credit_ledger").Create(map[string]any{"entry_id": uuid.NewString(), "owner_type": owner.Type, "owner_id": owner.ID, "grant_id": grant.ID, "entry_type": "refund", "credits_delta": -int64(grant.RemainingCredits), "balance_after": int64(balance), "idempotency_key": fmt.Sprintf("refund:%s:grant:%d", refundNo, grant.ID), "description": refund.Reason, "created_at": now}).Error; err != nil {
+					return err
+				}
 			}
-			if grant.RemainingCredits <= balance {
-				balance -= grant.RemainingCredits
-			} else {
-				balance = 0
-			}
-			if err := tx.Table("ai_credit_ledger").Create(map[string]any{"entry_id": uuid.NewString(), "owner_type": owner.Type, "owner_id": owner.ID, "grant_id": grant.ID, "entry_type": "refund", "credits_delta": -int64(grant.RemainingCredits), "balance_after": int64(balance), "idempotency_key": fmt.Sprintf("refund:%s:grant:%d", refundNo, grant.ID), "description": refund.Reason, "created_at": now}).Error; err != nil {
+			if err := tx.Table("ai_credit_grants").Where("id = ?", grant.ID).
+				Updates(map[string]any{"status": "revoked", "remaining_credits": 0, "updated_at": now}).Error; err != nil {
 				return err
 			}
 		}
-		if err := grantQuery.Updates(map[string]any{"status": "revoked", "remaining_credits": 0, "updated_at": now}).Error; err != nil {
-			return err
-		}
-		return tx.Table("billing_subscriptions").Where("activated_by_order_id = ? AND status = 'active'", refund.OrderID).Updates(map[string]any{"status": "cancelled", "updated_at": now}).Error
+		return tx.Table("billing_subscriptions").Where("activated_by_order_id = ? AND status IN ('active','pending')", refund.OrderID).Updates(map[string]any{"status": "cancelled", "updated_at": now}).Error
 	})
 }
 
@@ -1530,6 +1678,104 @@ func (s *Commerce) activateOrder(ctx context.Context, tx *gorm.DB, order commerc
 	return tx.Table("event_outbox").Create(map[string]any{"event_id": uuid.NewString(), "event_type": "billing.subscription.activated", "aggregate_type": "billing_subscription", "aggregate_id": subscriptionID, "routing_key": "billing.subscription.activated", "producer": "billing-service", "idempotency_key": fmt.Sprintf("billing-subscription:%d:activated", subscriptionID), "payload": string(eventPayload), "status": 0, "created_at": now, "updated_at": now}).Error
 }
 
+type refundSourceGrant struct {
+	ID               uint64     `gorm:"column:id"`
+	TotalCredits     uint64     `gorm:"column:total_credits"`
+	RemainingCredits uint64     `gorm:"column:remaining_credits"`
+	Status           string     `gorm:"column:status"`
+	ExpiresAt        *time.Time `gorm:"column:expires_at"`
+}
+
+func loadRefundSourceGrants(ctx context.Context, tx *gorm.DB, owner model.Owner, orderID uint64, lock bool) ([]refundSourceGrant, error) {
+	var subscriptionIDs []uint64
+	if err := tx.WithContext(ctx).Table("billing_subscriptions").
+		Where("activated_by_order_id = ?", orderID).
+		Pluck("id", &subscriptionIDs).Error; err != nil {
+		return nil, err
+	}
+	query := tx.WithContext(ctx).Table("ai_credit_grants").
+		Where("owner_type = ? AND owner_id = ?", owner.Type, owner.ID)
+	if len(subscriptionIDs) == 0 {
+		query = query.Where("source_type = 'order' AND source_id = ?", orderID)
+	} else {
+		query = query.Where("(source_type = 'order' AND source_id = ?) OR (source_type = 'subscription' AND source_id IN ?)", orderID, subscriptionIDs)
+	}
+	if lock {
+		query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	var grants []refundSourceGrant
+	if err := query.Order("id").Find(&grants).Error; err != nil {
+		return nil, err
+	}
+	return grants, nil
+}
+
+func refundGrantActivity(ctx context.Context, tx *gorm.DB, grantIDs []uint64) (bool, bool, error) {
+	if len(grantIDs) == 0 {
+		return false, false, nil
+	}
+	var openCount int64
+	if err := tx.WithContext(ctx).Table("ai_credit_reservation_allocations").
+		Where("grant_id IN ? AND reserved_credits > consumed_credits + released_credits", grantIDs).
+		Count(&openCount).Error; err != nil {
+		return false, false, err
+	}
+	var consumeCount int64
+	if err := tx.WithContext(ctx).Table("ai_credit_ledger").
+		Where("grant_id IN ? AND entry_type = 'consume' AND credits_delta < 0", grantIDs).
+		Count(&consumeCount).Error; err != nil {
+		return false, false, err
+	}
+	return openCount > 0, consumeCount > 0, nil
+}
+
+func freezeRefundGrants(ctx context.Context, tx *gorm.DB, owner model.Owner, orderID uint64, now time.Time) (bool, bool, error) {
+	grants, err := loadRefundSourceGrants(ctx, tx, owner, orderID, true)
+	if err != nil {
+		return false, false, err
+	}
+	grantIDs := make([]uint64, 0, len(grants))
+	activeIDs := make([]uint64, 0, len(grants))
+	for _, grant := range grants {
+		grantIDs = append(grantIDs, grant.ID)
+		if grant.Status == "active" {
+			activeIDs = append(activeIDs, grant.ID)
+		}
+	}
+	if len(activeIDs) > 0 {
+		if err := tx.WithContext(ctx).Table("ai_credit_grants").
+			Where("id IN ? AND status = 'active'", activeIDs).
+			Updates(map[string]any{"status": "refund_frozen", "updated_at": now}).Error; err != nil {
+			return false, false, err
+		}
+	}
+	return refundGrantActivity(ctx, tx, grantIDs)
+}
+
+func (s *Commerce) submitRefund(ctx context.Context, refundNo, merchantOrderNo, reason string, amountFen uint64, now time.Time) (string, error) {
+	channelNo, err := s.alipay.Refund(ctx, merchantOrderNo, refundNo, reason, amountFen, now)
+	if err != nil {
+		if payment.IsAPIRejected(err) {
+			if failErr := s.failRefund(ctx, refundNo, err, now); failErr != nil {
+				return "failed", failErr
+			}
+			platformobservability.DefaultMetrics.RecordBillingEvent("refund", "failed")
+			return "failed", nil
+		}
+		platformobservability.DefaultMetrics.RecordBillingEvent("refund", "unknown")
+		if updateErr := s.db.WithContext(ctx).Table("billing_refunds").Where("refund_no = ? AND status = 'processing'", refundNo).
+			Updates(map[string]any{"status": "unknown", "next_reconcile_at": now.Add(time.Minute), "last_error": truncateError(err), "updated_at": now}).Error; updateErr != nil {
+			return "unknown", updateErr
+		}
+		return "unknown", nil
+	}
+	if err := s.finalizeRefund(ctx, refundNo, channelNo, now); err != nil {
+		return "processing", err
+	}
+	platformobservability.DefaultMetrics.RecordBillingEvent("refund", "succeeded")
+	return "succeeded", nil
+}
+
 func (s *Commerce) RequestRefund(ctx context.Context, owner model.Owner, actorUserID uint64, orderNo, reason, idempotencyKey string) (string, string, string, error) {
 	if actorUserID == 0 || strings.TrimSpace(reason) == "" || strings.TrimSpace(idempotencyKey) == "" {
 		return "", "", "", errors.New("refund actor and reason are required")
@@ -1537,14 +1783,16 @@ func (s *Commerce) RequestRefund(ctx context.Context, owner model.Owner, actorUs
 	type row struct {
 		ID, PaymentID, AmountFen uint64
 		OrderType, Status        string
+		PaymentStatus            string
 		MerchantOrderNo          string
 		PaidAt                   time.Time
 	}
 	var order row
 	if err := s.db.WithContext(ctx).Raw(`SELECT orders.id, orders.order_type, orders.status, orders.amount_fen, orders.paid_at,
-		payment.id payment_id, payment.merchant_order_no
-		FROM billing_orders orders JOIN billing_payments payment ON payment.order_id = orders.id AND payment.status = 'succeeded'
-		WHERE orders.order_no = ? AND orders.owner_type = ? AND orders.owner_id = ?`, orderNo, owner.Type, owner.ID).Scan(&order).Error; err != nil {
+		payment.id payment_id, payment.merchant_order_no, payment.status payment_status
+		FROM billing_orders orders JOIN billing_payments payment ON payment.order_id = orders.id AND payment.status IN ('succeeded','refunded')
+		WHERE orders.order_no = ? AND orders.owner_type = ? AND orders.owner_id = ?
+		ORDER BY payment.id DESC LIMIT 1`, orderNo, owner.Type, owner.ID).Scan(&order).Error; err != nil {
 		return "", "", "", err
 	}
 	if order.ID == 0 {
@@ -1557,24 +1805,40 @@ func (s *Commerce) RequestRefund(ctx context.Context, owner model.Owner, actorUs
 	if existing.RefundNo != "" {
 		return existing.RefundNo, existing.Status, existing.ReviewMode, nil
 	}
-	if order.Status != "paid" {
+	if order.Status != "paid" || order.PaymentStatus != "succeeded" {
 		return "", "", "", errors.New("only paid orders without an active refund can be refunded")
-	}
-	var usageCount int64
-	if err := s.db.WithContext(ctx).Table("ai_usage_events").Where("owner_type = ? AND owner_id = ? AND occurred_at >= ? AND credits_charged > 0", owner.Type, owner.ID, order.PaidAt).Count(&usageCount).Error; err != nil {
-		return "", "", "", err
-	}
-	reviewMode := "automatic"
-	statusValue := "processing"
-	if usageCount > 0 || order.OrderType == "renew" || order.OrderType == "upgrade" {
-		reviewMode = "manual"
-		statusValue = "reviewing"
 	}
 	refundNo := "R" + strings.ToUpper(strings.ReplaceAll(uuid.NewString(), "-", ""))[:24]
 	now := s.businessNow()
+	reviewMode := "automatic"
+	statusValue := "processing"
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var lockedStatus string
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Table("billing_orders").
+			Where("id = ?", order.ID).Select("status").Scan(&lockedStatus).Error; err != nil {
+			return err
+		}
+		if lockedStatus != "paid" {
+			return errors.New("only paid orders without an active refund can be refunded")
+		}
+		hasOpenAllocations, hasConsumption, err := freezeRefundGrants(ctx, tx, owner, order.ID, now)
+		if err != nil {
+			return err
+		}
+		manualRequired := hasConsumption || order.OrderType == "renew" || order.OrderType == "upgrade"
+		if manualRequired {
+			reviewMode = "manual"
+		}
+		switch {
+		case hasOpenAllocations:
+			statusValue = "waiting_usage"
+		case manualRequired:
+			statusValue = "reviewing"
+		default:
+			statusValue = "processing"
+		}
 		if err := tx.Table("billing_refunds").Create(map[string]any{"refund_no": refundNo, "idempotency_key": idempotencyKey, "order_id": order.ID, "payment_id": order.PaymentID, "amount_fen": order.AmountFen, "reason": reason, "status": statusValue, "active_slot": 1, "review_mode": reviewMode, "requested_by": actorUserID, "next_reconcile_at": func() any {
-			if statusValue == "processing" {
+			if statusValue == "processing" || statusValue == "waiting_usage" {
 				return now.Add(time.Minute)
 			}
 			return nil
@@ -1590,67 +1854,12 @@ func (s *Commerce) RequestRefund(ctx context.Context, owner model.Owner, actorUs
 		}
 		return "", "", "", err
 	}
-	if reviewMode == "manual" {
-		platformobservability.DefaultMetrics.RecordBillingEvent("refund", "reviewing")
+	if statusValue == "reviewing" || statusValue == "waiting_usage" {
+		platformobservability.DefaultMetrics.RecordBillingEvent("refund", statusValue)
 		return refundNo, statusValue, reviewMode, nil
 	}
-	channelNo, err := s.alipay.Refund(ctx, order.MerchantOrderNo, refundNo, reason, order.AmountFen, now)
-	if err != nil {
-		if payment.IsAPIRejected(err) {
-			if failErr := s.failRefund(ctx, refundNo, err, now); failErr != nil {
-				return refundNo, "failed", reviewMode, failErr
-			}
-			platformobservability.DefaultMetrics.RecordBillingEvent("refund", "failed")
-			return refundNo, "failed", reviewMode, nil
-		}
-		platformobservability.DefaultMetrics.RecordBillingEvent("refund", "unknown")
-		_ = s.db.WithContext(ctx).Table("billing_refunds").Where("refund_no = ?", refundNo).Updates(map[string]any{"status": "unknown", "next_reconcile_at": now.Add(time.Minute), "last_error": truncateError(err), "updated_at": now}).Error
-		return refundNo, "unknown", reviewMode, nil
-	}
-	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Table("billing_refunds").Where("refund_no = ?", refundNo).Updates(map[string]any{"status": "succeeded", "active_slot": nil, "channel_refund_no": channelNo, "succeeded_at": now, "next_reconcile_at": nil, "updated_at": now}).Error; err != nil {
-			return err
-		}
-		if err := tx.Table("billing_orders").Where("id = ?", order.ID).Update("status", "refunded").Error; err != nil {
-			return err
-		}
-		if err := tx.Table("billing_payments").Where("id = ?", order.PaymentID).Update("status", "refunded").Error; err != nil {
-			return err
-		}
-		var subscriptionIDs []uint64
-		if err := tx.Table("billing_subscriptions").Where("activated_by_order_id = ?", order.ID).Pluck("id", &subscriptionIDs).Error; err != nil {
-			return err
-		}
-		var grants []struct{ ID, RemainingCredits uint64 }
-		grantQuery := tx.Table("ai_credit_grants").Where("owner_type = ? AND owner_id = ? AND ((source_type = 'order' AND source_id = ?) OR (source_type = 'subscription' AND source_id IN ?)) AND status = 'active'", owner.Type, owner.ID, order.ID, subscriptionIDs)
-		if err := grantQuery.Find(&grants).Error; err != nil {
-			return err
-		}
-		var balance uint64
-		if err := tx.Table("ai_credit_grants").Where("owner_type = ? AND owner_id = ? AND status = 'active' AND valid_from <= ? AND (expires_at IS NULL OR expires_at > ?)", owner.Type, owner.ID, now, now).Select("COALESCE(SUM(remaining_credits), 0)").Scan(&balance).Error; err != nil {
-			return err
-		}
-		for _, grant := range grants {
-			if grant.RemainingCredits > 0 {
-				if grant.RemainingCredits <= balance {
-					balance -= grant.RemainingCredits
-				} else {
-					balance = 0
-				}
-				if err := tx.Table("ai_credit_ledger").Create(map[string]any{"entry_id": uuid.NewString(), "owner_type": owner.Type, "owner_id": owner.ID, "grant_id": grant.ID, "entry_type": "refund", "credits_delta": -int64(grant.RemainingCredits), "balance_after": int64(balance), "idempotency_key": fmt.Sprintf("refund:%s:grant:%d", refundNo, grant.ID), "description": reason, "created_at": now}).Error; err != nil {
-					return err
-				}
-			}
-		}
-		if err := grantQuery.Updates(map[string]any{"status": "revoked", "remaining_credits": 0, "updated_at": now}).Error; err != nil {
-			return err
-		}
-		return tx.Table("billing_subscriptions").Where("activated_by_order_id = ? AND status = 'active'", order.ID).Updates(map[string]any{"status": "cancelled", "updated_at": now}).Error
-	})
-	if err != nil {
-		return refundNo, "failed", reviewMode, err
-	}
-	return refundNo, "succeeded", reviewMode, nil
+	submitStatus, submitErr := s.submitRefund(ctx, refundNo, order.MerchantOrderNo, reason, order.AmountFen, now)
+	return refundNo, submitStatus, reviewMode, submitErr
 }
 
 func (s *Commerce) UpdateOperationalMetrics(ctx context.Context) error {
@@ -1669,10 +1878,10 @@ func (s *Commerce) UpdateOperationalMetrics(ctx context.Context) error {
 		platformobservability.DefaultMetrics.SetBillingGauge("payment", item.Status, float64(item.Count))
 	}
 	var refunds []row
-	for _, statusValue := range []string{"reviewing", "processing", "unknown"} {
+	for _, statusValue := range []string{"waiting_usage", "reviewing", "processing", "unknown"} {
 		platformobservability.DefaultMetrics.SetBillingGauge("refund", statusValue, 0)
 	}
-	if err := s.db.WithContext(ctx).Table("billing_refunds").Select("status, COUNT(*) count").Where("status IN ('reviewing','processing','unknown')").Group("status").Scan(&refunds).Error; err != nil {
+	if err := s.db.WithContext(ctx).Table("billing_refunds").Select("status, COUNT(*) count").Where("status IN ('waiting_usage','reviewing','processing','unknown')").Group("status").Scan(&refunds).Error; err != nil {
 		return err
 	}
 	for _, item := range refunds {
@@ -1741,12 +1950,16 @@ func (s *Commerce) ReviewRefund(ctx context.Context, refundNo string, actorUserI
 		return "", "", errors.New("refund, actor and valid action are required")
 	}
 	type row struct {
-		OrderID, AmountFen                    uint64
-		Status, MerchantOrderNo, RefundReason string
+		OrderID, AmountFen, OwnerID                      uint64
+		Status, MerchantOrderNo, RefundReason, OwnerType string
 	}
 	var refund row
-	if err := s.db.WithContext(ctx).Raw(`SELECT refund.order_id, refund.amount_fen, refund.status, refund.reason refund_reason, payment.merchant_order_no
-		FROM billing_refunds refund JOIN billing_payments payment ON payment.id = refund.payment_id WHERE refund.refund_no = ?`, refundNo).Scan(&refund).Error; err != nil {
+	if err := s.db.WithContext(ctx).Raw(`SELECT refund.order_id, refund.amount_fen, refund.status, refund.reason refund_reason,
+		payment.merchant_order_no, orders.owner_type, orders.owner_id
+		FROM billing_refunds refund
+		JOIN billing_payments payment ON payment.id = refund.payment_id
+		JOIN billing_orders orders ON orders.id = refund.order_id
+		WHERE refund.refund_no = ?`, refundNo).Scan(&refund).Error; err != nil {
 		return "", "", err
 	}
 	if refund.OrderID == 0 || refund.Status != "reviewing" {
@@ -1765,32 +1978,49 @@ func (s *Commerce) ReviewRefund(ctx context.Context, refundNo string, actorUserI
 			if updated.RowsAffected != 1 {
 				return errors.New("refund review state changed")
 			}
+			owner := model.Owner{Type: model.OwnerType(refund.OwnerType), ID: refund.OwnerID}
+			if err := restoreRefundGrants(ctx, tx, owner, refund.OrderID, now); err != nil {
+				return err
+			}
 			return tx.Table("billing_orders").Where("id = ? AND status = 'refunding'", refund.OrderID).Updates(map[string]any{"status": "paid", "updated_at": now}).Error
 		})
 		return refundNo, "rejected", err
 	}
-	updated := s.db.WithContext(ctx).Table("billing_refunds").Where("refund_no = ? AND status = 'reviewing'", refundNo).Updates(map[string]any{"status": "processing", "reviewed_by": actorUserID, "reviewed_at": now, "next_reconcile_at": now.Add(time.Minute), "updated_at": now})
-	if updated.Error != nil {
-		return "", "", updated.Error
-	}
-	if updated.RowsAffected != 1 {
-		return "", "", errors.New("refund review state changed")
-	}
-	channelNo, err := s.alipay.Refund(ctx, refund.MerchantOrderNo, refundNo, refund.RefundReason, refund.AmountFen, now)
-	if err != nil {
-		if payment.IsAPIRejected(err) {
-			if failErr := s.failRefund(ctx, refundNo, err, now); failErr != nil {
-				return refundNo, "failed", failErr
-			}
-			return refundNo, "failed", nil
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		owner := model.Owner{Type: model.OwnerType(refund.OwnerType), ID: refund.OwnerID}
+		grants, err := loadRefundSourceGrants(ctx, tx, owner, refund.OrderID, true)
+		if err != nil {
+			return err
 		}
-		_ = s.db.WithContext(ctx).Table("billing_refunds").Where("refund_no = ?", refundNo).Updates(map[string]any{"status": "unknown", "last_error": truncateError(err), "next_reconcile_at": now.Add(time.Minute), "updated_at": now}).Error
-		return refundNo, "unknown", nil
+		grantIDs := make([]uint64, 0, len(grants))
+		for _, grant := range grants {
+			grantIDs = append(grantIDs, grant.ID)
+		}
+		hasOpen, _, err := refundGrantActivity(ctx, tx, grantIDs)
+		if err != nil {
+			return err
+		}
+		if hasOpen {
+			return errors.New("refund is waiting for in-flight AI usage to settle")
+		}
+		updated := tx.Table("billing_refunds").Where("refund_no = ? AND status = 'reviewing'", refundNo).
+			Updates(map[string]any{"status": "processing", "reviewed_by": actorUserID, "reviewed_at": now, "next_reconcile_at": now.Add(time.Minute), "updated_at": now})
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected != 1 {
+			return errors.New("refund review state changed")
+		}
+		return nil
+	})
+	if err != nil {
+		return "", "", err
 	}
-	if err := s.finalizeRefund(ctx, refundNo, channelNo, now); err != nil {
-		return refundNo, "processing", err
+	statusValue, err := s.submitRefund(ctx, refundNo, refund.MerchantOrderNo, refund.RefundReason, refund.AmountFen, now)
+	if err != nil {
+		return refundNo, statusValue, err
 	}
-	return refundNo, "succeeded", nil
+	return refundNo, statusValue, nil
 }
 
 func truncateError(err error) string {

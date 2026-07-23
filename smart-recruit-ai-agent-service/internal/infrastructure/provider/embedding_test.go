@@ -13,6 +13,10 @@ import (
 	"smart-recruit-proto/recruitment/pb"
 )
 
+func embeddingUint64Ptr(value uint64) *uint64 {
+	return &value
+}
+
 func TestHTTPEmbeddingRunnerCallsConfiguredEndpoint(t *testing.T) {
 	var seenModel string
 	var seenAuth string
@@ -109,17 +113,17 @@ func TestEmbeddingServiceBackfillDebugAndSemanticScores(t *testing.T) {
 func TestEmbeddingServiceMemoryUpsertSearchAndBackfill(t *testing.T) {
 	store := newFakeEmbeddingStore()
 	store.memoryDocs = []MemoryEmbeddingDocument{
-		{ID: 101, OwnerRole: 2, OwnerID: 7, ScopeType: "hr", MemoryType: "preference", Content: "偏好远程办公", Source: "manual", Confidence: 0.8, Importance: 0.8},
+		{ID: 101, TenantID: embeddingUint64Ptr(11), OwnerRole: 2, OwnerID: 7, ScopeType: "hr", MemoryType: "preference", Content: "偏好远程办公", Source: "manual", Confidence: 0.8, Importance: 0.8},
 	}
 	runner := &fakeEmbeddingRunner{vectors: map[string][]float64{
 		"preference manual 偏好远程办公": {1, 0},
-		"远程办公":                   {1, 0},
+		"远程办公":                     {1, 0},
 	}}
 	service := NewEmbeddingService(store, runner)
 
 	memory := domainmemory.Memory{
-		ID: 101, OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 7,
-		Scope: domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0},
+		ID: 101, TenantID: embeddingUint64Ptr(11), OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 7,
+		Scope:      domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0},
 		MemoryType: "preference", Content: "偏好远程办公", Source: "manual", Confidence: 0.8, Importance: 0.8,
 	}
 	if err := service.UpsertMemoryEmbedding(context.Background(), memory); err != nil {
@@ -133,7 +137,7 @@ func TestEmbeddingServiceMemoryUpsertSearchAndBackfill(t *testing.T) {
 		t.Fatalf("backfill=%+v", backfill)
 	}
 	debug, err := service.DebugSemanticRetrieval(context.Background(), &pb.DebugSemanticRetrievalRequest{
-		HrId: 7, OwnerRole: 2, OwnerId: 7, Query: "远程办公", Limit: 5,
+		HrId: 7, OwnerRole: 2, OwnerId: 7, TenantId: 11, Query: "远程办公", Limit: 5,
 	})
 	if err != nil {
 		t.Fatalf("DebugSemanticRetrieval() error = %v", err)
@@ -141,7 +145,7 @@ func TestEmbeddingServiceMemoryUpsertSearchAndBackfill(t *testing.T) {
 	if len(debug.GetMemories()) == 0 || debug.GetMemoryPoolConfidence() == "none" {
 		t.Fatalf("memories debug = %+v", debug)
 	}
-	scores, fallback := service.SemanticMemoryScores(context.Background(), domainmemory.OwnerRoleHR, 7, "远程办公", []domainmemory.Scope{{Type: domainmemory.ScopeHR, ID: 0}}, domainmemory.ScopeHR, 0, 5)
+	scores, fallback := service.SemanticMemoryScores(context.Background(), domainmemory.OwnerKey{TenantID: embeddingUint64Ptr(11), Role: domainmemory.OwnerRoleHR, ID: 7}, "远程办公", []domainmemory.Scope{{Type: domainmemory.ScopeHR, ID: 0}}, domainmemory.ScopeHR, 0, 5)
 	if fallback != "" || scores[101] <= 0 {
 		t.Fatalf("scores=%v fallback=%q", scores, fallback)
 	}
@@ -268,7 +272,7 @@ func (f *fakeEmbeddingStore) ListAIEmbeddings(_ context.Context, objectType, _ s
 	return out, nil
 }
 
-func (f *fakeEmbeddingStore) ListAIEmbeddingsForOwner(_ context.Context, objectType, _ string, ownerRole int32, ownerID uint64, _ int) ([]AIEmbeddingRecord, error) {
+func (f *fakeEmbeddingStore) ListAIEmbeddingsForOwner(_ context.Context, objectType, _ string, tenantID *uint64, ownerRole int32, ownerID uint64, _ int) ([]AIEmbeddingRecord, error) {
 	out := make([]AIEmbeddingRecord, 0, len(f.embeddings))
 	for _, row := range f.embeddings {
 		if row.ObjectType != objectType || row.Status != "ready" {
@@ -278,6 +282,13 @@ func (f *fakeEmbeddingStore) ListAIEmbeddingsForOwner(_ context.Context, objectT
 			continue
 		}
 		if ownerRole > 0 && floatMeta(row.Metadata, "owner_role") != float64(ownerRole) {
+			continue
+		}
+		_, hasTenant := row.Metadata["tenant_id"]
+		if tenantID == nil && hasTenant {
+			continue
+		}
+		if tenantID != nil && (!hasTenant || uint64(floatMeta(row.Metadata, "tenant_id")) != *tenantID) {
 			continue
 		}
 		out = append(out, row)

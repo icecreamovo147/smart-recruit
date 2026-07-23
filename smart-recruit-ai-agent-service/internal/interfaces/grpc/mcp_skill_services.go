@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	domainmemory "smart-recruit-ai-agent-service/internal/domain/memory"
 	"smart-recruit-ai-agent-service/internal/domain/model"
 	"smart-recruit-ai-agent-service/internal/domain/policy"
 	mcpinfra "smart-recruit-ai-agent-service/internal/infrastructure/mcp"
@@ -427,6 +428,17 @@ func (s nativeAgentSkillService) PreviewAgentSkill(ctx context.Context, req *pb.
 }
 
 func (s nativeAgentSkillService) DebugSemanticRetrieval(ctx context.Context, req *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
+	ownerID := req.GetOwnerId()
+	ownerRole := req.GetOwnerRole()
+	if ownerID == 0 && req.GetHrId() > 0 {
+		ownerID = uint64(req.GetHrId())
+		ownerRole = int32(domainmemory.OwnerRoleHR)
+	}
+	if ownerID > 0 {
+		if _, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), ownerRole, ownerID); err != nil {
+			return nil, err
+		}
+	}
 	if s.embedding != nil {
 		return s.embedding.DebugSemanticRetrieval(ctx, req)
 	}

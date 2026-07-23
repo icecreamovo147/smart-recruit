@@ -76,6 +76,7 @@
     "ai_usage_events": {"owner": "billing", "access": {"billing": ["read", "write"], "ai-agent": ["write"], "analytics": ["read"], "recruitment": ["read"], "platform": ["read"]}},
     "ai_credit_grants": {"owner": "billing", "access": {"billing": ["read", "write"], "platform": ["read"]}},
     "ai_credit_reservations": {"owner": "billing", "access": {"billing": ["read", "write"], "ai-agent": ["read", "write"]}},
+    "ai_credit_reservation_allocations": {"owner": "billing", "access": {"billing": ["read", "write"]}},
     "ai_credit_ledger": {"owner": "billing", "access": {"billing": ["read", "write"], "platform": ["read"]}},
     "ai_billing_settlement_outbox": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"], "billing": ["read"], "platform": ["read"]}},
 

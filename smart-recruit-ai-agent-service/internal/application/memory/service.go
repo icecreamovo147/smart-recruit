@@ -21,8 +21,7 @@ type Service struct {
 }
 
 type RecallRequest struct {
-	OwnerRole       domainmemory.OwnerRole
-	OwnerID         uint64
+	Owner           domainmemory.OwnerKey
 	Scopes          []domainmemory.Scope
 	Query           string
 	TargetScopeType string
@@ -45,8 +44,7 @@ type RecallEvidence struct {
 }
 
 type WriteRequest struct {
-	OwnerRole       domainmemory.OwnerRole
-	OwnerID         uint64
+	Owner           domainmemory.OwnerKey
 	Scope           domainmemory.Scope
 	MemoryType      string
 	Content         string
@@ -80,11 +78,11 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResult, 
 	if s == nil || s.repo == nil || !s.Enabled() {
 		return RecallResult{}, nil
 	}
-	if req.OwnerID == 0 {
+	if err := req.Owner.Validate(); err != nil {
 		return RecallResult{}, nil
 	}
 	for _, scope := range req.Scopes {
-		if err := domainmemory.ValidateScope(req.OwnerRole, scope); err != nil {
+		if err := domainmemory.ValidateScope(req.Owner.Role, scope); err != nil {
 			return RecallResult{}, err
 		}
 	}
@@ -93,8 +91,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResult, 
 		limit = 30
 	}
 	memories, err := s.repo.ListActiveForRecall(ctx, RecallFilter{
-		OwnerRole:   req.OwnerRole,
-		OwnerID:     req.OwnerID,
+		Owner:       req.Owner,
 		Scopes:      req.Scopes,
 		Query:       req.Query,
 		Limit:       limit,
@@ -126,7 +123,10 @@ func (s *Service) Write(ctx context.Context, req WriteRequest) (domainmemory.Mem
 	if s == nil || s.repo == nil || !s.Enabled() {
 		return domainmemory.Memory{}, nil
 	}
-	if err := domainmemory.ValidateScope(req.OwnerRole, req.Scope); err != nil {
+	if err := req.Owner.Validate(); err != nil {
+		return domainmemory.Memory{}, err
+	}
+	if err := domainmemory.ValidateScope(req.Owner.Role, req.Scope); err != nil {
 		return domainmemory.Memory{}, err
 	}
 	piiLevel := domainmemory.ClassifyPIILevel(req.Content)
@@ -134,12 +134,13 @@ func (s *Service) Write(ctx context.Context, req WriteRequest) (domainmemory.Mem
 		return domainmemory.Memory{}, fmt.Errorf("memory write skipped: high PII content")
 	}
 	if !s.WriteEnabled() {
-		logger.L().Debug("memory write dry-run", zap.Uint64("owner_id", req.OwnerID), zap.String("scope_type", req.Scope.Type))
+		logger.L().Debug("memory write dry-run", zap.Uint64("owner_id", req.Owner.ID), zap.String("scope_type", req.Scope.Type))
 		return domainmemory.Memory{}, nil
 	}
 	memory := domainmemory.Memory{
-		OwnerRole:       req.OwnerRole,
-		OwnerID:         req.OwnerID,
+		TenantID:        req.Owner.TenantID,
+		OwnerRole:       req.Owner.Role,
+		OwnerID:         req.Owner.ID,
 		Scope:           req.Scope,
 		MemoryType:      req.MemoryType,
 		Content:         req.Content,
@@ -191,8 +192,7 @@ func (s *Service) WriteFromExtractor(ctx context.Context, input ExtractInput, sc
 			}
 		}
 		_, writeErr := s.Write(ctx, WriteRequest{
-			OwnerRole:       input.OwnerRole,
-			OwnerID:         input.OwnerID,
+			Owner:           input.Owner,
 			Scope:           scope,
 			MemoryType:      candidate.MemoryType,
 			Content:         candidate.Content,
@@ -211,11 +211,14 @@ func (s *Service) WriteFromExtractor(ctx context.Context, input ExtractInput, sc
 	return nil
 }
 
-func (s *Service) Revoke(ctx context.Context, ownerRole domainmemory.OwnerRole, ownerID, id, revokedBy uint64, reason string) error {
+func (s *Service) Revoke(ctx context.Context, owner domainmemory.OwnerKey, id, revokedBy uint64, reason string) error {
 	if s == nil || s.repo == nil || !s.Enabled() {
 		return nil
 	}
-	if err := s.repo.RevokeMemory(ctx, ownerRole, ownerID, id, revokedBy, reason); err != nil {
+	if err := owner.Validate(); err != nil {
+		return err
+	}
+	if err := s.repo.RevokeMemory(ctx, owner, id, revokedBy, reason); err != nil {
 		return err
 	}
 	if invalidator, ok := s.embedder.(MemoryEmbeddingInvalidator); ok {
@@ -226,16 +229,22 @@ func (s *Service) Revoke(ctx context.Context, ownerRole domainmemory.OwnerRole, 
 	return nil
 }
 
-func (s *Service) Get(ctx context.Context, ownerRole domainmemory.OwnerRole, ownerID, id uint64) (domainmemory.Memory, bool, error) {
-	if s == nil || s.repo == nil || !s.Enabled() || ownerID == 0 {
+func (s *Service) Get(ctx context.Context, owner domainmemory.OwnerKey, id uint64) (domainmemory.Memory, bool, error) {
+	if s == nil || s.repo == nil || !s.Enabled() {
 		return domainmemory.Memory{}, false, nil
 	}
-	return s.repo.GetMemory(ctx, ownerRole, ownerID, id)
+	if err := owner.Validate(); err != nil {
+		return domainmemory.Memory{}, false, err
+	}
+	return s.repo.GetMemory(ctx, owner, id)
 }
 
 func (s *Service) List(ctx context.Context, filter ListFilter) ([]domainmemory.Memory, int64, error) {
-	if s == nil || s.repo == nil || !s.Enabled() || filter.OwnerID == 0 {
+	if s == nil || s.repo == nil || !s.Enabled() {
 		return nil, 0, nil
+	}
+	if err := filter.Owner.Validate(); err != nil {
+		return nil, 0, err
 	}
 	return s.repo.ListMemories(ctx, filter)
 }

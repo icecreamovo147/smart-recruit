@@ -15,13 +15,18 @@ type fakeMemoryRepo struct {
 	cleanupResult CleanupResult
 }
 
+func testHROwner(id uint64) domainmemory.OwnerKey {
+	tenantID := uint64(11)
+	return domainmemory.OwnerKey{TenantID: &tenantID, Role: domainmemory.OwnerRoleHR, ID: id}
+}
+
 func (f *fakeMemoryRepo) CreateMemory(_ context.Context, memory domainmemory.Memory) (domainmemory.Memory, error) {
 	memory.ID = uint64(len(f.create) + 1)
 	f.create = append(f.create, memory)
 	return memory, nil
 }
 
-func (f *fakeMemoryRepo) GetMemory(_ context.Context, _ domainmemory.OwnerRole, _, _ uint64) (domainmemory.Memory, bool, error) {
+func (f *fakeMemoryRepo) GetMemory(_ context.Context, _ domainmemory.OwnerKey, _ uint64) (domainmemory.Memory, bool, error) {
 	return domainmemory.Memory{}, false, nil
 }
 
@@ -33,17 +38,17 @@ func (f *fakeMemoryRepo) UpdateMemory(_ context.Context, memory domainmemory.Mem
 	return memory, nil
 }
 
-func (f *fakeMemoryRepo) RevokeMemory(_ context.Context, _ domainmemory.OwnerRole, _, _, _ uint64, _ string) error {
+func (f *fakeMemoryRepo) RevokeMemory(_ context.Context, _ domainmemory.OwnerKey, _, _ uint64, _ string) error {
 	return nil
 }
 
 func (f *fakeMemoryRepo) ListActiveForRecall(_ context.Context, filter RecallFilter) ([]domainmemory.Memory, error) {
-	if filter.OwnerID == 0 {
+	if filter.Owner.ID == 0 {
 		return nil, nil
 	}
 	out := make([]domainmemory.Memory, 0, len(f.recall))
 	for _, memory := range f.recall {
-		if memory.OwnerRole != filter.OwnerRole || memory.OwnerID != filter.OwnerID {
+		if memory.OwnerRole != filter.Owner.Role || memory.OwnerID != filter.Owner.ID {
 			continue
 		}
 		out = append(out, memory)
@@ -56,16 +61,16 @@ func (f *fakeMemoryRepo) ExpireAndCleanup(_ context.Context, _ time.Duration) (C
 }
 
 func TestServiceRecallOwnerIsolation(t *testing.T) {
+	tenantID := uint64(11)
 	repo := &fakeMemoryRepo{recall: []domainmemory.Memory{
-		{ID: 1, OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 7, Scope: domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0}, Content: "HR note", Importance: 0.8, Confidence: 0.8},
-		{ID: 2, OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 8, Scope: domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0}, Content: "other HR", Importance: 0.8, Confidence: 0.8},
+		{ID: 1, TenantID: &tenantID, OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 7, Scope: domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0}, Content: "HR note", Importance: 0.8, Confidence: 0.8},
+		{ID: 2, TenantID: &tenantID, OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 8, Scope: domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0}, Content: "other HR", Importance: 0.8, Confidence: 0.8},
 	}}
 	svc := NewService(repo, NewExtractor(nil), nil, Config{Enabled: true, InjectEnabled: true, MaxMemories: 5, MaxMemoryChars: 500, Ranking: domainmemory.DefaultRankingConfig()})
 	result, err := svc.Recall(context.Background(), RecallRequest{
-		OwnerRole: domainmemory.OwnerRoleHR,
-		OwnerID:   7,
-		Scopes:    []domainmemory.Scope{{Type: domainmemory.ScopeHR, ID: 0}},
-		Query:     "note",
+		Owner:  testHROwner(7),
+		Scopes: []domainmemory.Scope{{Type: domainmemory.ScopeHR, ID: 0}},
+		Query:  "note",
 	})
 	if err != nil {
 		t.Fatalf("Recall() error = %v", err)
@@ -79,8 +84,7 @@ func TestServiceWriteDryRun(t *testing.T) {
 	repo := &fakeMemoryRepo{}
 	svc := NewService(repo, NewExtractor(nil), nil, Config{Enabled: true, WriteEnabled: false, Ranking: domainmemory.DefaultRankingConfig()})
 	_, err := svc.Write(context.Background(), WriteRequest{
-		OwnerRole:  domainmemory.OwnerRoleHR,
-		OwnerID:    1,
+		Owner:      testHROwner(1),
 		Scope:      domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0},
 		MemoryType: "preference",
 		Content:    "偏好远程",
@@ -96,9 +100,8 @@ func TestServiceWriteDryRun(t *testing.T) {
 func TestExtractorRememberRule(t *testing.T) {
 	ext := NewExtractor(nil)
 	items, err := ext.Extract(context.Background(), ExtractInput{
-		OwnerRole: domainmemory.OwnerRoleHR,
-		OwnerID:   3,
-		UserText:  "请记住 更偏好线下面试",
+		Owner:    testHROwner(3),
+		UserText: "请记住 更偏好线下面试",
 	})
 	if err != nil {
 		t.Fatalf("Extract() error = %v", err)
@@ -112,8 +115,7 @@ func TestServiceWriteRejectsHighPII(t *testing.T) {
 	repo := &fakeMemoryRepo{}
 	svc := NewService(repo, NewExtractor(nil), nil, Config{Enabled: true, WriteEnabled: true, Ranking: domainmemory.DefaultRankingConfig()})
 	_, err := svc.Write(context.Background(), WriteRequest{
-		OwnerRole:  domainmemory.OwnerRoleHR,
-		OwnerID:    1,
+		Owner:      testHROwner(1),
 		Scope:      domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0},
 		MemoryType: "fact",
 		Content:    "call me at test@example.com",
@@ -130,8 +132,7 @@ func TestServiceWriteAllowsHighPIIWithConfirmation(t *testing.T) {
 	repo := &fakeMemoryRepo{}
 	svc := NewService(repo, NewExtractor(nil), nil, Config{Enabled: true, WriteEnabled: true, Ranking: domainmemory.DefaultRankingConfig()})
 	saved, err := svc.Write(context.Background(), WriteRequest{
-		OwnerRole:      domainmemory.OwnerRoleHR,
-		OwnerID:        1,
+		Owner:          testHROwner(1),
 		Scope:          domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0},
 		MemoryType:     "fact",
 		Content:        "call me at test@example.com",
@@ -163,16 +164,16 @@ func TestServiceExpireAndCleanupDelegatesToRepo(t *testing.T) {
 }
 
 func TestServiceRecallFiltersHighPIIForInject(t *testing.T) {
+	tenantID := uint64(11)
 	repo := &fakeMemoryRepo{recall: []domainmemory.Memory{
-		{ID: 1, OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 7, Scope: domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0}, Content: "偏好远程", Importance: 0.8, Confidence: 0.8, PIILevel: domainmemory.PIILevelNone},
-		{ID: 2, OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 7, Scope: domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0}, Content: "phone 13800138000", Importance: 0.9, Confidence: 0.9, PIILevel: domainmemory.PIILevelHigh},
+		{ID: 1, TenantID: &tenantID, OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 7, Scope: domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0}, Content: "偏好远程", Importance: 0.8, Confidence: 0.8, PIILevel: domainmemory.PIILevelNone},
+		{ID: 2, TenantID: &tenantID, OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 7, Scope: domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0}, Content: "phone 13800138000", Importance: 0.9, Confidence: 0.9, PIILevel: domainmemory.PIILevelHigh},
 	}}
 	svc := NewService(repo, NewExtractor(nil), nil, Config{Enabled: true, InjectEnabled: true, MaxMemories: 5, MaxMemoryChars: 500, Ranking: domainmemory.DefaultRankingConfig()})
 	result, err := svc.Recall(context.Background(), RecallRequest{
-		OwnerRole: domainmemory.OwnerRoleHR,
-		OwnerID:   7,
-		Scopes:    []domainmemory.Scope{{Type: domainmemory.ScopeHR, ID: 0}},
-		Query:     "remote",
+		Owner:  testHROwner(7),
+		Scopes: []domainmemory.Scope{{Type: domainmemory.ScopeHR, ID: 0}},
+		Query:  "remote",
 	})
 	if err != nil {
 		t.Fatalf("Recall() error = %v", err)

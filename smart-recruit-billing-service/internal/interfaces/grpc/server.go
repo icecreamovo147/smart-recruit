@@ -76,6 +76,9 @@ func (s *Server) SettleAIUsage(ctx context.Context, req *pb.SettleAIUsageRequest
 		if item.GetProviderCallSeq() <= 0 || item.GetInputTokens() < 0 || item.GetOutputTokens() < 0 || item.GetCachedInputTokens() < 0 {
 			return nil, status.Error(codes.InvalidArgument, "provider usage contains invalid values")
 		}
+		if item.GetCachedInputTokens() > item.GetInputTokens() {
+			return nil, status.Error(codes.InvalidArgument, "cached input tokens cannot exceed input tokens")
+		}
 		occurredAt := time.Time{}
 		if item.GetOccurredAtUnixMs() > 0 {
 			occurredAt = time.UnixMilli(item.GetOccurredAtUnixMs()).In(businessclock.Location)
@@ -88,6 +91,12 @@ func (s *Server) SettleAIUsage(ctx context.Context, req *pb.SettleAIUsageRequest
 	}
 	result, err := s.billing.Settle(ctx, req.GetReservationNo(), usages, req.GetIdempotencyKey())
 	if err != nil {
+		switch {
+		case errors.Is(err, model.ErrInvalidProviderUsage):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		case errors.Is(err, model.ErrPriceOverflow):
+			return nil, status.Error(codes.OutOfRange, err.Error())
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &pb.SettleAIUsageResponse{Code: 0, Msg: "ok", ChargedCredits: int64(result.ChargedCredits), SupplierCostMicros: int64(result.SupplierCostMicros), AvailableCredits: int64(result.AvailableCredits), AlreadySettled: result.AlreadySettled}, nil

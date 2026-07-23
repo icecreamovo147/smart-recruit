@@ -21,6 +21,7 @@ applies_to:
   - smart-recruit-gateway/handler/hr/memory.go
   - smart-recruit-gateway/handler/candidate/memory.go
   - smart-recruit-commons/migrations/000083_ai_memories_owner_lifecycle.sql
+  - smart-recruit-commons/migrations/000088_harden_memory_billing_integrity.sql
 source_refs:
   - smart-recruit-ai-agent-service/internal/application/memory/service.go
   - smart-recruit-ai-agent-service/internal/application/memory/config.go
@@ -35,8 +36,9 @@ source_refs:
   - smart-recruit-gateway/handler/hr/memory.go
   - smart-recruit-gateway/handler/candidate/memory.go
   - smart-recruit-commons/migrations/000083_ai_memories_owner_lifecycle.sql
+  - smart-recruit-commons/migrations/000088_harden_memory_billing_integrity.sql
   - smart-recruit-commons/config/config.example.yaml
-last_verified: 2026-07-22
+last_verified: 2026-07-23
 review_after: 2026-10-14
 ---
 
@@ -46,7 +48,7 @@ Agent context assembly combines recent messages, rolling summaries, long-term me
 
 ## Long-term memory (LTM)
 
-**Owner model** (`000083`): each row has `owner_role` (1=candidate, 2=HR) and `owner_id`. Scopes are role-specific — HR uses `hr`, `application`, `job`, `candidate`; candidates use `user`, `application`, `job`. Recall and CRUD always filter by `(owner_role, owner_id)` so cross-owner isolation is enforced at persistence and service layers.
+**Owner model** (`000083` + `000088`): each row has `owner_role` (1=candidate, 2=HR) and `owner_id`. HR ownership is the composite key `(tenant_id, owner_role, owner_id)` and requires a non-null tenant; candidate ownership is global to the user and requires `tenant_id IS NULL`. Scopes are role-specific — HR uses `hr`, `application`, `job`, `candidate`; candidates use `user`, `application`, `job`. CRUD, deduplication, lexical recall, semantic recall, embedding metadata, and asynchronous extraction all preserve this same owner key.
 
 **Write path**: `memory.Service.Write` validates scope, classifies PII, rejects high-PII content unless `ConfirmHighPII`, deduplicates by normalized `content_hash`, and optionally upserts `ai_memory` embeddings. Post-turn extraction (`WriteFromExtractor`) runs asynchronously for HR and candidate chats when `write_enabled` is true.
 
@@ -78,4 +80,4 @@ HR chat persists `stage=post_turn` context snapshots including `memory_applied` 
 
 ## Verification
 
-Verified against memory domain/service/persistence tests, context-budget memory-drop tests, gateway Memory RPC handlers, migration `000083`, proto Memory RPCs, main wiring (`memoryService` + `runMemoryCleanupLoop`), and frontend typechecks on 2026-07-22.
+Verified against memory domain/service/persistence tests, tenant-aware semantic retrieval, gateway Memory RPC handlers, migration `000083`, generated Proto Memory RPCs, and main wiring (`memoryService` + `runMemoryCleanupLoop`) on 2026-07-23.

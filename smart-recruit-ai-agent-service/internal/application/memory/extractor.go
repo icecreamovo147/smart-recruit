@@ -33,7 +33,7 @@ func ruleExtract(input ExtractInput) []ExtractCandidate {
 	}
 	lower := strings.ToLower(text)
 	out := make([]ExtractCandidate, 0, 2)
-	scope := defaultScope(input.OwnerRole, input.OwnerID)
+	scope := defaultScope(input.Owner.Role, input.Owner.ID)
 
 	if strings.Contains(text, "请记住") || strings.Contains(lower, "remember") {
 		content := strings.TrimSpace(strings.TrimPrefix(text, "请记住"))

@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"sort"
@@ -53,9 +54,33 @@ type creditGrantRow struct {
 	ID               uint64     `gorm:"column:id"`
 	RemainingCredits uint64     `gorm:"column:remaining_credits"`
 	ExpiresAt        *time.Time `gorm:"column:expires_at"`
+	Status           string     `gorm:"column:status"`
 }
 
 func (creditGrantRow) TableName() string { return "ai_credit_grants" }
+
+type reservationAllocationRow struct {
+	ID              uint64    `gorm:"column:id;primaryKey"`
+	ReservationID   uint64    `gorm:"column:reservation_id"`
+	GrantID         uint64    `gorm:"column:grant_id"`
+	ReservedCredits uint64    `gorm:"column:reserved_credits"`
+	ConsumedCredits uint64    `gorm:"column:consumed_credits"`
+	ReleasedCredits uint64    `gorm:"column:released_credits"`
+	CreatedAt       time.Time `gorm:"column:created_at"`
+	UpdatedAt       time.Time `gorm:"column:updated_at"`
+}
+
+func (reservationAllocationRow) TableName() string {
+	return "ai_credit_reservation_allocations"
+}
+
+func (r reservationAllocationRow) openCredits() (uint64, error) {
+	finalized := r.ConsumedCredits + r.ReleasedCredits
+	if finalized > r.ReservedCredits {
+		return 0, fmt.Errorf("allocation %d exceeds reserved credits", r.ID)
+	}
+	return r.ReservedCredits - finalized, nil
+}
 
 type reservationRow struct {
 	ID              uint64     `gorm:"column:id;primaryKey"`
@@ -234,24 +259,48 @@ func balanceWithDB(ctx context.Context, db *gorm.DB, owner model.Owner, now time
 	if err := query.Order("expires_at IS NULL, expires_at, valid_from, id").Find(&grants).Error; err != nil {
 		return model.Balance{}, err
 	}
-	var total uint64
 	var next *time.Time
+	grantIDs := make([]uint64, 0, len(grants))
 	for _, grant := range grants {
-		total += grant.RemainingCredits
+		grantIDs = append(grantIDs, grant.ID)
 		if grant.ExpiresAt != nil && (next == nil || grant.ExpiresAt.Before(*next)) {
 			value := *grant.ExpiresAt
 			next = &value
 		}
 	}
-	var reserved uint64
-	if err := db.WithContext(ctx).Model(&reservationRow{}).
-		Where("owner_type = ? AND owner_id = ? AND status = 'active' AND enforcement_mode = 'enforce' AND expires_at > ?", owner.Type, owner.ID, now).
-		Select("COALESCE(SUM(reserved_credits), 0)").Scan(&reserved).Error; err != nil {
-		return model.Balance{}, err
+	type allocationSum struct {
+		GrantID uint64 `gorm:"column:grant_id"`
+		Open    uint64 `gorm:"column:open_credits"`
 	}
-	available := uint64(0)
-	if total > reserved {
-		available = total - reserved
+	var activeAllocationSums []allocationSum
+	if len(grantIDs) > 0 {
+		if err := db.WithContext(ctx).Table("ai_credit_reservation_allocations").
+			Select("grant_id, COALESCE(SUM(reserved_credits - consumed_credits - released_credits), 0) open_credits").
+			Where("grant_id IN ?", grantIDs).
+			Group("grant_id").
+			Scan(&activeAllocationSums).Error; err != nil {
+			return model.Balance{}, err
+		}
+	}
+	openByGrant := make(map[uint64]uint64, len(activeAllocationSums))
+	for _, item := range activeAllocationSums {
+		openByGrant[item.GrantID] = item.Open
+	}
+	var available uint64
+	for _, grant := range grants {
+		open := openByGrant[grant.ID]
+		if open > grant.RemainingCredits {
+			return model.Balance{}, fmt.Errorf("grant %d open allocations exceed remaining credits", grant.ID)
+		}
+		available += grant.RemainingCredits - open
+	}
+	var reserved uint64
+	if err := db.WithContext(ctx).Table("ai_credit_reservation_allocations allocation").
+		Joins("JOIN ai_credit_grants credit_grant ON credit_grant.id = allocation.grant_id").
+		Where("credit_grant.owner_type = ? AND credit_grant.owner_id = ?", owner.Type, owner.ID).
+		Select("COALESCE(SUM(allocation.reserved_credits - allocation.consumed_credits - allocation.released_credits), 0)").
+		Scan(&reserved).Error; err != nil {
+		return model.Balance{}, err
 	}
 	return model.Balance{AvailableCredits: available, ReservedCredits: reserved, NextExpiryAt: next}, nil
 }
@@ -270,7 +319,7 @@ func (r *GormRepository) CreateReservation(ctx context.Context, reservation mode
 	var result model.Reservation
 	var balance model.Balance
 	var existing bool
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	transaction := func(tx *gorm.DB) error {
 		var row reservationRow
 		err := tx.Where("owner_type = ? AND owner_id = ? AND idempotency_key = ?", reservation.Owner.Type, reservation.Owner.ID, reservation.IdempotencyKey).First(&row).Error
 		if err == nil {
@@ -302,20 +351,97 @@ func (r *GormRepository) CreateReservation(ctx context.Context, reservation mode
 			return err
 		}
 		if reservation.Mode == model.ModeEnforce && reservation.ReservedCredits > 0 {
-			balance.AvailableCredits -= reservation.ReservedCredits
-			balance.ReservedCredits += reservation.ReservedCredits
-			if err := tx.Create(&ledgerRow{
-				EntryID: uuid.NewString(), OwnerType: row.OwnerType, OwnerID: row.OwnerID, ReservationID: &row.ID,
-				EntryType: "reserve", CreditsDelta: -int64(row.ReservedCredits), BalanceAfter: int64(balance.AvailableCredits),
-				IdempotencyKey: "reserve:" + reservation.IdempotencyKey, Description: "AI usage credit reservation", CreatedAt: reservation.CreatedAt,
-			}).Error; err != nil {
-				return err
+			allocations, allocationErr := allocateReservation(ctx, tx, row, reservation.CreatedAt)
+			if allocationErr != nil {
+				return allocationErr
+			}
+			runningAvailable := balance.AvailableCredits
+			for _, allocation := range allocations {
+				if allocation.ReservedCredits > runningAvailable {
+					return repository.ErrInsufficientCredits
+				}
+				runningAvailable -= allocation.ReservedCredits
+				grantID := allocation.GrantID
+				if err := tx.Create(&ledgerRow{
+					EntryID: uuid.NewString(), OwnerType: row.OwnerType, OwnerID: row.OwnerID,
+					GrantID: &grantID, ReservationID: &row.ID,
+					EntryType: "reserve", CreditsDelta: -int64(allocation.ReservedCredits), BalanceAfter: int64(runningAvailable),
+					IdempotencyKey: fmt.Sprintf("reserve:%s:grant:%d", reservation.IdempotencyKey, grantID),
+					Description:    "AI usage credit reservation", CreatedAt: reservation.CreatedAt,
+				}).Error; err != nil {
+					return err
+				}
+			}
+			balance, allocationErr = balanceWithDB(ctx, tx, reservation.Owner, reservation.CreatedAt, false)
+			if allocationErr != nil {
+				return allocationErr
 			}
 		}
 		result = reservationFromRow(row)
 		return nil
-	})
+	}
+	var err error
+	if r.db.Dialector.Name() == "mysql" {
+		// MySQL defaults to REPEATABLE READ. The idempotency lookup happens
+		// before the grant lock, so READ COMMITTED is required for the allocation
+		// queries after that lock to observe a concurrent reservation's commit.
+		err = r.db.WithContext(ctx).Transaction(transaction, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	} else {
+		err = r.db.WithContext(ctx).Transaction(transaction)
+	}
 	return result, balance, existing, err
+}
+
+func allocateReservation(ctx context.Context, tx *gorm.DB, reservation reservationRow, now time.Time) ([]reservationAllocationRow, error) {
+	owner := model.Owner{Type: model.OwnerType(reservation.OwnerType), ID: reservation.OwnerID}
+	var grants []creditGrantRow
+	if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("owner_type = ? AND owner_id = ? AND status = 'active' AND remaining_credits > 0 AND valid_from <= ? AND (expires_at IS NULL OR expires_at > ?)", owner.Type, owner.ID, now, now).
+		Order("expires_at IS NULL, expires_at, valid_from, id").
+		Find(&grants).Error; err != nil {
+		return nil, err
+	}
+	remaining := reservation.ReservedCredits
+	allocations := make([]reservationAllocationRow, 0, len(grants))
+	for _, grant := range grants {
+		if remaining == 0 {
+			break
+		}
+		var open uint64
+		if err := tx.WithContext(ctx).Table("ai_credit_reservation_allocations").
+			Where("grant_id = ?", grant.ID).
+			Select("COALESCE(SUM(reserved_credits - consumed_credits - released_credits), 0)").
+			Scan(&open).Error; err != nil {
+			return nil, err
+		}
+		if open > grant.RemainingCredits {
+			return nil, fmt.Errorf("grant %d open allocations exceed remaining credits", grant.ID)
+		}
+		available := grant.RemainingCredits - open
+		if available == 0 {
+			continue
+		}
+		amount := available
+		if amount > remaining {
+			amount = remaining
+		}
+		allocation := reservationAllocationRow{
+			ReservationID:   reservation.ID,
+			GrantID:         grant.ID,
+			ReservedCredits: amount,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		}
+		if err := tx.WithContext(ctx).Create(&allocation).Error; err != nil {
+			return nil, err
+		}
+		allocations = append(allocations, allocation)
+		remaining -= amount
+	}
+	if remaining != 0 {
+		return nil, repository.ErrInsufficientCredits
+	}
+	return allocations, nil
 }
 
 func (r *GormRepository) SettleReservation(ctx context.Context, reservationNo string, usages []model.ProviderUsage, idempotencyKey string, now time.Time) (model.Settlement, error) {
@@ -389,21 +515,7 @@ func (r *GormRepository) SettleReservation(ctx context.Context, reservationNo st
 			remainingCharge -= usageCharge
 		}
 		if reservation.EnforcementMode == string(model.ModeEnforce) {
-			if reservation.ReservedCredits > 0 {
-				gross, err := grossGrantBalance(ctx, tx, owner, now, false)
-				if err != nil {
-					return err
-				}
-				if err := tx.Create(&ledgerRow{
-					EntryID: uuid.NewString(), OwnerType: reservation.OwnerType, OwnerID: reservation.OwnerID,
-					ReservationID: &reservation.ID, EntryType: "release", CreditsDelta: int64(reservation.ReservedCredits),
-					BalanceAfter: int64(gross), IdempotencyKey: "settle-release:" + idempotencyKey,
-					Description: "release AI usage reservation before actual charge", CreatedAt: now,
-				}).Error; err != nil {
-					return err
-				}
-			}
-			if err := consumeGrants(ctx, tx, reservation, chargedCredits, idempotencyKey, now); err != nil {
+			if err := settleAllocatedGrants(ctx, tx, reservation, chargedCredits, idempotencyKey, now); err != nil {
 				return err
 			}
 		}
@@ -442,18 +554,15 @@ func (r *GormRepository) CancelReservation(ctx context.Context, reservationNo, r
 			return err
 		}
 		if reservation.EnforcementMode == string(model.ModeEnforce) && reservation.ReservedCredits > 0 {
+			released, err := releaseReservationAllocations(ctx, tx, reservation, "cancel:"+idempotencyKey, reason, now)
+			if err != nil {
+				return err
+			}
+			result.ReleasedCredits = released
 			balance, err := balanceWithDB(ctx, tx, owner, now, false)
 			if err != nil {
 				return err
 			}
-			if err := tx.Create(&ledgerRow{
-				EntryID: uuid.NewString(), OwnerType: reservation.OwnerType, OwnerID: reservation.OwnerID, ReservationID: &reservation.ID,
-				EntryType: "release", CreditsDelta: int64(reservation.ReservedCredits), BalanceAfter: int64(balance.AvailableCredits),
-				IdempotencyKey: "cancel:" + idempotencyKey, Description: reason, CreatedAt: now,
-			}).Error; err != nil {
-				return err
-			}
-			result.ReleasedCredits = reservation.ReservedCredits
 			result.AvailableCredits = balance.AvailableCredits
 		} else {
 			balance, err := balanceWithDB(ctx, tx, owner, now, false)
@@ -465,6 +574,79 @@ func (r *GormRepository) CancelReservation(ctx context.Context, reservationNo, r
 		return nil
 	})
 	return result, err
+}
+
+func releaseReservationAllocations(ctx context.Context, tx *gorm.DB, reservation reservationRow, idempotencyPrefix, description string, now time.Time) (uint64, error) {
+	var allocations []reservationAllocationRow
+	if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("reservation_id = ?", reservation.ID).
+		Order("grant_id").
+		Find(&allocations).Error; err != nil {
+		return 0, err
+	}
+	grantIDs := make([]uint64, 0, len(allocations))
+	for _, allocation := range allocations {
+		grantIDs = append(grantIDs, allocation.GrantID)
+	}
+	var grants []creditGrantRow
+	if len(grantIDs) > 0 {
+		if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id IN ?", grantIDs).Order("id").Find(&grants).Error; err != nil {
+			return 0, err
+		}
+	}
+	grantByID := make(map[uint64]creditGrantRow, len(grants))
+	for _, grant := range grants {
+		grantByID[grant.ID] = grant
+	}
+	owner := model.Owner{Type: model.OwnerType(reservation.OwnerType), ID: reservation.OwnerID}
+	balance, err := balanceWithDB(ctx, tx, owner, now, false)
+	if err != nil {
+		return 0, err
+	}
+	runningAvailable := balance.AvailableCredits
+	var releasedTotal uint64
+	var allocatedTotal uint64
+	for _, allocation := range allocations {
+		open, err := allocation.openCredits()
+		if err != nil {
+			return 0, err
+		}
+		allocatedTotal += allocation.ReservedCredits
+		if open == 0 {
+			continue
+		}
+		if allocation.ConsumedCredits != 0 {
+			return 0, fmt.Errorf("active reservation %s has consumed allocation %d", reservation.ReservationNo, allocation.ID)
+		}
+		if err := tx.WithContext(ctx).Model(&reservationAllocationRow{}).
+			Where("id = ?", allocation.ID).
+			Updates(map[string]any{"released_credits": allocation.ReleasedCredits + open, "updated_at": now}).Error; err != nil {
+			return 0, err
+		}
+		releasedTotal += open
+		grant, found := grantByID[allocation.GrantID]
+		if !found {
+			return 0, fmt.Errorf("reservation %s references missing grant %d", reservation.ReservationNo, allocation.GrantID)
+		}
+		if grant.Status == "active" && (grant.ExpiresAt == nil || grant.ExpiresAt.After(now)) {
+			runningAvailable += open
+		}
+		grantID := allocation.GrantID
+		if err := tx.WithContext(ctx).Create(&ledgerRow{
+			EntryID: uuid.NewString(), OwnerType: reservation.OwnerType, OwnerID: reservation.OwnerID,
+			GrantID: &grantID, ReservationID: &reservation.ID,
+			EntryType: "release", CreditsDelta: int64(open), BalanceAfter: int64(runningAvailable),
+			IdempotencyKey: fmt.Sprintf("%s:grant:%d", idempotencyPrefix, grantID),
+			Description:    description, CreatedAt: now,
+		}).Error; err != nil {
+			return 0, err
+		}
+	}
+	if allocatedTotal != reservation.ReservedCredits || releasedTotal != reservation.ReservedCredits {
+		return 0, fmt.Errorf("reservation %s allocation release mismatch: allocated=%d released=%d reserved=%d", reservation.ReservationNo, allocatedTotal, releasedTotal, reservation.ReservedCredits)
+	}
+	return releasedTotal, nil
 }
 
 func grossGrantBalance(ctx context.Context, tx *gorm.DB, owner model.Owner, now time.Time, lock bool) (uint64, error) {
@@ -483,47 +665,113 @@ func grossGrantBalance(ctx context.Context, tx *gorm.DB, owner model.Owner, now 
 	return total, nil
 }
 
-func consumeGrants(ctx context.Context, tx *gorm.DB, reservation reservationRow, credits uint64, idempotencyKey string, now time.Time) error {
+func settleAllocatedGrants(ctx context.Context, tx *gorm.DB, reservation reservationRow, credits uint64, idempotencyKey string, now time.Time) error {
 	owner := model.Owner{Type: model.OwnerType(reservation.OwnerType), ID: reservation.OwnerID}
-	var grants []creditGrantRow
+	var allocations []reservationAllocationRow
 	if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("owner_type = ? AND owner_id = ? AND status = 'active' AND remaining_credits > 0 AND valid_from <= ? AND (expires_at IS NULL OR expires_at > ?)", owner.Type, owner.ID, now, now).
-		Order("expires_at IS NULL, expires_at, valid_from, id").Find(&grants).Error; err != nil {
+		Where("reservation_id = ?", reservation.ID).
+		Order("grant_id").
+		Find(&allocations).Error; err != nil {
 		return err
 	}
-	remaining := credits
-	var gross uint64
-	for _, grant := range grants {
-		gross += grant.RemainingCredits
-	}
-	availableAfter := gross
-	for _, grant := range grants {
-		if remaining == 0 {
-			break
+	var allocated uint64
+	var open uint64
+	grantIDs := make([]uint64, 0, len(allocations))
+	for _, allocation := range allocations {
+		allocationOpen, err := allocation.openCredits()
+		if err != nil {
+			return err
 		}
-		consume := grant.RemainingCredits
+		allocated += allocation.ReservedCredits
+		open += allocationOpen
+		grantIDs = append(grantIDs, allocation.GrantID)
+	}
+	if allocated != reservation.ReservedCredits || open != reservation.ReservedCredits {
+		return fmt.Errorf("reservation %s allocation integrity mismatch: allocated=%d open=%d reserved=%d", reservation.ReservationNo, allocated, open, reservation.ReservedCredits)
+	}
+	if credits > open {
+		return fmt.Errorf("reservation %s charge %d exceeds allocated credits %d", reservation.ReservationNo, credits, open)
+	}
+	var grants []creditGrantRow
+	if len(grantIDs) > 0 {
+		if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id IN ?", grantIDs).
+			Order("id").
+			Find(&grants).Error; err != nil {
+			return err
+		}
+	}
+	grantByID := make(map[uint64]creditGrantRow, len(grants))
+	for _, grant := range grants {
+		grantByID[grant.ID] = grant
+	}
+	if len(grantByID) != len(grantIDs) {
+		return fmt.Errorf("reservation %s references missing credit grants", reservation.ReservationNo)
+	}
+	balance, err := balanceWithDB(ctx, tx, owner, now, false)
+	if err != nil {
+		return err
+	}
+	runningAvailable := balance.AvailableCredits
+	remaining := credits
+	for _, allocation := range allocations {
+		grant := grantByID[allocation.GrantID]
+		consume := allocation.ReservedCredits
 		if consume > remaining {
 			consume = remaining
 		}
+		if grant.RemainingCredits < consume {
+			return fmt.Errorf("grant %d cannot cover allocated settlement: remaining=%d consume=%d", grant.ID, grant.RemainingCredits, consume)
+		}
+		released := allocation.ReservedCredits - consume
+		if err := tx.WithContext(ctx).Model(&reservationAllocationRow{}).
+			Where("id = ?", allocation.ID).
+			Updates(map[string]any{
+				"consumed_credits": consume,
+				"released_credits": released,
+				"updated_at":       now,
+			}).Error; err != nil {
+			return err
+		}
 		newRemaining := grant.RemainingCredits - consume
-		status := "active"
+		status := grant.Status
 		if newRemaining == 0 {
 			status = "exhausted"
 		}
 		if err := tx.Model(&creditGrantRow{}).Where("id = ?", grant.ID).Updates(map[string]any{"remaining_credits": newRemaining, "status": status, "updated_at": now}).Error; err != nil {
 			return err
 		}
-		availableAfter -= consume
 		grantID := grant.ID
+		grantContributesToAvailable := grant.Status == "active" && (grant.ExpiresAt == nil || grant.ExpiresAt.After(now))
+		if grantContributesToAvailable {
+			runningAvailable += allocation.ReservedCredits
+		}
+		if err := tx.Create(&ledgerRow{
+			EntryID: uuid.NewString(), OwnerType: reservation.OwnerType, OwnerID: reservation.OwnerID,
+			GrantID: &grantID, ReservationID: &reservation.ID, EntryType: "release", CreditsDelta: int64(allocation.ReservedCredits),
+			BalanceAfter: int64(runningAvailable), IdempotencyKey: fmt.Sprintf("settle-release:%s:grant:%d", idempotencyKey, grant.ID),
+			Description: "release AI usage reservation before actual charge", CreatedAt: now,
+		}).Error; err != nil {
+			return err
+		}
+		if consume == 0 {
+			continue
+		}
+		if grantContributesToAvailable {
+			runningAvailable -= consume
+		}
 		if err := tx.Create(&ledgerRow{
 			EntryID: uuid.NewString(), OwnerType: reservation.OwnerType, OwnerID: reservation.OwnerID,
 			GrantID: &grantID, ReservationID: &reservation.ID, EntryType: "consume", CreditsDelta: -int64(consume),
-			BalanceAfter: int64(availableAfter), IdempotencyKey: fmt.Sprintf("settle:%s:grant:%d", idempotencyKey, grant.ID),
+			BalanceAfter: int64(runningAvailable), IdempotencyKey: fmt.Sprintf("settle:%s:grant:%d", idempotencyKey, grant.ID),
 			Description: "settled AI provider usage", CreatedAt: now,
 		}).Error; err != nil {
 			return err
 		}
 		remaining -= consume
+	}
+	if remaining != 0 {
+		return fmt.Errorf("reservation %s has %d unbacked settlement credits", reservation.ReservationNo, remaining)
 	}
 	return nil
 }
@@ -586,12 +834,7 @@ func (r *GormRepository) RunMaintenance(ctx context.Context, now time.Time) erro
 				return err
 			}
 			if reservation.EnforcementMode == string(model.ModeEnforce) && reservation.ReservedCredits > 0 {
-				owner := model.Owner{Type: model.OwnerType(reservation.OwnerType), ID: reservation.OwnerID}
-				balance, err := balanceWithDB(ctx, tx, owner, now, false)
-				if err != nil {
-					return err
-				}
-				if err := tx.Create(&ledgerRow{EntryID: uuid.NewString(), OwnerType: reservation.OwnerType, OwnerID: reservation.OwnerID, ReservationID: &reservation.ID, EntryType: "release", CreditsDelta: int64(reservation.ReservedCredits), BalanceAfter: int64(balance.AvailableCredits), IdempotencyKey: "expire-reservation:" + reservation.ReservationNo, Description: "expired AI credit reservation", CreatedAt: now}).Error; err != nil {
+				if _, err := releaseReservationAllocations(ctx, tx, reservation, "expire-reservation:"+reservation.ReservationNo, "expired AI credit reservation", now); err != nil {
 					return err
 				}
 			}
@@ -601,7 +844,14 @@ func (r *GormRepository) RunMaintenance(ctx context.Context, now time.Time) erro
 			OwnerType                     string
 		}
 		var grants []expiringGrant
-		if err := tx.Table("ai_credit_grants").Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Where("status = 'active' AND expires_at IS NOT NULL AND expires_at <= ?", now).Limit(500).Find(&grants).Error; err != nil {
+		if err := tx.Table("ai_credit_grants").Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+			Where("status = 'active' AND expires_at IS NOT NULL AND expires_at <= ?", now).
+			Where(`NOT EXISTS (
+				SELECT 1 FROM ai_credit_reservation_allocations allocation
+				WHERE allocation.grant_id = ai_credit_grants.id
+				  AND allocation.reserved_credits > allocation.consumed_credits + allocation.released_credits
+			)`).
+			Limit(500).Find(&grants).Error; err != nil {
 			return err
 		}
 		for _, grant := range grants {

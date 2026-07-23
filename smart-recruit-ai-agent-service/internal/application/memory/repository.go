@@ -9,10 +9,10 @@ import (
 
 type Repository interface {
 	CreateMemory(ctx context.Context, memory domainmemory.Memory) (domainmemory.Memory, error)
-	GetMemory(ctx context.Context, ownerRole domainmemory.OwnerRole, ownerID, id uint64) (domainmemory.Memory, bool, error)
+	GetMemory(ctx context.Context, owner domainmemory.OwnerKey, id uint64) (domainmemory.Memory, bool, error)
 	ListMemories(ctx context.Context, filter ListFilter) ([]domainmemory.Memory, int64, error)
 	UpdateMemory(ctx context.Context, memory domainmemory.Memory) (domainmemory.Memory, error)
-	RevokeMemory(ctx context.Context, ownerRole domainmemory.OwnerRole, ownerID, id, revokedBy uint64, reason string) error
+	RevokeMemory(ctx context.Context, owner domainmemory.OwnerKey, id, revokedBy uint64, reason string) error
 	ListActiveForRecall(ctx context.Context, filter RecallFilter) ([]domainmemory.Memory, error)
 	ExpireAndCleanup(ctx context.Context, revokedRetention time.Duration) (CleanupResult, error)
 }
@@ -25,8 +25,7 @@ type CleanupResult struct {
 }
 
 type ListFilter struct {
-	OwnerRole  domainmemory.OwnerRole
-	OwnerID    uint64
+	Owner      domainmemory.OwnerKey
 	ScopeType  string
 	ScopeID    uint64
 	MemoryType string
@@ -37,8 +36,7 @@ type ListFilter struct {
 }
 
 type RecallFilter struct {
-	OwnerRole   domainmemory.OwnerRole
-	OwnerID     uint64
+	Owner       domainmemory.OwnerKey
 	Scopes      []domainmemory.Scope
 	Query       string
 	Limit       int
@@ -58,8 +56,7 @@ type ModelExtractor interface {
 }
 
 type ExtractInput struct {
-	OwnerRole domainmemory.OwnerRole
-	OwnerID   uint64
+	Owner     domainmemory.OwnerKey
 	UserText  string
 	ReplyText string
 }

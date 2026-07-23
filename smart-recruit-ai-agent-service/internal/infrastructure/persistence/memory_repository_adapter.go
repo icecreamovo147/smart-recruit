@@ -20,14 +20,15 @@ func (r *MemoryRepositoryAdapter) CreateMemory(ctx context.Context, memory domai
 	return r.store.CreateMemory(ctx, memory)
 }
 
-func (r *MemoryRepositoryAdapter) GetMemory(ctx context.Context, ownerRole domainmemory.OwnerRole, ownerID, id uint64) (domainmemory.Memory, bool, error) {
-	return r.store.GetMemory(ctx, ownerRole, ownerID, id)
+func (r *MemoryRepositoryAdapter) GetMemory(ctx context.Context, owner domainmemory.OwnerKey, id uint64) (domainmemory.Memory, bool, error) {
+	return r.store.GetMemory(ctx, owner, id)
 }
 
 func (r *MemoryRepositoryAdapter) ListMemories(ctx context.Context, filter appmemory.ListFilter) ([]domainmemory.Memory, int64, error) {
 	return r.store.ListMemories(ctx, MemoryListFilter{
-		OwnerRole:  filter.OwnerRole,
-		OwnerID:    filter.OwnerID,
+		TenantID:   filter.Owner.TenantID,
+		OwnerRole:  filter.Owner.Role,
+		OwnerID:    filter.Owner.ID,
 		ScopeType:  filter.ScopeType,
 		ScopeID:    filter.ScopeID,
 		MemoryType: filter.MemoryType,
@@ -42,14 +43,15 @@ func (r *MemoryRepositoryAdapter) UpdateMemory(ctx context.Context, memory domai
 	return r.store.UpdateMemory(ctx, memory)
 }
 
-func (r *MemoryRepositoryAdapter) RevokeMemory(ctx context.Context, ownerRole domainmemory.OwnerRole, ownerID, id, revokedBy uint64, reason string) error {
-	return r.store.RevokeMemory(ctx, ownerRole, ownerID, id, revokedBy, reason)
+func (r *MemoryRepositoryAdapter) RevokeMemory(ctx context.Context, owner domainmemory.OwnerKey, id, revokedBy uint64, reason string) error {
+	return r.store.RevokeMemory(ctx, owner, id, revokedBy, reason)
 }
 
 func (r *MemoryRepositoryAdapter) ListActiveForRecall(ctx context.Context, filter appmemory.RecallFilter) ([]domainmemory.Memory, error) {
 	items, err := r.store.ListActiveForRecall(ctx, MemoryRecallFilter{
-		OwnerRole:   filter.OwnerRole,
-		OwnerID:     filter.OwnerID,
+		TenantID:    filter.Owner.TenantID,
+		OwnerRole:   filter.Owner.Role,
+		OwnerID:     filter.Owner.ID,
 		Scopes:      filter.Scopes,
 		Query:       filter.Query,
 		Limit:       filter.Limit,

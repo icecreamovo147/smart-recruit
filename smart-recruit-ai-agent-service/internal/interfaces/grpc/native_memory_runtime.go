@@ -7,6 +7,7 @@ import (
 
 	appmemory "smart-recruit-ai-agent-service/internal/application/memory"
 	domainmemory "smart-recruit-ai-agent-service/internal/domain/memory"
+	platformmetadata "smart-recruit-platform-go/metadata"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -21,6 +22,12 @@ func (s *nativeAIService) recallHRMemory(ctx context.Context, req *pb.ChatReques
 	if s == nil || s.memoryService == nil || !s.memoryService.Enabled() {
 		return hrMemoryRecallSnapshot{InjectText: emptyMemorySection}
 	}
+	tenantID := platformmetadata.GetTenantContext(ctx).TenantID
+	if tenantID <= 0 {
+		return hrMemoryRecallSnapshot{InjectText: emptyMemorySection}
+	}
+	tenantIDValue := uint64(tenantID)
+	owner := domainmemory.OwnerKey{TenantID: &tenantIDValue, Role: domainmemory.OwnerRoleHR, ID: uint64(req.GetHrId())}
 	scopes := appmemory.BuildHRRecallScopes(uint64(req.GetHrId()), uint64(req.GetApplicationId()), jobID, candidateUserID)
 	targetType := domainmemory.ScopeApplication
 	targetID := uint64(req.GetApplicationId())
@@ -28,10 +35,9 @@ func (s *nativeAIService) recallHRMemory(ctx context.Context, req *pb.ChatReques
 		targetType = domainmemory.ScopeHR
 		targetID = 0
 	}
-	vectorScores := s.semanticMemoryScores(ctx, domainmemory.OwnerRoleHR, uint64(req.GetHrId()), req.GetMessage(), scopes, targetType, targetID)
+	vectorScores := s.semanticMemoryScores(ctx, owner, req.GetMessage(), scopes, targetType, targetID)
 	result, err := s.memoryService.Recall(ctx, appmemory.RecallRequest{
-		OwnerRole:       domainmemory.OwnerRoleHR,
-		OwnerID:         uint64(req.GetHrId()),
+		Owner:           owner,
 		Scopes:          scopes,
 		Query:           req.GetMessage(),
 		TargetScopeType: targetType,
@@ -55,6 +61,7 @@ func (s *nativeAIService) recallCandidateMemory(ctx context.Context, userID, app
 	if s == nil || s.memoryService == nil || !s.memoryService.Enabled() {
 		return appmemory.RecallResult{}
 	}
+	owner := domainmemory.OwnerKey{Role: domainmemory.OwnerRoleCandidate, ID: uint64(userID)}
 	scopes := appmemory.BuildCandidateRecallScopes(uint64(userID), uint64(applicationID), uint64(jobID))
 	targetType := domainmemory.ScopeUser
 	targetID := uint64(userID)
@@ -62,10 +69,9 @@ func (s *nativeAIService) recallCandidateMemory(ctx context.Context, userID, app
 		targetType = domainmemory.ScopeApplication
 		targetID = uint64(applicationID)
 	}
-	vectorScores := s.semanticMemoryScores(ctx, domainmemory.OwnerRoleCandidate, uint64(userID), query, scopes, targetType, targetID)
+	vectorScores := s.semanticMemoryScores(ctx, owner, query, scopes, targetType, targetID)
 	result, err := s.memoryService.Recall(ctx, appmemory.RecallRequest{
-		OwnerRole:       domainmemory.OwnerRoleCandidate,
-		OwnerID:         uint64(userID),
+		Owner:           owner,
 		Scopes:          scopes,
 		Query:           query,
 		TargetScopeType: targetType,
@@ -82,11 +88,11 @@ func (s *nativeAIService) recallCandidateMemorySection(ctx context.Context, user
 	return s.recallCandidateMemory(ctx, userID, applicationID, jobID, query).InjectText
 }
 
-func (s *nativeAIService) semanticMemoryScores(ctx context.Context, ownerRole domainmemory.OwnerRole, ownerID uint64, query string, scopes []domainmemory.Scope, targetScopeType string, targetScopeID uint64) map[uint64]float64 {
-	if s == nil || s.embedding == nil || ownerID == 0 || strings.TrimSpace(query) == "" {
+func (s *nativeAIService) semanticMemoryScores(ctx context.Context, owner domainmemory.OwnerKey, query string, scopes []domainmemory.Scope, targetScopeType string, targetScopeID uint64) map[uint64]float64 {
+	if s == nil || s.embedding == nil || owner.Validate() != nil || strings.TrimSpace(query) == "" {
 		return nil
 	}
-	scores, _ := s.embedding.SemanticMemoryScores(ctx, ownerRole, ownerID, query, scopes, targetScopeType, targetScopeID, 0)
+	scores, _ := s.embedding.SemanticMemoryScores(ctx, owner, query, scopes, targetScopeType, targetScopeID, 0)
 	return scores
 }
 
@@ -102,10 +108,16 @@ func memoryEvidenceFromRecall(evidence appmemory.RecallEvidence) hrRuntimeMemory
 	}
 }
 
-func (s *nativeAIService) asyncExtractHRMemory(req *pb.ChatRequest, sessionID int64, userMessage, assistantReply string, jobID, candidateUserID uint64) {
+func (s *nativeAIService) asyncExtractHRMemory(requestCtx context.Context, req *pb.ChatRequest, sessionID int64, userMessage, assistantReply string, jobID, candidateUserID uint64) {
 	if s == nil || s.memoryService == nil || !s.memoryService.WriteEnabled() {
 		return
 	}
+	tenantID := platformmetadata.GetTenantContext(requestCtx).TenantID
+	if tenantID <= 0 {
+		return
+	}
+	tenantIDValue := uint64(tenantID)
+	owner := domainmemory.OwnerKey{TenantID: &tenantIDValue, Role: domainmemory.OwnerRoleHR, ID: uint64(req.GetHrId())}
 	go func() {
 		defer func() { _ = recover() }()
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -114,8 +126,7 @@ func (s *nativeAIService) asyncExtractHRMemory(req *pb.ChatRequest, sessionID in
 		sessionIDValue := uint64(sessionID)
 		createdBy := uint64(req.GetHrId())
 		_ = s.memoryService.WriteFromExtractor(ctx, appmemory.ExtractInput{
-			OwnerRole: domainmemory.OwnerRoleHR,
-			OwnerID:   uint64(req.GetHrId()),
+			Owner:     owner,
 			UserText:  userMessage,
 			ReplyText: assistantReply,
 		}, scopes, appmemory.WriteRequest{
@@ -137,8 +148,7 @@ func (s *nativeAIService) asyncExtractCandidateMemory(userID, sessionID, applica
 		sessionIDValue := uint64(sessionID)
 		createdBy := uint64(userID)
 		_ = s.memoryService.WriteFromExtractor(ctx, appmemory.ExtractInput{
-			OwnerRole: domainmemory.OwnerRoleCandidate,
-			OwnerID:   uint64(userID),
+			Owner:     domainmemory.OwnerKey{Role: domainmemory.OwnerRoleCandidate, ID: uint64(userID)},
 			UserText:  userMessage,
 			ReplyText: assistantReply,
 		}, scopes, appmemory.WriteRequest{

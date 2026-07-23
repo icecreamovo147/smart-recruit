@@ -59,6 +59,7 @@ func (h *MemoryHandler) Get(c *gin.Context) {
 	}
 	ownerID := uint64(currentUserID(c))
 	resp, err := h.clients.AI.GetMemory(c.Request.Context(), &pb.GetMemoryRequest{
+		TenantId:  middleware.TenantID(c),
 		Id:        uint64(id),
 		OwnerRole: memoryOwnerRoleHR,
 		OwnerId:   ownerID,
@@ -80,18 +81,18 @@ func (h *MemoryHandler) Create(c *gin.Context) {
 	ownerID := uint64(currentUserID(c))
 	userID := currentUserID(c)
 	resp, err := h.clients.AI.CreateMemory(c.Request.Context(), &pb.CreateMemoryRequest{
-		TenantId:        middleware.TenantID(c),
-		OwnerRole:       memoryOwnerRoleHR,
-		OwnerId:         ownerID,
-		ScopeType:       strings.TrimSpace(body.ScopeType),
-		ScopeId:         body.ScopeID,
-		MemoryType:      strings.TrimSpace(body.MemoryType),
-		Content:         strings.TrimSpace(body.Content),
-		Source:          memorySourceOrDefault(body.Source, "hr_manual"),
-		Confidence:      body.Confidence,
-		Importance:      body.Importance,
-		CreatedBy:       userID,
-		ConfirmHighPii:  body.ConfirmHighPII,
+		TenantId:       middleware.TenantID(c),
+		OwnerRole:      memoryOwnerRoleHR,
+		OwnerId:        ownerID,
+		ScopeType:      strings.TrimSpace(body.ScopeType),
+		ScopeId:        body.ScopeID,
+		MemoryType:     strings.TrimSpace(body.MemoryType),
+		Content:        strings.TrimSpace(body.Content),
+		Source:         memorySourceOrDefault(body.Source, "hr_manual"),
+		Confidence:     body.Confidence,
+		Importance:     body.Importance,
+		CreatedBy:      userID,
+		ConfirmHighPii: body.ConfirmHighPII,
 	})
 	if err != nil {
 		logger.L().Error("CreateMemory failed", zap.Error(err))
@@ -114,6 +115,7 @@ func (h *MemoryHandler) Update(c *gin.Context) {
 	}
 	ownerID := uint64(currentUserID(c))
 	req := pb.UpdateMemoryRequest{
+		TenantId:  middleware.TenantID(c),
 		Id:        uint64(id),
 		OwnerRole: memoryOwnerRoleHR,
 		OwnerId:   ownerID,
@@ -157,6 +159,7 @@ func (h *MemoryHandler) Revoke(c *gin.Context) {
 	_ = c.ShouldBindJSON(&body)
 	ownerID := uint64(currentUserID(c))
 	resp, err := h.clients.AI.RevokeMemory(c.Request.Context(), &pb.RevokeMemoryRequest{
+		TenantId:     middleware.TenantID(c),
 		Id:           uint64(id),
 		OwnerRole:    memoryOwnerRoleHR,
 		OwnerId:      ownerID,
@@ -206,9 +209,15 @@ func (h *MemoryHandler) PlatformList(c *gin.Context) {
 		base.BadRequest(c, "owner_role and owner_id are required")
 		return
 	}
+	tenantID := parseUint64Query(c, "tenant_id")
+	if ownerRole == memoryOwnerRoleHR && tenantID == 0 {
+		base.BadRequest(c, "tenant_id is required for HR memory")
+		return
+	}
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "50"))
 	resp, err := h.clients.AI.ListMemories(c.Request.Context(), &pb.ListMemoriesRequest{
+		TenantId:   int64(tenantID),
 		OwnerRole:  ownerRole,
 		OwnerId:    ownerID,
 		ScopeType:  strings.TrimSpace(c.Query("scope_type")),
@@ -236,7 +245,12 @@ func (h *MemoryHandler) PlatformCreate(c *gin.Context) {
 		base.BadRequest(c, "owner_role and owner_id are required")
 		return
 	}
+	if body.OwnerRole == memoryOwnerRoleHR && body.TenantID == 0 {
+		base.BadRequest(c, "tenant_id is required for HR memory")
+		return
+	}
 	resp, err := h.clients.AI.CreateMemory(c.Request.Context(), &pb.CreateMemoryRequest{
+		TenantId:       int64(body.TenantID),
 		OwnerRole:      body.OwnerRole,
 		OwnerId:        body.OwnerID,
 		ScopeType:      strings.TrimSpace(body.ScopeType),
@@ -272,7 +286,12 @@ func (h *MemoryHandler) PlatformRevoke(c *gin.Context) {
 		base.BadRequest(c, "owner_role and owner_id are required")
 		return
 	}
+	if body.OwnerRole == memoryOwnerRoleHR && body.TenantID == 0 {
+		base.BadRequest(c, "tenant_id is required for HR memory")
+		return
+	}
 	resp, err := h.clients.AI.RevokeMemory(c.Request.Context(), &pb.RevokeMemoryRequest{
+		TenantId:     int64(body.TenantID),
 		Id:           uint64(id),
 		OwnerRole:    body.OwnerRole,
 		OwnerId:      body.OwnerID,
@@ -324,6 +343,7 @@ type memoryRecallBody struct {
 }
 
 type platformMemoryCreateBody struct {
+	TenantID       uint64  `json:"tenant_id"`
 	OwnerRole      int32   `json:"owner_role"`
 	OwnerID        uint64  `json:"owner_id"`
 	ScopeType      string  `json:"scope_type"`
@@ -337,6 +357,7 @@ type platformMemoryCreateBody struct {
 }
 
 type platformMemoryRevokeBody struct {
+	TenantID     uint64 `json:"tenant_id"`
 	OwnerRole    int32  `json:"owner_role"`
 	OwnerID      uint64 `json:"owner_id"`
 	RevokeReason string `json:"revoke_reason"`

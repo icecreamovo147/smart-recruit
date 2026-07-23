@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -192,6 +193,8 @@ func (b *Billing) Settle(ctx context.Context, reservationNo string, usages []mod
 		return model.Settlement{}, errors.New("at least one provider usage item is required")
 	}
 	now := b.businessNow()
+	var totalCostMicros uint64
+	var totalCredits uint64
 	for index := range usages {
 		if usages[index].CallSequence == 0 {
 			return model.Settlement{}, errors.New("provider call sequence must start at one")
@@ -212,6 +215,11 @@ func (b *Billing) Settle(ctx context.Context, reservationNo string, usages []mod
 		if err != nil {
 			return model.Settlement{}, err
 		}
+		if cost > uint64(math.MaxInt64)-totalCostMicros || credits > uint64(math.MaxInt64)-totalCredits {
+			return model.Settlement{}, model.ErrPriceOverflow
+		}
+		totalCostMicros += cost
+		totalCredits += credits
 		usages[index].SupplierCostMicros = cost
 		usages[index].Credits = credits
 	}

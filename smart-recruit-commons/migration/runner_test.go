@@ -226,6 +226,9 @@ func TestMigrationChecksumMatches(t *testing.T) {
 	if migrationChecksumMatches(1, legacyMigrationChecksums[2], canonical) {
 		t.Fatal("legacy checksum must not match a different migration version")
 	}
+	if !migrationChecksumMatches(82, "17637a72985ec9121b3868a86219554c6484703fce87a1865a125f327a82d2ec", canonical) {
+		t.Fatal("published migration 82 checksum should remain accepted")
+	}
 }
 
 func TestRunnerDownNoDownFile(t *testing.T) {

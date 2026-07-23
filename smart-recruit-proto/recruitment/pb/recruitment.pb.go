@@ -13210,6 +13210,7 @@ type GetMemoryRequest struct {
 	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	OwnerRole     int32                  `protobuf:"varint,2,opt,name=owner_role,json=ownerRole,proto3" json:"owner_role,omitempty"`
 	OwnerId       uint64                 `protobuf:"varint,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	TenantId      int64                  `protobuf:"varint,4,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -13261,6 +13262,13 @@ func (x *GetMemoryRequest) GetOwnerRole() int32 {
 func (x *GetMemoryRequest) GetOwnerId() uint64 {
 	if x != nil {
 		return x.OwnerId
+	}
+	return 0
+}
+
+func (x *GetMemoryRequest) GetTenantId() int64 {
+	if x != nil {
+		return x.TenantId
 	}
 	return 0
 }
@@ -13514,6 +13522,7 @@ type UpdateMemoryRequest struct {
 	StatusSet     bool                   `protobuf:"varint,13,opt,name=status_set,json=statusSet,proto3" json:"status_set,omitempty"`
 	PiiLevelSet   bool                   `protobuf:"varint,14,opt,name=pii_level_set,json=piiLevelSet,proto3" json:"pii_level_set,omitempty"`
 	ExpiresAtSet  bool                   `protobuf:"varint,15,opt,name=expires_at_set,json=expiresAtSet,proto3" json:"expires_at_set,omitempty"`
+	TenantId      int64                  `protobuf:"varint,16,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -13653,6 +13662,13 @@ func (x *UpdateMemoryRequest) GetExpiresAtSet() bool {
 	return false
 }
 
+func (x *UpdateMemoryRequest) GetTenantId() int64 {
+	if x != nil {
+		return x.TenantId
+	}
+	return 0
+}
+
 type RevokeMemoryRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -13660,6 +13676,7 @@ type RevokeMemoryRequest struct {
 	OwnerId       uint64                 `protobuf:"varint,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	RevokedBy     int64                  `protobuf:"varint,4,opt,name=revoked_by,json=revokedBy,proto3" json:"revoked_by,omitempty"`
 	RevokeReason  string                 `protobuf:"bytes,5,opt,name=revoke_reason,json=revokeReason,proto3" json:"revoke_reason,omitempty"`
+	TenantId      int64                  `protobuf:"varint,6,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -13727,6 +13744,13 @@ func (x *RevokeMemoryRequest) GetRevokeReason() string {
 		return x.RevokeReason
 	}
 	return ""
+}
+
+func (x *RevokeMemoryRequest) GetTenantId() int64 {
+	if x != nil {
+		return x.TenantId
+	}
+	return 0
 }
 
 type RecallMemoriesRequest struct {
@@ -35421,6 +35445,7 @@ type DebugSemanticRetrievalRequest struct {
 	Limit         int32                  `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
 	OwnerRole     int32                  `protobuf:"varint,7,opt,name=owner_role,json=ownerRole,proto3" json:"owner_role,omitempty"`
 	OwnerId       uint64                 `protobuf:"varint,8,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	TenantId      int64                  `protobuf:"varint,9,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -35507,6 +35532,13 @@ func (x *DebugSemanticRetrievalRequest) GetOwnerRole() int32 {
 func (x *DebugSemanticRetrievalRequest) GetOwnerId() uint64 {
 	if x != nil {
 		return x.OwnerId
+	}
+	return 0
+}
+
+func (x *DebugSemanticRetrievalRequest) GetTenantId() int64 {
+	if x != nil {
+		return x.TenantId
 	}
 	return 0
 }
@@ -44433,12 +44465,13 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +
 	"\x05total\x18\x03 \x01(\x03R\x05total\x12+\n" +
-	"\x04list\x18\x04 \x03(\v2\x17.recruitment.MemoryInfoR\x04list\"\\\n" +
+	"\x04list\x18\x04 \x03(\v2\x17.recruitment.MemoryInfoR\x04list\"y\n" +
 	"\x10GetMemoryRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x1d\n" +
 	"\n" +
 	"owner_role\x18\x02 \x01(\x05R\townerRole\x12\x19\n" +
-	"\bowner_id\x18\x03 \x01(\x04R\aownerId\"g\n" +
+	"\bowner_id\x18\x03 \x01(\x04R\aownerId\x12\x1b\n" +
+	"\ttenant_id\x18\x04 \x01(\x03R\btenantId\"g\n" +
 	"\x0eMemoryResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12/\n" +
@@ -44470,7 +44503,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"created_by\x18\x0f \x01(\x03R\tcreatedBy\x12\x1d\n" +
 	"\n" +
 	"expires_at\x18\x10 \x01(\tR\texpiresAt\x12(\n" +
-	"\x10confirm_high_pii\x18\x11 \x01(\bR\x0econfirmHighPii\"\xe5\x03\n" +
+	"\x10confirm_high_pii\x18\x11 \x01(\bR\x0econfirmHighPii\"\x82\x04\n" +
 	"\x13UpdateMemoryRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x1d\n" +
 	"\n" +
@@ -44495,7 +44528,8 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\n" +
 	"status_set\x18\r \x01(\bR\tstatusSet\x12\"\n" +
 	"\rpii_level_set\x18\x0e \x01(\bR\vpiiLevelSet\x12$\n" +
-	"\x0eexpires_at_set\x18\x0f \x01(\bR\fexpiresAtSet\"\xa3\x01\n" +
+	"\x0eexpires_at_set\x18\x0f \x01(\bR\fexpiresAtSet\x12\x1b\n" +
+	"\ttenant_id\x18\x10 \x01(\x03R\btenantId\"\xc0\x01\n" +
 	"\x13RevokeMemoryRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x1d\n" +
 	"\n" +
@@ -44503,7 +44537,8 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\bowner_id\x18\x03 \x01(\x04R\aownerId\x12\x1d\n" +
 	"\n" +
 	"revoked_by\x18\x04 \x01(\x03R\trevokedBy\x12#\n" +
-	"\rrevoke_reason\x18\x05 \x01(\tR\frevokeReason\"\xf7\x01\n" +
+	"\rrevoke_reason\x18\x05 \x01(\tR\frevokeReason\x12\x1b\n" +
+	"\ttenant_id\x18\x06 \x01(\x03R\btenantId\"\xf7\x01\n" +
 	"\x15RecallMemoriesRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\x03R\btenantId\x12\x1d\n" +
 	"\n" +
@@ -46512,7 +46547,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x19\n" +
 	"\bskill_md\x18\x03 \x01(\tR\askillMd\x12)\n" +
 	"\x10frontmatter_json\x18\x04 \x01(\tR\x0ffrontmatterJson\x12#\n" +
-	"\rbody_markdown\x18\x05 \x01(\tR\fbodyMarkdown\"\xf7\x01\n" +
+	"\rbody_markdown\x18\x05 \x01(\tR\fbodyMarkdown\"\x94\x02\n" +
 	"\x1dDebugSemanticRetrievalRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x1d\n" +
@@ -46523,7 +46558,8 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x05limit\x18\x06 \x01(\x05R\x05limit\x12\x1d\n" +
 	"\n" +
 	"owner_role\x18\a \x01(\x05R\townerRole\x12\x19\n" +
-	"\bowner_id\x18\b \x01(\x04R\aownerId\"\xb3\x04\n" +
+	"\bowner_id\x18\b \x01(\x04R\aownerId\x12\x1b\n" +
+	"\ttenant_id\x18\t \x01(\x03R\btenantId\"\xb3\x04\n" +
 	"\x16SemanticSkillDebugItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +

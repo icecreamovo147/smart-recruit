@@ -16,6 +16,7 @@ applies_to:
   - smart-recruit-gateway/handler/billing.go
   - smart-recruit-commons/migrations/000076_harden_alipay_payment_lifecycle.sql
   - smart-recruit-commons/migrations/000077_add_billing_refund_review_permission.sql
+  - smart-recruit-commons/migrations/000088_harden_memory_billing_integrity.sql
   - docs/ai-billing-alipay-sandbox.md
   - smart-recruit-deploy/observability/rules/billing-alerts.yml
 source_refs:
@@ -24,9 +25,10 @@ source_refs:
   - smart-recruit-billing-service/internal/interfaces/grpc/server.go
   - smart-recruit-gateway/handler/billing.go
   - smart-recruit-commons/migrations/000076_harden_alipay_payment_lifecycle.sql
+  - smart-recruit-commons/migrations/000088_harden_memory_billing_integrity.sql
   - docs/ai-billing-alipay-sandbox.md
   - smart-recruit-deploy/observability/rules/billing-alerts.yml
-last_verified: 2026-07-20
+last_verified: 2026-07-23
 review_after: 2026-10-18
 ---
 
@@ -50,7 +52,9 @@ Browser return is not settlement evidence. Gateway verifies the signed return, B
 
 Refund requests are unique by `(order_id, idempotency_key)` and active by `(payment_id, active_slot)`. The same `refund_no` is always used as Alipay `out_request_no`. A timeout becomes `unknown` and is recovered through `alipay.trade.fastpay.refund.query`; never create a replacement refund number.
 
-Manual refunds are reviewed by platform users with `platform.billing.refund.review`. Rejecting restores the order to `paid`; approving submits the existing refund record. Entitlements and grants are revoked only after Alipay confirms success.
+Refund creation first changes order-sourced Grants to `refund_frozen`, so new AI reservations cannot race the Alipay call. Existing Grant allocations move the refund to `waiting_usage`; after they settle or cancel, exact Grant ledger consumption determines whether the request can proceed automatically or requires manual review. `unknown` keeps Grants frozen. API rejection, reconciliation failure, or manual rejection restores still-valid balances; confirmed success revokes the remaining source Grants through the idempotent refund finalizer.
+
+Manual refunds are reviewed by platform users with `platform.billing.refund.review`. Approval is blocked while source Grants have open allocations. Rejecting restores the order to `paid`; approving submits the existing refund number.
 
 ## Verification
 

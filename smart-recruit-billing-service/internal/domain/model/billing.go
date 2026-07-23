@@ -2,8 +2,15 @@ package model
 
 import (
 	"errors"
+	"fmt"
+	"math"
 	"strings"
 	"time"
+)
+
+var (
+	ErrInvalidProviderUsage = errors.New("invalid provider usage")
+	ErrPriceOverflow        = errors.New("AI usage price overflow")
 )
 
 type OwnerType string
@@ -95,10 +102,48 @@ func (r RateCard) Price(usage ProviderUsage) (uint64, uint64, error) {
 	if r.CreditMicros == 0 {
 		return 0, 0, errors.New("rate card credit conversion is zero")
 	}
-	cost := ceilDiv(usage.InputTokens*r.InputMicrosPer1K, 1000) +
-		ceilDiv(usage.OutputTokens*r.OutputMicrosPer1K, 1000) +
-		ceilDiv(usage.CachedInputTokens*r.CachedInputMicrosPer1K, 1000)
+	if usage.CachedInputTokens > usage.InputTokens {
+		return 0, 0, fmt.Errorf("%w: cached input tokens exceed input tokens", ErrInvalidProviderUsage)
+	}
+	uncachedInputTokens := usage.InputTokens - usage.CachedInputTokens
+	uncachedCost, err := priceTokenComponent(uncachedInputTokens, r.InputMicrosPer1K)
+	if err != nil {
+		return 0, 0, err
+	}
+	cachedCost, err := priceTokenComponent(usage.CachedInputTokens, r.CachedInputMicrosPer1K)
+	if err != nil {
+		return 0, 0, err
+	}
+	outputCost, err := priceTokenComponent(usage.OutputTokens, r.OutputMicrosPer1K)
+	if err != nil {
+		return 0, 0, err
+	}
+	cost, err := checkedAdd(uncachedCost, cachedCost)
+	if err != nil {
+		return 0, 0, err
+	}
+	cost, err = checkedAdd(cost, outputCost)
+	if err != nil {
+		return 0, 0, err
+	}
 	return cost, ceilDiv(cost, r.CreditMicros), nil
+}
+
+func priceTokenComponent(tokens, microsPer1K uint64) (uint64, error) {
+	if tokens == 0 || microsPer1K == 0 {
+		return 0, nil
+	}
+	if tokens > math.MaxUint64/microsPer1K {
+		return 0, ErrPriceOverflow
+	}
+	return ceilDiv(tokens*microsPer1K, 1000), nil
+}
+
+func checkedAdd(left, right uint64) (uint64, error) {
+	if left > math.MaxUint64-right {
+		return 0, ErrPriceOverflow
+	}
+	return left + right, nil
 }
 
 func ceilDiv(value, divisor uint64) uint64 {

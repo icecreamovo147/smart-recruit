@@ -60,6 +60,15 @@ check_targets() {
       echo "compose build target missing BINARY_NAME for ${service_dir}" >&2
       exit 1
     fi
+    if ! grep -q "CMD_PATH: ${cmd_path}" "${COMPOSE_FILE}"; then
+      echo "compose build target missing CMD_PATH for ${service_dir}" >&2
+      exit 1
+    fi
+    copy_count="$(grep -Ec "^COPY[[:space:]]+${service_dir}[[:space:]]+" "${DOCKERFILE}" || true)"
+    if [ "${copy_count}" -ne 1 ]; then
+      echo "docker build context must contain exactly one COPY for ${service_dir}; found ${copy_count}" >&2
+      exit 1
+    fi
   done
   if grep -RInE '(COPY|ADD).*(\.env|secret|credentials)' "${DOCKERFILE}"; then
     echo "potential secret material found in image build definitions" >&2

@@ -78,6 +78,9 @@ func (s *NativeStore) CreateMemory(ctx context.Context, memory domainmemory.Memo
 	if s == nil || s.db == nil {
 		return domainmemory.Memory{}, gorm.ErrInvalidDB
 	}
+	if err := memory.OwnerKey().Validate(); err != nil {
+		return domainmemory.Memory{}, err
+	}
 	if err := domainmemory.ValidateScope(memory.OwnerRole, memory.Scope); err != nil {
 		return domainmemory.Memory{}, err
 	}
@@ -95,7 +98,7 @@ func (s *NativeStore) CreateMemory(ctx context.Context, memory domainmemory.Memo
 	}
 	now := time.Now()
 	row := memoryToRecord(memory, now)
-	if existing, found, err := s.findMemoryByDedupKey(ctx, memory.OwnerRole, memory.OwnerID, memory.Scope, memory.ContentHash); err != nil {
+	if existing, found, err := s.findMemoryByDedupKey(ctx, memory.OwnerKey(), memory.Scope, memory.ContentHash); err != nil {
 		return domainmemory.Memory{}, err
 	} else if found {
 		existing.Content = memory.Content
@@ -116,14 +119,17 @@ func (s *NativeStore) CreateMemory(ctx context.Context, memory domainmemory.Memo
 	return recordToMemory(row), nil
 }
 
-func (s *NativeStore) GetMemory(ctx context.Context, ownerRole domainmemory.OwnerRole, ownerID, id uint64) (domainmemory.Memory, bool, error) {
+func (s *NativeStore) GetMemory(ctx context.Context, owner domainmemory.OwnerKey, id uint64) (domainmemory.Memory, bool, error) {
 	if s == nil || s.db == nil {
 		return domainmemory.Memory{}, false, gorm.ErrInvalidDB
 	}
+	if err := owner.Validate(); err != nil {
+		return domainmemory.Memory{}, false, err
+	}
 	var row aiMemoryRecord
-	err := s.db.WithContext(ctx).
-		Where("id = ? AND owner_role = ? AND owner_id = ?", id, int32(ownerRole), ownerID).
-		First(&row).Error
+	query := s.db.WithContext(ctx).Where("id = ?", id)
+	query = applyMemoryOwnerFilter(query, owner)
+	err := query.First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return domainmemory.Memory{}, false, nil
 	}
@@ -138,7 +144,11 @@ func (s *NativeStore) ListMemories(ctx context.Context, filter MemoryListFilter)
 		return nil, 0, gorm.ErrInvalidDB
 	}
 	query := s.db.WithContext(ctx).Model(&aiMemoryRecord{})
-	query = applyMemoryOwnerFilter(query, filter.OwnerRole, filter.OwnerID)
+	query = applyMemoryOwnerFilter(query, domainmemory.OwnerKey{
+		TenantID: filter.TenantID,
+		Role:     filter.OwnerRole,
+		ID:       filter.OwnerID,
+	})
 	if filter.ScopeType != "" {
 		query = query.Where("scope_type = ?", filter.ScopeType)
 		if filter.ScopeID > 0 || filter.ScopeType == domainmemory.ScopeHR {
@@ -185,7 +195,10 @@ func (s *NativeStore) UpdateMemory(ctx context.Context, memory domainmemory.Memo
 	if memory.ID == 0 {
 		return domainmemory.Memory{}, fmt.Errorf("memory id is required")
 	}
-	existing, found, err := s.GetMemory(ctx, memory.OwnerRole, memory.OwnerID, memory.ID)
+	if err := memory.OwnerKey().Validate(); err != nil {
+		return domainmemory.Memory{}, err
+	}
+	existing, found, err := s.GetMemory(ctx, memory.OwnerKey(), memory.ID)
 	if err != nil {
 		return domainmemory.Memory{}, err
 	}
@@ -226,20 +239,23 @@ func (s *NativeStore) UpdateMemory(ctx context.Context, memory domainmemory.Memo
 	if memory.ExpiresAt != nil {
 		updates["expires_at"] = memory.ExpiresAt
 	}
-	result := s.db.WithContext(ctx).Model(&aiMemoryRecord{}).
-		Where("id = ? AND owner_role = ? AND owner_id = ?", memory.ID, int32(memory.OwnerRole), memory.OwnerID).
-		Updates(updates)
+	query := s.db.WithContext(ctx).Model(&aiMemoryRecord{}).Where("id = ?", memory.ID)
+	query = applyMemoryOwnerFilter(query, memory.OwnerKey())
+	result := query.Updates(updates)
 	if result.Error != nil {
 		return domainmemory.Memory{}, result.Error
 	}
-	return s.mustGetMemory(ctx, memory.OwnerRole, memory.OwnerID, memory.ID)
+	return s.mustGetMemory(ctx, memory.OwnerKey(), memory.ID)
 }
 
-func (s *NativeStore) RevokeMemory(ctx context.Context, ownerRole domainmemory.OwnerRole, ownerID, id, revokedBy uint64, reason string) error {
+func (s *NativeStore) RevokeMemory(ctx context.Context, owner domainmemory.OwnerKey, id, revokedBy uint64, reason string) error {
 	if s == nil || s.db == nil {
 		return gorm.ErrInvalidDB
 	}
-	existing, found, err := s.GetMemory(ctx, ownerRole, ownerID, id)
+	if err := owner.Validate(); err != nil {
+		return err
+	}
+	existing, found, err := s.GetMemory(ctx, owner, id)
 	if err != nil {
 		return err
 	}
@@ -257,9 +273,9 @@ func (s *NativeStore) RevokeMemory(ctx context.Context, ownerRole domainmemory.O
 		"revoke_reason": strings.TrimSpace(reason),
 		"updated_at":    now,
 	}
-	return s.db.WithContext(ctx).Model(&aiMemoryRecord{}).
-		Where("id = ? AND owner_role = ? AND owner_id = ?", id, int32(ownerRole), ownerID).
-		Updates(updates).Error
+	query := s.db.WithContext(ctx).Model(&aiMemoryRecord{}).Where("id = ?", id)
+	query = applyMemoryOwnerFilter(query, owner)
+	return query.Updates(updates).Error
 }
 
 func (s *NativeStore) ListActiveForRecall(ctx context.Context, filter MemoryRecallFilter) ([]MemoryRecallItem, error) {
@@ -267,7 +283,11 @@ func (s *NativeStore) ListActiveForRecall(ctx context.Context, filter MemoryReca
 		return nil, gorm.ErrInvalidDB
 	}
 	query := s.db.WithContext(ctx).Model(&aiMemoryRecord{})
-	query = applyMemoryOwnerFilter(query, filter.OwnerRole, filter.OwnerID)
+	query = applyMemoryOwnerFilter(query, domainmemory.OwnerKey{
+		TenantID: filter.TenantID,
+		Role:     filter.OwnerRole,
+		ID:       filter.OwnerID,
+	})
 	query = query.Where("status = ?", domainmemory.StatusActive)
 	query = query.Where("(expires_at IS NULL OR expires_at > ?)", time.Now())
 	if len(filter.Scopes) > 0 {
@@ -347,19 +367,24 @@ func (s *NativeStore) ExpireAndCleanup(ctx context.Context, revokedRetention tim
 	return result, nil
 }
 
-func applyMemoryOwnerFilter(query *gorm.DB, ownerRole domainmemory.OwnerRole, ownerID uint64) *gorm.DB {
-	if ownerID == 0 {
+func applyMemoryOwnerFilter(query *gorm.DB, owner domainmemory.OwnerKey) *gorm.DB {
+	if err := owner.Validate(); err != nil {
 		return query.Where("1 = 0")
 	}
-	return query.Where("owner_role = ? AND owner_id = ?", int32(ownerRole), ownerID)
+	query = query.Where("owner_role = ? AND owner_id = ?", int32(owner.Role), owner.ID)
+	if owner.TenantID == nil {
+		return query.Where("tenant_id IS NULL")
+	}
+	return query.Where("tenant_id = ?", *owner.TenantID)
 }
 
-func (s *NativeStore) findMemoryByDedupKey(ctx context.Context, ownerRole domainmemory.OwnerRole, ownerID uint64, scope domainmemory.Scope, hash string) (domainmemory.Memory, bool, error) {
+func (s *NativeStore) findMemoryByDedupKey(ctx context.Context, owner domainmemory.OwnerKey, scope domainmemory.Scope, hash string) (domainmemory.Memory, bool, error) {
 	var row aiMemoryRecord
-	err := s.db.WithContext(ctx).
-		Where("owner_role = ? AND owner_id = ? AND scope_type = ? AND scope_id = ? AND content_hash = ? AND status = ?",
-			int32(ownerRole), ownerID, scope.Type, scope.ID, hash, domainmemory.StatusActive).
-		First(&row).Error
+	query := s.db.WithContext(ctx).
+		Where("scope_type = ? AND scope_id = ? AND content_hash = ? AND status = ?",
+			scope.Type, scope.ID, hash, domainmemory.StatusActive)
+	query = applyMemoryOwnerFilter(query, owner)
+	err := query.First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return domainmemory.Memory{}, false, nil
 	}
@@ -369,8 +394,8 @@ func (s *NativeStore) findMemoryByDedupKey(ctx context.Context, ownerRole domain
 	return recordToMemory(row), true, nil
 }
 
-func (s *NativeStore) mustGetMemory(ctx context.Context, ownerRole domainmemory.OwnerRole, ownerID, id uint64) (domainmemory.Memory, error) {
-	memory, found, err := s.GetMemory(ctx, ownerRole, ownerID, id)
+func (s *NativeStore) mustGetMemory(ctx context.Context, owner domainmemory.OwnerKey, id uint64) (domainmemory.Memory, error) {
+	memory, found, err := s.GetMemory(ctx, owner, id)
 	if err != nil {
 		return domainmemory.Memory{}, err
 	}

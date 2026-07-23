@@ -16,6 +16,7 @@ applies_to:
   - smart-recruit-billing-service/**
   - smart-recruit-commons/migrations/000069_add_ai_billing_foundation.sql
   - smart-recruit-commons/migrations/000079_add_ai_billing_settlement_outbox.sql
+  - smart-recruit-commons/migrations/000088_harden_memory_billing_integrity.sql
   - smart-recruit-gateway/handler/response.go
 source_refs:
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/billing_meter.go
@@ -25,8 +26,9 @@ source_refs:
   - smart-recruit-billing-service/internal/infrastructure/persistence/gorm_repository.go
   - smart-recruit-billing-service/internal/infrastructure/persistence/entitlement_policy.go
   - smart-recruit-commons/migrations/000079_add_ai_billing_settlement_outbox.sql
+  - smart-recruit-commons/migrations/000088_harden_memory_billing_integrity.sql
   - smart-recruit-deploy/mysql-table-ownership.json
-last_verified: 2026-07-21
+last_verified: 2026-07-23
 review_after: 2026-10-19
 ---
 
@@ -44,7 +46,7 @@ Platform commercial-control saves for product prices and AI rate cards publish t
 
 JSON entitlement booleans are decoded as their JSON text (`true`/`false`) rather than numerically cast by MySQL. Candidate subscription snapshots must bind `ai.chat.release_version_id` to the published `candidate` capability release; an HR release ID is not interchangeable even when the entitlement key is the same.
 
-Before a provider call, AI Agent checks the capability and requests a reservation with an estimated value of zero. Billing resolves the effective `ai.single_run.max_credits` entitlement, falling back to 20 credits only for legacy price snapshots without that key. In enforce mode it reserves the lesser of that ceiling and the available prepaid balance, rejects zero balance, and verifies that the exact provider/model has an effective rate card before allowing the call.
+Before a provider call, AI Agent checks the capability and requests a reservation with an estimated value of zero. Billing resolves the effective `ai.single_run.max_credits` entitlement, falling back to 20 credits only for legacy price snapshots without that key. In enforce mode it reserves the lesser of that ceiling and the available prepaid balance, rejects zero balance, verifies that the exact provider/model has an effective rate card, and creates exact earliest-expiry Grant allocations before allowing the call.
 
 After reservation, AI Agent durably creates an `ai_billing_settlement_outbox` row before calling the provider. Provider token usage is retained for chat, Agent runs, application analysis, resume parsing, and match evaluation. Deterministic paths that do not invoke a provider cancel the reservation and do not consume credits.
 
@@ -58,8 +60,9 @@ Settlement first persists the complete Billing request in the outbox, then calls
 
 ## Accounting invariants
 
-- Only `enforce` mutates grant balances; `shadow` records reservations, usage, supplier cost, and calculated credits for calibration.
-- A settled enforce reservation produces a full `release` of the original reservation and one or more `consume` entries for actual priced provider calls. This keeps the ledger arithmetic reconcilable even when actual usage is below the reservation.
+- Only `enforce` creates `ai_credit_reservation_allocations` and mutates grant balances; `shadow` records reservations, usage, supplier cost, and calculated credits for calibration.
+- Every active enforce reservation is backed by allocations whose open credits exactly equal `reserved_credits`. Settlement may consume only those Grants, releases the unused allocation, and fails the whole transaction if backing is incomplete.
+- Cached prompt tokens are a subset of input tokens. Pricing charges `(input-cached)` at the normal input rate, cached tokens at the cached rate, and output tokens at the output rate with checked arithmetic.
 - `(reservation_id, provider_call_seq)` and owner idempotency keys prevent duplicate usage and balance mutation.
 - Multi-call structured operations preserve every successful provider call with a contiguous call sequence.
 - Candidate credits use `owner_type=user`; HR and enterprise credits use `owner_type=tenant`.
@@ -70,4 +73,4 @@ Missing Billing, mode mismatch, missing outbox persistence, missing exact rate c
 
 ## Verification
 
-Verified against the reservation, settlement, structured-runtime, outbox, migration, and gateway implementations on 2026-07-21.
+Verified against the allocation-backed reservation/settlement implementation, checked rate-card pricing, outbox delivery, migrations, and gateway contracts on 2026-07-23.

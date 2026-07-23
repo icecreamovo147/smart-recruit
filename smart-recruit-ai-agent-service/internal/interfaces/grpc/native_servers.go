@@ -1591,7 +1591,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			return result, err
 		}
 	}
-	s.asyncExtractHRMemory(req, session.ID, req.GetMessage(), reply, 0, 0)
+	s.asyncExtractHRMemory(ctx, req, session.ID, req.GetMessage(), reply, 0, 0)
 	return result, nil
 }
 

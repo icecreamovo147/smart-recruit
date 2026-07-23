@@ -10,19 +10,46 @@ import (
 
 	appmemory "smart-recruit-ai-agent-service/internal/application/memory"
 	domainmemory "smart-recruit-ai-agent-service/internal/domain/memory"
+	platformmetadata "smart-recruit-platform-go/metadata"
 	"smart-recruit-proto/recruitment/pb"
 )
+
+func memoryOwnerFromRequest(ctx context.Context, tenantID int64, ownerRole int32, ownerID uint64) (domainmemory.OwnerKey, error) {
+	owner := domainmemory.OwnerKey{Role: domainmemory.OwnerRole(ownerRole), ID: ownerID}
+	switch owner.Role {
+	case domainmemory.OwnerRoleHR:
+		if tenantID <= 0 {
+			return domainmemory.OwnerKey{}, status.Error(codes.InvalidArgument, "tenant_id is required for HR memory")
+		}
+		trustedTenantID := platformmetadata.GetTenantContext(ctx).TenantID
+		if trustedTenantID > 0 && trustedTenantID != tenantID {
+			return domainmemory.OwnerKey{}, status.Error(codes.NotFound, "memory not found")
+		}
+		value := uint64(tenantID)
+		owner.TenantID = &value
+	case domainmemory.OwnerRoleCandidate:
+		if tenantID != 0 {
+			return domainmemory.OwnerKey{}, status.Error(codes.InvalidArgument, "candidate memory must not include tenant_id")
+		}
+	default:
+		return domainmemory.OwnerKey{}, status.Error(codes.InvalidArgument, "invalid owner_role")
+	}
+	if err := owner.Validate(); err != nil {
+		return domainmemory.OwnerKey{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+	return owner, nil
+}
 
 func (s *nativeAIService) ListMemories(ctx context.Context, req *pb.ListMemoriesRequest) (*pb.ListMemoriesResponse, error) {
 	if s.memoryService == nil || !s.memoryService.Enabled() {
 		return &pb.ListMemoriesResponse{Code: 0, Msg: "success", Total: 0}, nil
 	}
-	if req.GetOwnerId() == 0 {
-		return nil, status.Error(codes.InvalidArgument, "owner_id is required")
+	owner, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), req.GetOwnerRole(), req.GetOwnerId())
+	if err != nil {
+		return nil, err
 	}
 	items, total, err := s.memoryService.List(ctx, appmemory.ListFilter{
-		OwnerRole:  domainmemory.OwnerRole(req.GetOwnerRole()),
-		OwnerID:    req.GetOwnerId(),
+		Owner:      owner,
 		ScopeType:  req.GetScopeType(),
 		ScopeID:    req.GetScopeId(),
 		MemoryType: req.GetMemoryType(),
@@ -45,7 +72,11 @@ func (s *nativeAIService) GetMemory(ctx context.Context, req *pb.GetMemoryReques
 	if s.memoryService == nil || !s.memoryService.Enabled() {
 		return &pb.MemoryResponse{Code: 404, Msg: "not found"}, nil
 	}
-	item, found, err := s.memoryService.Get(ctx, domainmemory.OwnerRole(req.GetOwnerRole()), req.GetOwnerId(), req.GetId())
+	owner, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), req.GetOwnerRole(), req.GetOwnerId())
+	if err != nil {
+		return nil, err
+	}
+	item, found, err := s.memoryService.Get(ctx, owner, req.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +90,12 @@ func (s *nativeAIService) CreateMemory(ctx context.Context, req *pb.CreateMemory
 	if s.memoryService == nil || !s.memoryService.Enabled() {
 		return &pb.MemoryResponse{Code: 503, Msg: "memory service disabled"}, nil
 	}
+	owner, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), req.GetOwnerRole(), req.GetOwnerId())
+	if err != nil {
+		return nil, err
+	}
 	saved, err := s.memoryService.Write(ctx, appmemory.WriteRequest{
-		OwnerRole:      domainmemory.OwnerRole(req.GetOwnerRole()),
-		OwnerID:        req.GetOwnerId(),
+		Owner:          owner,
 		Scope:          domainmemory.Scope{Type: req.GetScopeType(), ID: req.GetScopeId()},
 		MemoryType:     req.GetMemoryType(),
 		Content:        req.GetContent(),
@@ -83,7 +117,11 @@ func (s *nativeAIService) UpdateMemory(ctx context.Context, req *pb.UpdateMemory
 	if s.memoryService == nil || !s.memoryService.Enabled() {
 		return &pb.MemoryResponse{Code: 503, Msg: "memory service disabled"}, nil
 	}
-	existing, found, err := s.memoryService.Get(ctx, domainmemory.OwnerRole(req.GetOwnerRole()), req.GetOwnerId(), req.GetId())
+	owner, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), req.GetOwnerRole(), req.GetOwnerId())
+	if err != nil {
+		return nil, err
+	}
+	existing, found, err := s.memoryService.Get(ctx, owner, req.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -123,10 +161,14 @@ func (s *nativeAIService) RevokeMemory(ctx context.Context, req *pb.RevokeMemory
 	if s.memoryService == nil || !s.memoryService.Enabled() {
 		return &pb.MemoryResponse{Code: 503, Msg: "memory service disabled"}, nil
 	}
-	if err := s.memoryService.Revoke(ctx, domainmemory.OwnerRole(req.GetOwnerRole()), req.GetOwnerId(), req.GetId(), uint64(req.GetRevokedBy()), req.GetRevokeReason()); err != nil {
+	owner, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), req.GetOwnerRole(), req.GetOwnerId())
+	if err != nil {
 		return nil, err
 	}
-	item, found, err := s.memoryService.Get(ctx, domainmemory.OwnerRole(req.GetOwnerRole()), req.GetOwnerId(), req.GetId())
+	if err := s.memoryService.Revoke(ctx, owner, req.GetId(), uint64(req.GetRevokedBy()), req.GetRevokeReason()); err != nil {
+		return nil, err
+	}
+	item, found, err := s.memoryService.Get(ctx, owner, req.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -140,13 +182,16 @@ func (s *nativeAIService) RecallMemories(ctx context.Context, req *pb.RecallMemo
 	if s.memoryService == nil || !s.memoryService.Enabled() {
 		return &pb.RecallMemoriesResponse{Code: 0, Msg: "success"}, nil
 	}
+	owner, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), req.GetOwnerRole(), req.GetOwnerId())
+	if err != nil {
+		return nil, err
+	}
 	scopes := []domainmemory.Scope{{Type: req.GetScopeType(), ID: req.GetScopeId()}}
 	if req.GetScopeType() == "" {
 		scopes = nil
 	}
 	result, err := s.memoryService.Recall(ctx, appmemory.RecallRequest{
-		OwnerRole:       domainmemory.OwnerRole(req.GetOwnerRole()),
-		OwnerID:         req.GetOwnerId(),
+		Owner:           owner,
 		Scopes:          scopes,
 		Query:           req.GetQuery(),
 		TargetScopeType: req.GetScopeType(),
@@ -169,20 +214,20 @@ func (s *nativeAIService) RecallMemories(ctx context.Context, req *pb.RecallMemo
 
 func memoryInfoFromDomain(memory domainmemory.Memory) *pb.MemoryInfo {
 	info := &pb.MemoryInfo{
-		Id:         memory.ID,
-		OwnerRole:  int32(memory.OwnerRole),
-		OwnerId:    memory.OwnerID,
-		HrId:       memory.HRID,
-		ScopeType:  memory.Scope.Type,
-		ScopeId:    memory.Scope.ID,
-		MemoryType: memory.MemoryType,
-		Content:    memory.Content,
-		Source:     memory.Source,
-		Confidence: memory.Confidence,
-		Importance: memory.Importance,
-		Status:     string(memory.Status),
-		PiiLevel:   string(memory.PIILevel),
-		ContentHash: memory.ContentHash,
+		Id:           memory.ID,
+		OwnerRole:    int32(memory.OwnerRole),
+		OwnerId:      memory.OwnerID,
+		HrId:         memory.HRID,
+		ScopeType:    memory.Scope.Type,
+		ScopeId:      memory.Scope.ID,
+		MemoryType:   memory.MemoryType,
+		Content:      memory.Content,
+		Source:       memory.Source,
+		Confidence:   memory.Confidence,
+		Importance:   memory.Importance,
+		Status:       string(memory.Status),
+		PiiLevel:     string(memory.PIILevel),
+		ContentHash:  memory.ContentHash,
 		RevokeReason: memory.RevokeReason,
 	}
 	if memory.TenantID != nil {

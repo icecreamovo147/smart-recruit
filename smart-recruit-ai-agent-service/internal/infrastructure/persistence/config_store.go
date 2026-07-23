@@ -1185,7 +1185,7 @@ func (s *NativeStore) ListAIEmbeddings(ctx context.Context, objectType, modelNam
 	return out, nil
 }
 
-func (s *NativeStore) ListAIEmbeddingsForOwner(ctx context.Context, objectType, modelName string, ownerRole int32, ownerID uint64, limit int) ([]embeddinginfra.AIEmbeddingRecord, error) {
+func (s *NativeStore) ListAIEmbeddingsForOwner(ctx context.Context, objectType, modelName string, tenantID *uint64, ownerRole int32, ownerID uint64, limit int) ([]embeddinginfra.AIEmbeddingRecord, error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 500
 	}
@@ -1212,6 +1212,14 @@ func (s *NativeStore) ListAIEmbeddingsForOwner(ctx context.Context, objectType, 
 			metaOwnerRole := int32(floatFromAny(metadata["owner_role"]))
 			metaOwnerID := uint64(floatFromAny(metadata["owner_id"]))
 			if metaOwnerID != ownerID || (ownerRole > 0 && metaOwnerRole != ownerRole) {
+				continue
+			}
+			metaTenantID, hasTenantID := metadata["tenant_id"]
+			if tenantID == nil {
+				if hasTenantID {
+					continue
+				}
+			} else if !hasTenantID || uint64(floatFromAny(metaTenantID)) != *tenantID {
 				continue
 			}
 		}

@@ -80,6 +80,18 @@ const entitlementLabels: Record<string, string> = {
   'ai.single_run.max_credits': '单次任务额度上限',
 }
 
+const refundStatusLabels: Record<string, string> = {
+  waiting_usage: '等待在途用量',
+  reviewing: '待人工审核',
+  processing: '退款处理中',
+  unknown: '结果核对中',
+  succeeded: '退款成功',
+  failed: '退款失败',
+  rejected: '已拒绝',
+}
+
+const refundStatusLabel = (status: string) => refundStatusLabels[status] || status
+
 const load = async (section: CatalogSection = activeSection.value) => {
   loading.value = true
   try {
@@ -298,7 +310,7 @@ onMounted(load)
 
       <section v-if="activeSection === 'rates'" class="surface-card billing-catalog catalog-panel__body"><header><div><h2>AI 模型费率卡</h2><p>供应商成本按每千 Token 配置；额度换算决定用户消耗，发布新版本后旧版本自动退役。</p></div><el-button v-if="canManage" type="primary" plain @click="openRateEditor()">新增费率卡</el-button></header><div class="billing-product-grid"><article v-for="rate in rateCards" :key="rate.id"><div><strong>{{ rate.provider_key }} / {{ rate.model_key }}</strong><small>V{{ rate.version }} · {{ rate.status }}</small></div><div><strong>输入 ¥{{ (rate.input_micros_per_1k_tokens / 1_000_000).toFixed(6) }}</strong><small>输出 ¥{{ (rate.output_micros_per_1k_tokens / 1_000_000).toFixed(6) }} / 千 Token</small></div><span>1 额度 = ¥{{ (rate.credit_micros / 1_000_000).toFixed(6) }}</span><el-button v-if="canManage" link type="primary" @click="openRateEditor(rate)">创建新版本</el-button></article><el-empty v-if="!rateCards.length" description="尚未配置模型费率，强制计费模式将拒绝未知模型" /></div></section>
 
-      <section v-if="activeSection === 'refunds'" class="surface-card billing-catalog catalog-panel__body"><header><div><h2>退款审批与核对</h2><p>人工退款由平台资金责任人审批；未知状态由后台使用原退款号持续核对。</p></div></header><el-table :data="refunds" style="margin-top:20px"><el-table-column prop="refund_no" label="退款号" min-width="190"/><el-table-column prop="order_no" label="订单号" min-width="180"/><el-table-column label="金额" width="110"><template #default="{ row }">¥{{ (row.amount_fen / 100).toFixed(2) }}</template></el-table-column><el-table-column prop="reason" label="原因" min-width="180" show-overflow-tooltip/><el-table-column prop="status" label="状态" width="110"/><el-table-column label="操作" width="150"><template #default="{ row }"><template v-if="row.status === 'reviewing'"><el-button link type="success" @click="reviewRefund(row, 'approve')">批准</el-button><el-button link type="danger" @click="reviewRefund(row, 'reject')">拒绝</el-button></template><span v-else>{{ row.last_error || '—' }}</span></template></el-table-column></el-table><el-empty v-if="!refunds.length" description="暂无退款记录"/></section>
+      <section v-if="activeSection === 'refunds'" class="surface-card billing-catalog catalog-panel__body"><header><div><h2>退款审批与核对</h2><p>人工退款由平台资金责任人审批；未知状态由后台使用原退款号持续核对。</p></div></header><el-table :data="refunds" style="margin-top:20px"><el-table-column prop="refund_no" label="退款号" min-width="190"/><el-table-column prop="order_no" label="订单号" min-width="180"/><el-table-column label="金额" width="110"><template #default="{ row }">¥{{ (row.amount_fen / 100).toFixed(2) }}</template></el-table-column><el-table-column prop="reason" label="原因" min-width="180" show-overflow-tooltip/><el-table-column label="状态" width="130"><template #default="{ row }">{{ refundStatusLabel(row.status) }}</template></el-table-column><el-table-column label="操作" width="150"><template #default="{ row }"><template v-if="row.status === 'reviewing'"><el-button link type="success" @click="reviewRefund(row, 'approve')">批准</el-button><el-button link type="danger" @click="reviewRefund(row, 'reject')">拒绝</el-button></template><span v-else>{{ row.last_error || '—' }}</span></template></el-table-column></el-table><el-empty v-if="!refunds.length" description="暂无退款记录"/></section>
     </PagePanel>
 
     <el-dialog v-model="editorVisible" :title="`${selectedPlan?.name || ''} · ${form.version_id ? '编辑草稿' : '新建版本'}`" width="680px">

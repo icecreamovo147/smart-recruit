@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -172,11 +173,34 @@ func TestSettlePricesEveryProviderCall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.SupplierCostMicros != 2200 || result.ChargedCredits != 3 {
+	if result.SupplierCostMicros != 1200 || result.ChargedCredits != 2 {
 		t.Fatalf("settlement = %+v", result)
 	}
-	if len(repo.settleUsages) != 1 || repo.settleUsages[0].Credits != 3 {
+	if len(repo.settleUsages) != 1 || repo.settleUsages[0].Credits != 2 {
 		t.Fatalf("priced usages = %+v", repo.settleUsages)
+	}
+}
+
+func TestSettleRejectsAggregatePriceOverflow(t *testing.T) {
+	repo := &fakeRepository{rate: model.RateCard{InputMicrosPer1K: 4, CreditMicros: 1}}
+	billing, err := NewBilling(repo, fakePolicy{enabled: true}, model.ModeShadow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	usages := make([]model.ProviderUsage, 501)
+	for index := range usages {
+		usages[index] = model.ProviderUsage{
+			CallSequence: uint32(index + 1),
+			ProviderKey:  "openai",
+			ModelKey:     "gpt-test",
+			InputTokens:  math.MaxInt64 / 2,
+		}
+	}
+	if _, err := billing.Settle(context.Background(), "reservation-1", usages, "settle-overflow"); !errors.Is(err, model.ErrPriceOverflow) {
+		t.Fatalf("error = %v, want ErrPriceOverflow", err)
+	}
+	if len(repo.settleUsages) != 0 {
+		t.Fatal("overflowing usage must not reach persistence")
 	}
 }
 

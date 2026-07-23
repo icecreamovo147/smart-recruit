@@ -51,10 +51,20 @@ CREATE TABLE ai_memories (
 	return db
 }
 
+func memoryTestTenantID() *uint64 {
+	value := uint64(11)
+	return &value
+}
+
+func memoryTestHROwner(ownerID uint64) domainmemory.OwnerKey {
+	return domainmemory.OwnerKey{TenantID: memoryTestTenantID(), Role: domainmemory.OwnerRoleHR, ID: ownerID}
+}
+
 func TestCreateMemoryDedupByHash(t *testing.T) {
 	store := NewNativeStore(setupMemoryTestDB(t))
 	ctx := context.Background()
 	first, err := store.CreateMemory(ctx, domainmemory.Memory{
+		TenantID:   memoryTestTenantID(),
 		OwnerRole:  domainmemory.OwnerRoleHR,
 		OwnerID:    9,
 		Scope:      domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0},
@@ -67,6 +77,7 @@ func TestCreateMemoryDedupByHash(t *testing.T) {
 		t.Fatalf("CreateMemory() first error = %v", err)
 	}
 	second, err := store.CreateMemory(ctx, domainmemory.Memory{
+		TenantID:   memoryTestTenantID(),
 		OwnerRole:  domainmemory.OwnerRoleHR,
 		OwnerID:    9,
 		Scope:      domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0},
@@ -91,6 +102,7 @@ func TestListActiveForRecallOwnerIsolation(t *testing.T) {
 	ctx := context.Background()
 	for _, ownerID := range []uint64{1, 2} {
 		_, err := store.CreateMemory(ctx, domainmemory.Memory{
+			TenantID:   memoryTestTenantID(),
 			OwnerRole:  domainmemory.OwnerRoleHR,
 			OwnerID:    ownerID,
 			Scope:      domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0},
@@ -104,6 +116,7 @@ func TestListActiveForRecallOwnerIsolation(t *testing.T) {
 		}
 	}
 	items, err := store.ListActiveForRecall(ctx, MemoryRecallFilter{
+		TenantID:  memoryTestTenantID(),
 		OwnerRole: domainmemory.OwnerRoleHR,
 		OwnerID:   1,
 		Scopes:    []domainmemory.Scope{{Type: domainmemory.ScopeHR, ID: 0}},
@@ -114,6 +127,49 @@ func TestListActiveForRecallOwnerIsolation(t *testing.T) {
 	}
 	if len(items) != 1 || items[0].Memory.OwnerID != 1 {
 		t.Fatalf("recall = %+v, want single owner=1 memory", items)
+	}
+}
+
+func TestMemoryTenantIsolationForSameHROwner(t *testing.T) {
+	store := NewNativeStore(setupMemoryTestDB(t))
+	ctx := context.Background()
+	tenantOne := uint64(11)
+	tenantTwo := uint64(12)
+	create := func(tenantID *uint64, content string) domainmemory.Memory {
+		memory, err := store.CreateMemory(ctx, domainmemory.Memory{
+			TenantID: tenantID, OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 7,
+			Scope:      domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0},
+			MemoryType: "preference", Content: content,
+		})
+		if err != nil {
+			t.Fatalf("CreateMemory() error = %v", err)
+		}
+		return memory
+	}
+	first := create(&tenantOne, "same preference")
+	second := create(&tenantTwo, "same preference")
+	if first.ID == second.ID {
+		t.Fatal("different tenants unexpectedly deduplicated the same HR owner")
+	}
+	ownerOne := domainmemory.OwnerKey{TenantID: &tenantOne, Role: domainmemory.OwnerRoleHR, ID: 7}
+	ownerTwo := domainmemory.OwnerKey{TenantID: &tenantTwo, Role: domainmemory.OwnerRoleHR, ID: 7}
+	if _, found, err := store.GetMemory(ctx, ownerTwo, first.ID); err != nil || found {
+		t.Fatalf("tenant two read tenant one memory: found=%v err=%v", found, err)
+	}
+	items, _, err := store.ListMemories(ctx, MemoryListFilter{
+		TenantID: &tenantOne, OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 7,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].ID != first.ID {
+		t.Fatalf("tenant one list = %+v", items)
+	}
+	if err := store.RevokeMemory(ctx, ownerTwo, first.ID, 7, "cross tenant"); err == nil {
+		t.Fatal("cross-tenant revoke unexpectedly succeeded")
+	}
+	if got, found, err := store.GetMemory(ctx, ownerOne, first.ID); err != nil || !found || got.Status != domainmemory.StatusActive {
+		t.Fatalf("tenant one memory changed after cross-tenant revoke: %+v found=%v err=%v", got, found, err)
 	}
 }
 
@@ -130,10 +186,11 @@ func TestRevokeMemorySoftDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateMemory() error = %v", err)
 	}
-	if err := store.RevokeMemory(ctx, domainmemory.OwnerRoleCandidate, 42, created.ID, 42, "user request"); err != nil {
+	candidateOwner := domainmemory.OwnerKey{Role: domainmemory.OwnerRoleCandidate, ID: 42}
+	if err := store.RevokeMemory(ctx, candidateOwner, created.ID, 42, "user request"); err != nil {
 		t.Fatalf("RevokeMemory() error = %v", err)
 	}
-	got, found, err := store.GetMemory(ctx, domainmemory.OwnerRoleCandidate, 42, created.ID)
+	got, found, err := store.GetMemory(ctx, candidateOwner, created.ID)
 	if err != nil || !found {
 		t.Fatalf("GetMemory() = %v found=%v err=%v", got, found, err)
 	}
@@ -156,6 +213,7 @@ func TestRevokeMemorySoftDelete(t *testing.T) {
 func TestCreateMemoryRejectsHighPII(t *testing.T) {
 	store := NewNativeStore(setupMemoryTestDB(t))
 	_, err := store.CreateMemory(context.Background(), domainmemory.Memory{
+		TenantID:   memoryTestTenantID(),
 		OwnerRole:  domainmemory.OwnerRoleHR,
 		OwnerID:    1,
 		Scope:      domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0},
@@ -172,6 +230,7 @@ func TestExpiredMemoryExcludedFromRecall(t *testing.T) {
 	ctx := context.Background()
 	past := time.Now().Add(-time.Hour)
 	_, err := store.CreateMemory(ctx, domainmemory.Memory{
+		TenantID:   memoryTestTenantID(),
 		OwnerRole:  domainmemory.OwnerRoleHR,
 		OwnerID:    5,
 		Scope:      domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0},
@@ -182,7 +241,7 @@ func TestExpiredMemoryExcludedFromRecall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateMemory() error = %v", err)
 	}
-	items, err := store.ListActiveForRecall(ctx, MemoryRecallFilter{OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 5, Limit: 10})
+	items, err := store.ListActiveForRecall(ctx, MemoryRecallFilter{TenantID: memoryTestTenantID(), OwnerRole: domainmemory.OwnerRoleHR, OwnerID: 5, Limit: 10})
 	if err != nil {
 		t.Fatalf("ListActiveForRecall() error = %v", err)
 	}
@@ -197,6 +256,7 @@ func TestExpireAndCleanupArchivesExpiredAndPurgesRevoked(t *testing.T) {
 	past := time.Now().Add(-time.Hour)
 	oldRevoked := time.Now().Add(-40 * 24 * time.Hour)
 	expired, err := store.CreateMemory(ctx, domainmemory.Memory{
+		TenantID:   memoryTestTenantID(),
 		OwnerRole:  domainmemory.OwnerRoleHR,
 		OwnerID:    11,
 		Scope:      domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0},
@@ -208,6 +268,7 @@ func TestExpireAndCleanupArchivesExpiredAndPurgesRevoked(t *testing.T) {
 		t.Fatalf("CreateMemory() expired error = %v", err)
 	}
 	revoked, err := store.CreateMemory(ctx, domainmemory.Memory{
+		TenantID:   memoryTestTenantID(),
 		OwnerRole:  domainmemory.OwnerRoleHR,
 		OwnerID:    11,
 		Scope:      domainmemory.Scope{Type: domainmemory.ScopeHR, ID: 0},
@@ -217,7 +278,8 @@ func TestExpireAndCleanupArchivesExpiredAndPurgesRevoked(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateMemory() revoked error = %v", err)
 	}
-	if err := store.RevokeMemory(ctx, domainmemory.OwnerRoleHR, 11, revoked.ID, 11, "cleanup test"); err != nil {
+	hrOwner := memoryTestHROwner(11)
+	if err := store.RevokeMemory(ctx, hrOwner, revoked.ID, 11, "cleanup test"); err != nil {
 		t.Fatalf("RevokeMemory() error = %v", err)
 	}
 	if err := store.db.WithContext(ctx).Model(&aiMemoryRecord{}).Where("id = ?", revoked.ID).
@@ -231,11 +293,11 @@ func TestExpireAndCleanupArchivesExpiredAndPurgesRevoked(t *testing.T) {
 	if result.ExpiredArchived != 1 || result.RevokedPurged != 1 {
 		t.Fatalf("cleanup result = %+v", result)
 	}
-	archived, found, err := store.GetMemory(ctx, domainmemory.OwnerRoleHR, 11, expired.ID)
+	archived, found, err := store.GetMemory(ctx, hrOwner, expired.ID)
 	if err != nil || !found || archived.Status != domainmemory.StatusArchived {
 		t.Fatalf("archived memory = %+v found=%v err=%v", archived, found, err)
 	}
-	_, found, err = store.GetMemory(ctx, domainmemory.OwnerRoleHR, 11, revoked.ID)
+	_, found, err = store.GetMemory(ctx, hrOwner, revoked.ID)
 	if err != nil || found {
 		t.Fatalf("purged memory should be gone: found=%v err=%v", found, err)
 	}

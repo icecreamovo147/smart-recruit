@@ -1700,6 +1700,7 @@ message GetMemoryRequest {
   uint64 id = 1;
   int32 owner_role = 2;
   uint64 owner_id = 3;
+  int64 tenant_id = 4;
 }
 
 message MemoryResponse {
@@ -1744,6 +1745,7 @@ message UpdateMemoryRequest {
   bool status_set = 13;
   bool pii_level_set = 14;
   bool expires_at_set = 15;
+  int64 tenant_id = 16;
 }
 
 message RevokeMemoryRequest {
@@ -1752,6 +1754,7 @@ message RevokeMemoryRequest {
   uint64 owner_id = 3;
   int64 revoked_by = 4;
   string revoke_reason = 5;
+  int64 tenant_id = 6;
 }
 
 message RecallMemoriesRequest {
@@ -4246,6 +4249,7 @@ message DebugSemanticRetrievalRequest {
   int32 limit = 6;
   int32 owner_role = 7;
   uint64 owner_id = 8;
+  int64 tenant_id = 9;
 }
 
 message SemanticSkillDebugItem {

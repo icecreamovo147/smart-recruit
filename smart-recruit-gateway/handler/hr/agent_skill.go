@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	base "smart-recruit-gateway/handler"
+	"smart-recruit-gateway/middleware"
 	"smart-recruit-gateway/pkg/logger"
 	"smart-recruit-gateway/rpc"
 	pb "smart-recruit-proto/recruitment/pb"
@@ -146,6 +147,7 @@ func (h *AgentSkillHandler) DebugSemanticRetrieval(c *gin.Context) {
 		ownerID = uint64(hrID)
 	}
 	resp, err := h.clients.AgentSkill.DebugSemanticRetrieval(c.Request.Context(), &pb.DebugSemanticRetrievalRequest{
+		TenantId:      middleware.TenantID(c),
 		HrId:          hrID,
 		Query:         strings.TrimSpace(c.Query("query")),
 		AgentType:     strings.TrimSpace(c.DefaultQuery("agent_type", "hr_recruiting_agent")),

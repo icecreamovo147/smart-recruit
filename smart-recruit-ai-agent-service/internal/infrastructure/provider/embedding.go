@@ -137,7 +137,7 @@ type EmbeddingStore interface {
 	UpsertAIEmbedding(ctx context.Context, row AIEmbeddingRecord) error
 	InvalidateAIEmbedding(ctx context.Context, objectType string, objectID int64) error
 	ListAIEmbeddings(ctx context.Context, objectType, modelName string, limit int) ([]AIEmbeddingRecord, error)
-	ListAIEmbeddingsForOwner(ctx context.Context, objectType, modelName string, ownerRole int32, ownerID uint64, limit int) ([]AIEmbeddingRecord, error)
+	ListAIEmbeddingsForOwner(ctx context.Context, objectType, modelName string, tenantID *uint64, ownerRole int32, ownerID uint64, limit int) ([]AIEmbeddingRecord, error)
 }
 
 type AgentSkillEmbeddingDocument struct {
@@ -401,8 +401,8 @@ func (s *EmbeddingService) UpsertMemoryDocument(ctx context.Context, cfg Embeddi
 	})
 }
 
-func (s *EmbeddingService) SemanticMemoryScores(ctx context.Context, ownerRole domainmemory.OwnerRole, ownerID uint64, query string, scopes []domainmemory.Scope, targetScopeType string, targetScopeID uint64, limit int) (map[uint64]float64, string) {
-	items, err := s.searchMemoryItems(ctx, ownerRole, ownerID, query, scopes, targetScopeType, targetScopeID, limit)
+func (s *EmbeddingService) SemanticMemoryScores(ctx context.Context, owner domainmemory.OwnerKey, query string, scopes []domainmemory.Scope, targetScopeType string, targetScopeID uint64, limit int) (map[uint64]float64, string) {
+	items, err := s.searchMemoryItems(ctx, owner, query, scopes, targetScopeType, targetScopeID, limit)
 	if err != nil {
 		return nil, err.Error()
 	}
@@ -425,6 +425,14 @@ func (s *EmbeddingService) SearchMemories(ctx context.Context, req *pb.DebugSema
 		ownerRole = domainmemory.OwnerRoleHR
 		ownerID = uint64(req.GetHrId())
 	}
+	owner := domainmemory.OwnerKey{Role: ownerRole, ID: ownerID}
+	if req.GetTenantId() > 0 {
+		tenantID := uint64(req.GetTenantId())
+		owner.TenantID = &tenantID
+	}
+	if err := owner.Validate(); err != nil {
+		return nil, err
+	}
 	scopes := debugMemoryScopes(req)
 	targetType := domainmemory.ScopeApplication
 	targetID := uint64(req.GetApplicationId())
@@ -435,7 +443,7 @@ func (s *EmbeddingService) SearchMemories(ctx context.Context, req *pb.DebugSema
 			targetID = ownerID
 		}
 	}
-	items, err := s.searchMemoryItems(ctx, ownerRole, ownerID, req.GetQuery(), scopes, targetType, targetID, int(req.GetLimit()))
+	items, err := s.searchMemoryItems(ctx, owner, req.GetQuery(), scopes, targetType, targetID, int(req.GetLimit()))
 	if err != nil {
 		return nil, err
 	}
@@ -479,8 +487,8 @@ func (s *EmbeddingService) DebugSemanticRetrieval(ctx context.Context, req *pb.D
 	return skillsResp, nil
 }
 
-func (s *EmbeddingService) searchMemoryItems(ctx context.Context, ownerRole domainmemory.OwnerRole, ownerID uint64, query string, scopes []domainmemory.Scope, targetScopeType string, targetScopeID uint64, limit int) ([]*pb.SemanticMemoryDebugItem, error) {
-	if ownerID == 0 {
+func (s *EmbeddingService) searchMemoryItems(ctx context.Context, owner domainmemory.OwnerKey, query string, scopes []domainmemory.Scope, targetScopeType string, targetScopeID uint64, limit int) ([]*pb.SemanticMemoryDebugItem, error) {
+	if err := owner.Validate(); err != nil {
 		return nil, nil
 	}
 	cfg, ok, err := s.store.ResolveEmbeddingConfig(ctx, 0, 0)
@@ -497,7 +505,7 @@ func (s *EmbeddingService) searchMemoryItems(ctx context.Context, ownerRole doma
 		return nil, err
 	}
 	queryVector := embed.Vectors[0]
-	rows, err := s.store.ListAIEmbeddingsForOwner(ctx, "ai_memory", cfg.ModelName, int32(ownerRole), ownerID, 500)
+	rows, err := s.store.ListAIEmbeddingsForOwner(ctx, "ai_memory", cfg.ModelName, owner.TenantID, int32(owner.Role), owner.ID, 500)
 	if err != nil {
 		return nil, err
 	}

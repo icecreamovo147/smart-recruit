@@ -2020,7 +2020,8 @@ ALTER TABLE ai_memories
   ADD KEY idx_ai_memories_tenant_owner (tenant_id, hr_id, scope_type, scope_id),
   ADD KEY idx_ai_memories_tenant_owner_status_scope (tenant_id, owner_role, owner_id, status, scope_type, scope_id),
   ADD KEY idx_ai_memories_expires_status (expires_at, status),
-  ADD KEY idx_ai_memories_content_hash_owner (content_hash, owner_role, owner_id),
+  ADD KEY idx_ai_memories_content_hash_owner (tenant_id, owner_role, owner_id, content_hash),
+  ADD CONSTRAINT chk_ai_memories_owner_tenant CHECK ((owner_role = 2 AND tenant_id IS NOT NULL) OR (owner_role = 1 AND tenant_id IS NULL)),
   ADD CONSTRAINT fk_ai_memories_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 ALTER TABLE ai_embeddings ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_embeddings_tenant_object (tenant_id, object_type, object_id), ADD CONSTRAINT fk_ai_embeddings_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 ALTER TABLE notifications ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_notifications_tenant_receiver (tenant_id, receiver_id, receiver_account_type, created_at), ADD CONSTRAINT fk_notifications_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
@@ -2397,7 +2398,7 @@ CREATE TABLE IF NOT EXISTS `billing_refunds` (
   KEY `idx_billing_refunds_reconcile` (`next_reconcile_at`, `status`),
   CONSTRAINT `fk_billing_refunds_order` FOREIGN KEY (`order_id`) REFERENCES `billing_orders` (`id`),
   CONSTRAINT `fk_billing_refunds_payment` FOREIGN KEY (`payment_id`) REFERENCES `billing_payments` (`id`),
-  CONSTRAINT `chk_billing_refunds_status` CHECK (`status` IN ('requested', 'reviewing', 'approved', 'processing', 'unknown', 'succeeded', 'failed', 'rejected')),
+  CONSTRAINT `chk_billing_refunds_status` CHECK (`status` IN ('requested', 'waiting_usage', 'reviewing', 'approved', 'processing', 'unknown', 'succeeded', 'failed', 'rejected')),
   CONSTRAINT `chk_billing_refunds_review` CHECK (`review_mode` IN ('automatic', 'manual')),
   CONSTRAINT `chk_billing_refunds_active_slot` CHECK (`active_slot` IS NULL OR `active_slot` = 1)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Refund requests and channel results';
@@ -2501,7 +2502,7 @@ CREATE TABLE IF NOT EXISTS `ai_credit_grants` (
   CONSTRAINT `chk_ai_credit_grants_type` CHECK (`grant_type` IN ('free_monthly', 'subscription_monthly', 'credit_pack', 'manual_adjustment')),
   CONSTRAINT `chk_ai_credit_grants_source` CHECK (`source_type` IN ('subscription', 'order', 'manual', 'system')),
   CONSTRAINT `chk_ai_credit_grants_balance` CHECK (`remaining_credits` <= `total_credits`),
-  CONSTRAINT `chk_ai_credit_grants_status` CHECK (`status` IN ('active', 'exhausted', 'expired', 'revoked'))
+  CONSTRAINT `chk_ai_credit_grants_status` CHECK (`status` IN ('active', 'refund_frozen', 'exhausted', 'expired', 'revoked'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Expiring AI credit buckets consumed earliest-expiry first';
 
 CREATE TABLE IF NOT EXISTS `ai_credit_reservations` (
@@ -2531,6 +2532,23 @@ CREATE TABLE IF NOT EXISTS `ai_credit_reservations` (
   CONSTRAINT `chk_ai_credit_reservations_status` CHECK (`status` IN ('active', 'settled', 'cancelled', 'expired')),
   CONSTRAINT `chk_ai_credit_reservations_mode` CHECK (`enforcement_mode` IN ('shadow', 'enforce'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Idempotent pre-provider AI credit reservations';
+
+CREATE TABLE IF NOT EXISTS `ai_credit_reservation_allocations` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `reservation_id` BIGINT UNSIGNED NOT NULL,
+  `grant_id` BIGINT UNSIGNED NOT NULL,
+  `reserved_credits` BIGINT UNSIGNED NOT NULL,
+  `consumed_credits` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `released_credits` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ai_credit_allocation_reservation_grant` (`reservation_id`, `grant_id`),
+  KEY `idx_ai_credit_allocation_grant_open` (`grant_id`, `reservation_id`),
+  CONSTRAINT `fk_ai_credit_allocation_reservation` FOREIGN KEY (`reservation_id`) REFERENCES `ai_credit_reservations` (`id`),
+  CONSTRAINT `fk_ai_credit_allocation_grant` FOREIGN KEY (`grant_id`) REFERENCES `ai_credit_grants` (`id`),
+  CONSTRAINT `chk_ai_credit_allocation_amounts` CHECK (`reserved_credits` > 0 AND `consumed_credits` + `released_credits` <= `reserved_credits`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Exact grant backing for enforce-mode AI credit reservations';
 
 ALTER TABLE `ai_usage_events`
   ADD CONSTRAINT `fk_ai_usage_events_reservation`
