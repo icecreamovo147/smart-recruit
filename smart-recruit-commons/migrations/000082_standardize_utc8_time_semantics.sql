@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS `utc8_time_conversion_audit` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_utc8_time_conversion_cell` (`batch_id`, `table_name`, `row_pk`, `column_name`),
   KEY `idx_utc8_time_conversion_lookup` (`table_name`, `row_pk`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Auditable UTC wall-clock to Asia/Shanghai conversions';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Auditable UTC wall-clock to Asia/Shanghai conversions';
 
 SET @utc8_batch = '000082_standardize_utc8_time_semantics';
 

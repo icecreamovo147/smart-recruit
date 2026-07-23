@@ -2277,6 +2277,7 @@ CREATE TABLE IF NOT EXISTS `billing_orders` (
   `amount_fen` BIGINT UNSIGNED NOT NULL,
   `currency` CHAR(3) NOT NULL DEFAULT 'CNY',
   `status` VARCHAR(24) NOT NULL DEFAULT 'pending',
+  `active_slot` TINYINT UNSIGNED DEFAULT NULL,
   `payment_environment` VARCHAR(16) NOT NULL DEFAULT 'sandbox',
   `idempotency_key` VARCHAR(128) NOT NULL,
   `expires_at` DATETIME(3) NOT NULL,

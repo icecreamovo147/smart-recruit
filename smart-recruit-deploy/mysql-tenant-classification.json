@@ -51,6 +51,8 @@
     "refresh_tokens": {"scope": "mixed_scope", "reason": "Candidate and platform sessions are global; staff sessions bind an active tenant."},
     "jobs": {"scope": "tenant_required", "reason": "Every job is owned by one recruiting tenant."},
     "candidate_profiles": {"scope": "global", "reason": "Candidate-owned profile reused across applications to different tenants."},
+    "candidate_educations": {"scope": "global", "reason": "Candidate-owned education history reused across applications to different tenants."},
+    "candidate_experiences": {"scope": "global", "reason": "Candidate-owned work history reused across applications to different tenants."},
     "resumes": {"scope": "global", "reason": "Candidate-owned source resume reused across tenants."},
     "resume_parse_runs": {"scope": "global", "reason": "Parsing is attached to a candidate-owned source resume."},
     "resume_profiles": {"scope": "global", "reason": "Structured profile is derived from a candidate-owned source resume."},

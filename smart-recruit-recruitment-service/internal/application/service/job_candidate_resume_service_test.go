@@ -98,8 +98,8 @@ func TestCandidateResumeServiceProfilePresignAndConfirm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateProfile() error = %v", err)
 	}
-	if profile.Profile.IsComplete != 1 {
-		t.Fatalf("profile complete = %d, want 1", profile.Profile.IsComplete)
+	if profile.Profile.IsComplete != 0 {
+		t.Fatalf("profile complete = %d, want incomplete profile without required career fields", profile.Profile.IsComplete)
 	}
 
 	presign, err := svc.PresignResumeUpload(ctx, command.PresignResumeUpload{

@@ -475,24 +475,28 @@ func (r *Runner) Baseline(ctx context.Context, targetVersion int) error {
 
 	// ── Verify critical columns added by ALTER migrations ──────────
 	criticalColumns := []struct {
-		table  string
-		column string
+		table      string
+		column     string
+		minVersion int
 	}{
-		{"users", "account_type"},
-		{"users", "status"},
-		{"users", "token_version"},
-		{"applications", "status_key"},
-		{"notifications", "receiver_account_type"},
-		{"candidate_profiles", "city"},
-		{"candidate_profiles", "years_of_experience"},
-		{"candidate_profiles", "job_status"},
-		{"candidate_profiles", "expected_position"},
-		{"candidate_profiles", "expected_salary_min"},
-		{"candidate_profiles", "expected_salary_max"},
-		{"candidate_profiles", "available_from"},
-		{"candidate_profiles", "summary"},
+		{"users", "account_type", 1},
+		{"users", "status", 1},
+		{"users", "token_version", 1},
+		{"applications", "status_key", 1},
+		{"notifications", "receiver_account_type", 1},
+		{"candidate_profiles", "city", 84},
+		{"candidate_profiles", "years_of_experience", 84},
+		{"candidate_profiles", "job_status", 84},
+		{"candidate_profiles", "expected_position", 84},
+		{"candidate_profiles", "expected_salary_min", 84},
+		{"candidate_profiles", "expected_salary_max", 84},
+		{"candidate_profiles", "available_from", 84},
+		{"candidate_profiles", "summary", 84},
 	}
 	for _, cc := range criticalColumns {
+		if targetVersion < cc.minVersion {
+			continue
+		}
 		exists, err := r.columnExists(ctx, conn, cc.table, cc.column)
 		if err != nil {
 			return fmt.Errorf("migration: baseline verification: %w", err)
