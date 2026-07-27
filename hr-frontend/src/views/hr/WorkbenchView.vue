@@ -412,8 +412,6 @@ const goTo = (path: string) => router.push(path)
 .workbench {
   height: 100%;
   overflow-y: auto;
-  padding: 24px;
-  background: var(--bg);
   color: var(--text-primary);
 }
 .workbench-error {
@@ -426,7 +424,6 @@ const goTo = (path: string) => router.push(path)
   border-radius: 20px;
   padding: 28px;
   border: 1px solid var(--border);
-  box-shadow: var(--admin-console-card-shadow);
 }
 
 /* ── Dashboard Header ── */
@@ -763,9 +760,6 @@ const goTo = (path: string) => router.push(path)
 }
 
 @media (max-width: 768px) {
-  .workbench {
-    padding: 16px;
-  }
   .dashboard-shell {
     padding: 20px;
   }
