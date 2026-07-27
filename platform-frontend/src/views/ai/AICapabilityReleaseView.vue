@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -129,7 +130,7 @@ const openEditor = async (version?: PlatformAICapabilityVersion) => {
 	try {
 		await loadConfigurationOptions()
 	} catch {
-		ElMessage.error('发布配置选项加载失败，请检查模型与资产管理权限后重试')
+		ElMessage.error(t('frontend.operation_failed'))
 		return
 	}
 	editingVersion.value = version || null
@@ -150,8 +151,8 @@ const openEditor = async (version?: PlatformAICapabilityVersion) => {
 }
 
 const submitDraft = async () => {
-  if (!selected.value || !form.change_note.trim()) { ElMessage.warning('请填写版本变更说明'); return }
-	if (!form.allowed_llm_model_ids.length || !form.default_llm_model_id || !form.allowed_llm_model_ids.includes(form.default_llm_model_id)) { ElMessage.warning('请选择模型池，并确保默认模型属于模型池'); return }
+  if (!selected.value || !form.change_note.trim()) { ElMessage.warning(t('common.invalid_request')); return }
+	if (!form.allowed_llm_model_ids.length || !form.default_llm_model_id || !form.allowed_llm_model_ids.includes(form.default_llm_model_id)) { ElMessage.warning(t('common.invalid_request')); return }
 	const normalized = JSON.stringify({ schema_version: 1, capability_key: selected.value.capability_key, audience: selected.value.audience, model_policy: { allowed_llm_model_ids: form.allowed_llm_model_ids, default_llm_model_id: form.default_llm_model_id, allowed_embedding_model_ids: form.allowed_embedding_model_ids, default_embedding_model_id: form.default_embedding_model_id || 0 }, configuration_refs: { agent_ids: form.agent_ids, prompt_template_ids: form.prompt_template_ids, agent_skill_version_ids: form.agent_skill_version_ids, mcp_policy_ids: form.mcp_policy_ids } })
   if (editingVersion.value) {
     await updatePlatformAICapabilityDraft(editingVersion.value.id, { snapshot_json: normalized, change_note: form.change_note.trim() })
@@ -159,14 +160,14 @@ const submitDraft = async () => {
     await createPlatformAICapabilityDraft(selected.value.id, { snapshot_json: normalized, change_note: form.change_note.trim() })
   }
   editorVisible.value = false
-  ElMessage.success('能力版本草稿已保存')
+  ElMessage.success(t('common.success'))
   await loadVersions(selected.value)
 }
 
 const publish = async (version: PlatformAICapabilityVersion) => {
   const validation = validateSnapshot(version.snapshot_json)
   if (validation.errors.length) {
-    ElMessage.error(`无法发布：${validation.errors.join('；')}`)
+    ElMessage.error(t('frontend.operation_failed'))
     return
   }
   const warningText = validation.warnings.length ? `\n风险提示：${validation.warnings.join('；')}。` : ''
@@ -176,7 +177,7 @@ const publish = async (version: PlatformAICapabilityVersion) => {
     { type: 'warning', confirmButtonText: '确认发布', cancelButtonText: '取消' },
   )
   await publishPlatformAICapabilityVersion(version.id)
-  ElMessage.success('AI 能力版本已发布')
+  ElMessage.success(t('common.success'))
   if (selected.value) await loadVersions(selected.value)
   const result = await listPlatformAICapabilities()
   capabilities.value = result.list || []
@@ -194,7 +195,7 @@ const deleteDraft = async (version: PlatformAICapabilityVersion) => {
 	}
 	try {
 		await deletePlatformAICapabilityDraft(version.id)
-		ElMessage.success('能力版本草稿已删除')
+		ElMessage.success(t('common.success'))
 		if (selected.value) await loadVersions(selected.value)
 	} catch (error) {
 		ElMessage.error((error as { message?: string }).message || '删除能力版本草稿失败')

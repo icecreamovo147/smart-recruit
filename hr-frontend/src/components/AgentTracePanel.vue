@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import DOMPurify from 'dompurify'
@@ -169,7 +170,7 @@ const loadTraces = async () => {
     runs.value = []
     traces.value = []
     debugLog.trace.error('loadTraces_failed', { session_id: props.sessionId, error: (e as Error)?.message })
-    ElMessage.error('加载执行轨迹失败，请稍后重试')
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     loading.value = false
   }

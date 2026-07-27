@@ -1,3 +1,5 @@
+import { t } from '@shared/i18n'
+
 /**
  * Shared durable-run chat flow used by AIChatView entry points.
  * Keeps create / confirm paths on the same useHrAgentRun runtime.
@@ -271,7 +273,7 @@ function mapSettlement(
     return {
       outcome: 'failed',
       state,
-      error: new Error('AI 服务响应超时，请稍后重试'),
+      error: new Error(t('ai.stream_timeout')),
     }
   }
   if (state.status === 'failed' && (state.errorMessage || state.errorType)) {
@@ -313,7 +315,7 @@ export async function executeCreateChatRun(
     return {
       outcome: 'failed',
       state: runtime.state.value,
-      error: error instanceof Error ? error : new Error('创建 Agent 运行失败'),
+      error: error instanceof Error ? error : new Error(t('ai.stream_failed')),
     }
   } finally {
     stop()
@@ -350,7 +352,7 @@ export async function executeConfirmChatRun(
     return {
       outcome: 'failed',
       state: runtime.state.value,
-      error: error instanceof Error ? error : new Error('确认 Agent 运行失败'),
+      error: error instanceof Error ? error : new Error(t('ai.stream_failed')),
     }
   } finally {
     stop()

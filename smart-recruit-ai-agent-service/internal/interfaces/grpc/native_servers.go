@@ -982,14 +982,14 @@ func (s *nativeAIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.Ch
 	result, err := s.runHRChatRuntime(ctx, req, nil)
 	if err != nil {
 		if code := hrContextErrorCode(err); code != "" {
-			return &pb.ChatResponse{Code: configCodeUnavailable, Msg: code, CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), ContextUsage: result.contextUsage}, nil
+			return &pb.ChatResponse{Code: configCodeUnavailable, Msg: hrContextMessageKey(code), CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), ContextUsage: result.contextUsage}, nil
 		}
 		return nil, err
 	}
 	if result.providerUnavailable && !result.fallbackUsed {
-		return &pb.ChatResponse{Code: configCodeUnavailable, Msg: errAIProviderRequired.Error(), CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), ContextUsage: result.contextUsage}, nil
+		return &pb.ChatResponse{Code: configCodeUnavailable, Msg: "ai.provider_unavailable", CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), ContextUsage: result.contextUsage}, nil
 	}
-	return &pb.ChatResponse{Code: 0, Msg: "success", Reply: result.reply, CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, ContextUsage: result.contextUsage, SuggestedQuestions: result.suggestedQuestions}, nil
+	return &pb.ChatResponse{Code: 0, Msg: "common.success", Reply: result.reply, CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, ContextUsage: result.contextUsage, SuggestedQuestions: result.suggestedQuestions}, nil
 }
 
 func (s *nativeAIService) ChatStream(req *pb.ChatRequest, stream gogrpc.ServerStreamingServer[pb.ChatStreamResponse]) error {
@@ -1006,14 +1006,22 @@ func (s *nativeAIService) ChatStream(req *pb.ChatRequest, stream gogrpc.ServerSt
 	})
 	if err != nil {
 		if code := hrContextErrorCode(err); code != "" {
-			return stream.Send(&pb.ChatStreamResponse{Code: configCodeUnavailable, Msg: code, Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CreatedAt: formatTime(time.Now()), EventType: "error", EventMessage: code, ErrorType: code, ContextUsage: result.contextUsage})
+			messageKey := hrContextMessageKey(code)
+			return stream.Send(&pb.ChatStreamResponse{Code: configCodeUnavailable, Msg: messageKey, Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CreatedAt: formatTime(time.Now()), EventType: "error", EventMessage: messageKey, ErrorType: code, ContextUsage: result.contextUsage})
 		}
 		return err
 	}
 	if result.providerUnavailable && !result.fallbackUsed {
-		return stream.Send(&pb.ChatStreamResponse{Code: configCodeUnavailable, Msg: errAIProviderRequired.Error(), Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CreatedAt: formatTime(time.Now()), EventType: "error", EventMessage: errAIProviderRequired.Error(), ErrorType: "AI_PROVIDER_UNAVAILABLE", ContextUsage: result.contextUsage})
+		return stream.Send(&pb.ChatStreamResponse{Code: configCodeUnavailable, Msg: "ai.provider_unavailable", Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CreatedAt: formatTime(time.Now()), EventType: "error", EventMessage: "ai.provider_unavailable", ErrorType: "AI_PROVIDER_UNAVAILABLE", ContextUsage: result.contextUsage})
 	}
-	return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: result.reply, Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, CreatedAt: formatTime(time.Now()), EventType: "done", EventMessage: "completed", ContextUsage: result.contextUsage, SuggestedQuestions: result.suggestedQuestions})
+	return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", Delta: result.reply, Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, CreatedAt: formatTime(time.Now()), EventType: "done", EventMessage: "ai.event.completed", ContextUsage: result.contextUsage, SuggestedQuestions: result.suggestedQuestions})
+}
+
+func hrContextMessageKey(code string) string {
+	if code == hrContextBudgetExceededCode {
+		return "ai.context_budget_exceeded"
+	}
+	return "ai.context_config_invalid"
 }
 
 type hrChatStreamEmitter func(*pb.ChatStreamResponse, *agentRunDisplayContext) error
@@ -1222,10 +1230,10 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	modelInfoUsage.Estimated = true
 	modelInfoUsage.Source = "model_configuration"
 	modelInfoUsage.Stage = "model_selected"
-	if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "model_info", ContextUsage: modelInfoUsage, CreatedAt: formatTime(time.Now())}); err != nil {
+	if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "model_info", ContextUsage: modelInfoUsage, CreatedAt: formatTime(time.Now())}); err != nil {
 		return result, err
 	}
-	if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "thinking", EventMessage: "planning HR recruiting context", CreatedAt: formatTime(time.Now())}); err != nil {
+	if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "thinking", EventMessage: "ai.event.planning", CreatedAt: formatTime(time.Now())}); err != nil {
 		return result, err
 	}
 	governance, err := s.loadHRRuntimeGovernanceForAgentWithRelease(ctx, req, opts.effectiveAgentID, opts.effectiveAgentPinned, result.runtimeModel.ConfigurationRefs)
@@ -1307,7 +1315,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		reply = hrDeterministicToolReply(traces)
 	} else if gateRequired && !gateSatisfied {
 		reply = hrPlanGateReply(plan, traces)
-		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "fallback", EventMessage: "live-data evidence gate blocked model generation", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
+		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "fallback", EventMessage: "ai.event.evidence_gate_blocked", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 			return result, err
 		}
 	} else if plan.Intent == commonsai.IntentStatusChangeProposal {
@@ -1326,18 +1334,20 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		if err != nil {
 			return result, err
 		}
-		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "context_usage", EventMessage: "context usage estimated", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
+		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "context_usage", EventMessage: "ai.event.context_usage_estimated", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 			return result, err
 		}
 		onStatus := func(eventType, eventMessage, errorType, toolName string) error {
-			event := &pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: eventType, EventMessage: eventMessage, ToolName: toolName, CreatedAt: formatTime(time.Now())}
+			event := &pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: eventType, EventMessage: eventMessage, ToolName: toolName, CreatedAt: formatTime(time.Now())}
 			if eventType == "process_delta" && eventMessage != "" {
 				event.Delta = eventMessage
 			}
 			if errorType != "" {
 				event.ErrorType = errorType
 				if eventType == "error" {
-					event.Msg = eventMessage
+					event.Code = configCodeUnavailable
+					event.Msg = "ai.stream_failed"
+					event.EventMessage = "ai.stream_failed"
 				}
 			}
 			if eventType == "timeout_warning" || strings.TrimSpace(errorType) != "" {
@@ -1380,7 +1390,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			if delta != "" {
 				result.streamedTextDelta = true
 			}
-			return sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: delta, EventType: "generating", EventMessage: "streaming answer", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer"))
+			return sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", Delta: delta, EventType: "generating", EventMessage: "ai.event.streaming_answer", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer"))
 		})
 		onDelta := streamFilter.Write
 
@@ -1450,7 +1460,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		}
 		result.billingTokenUsage = cloneTokenUsage(toolMetadata.BillingTokenUsage)
 		if applyToolMetadataContextUsage(result.contextUsage, toolMetadata) {
-			if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "context_usage", EventMessage: "provider context usage", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
+			if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "context_usage", EventMessage: "ai.event.provider_context_usage", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 				return result, err
 			}
 		}
@@ -1474,7 +1484,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			result.fallbackUsed = true
 			auditErrorCode = "fallback"
 			reply = commonsai.BuildHRFallbackReply(toCommonsToolTraces(traces))
-			if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "fallback", EventMessage: "model failed after useful tool results; using deterministic fallback", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
+			if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "fallback", EventMessage: "ai.event.deterministic_fallback", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 				return result, err
 			}
 		} else {
@@ -1526,10 +1536,10 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		result.contextUsage = estimateHRCompletionContextUsage(result.runtimeModel, contextPrompt, req.GetMessage(), selectedHistory, userMessage, traces, governance)
 		result.contextUsage.OmittedMessageCount = assemblyUsage.GetOmittedMessageCount() + int32(extraOmitted)
 		result.contextUsage.SummaryApplied = summary != ""
-		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "context_usage", EventMessage: "context usage estimated", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
+		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "context_usage", EventMessage: "ai.event.context_usage_estimated", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 			return result, err
 		}
-		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "generating", EventMessage: "calling model with HR context", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
+		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "generating", EventMessage: "ai.event.calling_model", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 			return result, err
 		}
 		var completionResult commonsai.GenerateResult
@@ -1538,7 +1548,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		reply = completionResult.Content
 		result.billingTokenUsage = cloneTokenUsage(completionResult.TokenUsage)
 		if applyActualContextUsage(result.contextUsage, completionResult.TokenUsage) {
-			if emitErr := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "context_usage", EventMessage: "provider context usage", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); emitErr != nil {
+			if emitErr := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "context_usage", EventMessage: "ai.event.provider_context_usage", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); emitErr != nil {
 				return result, emitErr
 			}
 		}
@@ -1561,7 +1571,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			result.fallbackUsed = true
 			auditErrorCode = "fallback"
 			reply = commonsai.BuildHRFallbackReply(toCommonsToolTraces(traces))
-			if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "fallback", EventMessage: "model failed after useful tool results; using deterministic fallback", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
+			if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "fallback", EventMessage: "ai.event.deterministic_fallback", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 				return result, err
 			}
 		}
@@ -1774,7 +1784,7 @@ func (s *nativeAIService) preExecutePlannedHRTools(ctx context.Context, req *pb.
 				continue
 			}
 			if emit != nil {
-				if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_calling", EventMessage: "querying " + name, ToolName: name, CreatedAt: formatTime(time.Now())}, displayContextForTool(plan, name)); err != nil {
+				if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "tool_calling", EventMessage: "ai.event.tool_calling", ToolName: name, CreatedAt: formatTime(time.Now())}, displayContextForTool(plan, name)); err != nil {
 					return traces, err
 				}
 			}
@@ -1804,7 +1814,7 @@ func (s *nativeAIService) preExecutePlannedHRTools(ctx context.Context, req *pb.
 				trace = persisted
 			}
 			if emit != nil {
-				event := &pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_done", EventMessage: name + " finished", ToolName: name, CreatedAt: formatTime(time.Now())}
+				event := &pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "tool_done", EventMessage: "ai.event.tool_finished", ToolName: name, CreatedAt: formatTime(time.Now())}
 				if trace.ErrorMsg != "" {
 					event.EventType = "error"
 					event.EventMessage = trace.ErrorMsg
@@ -2893,7 +2903,7 @@ func (s *nativeAIService) executeHRContextTools(ctx context.Context, req *pb.Cha
 		traces = append(traces, trace)
 	} else {
 		if emit != nil {
-			if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_calling", EventMessage: "loading application snapshot", ToolName: hrApplicationSnapshotTool, CreatedAt: formatTime(time.Now())}, nil); err != nil {
+			if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "tool_calling", EventMessage: "ai.event.application_snapshot_loading", ToolName: hrApplicationSnapshotTool, CreatedAt: formatTime(time.Now())}, nil); err != nil {
 				return nil, err
 			}
 		}
@@ -2933,7 +2943,7 @@ func (s *nativeAIService) executeHRContextTools(ctx context.Context, req *pb.Cha
 			trace = persisted
 		}
 		if emit != nil {
-			event := &pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_done", EventMessage: "application snapshot loaded", ToolName: "get_application_snapshot", CreatedAt: formatTime(time.Now())}
+			event := &pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "tool_done", EventMessage: "ai.event.application_snapshot_loaded", ToolName: "get_application_snapshot", CreatedAt: formatTime(time.Now())}
 			if trace.ErrorMsg != "" {
 				event.EventType = "error"
 				event.EventMessage = trace.ErrorMsg
@@ -2978,7 +2988,7 @@ func (s *nativeAIService) executeHRMCPTools(ctx context.Context, req *pb.ChatReq
 	for _, call := range calls {
 		argsJSON := call.argsJSON(req.GetMessage())
 		if emit != nil {
-			if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_calling", EventMessage: "calling MCP tool", ToolName: call.runtimeName, CreatedAt: formatTime(time.Now())}, nil); err != nil {
+			if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "tool_calling", EventMessage: "ai.event.mcp_calling", ToolName: call.runtimeName, CreatedAt: formatTime(time.Now())}, nil); err != nil {
 				return traces, err
 			}
 		}
@@ -3007,7 +3017,7 @@ func (s *nativeAIService) executeHRMCPTools(ctx context.Context, req *pb.ChatReq
 			trace = persisted
 		}
 		if emit != nil {
-			event := &pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_done", EventMessage: "MCP tool finished", ToolName: call.runtimeName, CreatedAt: formatTime(time.Now())}
+			event := &pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "tool_done", EventMessage: "ai.event.mcp_finished", ToolName: call.runtimeName, CreatedAt: formatTime(time.Now())}
 			if trace.ErrorMsg != "" {
 				event.EventType = "error"
 				event.EventMessage = trace.ErrorMsg
@@ -3826,7 +3836,7 @@ func (s *nativeAIService) History(ctx context.Context, req *pb.ChatHistoryReques
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ChatHistoryResponse{Code: 0, Msg: "success", List: mapChatMessages(rows)}, nil
+	return &pb.ChatHistoryResponse{Code: 0, Msg: "common.success", List: mapChatMessages(rows)}, nil
 }
 
 func (s *nativeAIService) AnalyzeApplication(ctx context.Context, req *pb.AnalyzeApplicationRequest) (*pb.AnalyzeApplicationResponse, error) {
@@ -3835,11 +3845,11 @@ func (s *nativeAIService) AnalyzeApplication(ctx context.Context, req *pb.Analyz
 	if req.GetCapabilityVersionId() > 0 {
 		resolver, ok := s.store.(capabilityRuntimeModelResolver)
 		if !ok {
-			return &pb.AnalyzeApplicationResponse{Code: configCodeUnavailable, Msg: "platform AI capability resolver is unavailable"}, nil
+			return &pb.AnalyzeApplicationResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 		}
 		resolved, resolveErr := resolver.ResolveCapabilityRuntimeModel(ctx, "ai.application_analysis", platformAIAudienceTenantHR, req.GetCapabilityVersionId(), modelID)
 		if resolveErr != nil {
-			return &pb.AnalyzeApplicationResponse{Code: configCodeUnavailable, Msg: resolveErr.Error()}, nil
+			return &pb.AnalyzeApplicationResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 		}
 		modelID = resolved.EffectiveModelID
 		runtimeModel = RuntimeModelInfo{ID: resolved.EffectiveModelID, Name: resolved.ModelName, ProviderName: resolved.ProviderName, ContextWindowTokens: resolved.ContextWindowTokens, MaxOutputTokens: resolved.MaxOutputTokens, RequestedModelID: resolved.RequestedModelID, FallbackReason: resolved.FallbackReason, CapabilityVersionID: resolved.CapabilityVersionID, CapabilitySnapshotHash: resolved.CapabilitySnapshotHash, ConfigurationRefs: resolved.ConfigurationRefs}
@@ -3852,14 +3862,14 @@ func (s *nativeAIService) AnalyzeApplication(ctx context.Context, req *pb.Analyz
 	reply, err := s.complete(ctx, fmt.Sprintf("Analyze application %d", req.GetApplicationId()), modelID)
 	if err != nil {
 		if errors.Is(err, errAIProviderRequired) {
-			return &pb.AnalyzeApplicationResponse{Code: configCodeUnavailable, Msg: err.Error()}, nil
+			return &pb.AnalyzeApplicationResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 		}
 		return nil, err
 	}
 	if runtimeModel.ID > 0 {
 		s.bestEffortMeterUsage(ctx, UsageAuditRow{Provider: runtimeModel.ProviderName, Model: runtimeModel.Name, EstimatedTokens: estimateTokens(fmt.Sprintf("Analyze application %d%s", req.GetApplicationId(), reply))})
 	}
-	return &pb.AnalyzeApplicationResponse{Code: 0, Msg: "success", Reply: reply, ContextUsage: newHRContextUsageEnvelope(runtimeModel, 0)}, nil
+	return &pb.AnalyzeApplicationResponse{Code: 0, Msg: "common.success", Reply: reply, ContextUsage: newHRContextUsageEnvelope(runtimeModel, 0)}, nil
 }
 
 func (s *nativeAIService) ListChatSessions(ctx context.Context, req *pb.ChatSessionListRequest) (*pb.ChatSessionListResponse, error) {
@@ -3867,7 +3877,7 @@ func (s *nativeAIService) ListChatSessions(ctx context.Context, req *pb.ChatSess
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ChatSessionListResponse{Code: 0, Msg: "success", Total: total, List: mapChatSessions(rows)}, nil
+	return &pb.ChatSessionListResponse{Code: 0, Msg: "common.success", Total: total, List: mapChatSessions(rows)}, nil
 }
 
 func (s *nativeAIService) CreateChatSession(ctx context.Context, req *pb.CreateChatSessionRequest) (*pb.CreateChatSessionResponse, error) {
@@ -3875,7 +3885,7 @@ func (s *nativeAIService) CreateChatSession(ctx context.Context, req *pb.CreateC
 	if err != nil {
 		return nil, err
 	}
-	return &pb.CreateChatSessionResponse{Code: 0, Msg: "success", Session: mapChatSession(session)}, nil
+	return &pb.CreateChatSessionResponse{Code: 0, Msg: "common.success", Session: mapChatSession(session)}, nil
 }
 
 func (s *nativeAIService) SessionMessages(ctx context.Context, req *pb.SessionMessagesRequest) (*pb.ChatHistoryResponse, error) {
@@ -3883,7 +3893,7 @@ func (s *nativeAIService) SessionMessages(ctx context.Context, req *pb.SessionMe
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ChatHistoryResponse{Code: 0, Msg: "success", List: mapChatMessages(rows)}, nil
+	return &pb.ChatHistoryResponse{Code: 0, Msg: "common.success", List: mapChatMessages(rows)}, nil
 }
 
 // PreviewChatContext recompiles the current persisted conversation for the
@@ -3893,7 +3903,7 @@ func (s *nativeAIService) SessionMessages(ctx context.Context, req *pb.SessionMe
 // refresh restores the same model-relative A / B view.
 func (s *nativeAIService) PreviewChatContext(ctx context.Context, req *pb.PreviewChatContextRequest) (*pb.PreviewChatContextResponse, error) {
 	if s.store == nil {
-		return &pb.PreviewChatContextResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
+		return &pb.PreviewChatContextResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	if req.GetSessionId() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "chat session id is required")
@@ -3931,14 +3941,14 @@ func (s *nativeAIService) PreviewChatContext(ctx context.Context, req *pb.Previe
 	usage := s.previewHRConversationContextUsage(ctx, chatReq, model, history, governance)
 	sessionStore, ok := s.store.(chatSessionContextModelStore)
 	if !ok {
-		return &pb.PreviewChatContextResponse{Code: configCodeUnavailable, Msg: "chat session context model persistence is unavailable"}, nil
+		return &pb.PreviewChatContextResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	if err := sessionStore.UpdateChatSessionContextModel(ctx, ownerRoleHR, req.GetHrId(), session.ID, req.GetModelId(), usage); err != nil {
 		return nil, err
 	}
 	return &pb.PreviewChatContextResponse{
 		Code:            0,
-		Msg:             "success",
+		Msg:             "common.success",
 		SelectedModelId: req.GetModelId(),
 		ContextUsage:    usage,
 	}, nil
@@ -4000,12 +4010,12 @@ func (s *nativeAIService) CreateApplicationAnalysisSession(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	return &pb.CreateApplicationAnalysisSessionResponse{Code: 0, Msg: "success", Session: mapChatSession(session), Messages: mapChatMessages([]ChatMessageRow{message})}, nil
+	return &pb.CreateApplicationAnalysisSessionResponse{Code: 0, Msg: "common.success", Session: mapChatSession(session), Messages: mapChatMessages([]ChatMessageRow{message})}, nil
 }
 
 func (s *nativeAIService) UpdateSession(ctx context.Context, req *pb.UpdateSessionRequest) (*pb.CommonResponse, error) {
 	if s.store == nil {
-		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
+		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	if err := s.store.UpdateChatSessionTitle(ctx, ownerRoleHR, req.GetHrId(), req.GetSessionId(), req.GetTitle()); err != nil {
 		return nil, err
@@ -4015,7 +4025,7 @@ func (s *nativeAIService) UpdateSession(ctx context.Context, req *pb.UpdateSessi
 
 func (s *nativeAIService) DeleteSession(ctx context.Context, req *pb.DeleteSessionRequest) (*pb.CommonResponse, error) {
 	if s.store == nil {
-		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
+		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	if err := s.store.DeleteChatSession(ctx, ownerRoleHR, req.GetHrId(), req.GetSessionId()); err != nil {
 		return nil, err
@@ -4635,7 +4645,7 @@ func (s *nativeAIService) CandidateListSessions(ctx context.Context, req *pb.Can
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ChatSessionListResponse{Code: 0, Msg: "success", Total: total, List: mapChatSessions(rows)}, nil
+	return &pb.ChatSessionListResponse{Code: 0, Msg: "common.success", Total: total, List: mapChatSessions(rows)}, nil
 }
 
 func (s *nativeAIService) CandidateCreateSession(ctx context.Context, req *pb.CandidateCreateSessionRequest) (*pb.CreateChatSessionResponse, error) {
@@ -4656,7 +4666,7 @@ func (s *nativeAIService) CandidateCreateSession(ctx context.Context, req *pb.Ca
 			return nil, err
 		}
 	}
-	return &pb.CreateChatSessionResponse{Code: 0, Msg: "success", Session: mapChatSession(session)}, nil
+	return &pb.CreateChatSessionResponse{Code: 0, Msg: "common.success", Session: mapChatSession(session)}, nil
 }
 
 func (s *nativeAIService) CandidateSessionMessages(ctx context.Context, req *pb.CandidateSessionMessagesRequest) (*pb.ChatHistoryResponse, error) {
@@ -4664,12 +4674,12 @@ func (s *nativeAIService) CandidateSessionMessages(ctx context.Context, req *pb.
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ChatHistoryResponse{Code: 0, Msg: "success", List: mapChatMessages(rows)}, nil
+	return &pb.ChatHistoryResponse{Code: 0, Msg: "common.success", List: mapChatMessages(rows)}, nil
 }
 
 func (s *nativeAIService) CandidateUpdateSession(ctx context.Context, req *pb.CandidateUpdateSessionRequest) (*pb.CommonResponse, error) {
 	if s.missingStore() {
-		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
+		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	if err := s.store.UpdateChatSessionTitle(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId(), req.GetTitle()); err != nil {
 		return nil, err
@@ -4679,7 +4689,7 @@ func (s *nativeAIService) CandidateUpdateSession(ctx context.Context, req *pb.Ca
 
 func (s *nativeAIService) CandidateDeleteSession(ctx context.Context, req *pb.CandidateDeleteSessionRequest) (*pb.CommonResponse, error) {
 	if s.missingStore() {
-		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
+		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	if err := s.store.DeleteChatSession(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId()); err != nil {
 		return nil, err
@@ -4705,7 +4715,7 @@ func (s *nativeAIService) listCandidateSessions(ctx context.Context, req *pb.Can
 
 func (s *nativeAIService) GetToolTraces(ctx context.Context, req *pb.GetToolTracesRequest) (*pb.GetToolTracesResponse, error) {
 	if s.store == nil {
-		return &pb.GetToolTracesResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
+		return &pb.GetToolTracesResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	rows, err := s.store.ListToolTraces(ctx, req.GetHrId(), req.GetSessionId())
 	if err != nil {
@@ -4715,12 +4725,12 @@ func (s *nativeAIService) GetToolTraces(ctx context.Context, req *pb.GetToolTrac
 	for _, row := range rows {
 		items = append(items, &pb.ToolTraceItem{Id: row.ID, SessionId: row.SessionID, ToolName: row.ToolName, ArgsJson: row.ArgsJSON, ResultContent: row.ResultContent, DurationMs: row.DurationMs, ErrorMsg: row.ErrorMsg, CreatedAt: formatTime(row.CreatedAt)})
 	}
-	return &pb.GetToolTracesResponse{Code: 0, Msg: "success", List: items}, nil
+	return &pb.GetToolTracesResponse{Code: 0, Msg: "common.success", List: items}, nil
 }
 
 func (s *nativeAIService) GetAgentRuns(ctx context.Context, req *pb.GetAgentRunsRequest) (*pb.GetAgentRunsResponse, error) {
 	if s.store == nil {
-		return &pb.GetAgentRunsResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
+		return &pb.GetAgentRunsResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	rows, err := s.store.ListAgentRuns(ctx, req.GetHrId(), req.GetSessionId())
 	if err != nil {
@@ -4737,7 +4747,7 @@ func (s *nativeAIService) GetAgentRuns(ctx context.Context, req *pb.GetAgentRuns
 		}
 		items = append(items, item)
 	}
-	return &pb.GetAgentRunsResponse{Code: 0, Msg: "success", List: items}, nil
+	return &pb.GetAgentRunsResponse{Code: 0, Msg: "common.success", List: items}, nil
 }
 
 func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgentRunRequest) (*pb.CreateAgentRunResponse, error) {
@@ -4749,7 +4759,7 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 		return nil, status.Error(codes.InvalidArgument, "agent run message is required")
 	}
 	if s.store == nil {
-		return &pb.CreateAgentRunResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
+		return &pb.CreateAgentRunResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	payload := agentRunPayloadFromCreateRequest(req)
 	payload.AuthUserID = platformmetadata.GetAuthUserID(ctx)
@@ -4788,7 +4798,7 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 		return nil, err
 	}
 	if idempotent {
-		return &pb.CreateAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run), IdempotentReplay: true}, nil
+		return &pb.CreateAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run), IdempotentReplay: true}, nil
 	}
 	created, err := s.appendAgentRunEvent(ctx, run.ID, "run.created", `{"status":"queued"}`)
 	if err != nil {
@@ -4798,7 +4808,7 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 		run.LastEventSeq = created.Seq
 	}
 	s.dispatchAgentRun(run)
-	return &pb.CreateAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run), IdempotentReplay: false}, nil
+	return &pb.CreateAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run), IdempotentReplay: false}, nil
 }
 
 func (s *nativeAIService) GetAgentRun(ctx context.Context, req *pb.GetAgentRunRequest) (*pb.GetAgentRunResponse, error) {
@@ -4807,14 +4817,14 @@ func (s *nativeAIService) GetAgentRun(ctx context.Context, req *pb.GetAgentRunRe
 		return nil, err
 	}
 	if !found {
-		return &pb.GetAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+		return &pb.GetAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
-	return &pb.GetAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
+	return &pb.GetAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
 }
 
 func (s *nativeAIService) GetActiveAgentRun(ctx context.Context, req *pb.GetActiveAgentRunRequest) (*pb.GetActiveAgentRunResponse, error) {
 	if s.store == nil {
-		return &pb.GetActiveAgentRunResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
+		return &pb.GetActiveAgentRunResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	run, found, err := s.store.GetActiveAgentRun(ctx, req.GetHrId(), req.GetSessionId())
 	if err != nil {
@@ -4833,7 +4843,7 @@ func (s *nativeAIService) GetActiveAgentRun(ctx context.Context, req *pb.GetActi
 		}
 		found = false
 	}
-	return &pb.GetActiveAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run), HasActiveRun: found}, nil
+	return &pb.GetActiveAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run), HasActiveRun: found}, nil
 }
 
 func (s *nativeAIService) SubscribeAgentRunEvents(req *pb.SubscribeAgentRunEventsRequest, stream gogrpc.ServerStreamingServer[pb.AgentRunEvent]) error {
@@ -4935,14 +4945,14 @@ func (s *nativeAIService) CancelAgentRun(ctx context.Context, req *pb.CancelAgen
 		return nil, err
 	}
 	if !found {
-		return &pb.CancelAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+		return &pb.CancelAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 
 	if isTerminalAgentRunStatus(run.Status) || run.Status == agentRunStatusCancelRequested {
-		return &pb.CancelAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
+		return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
 	}
 	if !isCancelableAgentRunStatus(run.Status) {
-		return &pb.CancelAgentRunResponse{Code: agentRunCodeBadRequest, Msg: illegalAgentRunTransitionMessage("cancel", run.Status), Run: mapAgentRunSnapshot(run)}, nil
+		return &pb.CancelAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
 	}
 
 	s.runTransitionMu.Lock()
@@ -4952,20 +4962,20 @@ func (s *nativeAIService) CancelAgentRun(ctx context.Context, req *pb.CancelAgen
 		return nil, err
 	}
 	if !found {
-		return &pb.CancelAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+		return &pb.CancelAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 	if isTerminalAgentRunStatus(run.Status) || run.Status == agentRunStatusCancelRequested {
-		return &pb.CancelAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
+		return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
 	}
 	if !isCancelableAgentRunStatus(run.Status) {
-		return &pb.CancelAgentRunResponse{Code: agentRunCodeBadRequest, Msg: illegalAgentRunTransitionMessage("cancel", run.Status), Run: mapAgentRunSnapshot(run)}, nil
+		return &pb.CancelAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
 	}
 	run, found, err = s.updateRun(ctx, req.GetHrId(), req.GetRunId(), agentRunStatusCancelRequested)
 	if err != nil {
 		return nil, err
 	}
 	if !found {
-		return &pb.CancelAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+		return &pb.CancelAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 	activeExecution := s.cancelAgentRunExecution(req.GetRunId())
 	if !activeExecution {
@@ -4980,7 +4990,7 @@ func (s *nativeAIService) CancelAgentRun(ctx context.Context, req *pb.CancelAgen
 			run = finalRun
 		}
 	}
-	return &pb.CancelAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
+	return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
 }
 
 func (s *nativeAIService) ConfirmAgentRun(ctx context.Context, req *pb.ConfirmAgentRunRequest) (*pb.ConfirmAgentRunResponse, error) {
@@ -4992,13 +5002,13 @@ func (s *nativeAIService) ConfirmAgentRun(ctx context.Context, req *pb.ConfirmAg
 		return nil, err
 	}
 	if !found {
-		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 	if run.Status == agentRunStatusRunning || isTerminalAgentRunStatus(run.Status) {
-		return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
+		return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
 	}
 	if run.Status != agentRunStatusWaitingConfirmation {
-		return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: illegalAgentRunTransitionMessage("confirm", run.Status), Run: mapAgentRunSnapshot(run)}, nil
+		return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
 	}
 
 	s.runTransitionMu.Lock()
@@ -5008,33 +5018,33 @@ func (s *nativeAIService) ConfirmAgentRun(ctx context.Context, req *pb.ConfirmAg
 		return nil, err
 	}
 	if !found {
-		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 	if run.Status == agentRunStatusRunning || isTerminalAgentRunStatus(run.Status) {
-		return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
+		return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
 	}
 	if run.Status != agentRunStatusWaitingConfirmation {
-		return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: illegalAgentRunTransitionMessage("confirm", run.Status), Run: mapAgentRunSnapshot(run)}, nil
+		return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
 	}
 	run, found, err = s.updateAgentRunConfirmation(ctx, run, req)
 	if err != nil {
 		return nil, err
 	}
 	if !found {
-		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 	run, found, err = s.updateRun(ctx, req.GetHrId(), req.GetRunId(), agentRunStatusRunning)
 	if err != nil {
 		return nil, err
 	}
 	if !found {
-		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 	if _, err := s.appendAgentRunEvent(ctx, run.ID, "confirmation.accepted", agentRunConfirmationAcceptedPayload(req)); err != nil {
 		return nil, err
 	}
 	s.dispatchAgentRun(run)
-	return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
+	return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
 }
 
 func (s *nativeAIService) updateAgentRunConfirmation(ctx context.Context, run AgentRunRow, req *pb.ConfirmAgentRunRequest) (AgentRunRow, bool, error) {
@@ -5398,25 +5408,23 @@ func agentRunExecutionTimedOut(ctx context.Context, err error) bool {
 	return errors.Is(err, context.DeadlineExceeded) || (ctx != nil && errors.Is(ctx.Err(), context.DeadlineExceeded))
 }
 
-const insufficientCreditsUserMessage = "AI 套餐额度不足，请购买套餐或加量包后重试"
-
 func agentRunFailureDetails(runErr error, defaultType string) (string, string) {
 	if strings.TrimSpace(defaultType) == "" {
 		defaultType = "runtime"
 	}
 	if runErr == nil {
-		return defaultType, "agent run execution failed"
+		return defaultType, "common.operation_failed"
 	}
 	if errors.Is(runErr, context.DeadlineExceeded) {
-		return "timeout", "agent run execution timed out"
+		return "timeout", "ai.stream_timeout"
 	}
 	if contextCode := hrContextErrorCode(runErr); contextCode != "" {
-		return contextCode, contextCode
+		return contextCode, hrContextMessageKey(contextCode)
 	}
 	if strings.Contains(strings.ToLower(runErr.Error()), "insufficient_credits") {
-		return "insufficient_credits", insufficientCreditsUserMessage
+		return "insufficient_credits", "ai.insufficient_credits"
 	}
-	return defaultType, runErr.Error()
+	return defaultType, "common.operation_failed"
 }
 
 func (s *nativeAIService) ensureAgentRunTerminal(run AgentRunRow, runErr error) error {
@@ -6610,10 +6618,10 @@ func recruitingMessageOrDefault(message, fallback string) string {
 
 func (s nativeRecruitingIntelligenceService) GetResumeProfile(ctx context.Context, req *pb.GetResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
 	if req.GetApplicationId() <= 0 && req.GetResumeId() <= 0 && req.GetProfileId() == 0 {
-		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume_id, profile_id, or application_id is required"}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if s.store == nil {
-		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "recruiting read store is not configured"}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	resumeID, accessResp, _ := s.resolveResumeProfileAccess(ctx, req)
 	if accessResp != nil {
@@ -6623,35 +6631,35 @@ func (s nativeRecruitingIntelligenceService) GetResumeProfile(ctx context.Contex
 	if profileID == 0 {
 		profile, found, err := s.store.GetCurrentRecruitingResumeProfileByResumeID(ctx, resumeID)
 		if err != nil {
-			return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+			return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 		}
 		if !found {
-			return &pb.GetResumeProfileResponse{Code: 404, Msg: "current resume profile not found"}, nil
+			return &pb.GetResumeProfileResponse{Code: 404, Msg: "ai.resume_profile_not_found"}, nil
 		}
 		profileID = profile.ID
 	}
 	snapshot, found, err := s.store.GetRecruitingResumeProfileSnapshot(ctx, profileID)
 	if err != nil {
-		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	if !found {
-		return &pb.GetResumeProfileResponse{Code: 404, Msg: "resume profile not found"}, nil
+		return &pb.GetResumeProfileResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 	if snapshot.Profile.ResumeID != resumeID {
-		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "profile_id does not belong to requested resume/application"}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
-	return &pb.GetResumeProfileResponse{Code: errs.OK, Msg: "success", Profile: recruitingResumeProfileSnapshotPB(snapshot)}, nil
+	return &pb.GetResumeProfileResponse{Code: errs.OK, Msg: "common.success", Profile: recruitingResumeProfileSnapshotPB(snapshot)}, nil
 }
 
 func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Context, req *pb.ParseResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
 	finalizer := newRecruitingOperationFinalizer(s, ctx, "resume_profile", "resume", req.GetResumeId())
 	defer finalizer.finalize()
 	if req.GetApplicationId() <= 0 && req.GetResumeId() <= 0 {
-		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume_id or application_id is required"}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if s.store == nil {
 		finalizer.classify("configuration_failure", "error")
-		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "recruiting read store is not configured"}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	if generationStore, ok := s.store.(recruitingResumeProfileGenerationStore); ok {
 		resumeID, accessResp, accessAuthErr := s.resolveResumeProfileAccess(ctx, &pb.GetResumeProfileRequest{StaffUserId: req.GetStaffUserId(), ResumeId: req.GetResumeId(), ApplicationId: req.GetApplicationId()})
@@ -6666,7 +6674,7 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 		}
 		if authErr := s.authorizeRecruitingAIPermission(ctx, req.GetStaffUserId(), "resume", resumeID); authErr != nil {
 			finalizer.classify(recruitingTerminalCategoryForAuthError(authErr), "error")
-			return &pb.GetResumeProfileResponse{Code: authErr.code, Msg: authErr.message}, nil
+			return &pb.GetResumeProfileResponse{Code: authErr.code, Msg: "common.operation_failed"}, nil
 		}
 		var runtimeErr error
 		var runtimeModel RuntimeModelInfo
@@ -6680,22 +6688,22 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 		}
 		if runtimeErr != nil {
 			finalizer.classify("configuration_failure", "error")
-			return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: runtimeErr.Error()}, nil
+			return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 		}
 		sourceStarted := time.Now()
 		source, found, err := generationStore.GetRecruitingResumeSource(ctx, resumeID)
 		if err != nil {
 			s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "resume_profile", "resume", resumeID, "source", "source_failure", "error", false, sourceStarted))
 			finalizer.classify("source_failure", "error")
-			return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+			return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 		}
 		if !found {
 			finalizer.classify("not_found", "error")
-			return &pb.GetResumeProfileResponse{Code: 404, Msg: "resume not found"}, nil
+			return &pb.GetResumeProfileResponse{Code: 404, Msg: "common.operation_failed"}, nil
 		}
 		if strings.TrimSpace(source.ParsedText) == "" {
 			finalizer.classify("domain_validation_failure", "error")
-			return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume parsed_text is empty"}, nil
+			return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		if s.meter != nil {
 			ctx, runtimeErr = s.meter.reserveAIBilling(ctx, billingOwnerTenant, req.GetStaffUserId(), "ai.resume_parse", "resume_parse", runtimeModel.ProviderName, runtimeModel.Name, len([]rune(source.ParsedText)), runtimeModel)
@@ -6727,7 +6735,7 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 			}
 			s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "resume_profile", "resume", resumeID, "generation", category, "error", false, generationStarted))
 			finalizer.classify(category, "error")
-			return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: err.Error()}, nil
+			return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 		}
 		generationEvent := recruitingOperationEvent(ctx, "resume_profile", "resume", resumeID, "generation", "success", "success", false, generationStarted)
 		generationEvent.ParserVersion = draft.ParserVersion
@@ -6739,7 +6747,7 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 			s.observeRecruiting(ctx, timeoutEvent)
 			finalizer.classify("timeout", "error")
 			finalizer.event.ParserVersion, finalizer.event.OutputCount = draft.ParserVersion, generationEvent.OutputCount
-			return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: "resume profile extraction failed (timeout)"}, nil
+			return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 		}
 		persistenceStarted := time.Now()
 		snapshot, err := generationStore.SaveRecruitingResumeProfileDraft(totalCtx, draft)
@@ -6749,7 +6757,7 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 			s.observeRecruiting(ctx, persistenceEvent)
 			finalizer.classify("persistence_failure", "error")
 			finalizer.event.ParserVersion, finalizer.event.OutputCount = draft.ParserVersion, generationEvent.OutputCount
-			return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+			return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 		}
 		s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "resume_profile", "resume", resumeID, "persistence", "success", "success", false, persistenceStarted))
 		finalizer.classify("success", "success")
@@ -6758,7 +6766,7 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 			finalizer.event.Category, finalizer.event.Fallback = "fallback_success", "heuristic"
 		}
 		finalizer.event.OutputCount = generationEvent.OutputCount
-		return &pb.GetResumeProfileResponse{Code: errs.OK, Msg: "success", Profile: recruitingResumeProfileSnapshotPB(snapshot)}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.OK, Msg: "common.success", Profile: recruitingResumeProfileSnapshotPB(snapshot)}, nil
 	}
 	resp, err := s.GetResumeProfile(ctx, &pb.GetResumeProfileRequest{
 		StaffUserId:   req.GetStaffUserId(),
@@ -6774,8 +6782,8 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 		return resp, err
 	}
 	finalizer.classify(recruitingTerminalCategoryForCode(resp.GetCode()), "error")
-	if resp.GetCode() == 404 && resp.GetMsg() == "current resume profile not found" {
-		resp.Msg = "current resume profile not found and resume profile parser is not configured in native runtime"
+	if resp.GetCode() == 404 && resp.GetMsg() == "ai.resume_profile_not_found" {
+		resp.Msg = "ai.resume_profile_unavailable"
 	}
 	return resp, nil
 }
@@ -6784,33 +6792,33 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfileForCandidate(ctx 
 	finalizer := newRecruitingOperationFinalizer(s, ctx, "resume_profile", "resume", req.GetResumeId())
 	defer finalizer.finalize()
 	if req.GetCandidateUserId() <= 0 || req.GetResumeId() <= 0 {
-		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "candidate_user_id and resume_id are required"}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if s.store == nil {
 		finalizer.classify("configuration_failure", "error")
-		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "recruiting read store is not configured"}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	generationStore, ok := s.store.(recruitingResumeProfileGenerationStore)
 	if !ok {
 		finalizer.classify("configuration_failure", "error")
-		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "resume profile parser is not configured"}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	source, found, err := generationStore.GetRecruitingResumeSource(ctx, req.GetResumeId())
 	if err != nil {
 		finalizer.classify("source_failure", "error")
-		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	if !found {
 		finalizer.classify("not_found", "error")
-		return &pb.GetResumeProfileResponse{Code: 404, Msg: "resume not found"}, nil
+		return &pb.GetResumeProfileResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 	if source.UserID != req.GetCandidateUserId() {
 		finalizer.classify("forbidden", "error")
-		return &pb.GetResumeProfileResponse{Code: errs.ErrForbidden, Msg: "resume does not belong to candidate"}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	if strings.TrimSpace(source.ParsedText) == "" {
 		finalizer.classify("domain_validation_failure", "error")
-		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume parsed_text is empty"}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	totalCtx, parseCtx, cancel := s.policy.ResumeExecutionContexts(ctx)
 	defer cancel()
@@ -6818,16 +6826,16 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfileForCandidate(ctx 
 	draft, err := s.generateResumeProfileDraft(parseCtx, source)
 	if err != nil {
 		finalizer.classify(recruitingruntime.ObservationCategoryForError(err), "error")
-		return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: err.Error()}, nil
+		return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	if err := totalCtx.Err(); err != nil {
 		finalizer.classify("timeout", "error")
-		return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: "resume profile extraction failed (timeout)"}, nil
+		return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	snapshot, err := generationStore.SaveRecruitingResumeProfileDraft(totalCtx, draft)
 	if err != nil {
 		finalizer.classify("persistence_failure", "error")
-		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	finalizer.classify("success", "success")
 	finalizer.event.ParserVersion = draft.ParserVersion
@@ -6835,18 +6843,18 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfileForCandidate(ctx 
 	if draft.ParserVersion == recruitingruntime.ResumeHeuristicParserVersion {
 		finalizer.event.Category, finalizer.event.Fallback = "fallback_success", "heuristic"
 	}
-	return &pb.GetResumeProfileResponse{Code: errs.OK, Msg: "success", Profile: recruitingResumeProfileSnapshotPB(snapshot)}, nil
+	return &pb.GetResumeProfileResponse{Code: errs.OK, Msg: "common.success", Profile: recruitingResumeProfileSnapshotPB(snapshot)}, nil
 }
 
 func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.Context, req *pb.EvaluateCandidateMatchRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
 	finalizer := newRecruitingOperationFinalizer(s, ctx, "candidate_match", "application", req.GetApplicationId())
 	defer finalizer.finalize()
 	if req.GetApplicationId() <= 0 {
-		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrBadRequest, Msg: "application_id is required"}, nil
+		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if s.store == nil {
 		finalizer.classify("configuration_failure", "error")
-		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: "recruiting read store is not configured"}, nil
+		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	if _, authErr := s.authorizeRecruitingApplication(ctx, req.GetStaffUserId(), req.GetApplicationId()); authErr != nil {
 		finalizer.classify(recruitingTerminalCategoryForAuthError(authErr), "error")
@@ -6869,7 +6877,7 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 		}
 		if runtimeErr != nil {
 			finalizer.classify("configuration_failure", "error")
-			return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: runtimeErr.Error()}, nil
+			return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 		}
 		if s.meter != nil {
 			ctx, runtimeErr = s.meter.reserveAIBilling(ctx, billingOwnerTenant, req.GetStaffUserId(), "ai.match_evaluation", "match_evaluation", runtimeModel.ProviderName, runtimeModel.Name, 0, runtimeModel)
@@ -6894,15 +6902,15 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 				category = "timeout"
 				s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "source", category, "error", false, sourceStarted))
 				finalizer.classify(category, "error")
-				return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: "candidate match evaluation failed (timeout or cancellation)"}, nil
+				return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 			}
 			s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "source", category, "error", false, sourceStarted))
 			finalizer.classify(category, "error")
-			return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+			return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 		}
 		if !found {
 			finalizer.classify("not_found", "error")
-			return &pb.GetCandidateMatchEvaluationResponse{Code: 404, Msg: "application match source not found"}, nil
+			return &pb.GetCandidateMatchEvaluationResponse{Code: 404, Msg: "common.operation_failed"}, nil
 		}
 		sourceEvent := recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "source", "success", "success", false, sourceStarted)
 		sourceEvent.InputCount = 1
@@ -6919,7 +6927,7 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 			}
 			s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "aggregation", category, "error", false, generationStarted))
 			finalizer.classify(category, "error")
-			return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: err.Error()}, nil
+			return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 		}
 		aggregationEvent := recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "aggregation", "success", "success", false, generationStarted)
 		aggregationEvent.ScorerVersion = draft.ScorerVersion
@@ -6932,7 +6940,7 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 			s.observeRecruiting(ctx, timeoutEvent)
 			finalizer.classify("timeout", "error")
 			finalizer.event.ScorerVersion, finalizer.event.RequirementCount, finalizer.event.EvidenceCount = draft.ScorerVersion, aggregationEvent.RequirementCount, aggregationEvent.EvidenceCount
-			return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: "candidate match evaluation failed (timeout or cancellation)"}, nil
+			return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 		}
 		persistenceStarted := time.Now()
 		snapshot, err := generationStore.SaveRecruitingCandidateMatchDraft(totalCtx, draft)
@@ -6942,7 +6950,7 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 			s.observeRecruiting(ctx, persistenceEvent)
 			finalizer.classify("persistence_failure", "error")
 			finalizer.event.ScorerVersion, finalizer.event.RequirementCount, finalizer.event.EvidenceCount = draft.ScorerVersion, aggregationEvent.RequirementCount, aggregationEvent.EvidenceCount
-			return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+			return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 		}
 		s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "persistence", "success", "success", false, persistenceStarted))
 		finalizer.classify("success", "success")
@@ -6950,7 +6958,7 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 		if draft.FallbackUsed {
 			finalizer.event.Category, finalizer.event.Fallback = "fallback_success", "legacy_deterministic"
 		}
-		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.OK, Msg: "success", Evaluation: recruitingCandidateMatchSnapshotPB(snapshot)}, nil
+		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.OK, Msg: "common.success", Evaluation: recruitingCandidateMatchSnapshotPB(snapshot)}, nil
 	}
 	var (
 		snapshot RecruitingCandidateMatchSnapshot
@@ -6964,17 +6972,17 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 	}
 	if err != nil {
 		finalizer.classify("source_failure", "error")
-		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	if !found {
 		finalizer.classify("not_found", "error")
 		if req.GetAgentRunId() > 0 {
-			return &pb.GetCandidateMatchEvaluationResponse{Code: 404, Msg: "candidate match evaluation not found for agent_run_id and matcher is not configured in native runtime"}, nil
+			return &pb.GetCandidateMatchEvaluationResponse{Code: 404, Msg: "common.operation_failed"}, nil
 		}
-		return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnsupported, Msg: "candidate match evaluation not found and matcher is not configured in native runtime"}, nil
+		return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnsupported, Msg: "ai.candidate_match_unavailable"}, nil
 	}
 	finalizer.classify("success", "success")
-	return &pb.GetCandidateMatchEvaluationResponse{Code: errs.OK, Msg: "success", Evaluation: recruitingCandidateMatchSnapshotPB(snapshot)}, nil
+	return &pb.GetCandidateMatchEvaluationResponse{Code: errs.OK, Msg: "common.success", Evaluation: recruitingCandidateMatchSnapshotPB(snapshot)}, nil
 }
 
 func (s nativeRecruitingIntelligenceService) generateResumeProfileDraft(ctx context.Context, source RecruitingResumeSource) (RecruitingResumeProfileDraft, error) {
@@ -7388,10 +7396,10 @@ func truncateRecruitingSensitiveSnippet(value string, limit int) string {
 
 func (s nativeRecruitingIntelligenceService) GetCandidateMatchEvaluation(ctx context.Context, req *pb.GetCandidateMatchEvaluationRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
 	if req.GetApplicationId() <= 0 {
-		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrBadRequest, Msg: "application_id is required"}, nil
+		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if s.store == nil {
-		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: "recruiting read store is not configured"}, nil
+		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	if _, authErr := s.authorizeRecruitingApplication(ctx, req.GetStaffUserId(), req.GetApplicationId()); authErr != nil {
 		return recruitingMatchAuthResponse(authErr), nil
@@ -7413,12 +7421,12 @@ func (s nativeRecruitingIntelligenceService) GetCandidateMatchEvaluation(ctx con
 		snapshot, found, err = s.store.GetLatestRecruitingCandidateMatchEvaluationSnapshotByApplicationID(ctx, req.GetApplicationId())
 	}
 	if err != nil {
-		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	if !found {
-		return &pb.GetCandidateMatchEvaluationResponse{Code: 404, Msg: "candidate match evaluation not found"}, nil
+		return &pb.GetCandidateMatchEvaluationResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
-	return &pb.GetCandidateMatchEvaluationResponse{Code: errs.OK, Msg: "success", Evaluation: recruitingCandidateMatchSnapshotPB(snapshot)}, nil
+	return &pb.GetCandidateMatchEvaluationResponse{Code: errs.OK, Msg: "common.success", Evaluation: recruitingCandidateMatchSnapshotPB(snapshot)}, nil
 }
 
 func (s nativeRecruitingIntelligenceService) CompareCandidatesForJob(ctx context.Context, req *pb.CompareCandidatesForJobRequest) (*pb.CompareCandidatesForJobResponse, error) {
@@ -7426,11 +7434,11 @@ func (s nativeRecruitingIntelligenceService) CompareCandidatesForJob(ctx context
 		return recruitingComparisonAuthResponse(req.GetJobId(), authErr), nil
 	}
 	if s.store == nil {
-		return &pb.CompareCandidatesForJobResponse{Code: errs.ErrInternal, Msg: "recruiting read store is not configured", JobId: req.GetJobId()}, nil
+		return &pb.CompareCandidatesForJobResponse{Code: errs.ErrInternal, Msg: "common.operation_failed", JobId: req.GetJobId()}, nil
 	}
 	applications, err := s.store.ListCurrentRecruitingApplicationsByJobID(ctx, req.GetJobId())
 	if err != nil {
-		return &pb.CompareCandidatesForJobResponse{Code: errs.ErrInternal, Msg: err.Error(), JobId: req.GetJobId()}, nil
+		return &pb.CompareCandidatesForJobResponse{Code: errs.ErrInternal, Msg: "common.operation_failed", JobId: req.GetJobId()}, nil
 	}
 	applicationIDs := make([]int64, 0, len(applications))
 	for _, application := range applications {
@@ -7438,7 +7446,7 @@ func (s nativeRecruitingIntelligenceService) CompareCandidatesForJob(ctx context
 	}
 	evaluations, err := s.store.ListLatestRecruitingCandidateMatchEvaluationsByApplicationIDs(ctx, applicationIDs)
 	if err != nil {
-		return &pb.CompareCandidatesForJobResponse{Code: errs.ErrInternal, Msg: err.Error(), JobId: req.GetJobId()}, nil
+		return &pb.CompareCandidatesForJobResponse{Code: errs.ErrInternal, Msg: "common.operation_failed", JobId: req.GetJobId()}, nil
 	}
 	byApplicationID := make(map[int64]RecruitingCandidateMatchEvaluationRow, len(evaluations))
 	for _, evaluation := range evaluations {
@@ -7475,7 +7483,7 @@ func (s nativeRecruitingIntelligenceService) CompareCandidatesForJob(ctx context
 		}
 		return candidates[i].GetApplicationId() < candidates[j].GetApplicationId()
 	})
-	return &pb.CompareCandidatesForJobResponse{Code: errs.OK, Msg: "success", JobId: req.GetJobId(), Candidates: candidates, MissingApplicationIds: missing}, nil
+	return &pb.CompareCandidatesForJobResponse{Code: errs.OK, Msg: "common.success", JobId: req.GetJobId(), Candidates: candidates, MissingApplicationIds: missing}, nil
 }
 
 func (s nativeRecruitingIntelligenceService) resolveResumeProfileAccess(ctx context.Context, req *pb.GetResumeProfileRequest) (int64, *pb.GetResumeProfileResponse, *recruitingAuthError) {
@@ -7485,24 +7493,24 @@ func (s nativeRecruitingIntelligenceService) resolveResumeProfileAccess(ctx cont
 		}
 		application, found, err := s.store.GetRecruitingApplicationByID(ctx, req.GetApplicationId())
 		if err != nil {
-			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 		}
 		if !found || application.ResumeID <= 0 {
-			return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "application resume not found"}, nil
+			return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "common.operation_failed"}, nil
 		}
 		if req.GetResumeId() > 0 && req.GetResumeId() != application.ResumeID {
-			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "application_id and resume_id refer to different resumes"}, nil
+			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		if req.GetProfileId() > 0 {
 			profile, profileFound, profileErr := s.store.GetRecruitingResumeProfileByID(ctx, req.GetProfileId())
 			if profileErr != nil {
-				return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: profileErr.Error()}, nil
+				return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 			}
 			if !profileFound {
-				return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "resume profile not found"}, nil
+				return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "common.operation_failed"}, nil
 			}
 			if profile.ResumeID != application.ResumeID {
-				return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "profile_id does not belong to requested resume/application"}, nil
+				return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 			}
 		}
 		return application.ResumeID, nil, nil
@@ -7512,25 +7520,25 @@ func (s nativeRecruitingIntelligenceService) resolveResumeProfileAccess(ctx cont
 	if req.GetProfileId() > 0 {
 		profile, found, err := s.store.GetRecruitingResumeProfileByID(ctx, req.GetProfileId())
 		if err != nil {
-			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 		}
 		if !found {
-			return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "resume profile not found"}, nil
+			return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "common.operation_failed"}, nil
 		}
 		if resumeID > 0 && resumeID != profile.ResumeID {
-			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "profile_id does not belong to requested resume/application"}, nil
+			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		resumeID = profile.ResumeID
 	}
 	if resumeID <= 0 {
-		return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume_id, profile_id, or application_id is required"}, nil
+		return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	application, found, err := s.store.GetLatestRecruitingApplicationByResumeID(ctx, resumeID)
 	if err != nil {
-		return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+		return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	if !found {
-		return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "application context not found for resume"}, nil
+		return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 	if _, authErr := s.authorizeRecruitingApplication(ctx, req.GetStaffUserId(), application.ApplicationID); authErr != nil {
 		return 0, recruitingResumeAuthResponse(authErr), authErr
@@ -7539,15 +7547,15 @@ func (s nativeRecruitingIntelligenceService) resolveResumeProfileAccess(ctx cont
 }
 
 func recruitingResumeAuthResponse(authErr *recruitingAuthError) *pb.GetResumeProfileResponse {
-	return &pb.GetResumeProfileResponse{Code: authErr.code, Msg: authErr.message}
+	return &pb.GetResumeProfileResponse{Code: authErr.code, Msg: "common.operation_failed"}
 }
 
 func recruitingMatchAuthResponse(authErr *recruitingAuthError) *pb.GetCandidateMatchEvaluationResponse {
-	return &pb.GetCandidateMatchEvaluationResponse{Code: authErr.code, Msg: authErr.message}
+	return &pb.GetCandidateMatchEvaluationResponse{Code: authErr.code, Msg: "common.operation_failed"}
 }
 
 func recruitingComparisonAuthResponse(jobID int64, authErr *recruitingAuthError) *pb.CompareCandidatesForJobResponse {
-	return &pb.CompareCandidatesForJobResponse{Code: authErr.code, Msg: authErr.message, JobId: jobID}
+	return &pb.CompareCandidatesForJobResponse{Code: authErr.code, Msg: "common.operation_failed", JobId: jobID}
 }
 
 func recruitingResumeProfileSnapshotPB(snapshot RecruitingResumeProfileSnapshot) *pb.ResumeProfileSnapshotInfo {
@@ -7769,114 +7777,114 @@ type nativeEmbeddingConfigService struct {
 
 func (s nativeLlmConfigService) ListProviders(ctx context.Context, req *pb.ListProvidersRequest) (*pb.ListProvidersResponse, error) {
 	if s.store == nil {
-		return &pb.ListProvidersResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
+		return &pb.ListProvidersResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	rows, total, err := s.store.ListLlmProviders(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()))
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListProvidersResponse{Code: 0, Msg: "success", Total: total, List: rows}, nil
+	return &pb.ListProvidersResponse{Code: 0, Msg: "common.success", Total: total, List: rows}, nil
 }
 func (s nativeLlmConfigService) ListModels(ctx context.Context, req *pb.ListModelsRequest) (*pb.ListModelsResponse, error) {
 	if s.store == nil {
-		return &pb.ListModelsResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
+		return &pb.ListModelsResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	rows, total, err := s.store.ListLlmModels(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), req.GetProviderId())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListModelsResponse{Code: 0, Msg: "success", Total: total, List: rows}, nil
+	return &pb.ListModelsResponse{Code: 0, Msg: "common.success", Total: total, List: rows}, nil
 }
 func (s nativePromptService) ListPromptTemplates(ctx context.Context, req *pb.ListPromptTemplatesRequest) (*pb.ListPromptTemplatesResponse, error) {
 	if s.store == nil {
-		return &pb.ListPromptTemplatesResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
+		return &pb.ListPromptTemplatesResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	rows, total, err := s.store.ListPromptTemplates(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), req.GetAgentType())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListPromptTemplatesResponse{Code: 0, Msg: "success", Total: total, List: rows}, nil
+	return &pb.ListPromptTemplatesResponse{Code: 0, Msg: "common.success", Total: total, List: rows}, nil
 }
 func (s nativeAgentConfigService) ListAgents(ctx context.Context, req *pb.ListAgentsRequest) (*pb.ListAgentsResponse, error) {
 	if s.store == nil {
-		return &pb.ListAgentsResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
+		return &pb.ListAgentsResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	rows, total, err := s.store.ListAgentConfigs(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), req.GetAgentType())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListAgentsResponse{Code: 0, Msg: "success", Total: total, List: rows}, nil
+	return &pb.ListAgentsResponse{Code: 0, Msg: "common.success", Total: total, List: rows}, nil
 }
 func (nativeAgentConfigService) ListCapabilities(_ context.Context, req *pb.ListCapabilitiesRequest) (*pb.ListCapabilitiesResponse, error) {
-	return &pb.ListCapabilitiesResponse{Code: 0, Msg: "success", List: builtinCapabilities(req.GetAgentType())}, nil
+	return &pb.ListCapabilitiesResponse{Code: 0, Msg: "common.success", List: builtinCapabilities(req.GetAgentType())}, nil
 }
 func (s nativeMCPService) ListMCPServers(ctx context.Context, req *pb.ListMCPServersRequest) (*pb.ListMCPServersResponse, error) {
 	if s.store == nil {
-		return &pb.ListMCPServersResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.ListMCPServersResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	rows, total, err := s.store.ListMCPServers(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()))
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListMCPServersResponse{Code: 0, Msg: "success", Total: total, List: rows}, nil
+	return &pb.ListMCPServersResponse{Code: 0, Msg: "common.success", Total: total, List: rows}, nil
 }
 func (s nativeMCPService) ListMCPToolPolicies(ctx context.Context, req *pb.ListMCPToolPoliciesRequest) (*pb.ListMCPToolPoliciesResponse, error) {
 	store, ok := s.store.(mcpGovernanceStore)
 	if !ok {
-		return &pb.ListMCPToolPoliciesResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.ListMCPToolPoliciesResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	return store.ListMCPToolPolicies(ctx, req)
 }
 func (s nativeMCPService) ListMCPToolLogs(ctx context.Context, req *pb.ListMCPToolLogsRequest) (*pb.ListMCPToolLogsResponse, error) {
 	store, ok := s.store.(mcpGovernanceStore)
 	if !ok {
-		return &pb.ListMCPToolLogsResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.ListMCPToolLogsResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	return store.ListMCPToolLogs(ctx, req)
 }
 func (s nativeAgentSkillService) ListAgentSkills(ctx context.Context, req *pb.ListAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
 	if s.store == nil {
-		return &pb.ListAgentSkillsResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.ListAgentSkillsResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	rows, total, err := s.store.ListAgentSkills(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), req.GetKeyword(), req.GetEnabledOnly())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "success", Total: total, List: rows}, nil
+	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "common.success", Total: total, List: rows}, nil
 }
 func (s nativeAgentSkillService) ListAvailableAgentSkills(ctx context.Context, req *pb.ListAvailableAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
 	if s.store == nil {
-		return &pb.ListAgentSkillsResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.ListAgentSkillsResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	rows, total, err := s.store.ListAgentSkills(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), "", true)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "success", Total: total, List: rows}, nil
+	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "common.success", Total: total, List: rows}, nil
 }
 func (s nativeEmbeddingConfigService) ListEmbeddingProviders(ctx context.Context, req *pb.ListEmbeddingProvidersRequest) (*pb.ListEmbeddingProvidersResponse, error) {
 	if s.store == nil {
-		return &pb.ListEmbeddingProvidersResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
+		return &pb.ListEmbeddingProvidersResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	rows, total, err := s.store.ListEmbeddingProviders(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()))
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListEmbeddingProvidersResponse{Code: 0, Msg: "success", Total: total, List: rows}, nil
+	return &pb.ListEmbeddingProvidersResponse{Code: 0, Msg: "common.success", Total: total, List: rows}, nil
 }
 func (s nativeEmbeddingConfigService) ListEmbeddingModels(ctx context.Context, req *pb.ListEmbeddingModelsRequest) (*pb.ListEmbeddingModelsResponse, error) {
 	if s.store == nil {
-		return &pb.ListEmbeddingModelsResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
+		return &pb.ListEmbeddingModelsResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	rows, total, err := s.store.ListEmbeddingModels(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), req.GetProviderId())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListEmbeddingModelsResponse{Code: 0, Msg: "success", Total: total, List: rows}, nil
+	return &pb.ListEmbeddingModelsResponse{Code: 0, Msg: "common.success", Total: total, List: rows}, nil
 }
 
 func commonOK() *pb.CommonResponse {
-	return &pb.CommonResponse{Code: 0, Msg: "success"}
+	return &pb.CommonResponse{Code: 0, Msg: "common.success"}
 }
 
 func mapChatSession(row ChatSessionRow) *pb.ChatSession {

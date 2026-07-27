@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { t } from '@shared/i18n'
 import { clearLocalAuthCache } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
 import type { NotificationListResponse, NotificationSummaryResponse, UnreadCountResponse } from '@/types/notification'
@@ -22,10 +23,10 @@ silent.interceptors.response.use(
     if (code === 401) {
       clearLocalAuthCache()
       useAuthStore().$reset()
-      return Promise.reject(new Error('notification api: unauthorized'))
+      return Promise.reject(new Error(t('common.unauthenticated')))
     }
     if (code !== undefined && code !== 0) {
-      return Promise.reject(new Error(`notification api: code=${code}`))
+      return Promise.reject(new Error(t('common.operation_failed')))
     }
     return data
   },

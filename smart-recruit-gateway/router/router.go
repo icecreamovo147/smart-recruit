@@ -23,6 +23,7 @@ import (
 	"smart-recruit-gateway/pkg/observability"
 	"smart-recruit-gateway/pkg/redisclient"
 	"smart-recruit-gateway/rpc"
+	"smart-recruit-platform-go/i18n"
 	pb "smart-recruit-proto/recruitment/pb"
 )
 
@@ -41,7 +42,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 			case auditCh <- entry:
 			case <-time.After(50 * time.Millisecond):
 				dropped := atomic.AddInt64(&auditDropped, 1)
-				logger.L().Warn("audit event dropped (buffer full)",
+				logger.L().Warn("log.gateway.audit_dropped",
 					zap.Int64("dropped_total", dropped),
 					zap.String("decision", entry.Decision),
 					zap.String("permission", entry.PermissionKey),
@@ -64,13 +65,13 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 				ClientIp:      entry.ClientIP,
 			})
 			if err != nil {
-				logger.L().Error("audit record gRPC call failed",
+				logger.L().Error("log.gateway.audit_rpc_failed",
 					zap.Error(err),
 					zap.Int64("actor", entry.ActorUserID),
 					zap.String("permission", entry.PermissionKey),
 				)
 			} else if resp != nil && resp.Code != 0 {
-				logger.L().Warn("audit record returned non-zero code",
+				logger.L().Warn("log.gateway.audit_rejected",
 					zap.String("msg", resp.Msg),
 					zap.Int64("actor", entry.ActorUserID),
 				)
@@ -108,6 +109,9 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 		c.String(200, observability.DefaultMetrics.Prometheus())
 	})
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.GET("/api/v1/public/runtime-config", func(c *gin.Context) {
+		handler.OK(c, "common.success", gin.H{"locale": i18n.Current()})
+	})
 
 	authHandler := handler.NewAuthHandler(clients, cfg.AuthCookieName, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieSecure, cfg.JWTSecret, rdb)
 	platformTenantHandler := handler.NewPlatformTenantHandler(clients)

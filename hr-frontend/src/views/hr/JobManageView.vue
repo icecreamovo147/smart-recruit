@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -195,15 +196,15 @@ const openEdit = (row: Job) => {
 
 const save = async () => {
   if (!form.title.trim()) {
-    ElMessage.warning('请填写岗位名称')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (!form.department_id && !form.department) {
-    ElMessage.warning('请选择部门')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (!form.location_id && !form.location) {
-    ElMessage.warning('请选择地点')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   saving.value = true
@@ -216,10 +217,10 @@ const save = async () => {
     }
     if (editingId.value) {
       await updateJob(editingId.value, payload)
-      ElMessage.success('岗位已更新')
+      ElMessage.success(t('common.success'))
     } else {
       await createJob(payload)
-      ElMessage.success('岗位已创建')
+      ElMessage.success(t('common.success'))
     }
     dialogVisible.value = false
     load()
@@ -236,7 +237,7 @@ const offline = async (row: Job) => {
   }
   try {
     await offlineJob(row.job_id)
-    ElMessage.success('岗位已下架')
+    ElMessage.success(t('common.success'))
     load()
   } catch {
     // error already shown by request interceptor
@@ -251,7 +252,7 @@ const online = async (row: Job) => {
   }
   try {
     await onlineJob(row.job_id)
-    ElMessage.success('岗位已上线')
+    ElMessage.success(t('common.success'))
     load()
   } catch {
     // error already shown by request interceptor

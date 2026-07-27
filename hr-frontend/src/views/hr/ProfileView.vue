@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, ref } from 'vue'
 import { Edit } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -22,7 +23,7 @@ const saveEmail = async () => {
   savingEmail.value = true
   try {
     await updateEmail(emailInput.value.trim())
-    ElMessage.success('邮箱更新成功')
+    ElMessage.success(t('common.success'))
     editingEmail.value = false
     await auth.restoreSession()
   } catch {

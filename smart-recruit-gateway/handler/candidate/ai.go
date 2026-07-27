@@ -201,11 +201,13 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 					middleware.MarkAIQuotaFailed(c)
 				}
 				info := base.PublicError(result.err)
+				messageKey, message := base.LocalizedMessage(info.Code, info.Msg)
 				payload := fmt.Sprintf("event: message\ndata: %s\n\n", mustMarshal(gin.H{
-					"code":       info.Code,
-					"msg":        info.Msg,
-					"done":       true,
-					"request_id": base.RequestID(c),
+					"code":        info.Code,
+					"message_key": messageKey,
+					"msg":         message,
+					"done":        true,
+					"request_id":  base.RequestID(c),
 				}))
 				if n, err := c.Writer.Write([]byte(payload)); err != nil || n == 0 {
 					return
@@ -219,9 +221,12 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				streamStarted = true
 				middleware.MarkAIQuotaConsumed(c)
 			}
+			messageKey, message := base.LocalizedMessage(result.chunk.Code, result.chunk.Msg)
+			eventMessageKey, eventMessage := base.LocalizedSystemMessage(result.chunk.EventMessage)
 			payload := gin.H{
 				"code":                result.chunk.Code,
-				"msg":                 result.chunk.Msg,
+				"message_key":         messageKey,
+				"msg":                 message,
 				"delta":               result.chunk.Delta,
 				"done":                result.chunk.Done,
 				"session_id":          result.chunk.SessionId,
@@ -229,7 +234,8 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				"suggested_questions": result.chunk.SuggestedQuestions,
 				"suggestedQuestions":  result.chunk.SuggestedQuestions,
 				"event_type":          result.chunk.EventType,
-				"event_message":       result.chunk.EventMessage,
+				"event_message_key":   eventMessageKey,
+				"event_message":       eventMessage,
 				"error_type":          result.chunk.ErrorType,
 				"tool_name":           result.chunk.ToolName,
 				"context_usage":       mapContextUsage(result.chunk.GetContextUsage()),

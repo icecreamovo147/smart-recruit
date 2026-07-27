@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
@@ -80,11 +81,11 @@ const openCreateDialog = async () => {
 
 const saveCreate = async () => {
   if (!createForm.username) {
-    ElMessage.warning('请输入用户名')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (!createForm.password) {
-    ElMessage.warning('请输入密码')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   saving.value = true
@@ -95,7 +96,7 @@ const saveCreate = async () => {
       email: createForm.email || undefined,
       role_keys: createForm.role_keys.length > 0 ? createForm.role_keys : undefined,
     })
-    ElMessage.success('员工账号已创建')
+    ElMessage.success(t('common.success'))
     createDialogVisible.value = false
     await load()
   } finally {
@@ -138,11 +139,11 @@ const toggleRole = async (roleKey: string) => {
     if (userRoleKeys.value.includes(roleKey)) {
       await revokeUserRole(targetUser.value.user_id, roleKey)
       userRoleKeys.value = userRoleKeys.value.filter((k) => k !== roleKey)
-      ElMessage.success('角色已移除')
+      ElMessage.success(t('common.success'))
     } else {
       await assignUserRole(targetUser.value.user_id, roleKey)
       userRoleKeys.value.push(roleKey)
-      ElMessage.success('角色已分配')
+      ElMessage.success(t('common.success'))
     }
     // Refresh permissions after role change
     try {
@@ -202,7 +203,7 @@ const openScopeDialog = async (user: StaffUserInfo) => {
 const addScope = async () => {
   if (!targetUser.value) return
   if (!newScopeForm.scope_key) {
-    ElMessage.warning('请选择数据范围')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   scopeSaving.value = true
@@ -213,7 +214,7 @@ const addScope = async () => {
       newScopeForm.resource_type || undefined,
       newScopeForm.resource_id || undefined,
     )
-    ElMessage.success('数据范围已分配')
+    ElMessage.success(t('common.success'))
     // Refresh
     const data = await getUserRoles(targetUser.value.user_id)
     userScopes.value = data.data_scopes || []
@@ -241,7 +242,7 @@ const removeScope = async (scope: DataScopeInfo) => {
   try {
     await revokeDataScope(scope.id)
     userScopes.value = userScopes.value.filter((s) => s.id !== scope.id)
-    ElMessage.success('数据范围已移除')
+    ElMessage.success(t('common.success'))
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string }).message || '操作失败')
   } finally {

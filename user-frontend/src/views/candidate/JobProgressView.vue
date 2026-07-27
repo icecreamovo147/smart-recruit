@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -232,7 +233,7 @@ const handleAccept = async (offer: Offer) => {
     )
     actionLoading.value = offer.id
     await acceptOffer(offer.id)
-    ElMessage.success('Offer已接受，等待后续入职流程')
+    ElMessage.success(t('common.success'))
     await loadOffers(true)
     await refreshPendingOfferCount()
   } catch (error: unknown) {
@@ -258,7 +259,7 @@ const handleReject = async (offer: Offer) => {
     )
     actionLoading.value = offer.id
     await rejectOffer(offer.id, reason)
-    ElMessage.success('已拒绝Offer')
+    ElMessage.success(t('common.success'))
     await loadOffers(true)
     await refreshPendingOfferCount()
   } catch (error: unknown) {

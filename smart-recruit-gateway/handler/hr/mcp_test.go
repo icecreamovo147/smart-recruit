@@ -210,8 +210,8 @@ func TestMCPHandler_DeleteMCPServer_InvalidID(t *testing.T) {
 
 	// BadRequest returns HTTP 200 with an error code in the body
 	body := w.Body.String()
-	if !strings.Contains(body, "invalid id") {
-		t.Fatalf("expected error message containing 'invalid id', got %s", body)
+	if !strings.Contains(body, `"message_key":"common.invalid_request"`) {
+		t.Fatalf("expected localized invalid-request message key, got %s", body)
 	}
 }
 
@@ -340,8 +340,8 @@ func TestMCPHandler_CallMCPTool_InvalidID(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	bodyStr := w.Body.String()
-	if !strings.Contains(bodyStr, "invalid server_id") {
-		t.Fatalf("expected error message containing 'invalid server_id', got %s", bodyStr)
+	if !strings.Contains(bodyStr, `"message_key":"common.invalid_request"`) {
+		t.Fatalf("expected localized invalid-request message key, got %s", bodyStr)
 	}
 }
 

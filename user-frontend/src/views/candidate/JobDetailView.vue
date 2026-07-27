@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { onMounted, ref } from 'vue'
 import type { Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -32,7 +33,7 @@ const apply = async () => {
   try {
     await applyJob({ job_id: Number(route.params.jobId) })
     applied.value = true
-    ElMessage.success('投递成功')
+    ElMessage.success(t('common.success'))
   } catch (error: unknown) {
     const code = error instanceof BusinessError ? error.code : 0
     if (code === 4001) {

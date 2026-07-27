@@ -19,20 +19,24 @@ import (
 	"smart-recruit-gateway/router"
 	"smart-recruit-gateway/rpc"
 	"smart-recruit-platform-go/businessclock"
+	"smart-recruit-platform-go/i18n"
 )
 
 func main() {
 	businessclock.Configure()
 	logger.Set(logger.NewConsole())
 	log := logger.L()
+	if err := i18n.ConfigureFromEnv(); err != nil {
+		log.Fatal("log.gateway.config_failed", zap.String("cause", err.Error()))
+	}
 
 	if _, err := runtime.PlatformBootstrap(); err != nil {
-		log.Fatal("platform bootstrap failed", zap.Error(err))
+		log.Fatal("log.gateway.bootstrap_failed", zap.String("cause", err.Error()))
 	}
 
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal("config validation failed", zap.Error(err))
+		log.Fatal("log.gateway.config_failed", zap.String("cause", err.Error()))
 	}
 
 	routeTable, err := runtime.NewRouteTable(map[string]string{
@@ -46,7 +50,7 @@ func main() {
 		"billing":      "billing",
 	})
 	if err != nil {
-		log.Fatal("gateway route mode validation failed", zap.Error(err))
+		log.Fatal("log.gateway.route_validation_failed", zap.String("cause", err.Error()))
 	}
 	resolvedRoutes, err := routeTable.ResolveTargets(context.Background(), cfg.GRPCAddr, runtime.StaticTargetResolver{
 		"identity":     cfg.IdentityGRPCAddr,
@@ -59,9 +63,9 @@ func main() {
 		"billing":      envOrDefault("BILLING_GRPC_ADDR", "127.0.0.1:50069"),
 	})
 	if err != nil {
-		log.Fatal("gateway route target validation failed", zap.Error(err))
+		log.Fatal("log.gateway.route_validation_failed", zap.String("cause", err.Error()))
 	}
-	log.Info("gateway route targets validated", zap.Int("ready_targets", len(resolvedRoutes.ReadyTargets(cfg.GRPCAddr))))
+	log.Info("log.gateway.route_targets_validated", zap.Int("ready_targets", len(resolvedRoutes.ReadyTargets(cfg.GRPCAddr))))
 
 	clients, err := rpc.NewClientsWithOptions(cfg.GRPCAddr, rpc.ClientOptions{
 		NotificationAddr:      cfg.NotificationGRPCAddr,
@@ -84,13 +88,13 @@ func main() {
 		GRPCTLSServerName:     cfg.GRPCTLSServerName,
 	})
 	if err != nil {
-		log.Fatal("connect grpc service failed", zap.String("addr", cfg.GRPCAddr), zap.Error(err))
+		log.Fatal("log.gateway.grpc_connect_failed", zap.String("addr", cfg.GRPCAddr), zap.String("cause", err.Error()))
 	}
 	defer clients.Close()
 
 	rdb := redisclient.New(cfg.Redis)
 	if err := redisclient.Ping(context.Background(), rdb); err != nil {
-		log.Warn("connect redis failed, rate limiting will fall back to in-process memory", zap.String("addr", cfg.Redis.Addr), zap.Error(err))
+		log.Warn("log.gateway.redis_fallback", zap.String("addr", cfg.Redis.Addr), zap.String("cause", err.Error()))
 	}
 
 	r, limiters := router.Setup(cfg, clients, rdb)
@@ -105,21 +109,21 @@ func main() {
 	}
 
 	go func() {
-		log.Info("smart recruit gateway starting", zap.String("port", cfg.HTTPPort))
+		log.Info("log.gateway.starting", zap.String("port", cfg.HTTPPort), zap.String("locale", string(cfg.AppLocale)))
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal("serve http failed", zap.Error(err))
+			log.Fatal("log.gateway.http_serve_failed", zap.String("cause", err.Error()))
 		}
 	}()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-sigCh
-	log.Info("received signal, shutting down", zap.String("signal", sig.String()))
+	log.Info("log.gateway.shutdown_received", zap.String("signal", sig.String()))
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 	if err := httpServer.Shutdown(ctx); err != nil {
-		log.Warn("http shutdown failed", zap.Error(err))
+		log.Warn("log.gateway.shutdown_failed", zap.String("cause", err.Error()))
 	}
 	if limiters != nil {
 		limiters.Close()
@@ -127,7 +131,7 @@ func main() {
 	if rdb != nil {
 		_ = rdb.Close()
 	}
-	log.Info("smart recruit gateway stopped")
+	log.Info("log.gateway.stopped")
 }
 
 func envOrDefault(key string, fallback string) string {

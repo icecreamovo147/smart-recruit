@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { MoreFilled, Plus, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -41,13 +42,13 @@ const search = () => { query.page = 1; void load() }
 const reset = () => { Object.assign(query, { page: 1, keyword: '', status: '' }); void load() }
 
 const submitCreate = async () => {
-  if (!form.slug.trim() || !form.name.trim()) { ElMessage.warning('请填写企业标识与名称'); return }
+  if (!form.slug.trim() || !form.name.trim()) { ElMessage.warning(t('common.invalid_request')); return }
   creating.value = true
   try {
     const response = await createTenant({ ...form, slug: form.slug.trim(), name: form.name.trim() })
     createVisible.value = false
     Object.assign(form, { slug: '', name: '', timezone: 'Asia/Shanghai', locale: 'zh-CN' })
-    ElMessage.success('企业租户已创建')
+    ElMessage.success(t('common.success'))
     await router.push(`/tenants/${response.tenant.id}`)
   } finally { creating.value = false }
 }
@@ -60,10 +61,10 @@ const openStatusChange = (tenant: Tenant, status: Tenant['status']) => {
 }
 
 const submitStatusChange = async () => {
-  if (!selectedTenant.value || !statusReason.value.trim()) { ElMessage.warning('请填写状态变更原因'); return }
+  if (!selectedTenant.value || !statusReason.value.trim()) { ElMessage.warning(t('common.invalid_request')); return }
   await updateTenantStatus(selectedTenant.value.id, targetStatus.value, statusReason.value.trim())
   statusVisible.value = false
-  ElMessage.success('租户状态已更新')
+  ElMessage.success(t('common.success'))
   await load()
 }
 

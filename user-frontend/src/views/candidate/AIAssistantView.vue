@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -373,7 +374,7 @@ const renameSession = async (session: CandidateSession) => {
   await updateSession(session.session_id, { title })
   sessions.value = sessions.value.map((item) => item.session_id === session.session_id ? { ...item, title } : item)
   if (currentSession.value?.session_id === session.session_id) currentSession.value = { ...currentSession.value, title }
-  ElMessage.success('会话已重命名')
+  ElMessage.success(t('common.success'))
 }
 
 const removeSession = async (session: CandidateSession) => {
@@ -389,7 +390,7 @@ const removeSession = async (session: CandidateSession) => {
     messages.value = []
     router.replace('/ai-assistant')
   }
-  ElMessage.success('会话已删除')
+  ElMessage.success(t('common.success'))
 }
 
 const ensureSessionBeforeSend = async (message: string, type = 'general') => {
@@ -445,7 +446,7 @@ const send = async (text?: string, type = 'general') => {
             const signature = `${usage.capability_version_id || 0}:${usage.requested_model_id || 0}:${usage.effective_model_id}`
             if (signature !== lastFallbackSignature.value) {
               lastFallbackSignature.value = signature
-              ElMessage.warning(`所选模型当前不可用，已按平台能力版本切换为 ${modelName || '默认模型'}`)
+              ElMessage.warning(t('common.invalid_request'))
             }
           }
         },
@@ -526,7 +527,7 @@ const handleApply = async (job: RecommendedJob) => {
     return
   }
   await applyJob({ job_id: job.job_id })
-  ElMessage.success('投递成功')
+  ElMessage.success(t('common.success'))
   job.has_applied = true
 }
 
@@ -554,7 +555,7 @@ const applyRouteContext = async () => {
     if (session) {
       await loadMessages(session)
     } else {
-      ElMessage.warning('会话不存在或已被删除，已打开最近会话')
+      ElMessage.warning(t('common.invalid_request'))
       if (sessions.value.length > 0) {
         const latest = sessions.value[0]
         await loadMessages(latest)

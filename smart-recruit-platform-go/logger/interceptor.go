@@ -33,7 +33,7 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 				observability.DefaultMetrics.RecordRPCPanic(info.FullMethod)
 				observability.DefaultMetrics.ObserveRPC(info.FullMethod, codes.Internal.String(), elapsed)
 				l := GetRequestLogger(ctx)
-				l.Error("panic recovered",
+				l.Error("log.grpc.panic_recovered",
 					append(fields,
 						zap.String("method", info.FullMethod),
 						zap.Any("panic", r),
@@ -41,7 +41,7 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 					)...,
 				)
 				resp = nil
-				err = status.Errorf(codes.Internal, "internal server error")
+				err = status.Error(codes.Internal, "common.unknown_error")
 			}
 		}()
 
@@ -57,9 +57,9 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 		)
 		if err != nil {
 			logFields = append(logFields, zap.Error(err))
-			l.Error("grpc", logFields...)
+			l.Error("log.grpc.request", logFields...)
 		} else {
-			l.Info("grpc", logFields...)
+			l.Info("log.grpc.request", logFields...)
 		}
 		return resp, err
 	}
@@ -87,7 +87,7 @@ func StreamServerInterceptor() grpc.StreamServerInterceptor {
 				observability.DefaultMetrics.RecordRPCPanic(info.FullMethod)
 				observability.DefaultMetrics.ObserveRPC(info.FullMethod, codes.Internal.String(), elapsed)
 				l := GetRequestLogger(ctx)
-				l.Error("panic recovered",
+				l.Error("log.grpc.panic_recovered",
 					append(fields,
 						zap.String("method", info.FullMethod),
 						zap.Any("panic", r),
@@ -110,9 +110,9 @@ func StreamServerInterceptor() grpc.StreamServerInterceptor {
 		)
 		if err != nil {
 			logFields = append(logFields, zap.Error(err))
-			l.Error("grpc stream", logFields...)
+			l.Error("log.grpc.stream", logFields...)
 		} else {
-			l.Info("grpc stream", logFields...)
+			l.Info("log.grpc.stream", logFields...)
 		}
 		return err
 	}

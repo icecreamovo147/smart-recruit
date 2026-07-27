@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -31,7 +32,7 @@ const search = () => { query.page = 1; load() }
 const openAction = (row: QuotaAlert, status: 'acknowledged' | 'resolved') => { selected.value = row; action.status = status; action.resolution_note = ''; dialogVisible.value = true }
 const submit = async () => {
   if (!selected.value) return
-  if (action.status === 'resolved' && !action.resolution_note.trim()) { ElMessage.warning('解决告警时必须填写处置结论'); return }
+  if (action.status === 'resolved' && !action.resolution_note.trim()) { ElMessage.warning(t('common.invalid_request')); return }
   await updateQuotaAlert(selected.value.id, { status: action.status, assignee_user_id: auth.user?.user_id, resolution_note: action.resolution_note.trim() })
   dialogVisible.value = false
   ElMessage.success(action.status === 'resolved' ? '告警已解决' : '告警已认领')

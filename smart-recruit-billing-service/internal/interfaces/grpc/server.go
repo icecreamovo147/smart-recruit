@@ -42,7 +42,7 @@ func (s *Server) CheckAIAccess(ctx context.Context, req *pb.CheckAIAccessRequest
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &pb.CheckAIAccessResponse{Code: 0, Msg: "ok", Allowed: decision.Allowed, Reason: decision.Reason, AvailableCredits: int64(decision.Balance.AvailableCredits), EnforcementMode: modeToProto(decision.Mode), CapabilityVersionId: int64(decision.CapabilityVersionID)}, nil
+	return &pb.CheckAIAccessResponse{Code: 0, Msg: "common.success", Allowed: decision.Allowed, Reason: decision.Reason, AvailableCredits: int64(decision.Balance.AvailableCredits), EnforcementMode: modeToProto(decision.Mode), CapabilityVersionId: int64(decision.CapabilityVersionID)}, nil
 }
 
 func (s *Server) ReserveAIUsage(ctx context.Context, req *pb.ReserveAIUsageRequest) (*pb.ReserveAIUsageResponse, error) {
@@ -61,7 +61,7 @@ func (s *Server) ReserveAIUsage(ctx context.Context, req *pb.ReserveAIUsageReque
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	response := &pb.ReserveAIUsageResponse{Code: 0, Msg: "ok", Allowed: result.Allowed, Reason: result.Reason, AvailableCredits: int64(result.Balance.AvailableCredits), EnforcementMode: modeToProto(s.billing.Mode()), CapabilityVersionId: int64(result.CapabilityVersionID)}
+	response := &pb.ReserveAIUsageResponse{Code: 0, Msg: "common.success", Allowed: result.Allowed, Reason: result.Reason, AvailableCredits: int64(result.Balance.AvailableCredits), EnforcementMode: modeToProto(s.billing.Mode()), CapabilityVersionId: int64(result.CapabilityVersionID)}
 	if result.Allowed {
 		response.ReservationNo = result.Reservation.No
 		response.ReservedCredits = int64(result.Reservation.ReservedCredits)
@@ -99,7 +99,7 @@ func (s *Server) SettleAIUsage(ctx context.Context, req *pb.SettleAIUsageRequest
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &pb.SettleAIUsageResponse{Code: 0, Msg: "ok", ChargedCredits: int64(result.ChargedCredits), SupplierCostMicros: int64(result.SupplierCostMicros), AvailableCredits: int64(result.AvailableCredits), AlreadySettled: result.AlreadySettled}, nil
+	return &pb.SettleAIUsageResponse{Code: 0, Msg: "common.success", ChargedCredits: int64(result.ChargedCredits), SupplierCostMicros: int64(result.SupplierCostMicros), AvailableCredits: int64(result.AvailableCredits), AlreadySettled: result.AlreadySettled}, nil
 }
 
 func (s *Server) CancelAIUsage(ctx context.Context, req *pb.CancelAIUsageRequest) (*pb.CancelAIUsageResponse, error) {
@@ -107,7 +107,7 @@ func (s *Server) CancelAIUsage(ctx context.Context, req *pb.CancelAIUsageRequest
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &pb.CancelAIUsageResponse{Code: 0, Msg: "ok", ReleasedCredits: int64(result.ReleasedCredits), AvailableCredits: int64(result.AvailableCredits), AlreadyCancelled: result.AlreadyCancelled}, nil
+	return &pb.CancelAIUsageResponse{Code: 0, Msg: "common.success", ReleasedCredits: int64(result.ReleasedCredits), AvailableCredits: int64(result.AvailableCredits), AlreadyCancelled: result.AlreadyCancelled}, nil
 }
 
 func (s *Server) GetAICreditBalance(ctx context.Context, req *pb.GetAICreditBalanceRequest) (*pb.GetAICreditBalanceResponse, error) {
@@ -119,7 +119,7 @@ func (s *Server) GetAICreditBalance(ctx context.Context, req *pb.GetAICreditBala
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	response := &pb.GetAICreditBalanceResponse{Code: 0, Msg: "ok", AvailableCredits: int64(balance.AvailableCredits), ReservedCredits: int64(balance.ReservedCredits), EnforcementMode: modeToProto(s.billing.Mode())}
+	response := &pb.GetAICreditBalanceResponse{Code: 0, Msg: "common.success", AvailableCredits: int64(balance.AvailableCredits), ReservedCredits: int64(balance.ReservedCredits), EnforcementMode: modeToProto(s.billing.Mode())}
 	if balance.NextExpiryAt != nil {
 		response.NextExpiryAtUnixMs = balance.NextExpiryAt.UnixMilli()
 	}
@@ -135,7 +135,7 @@ func (s *Server) ListBillingCatalog(ctx context.Context, req *pb.ListBillingCata
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &pb.ListBillingCatalogResponse{Code: 0, Msg: "ok", Products: products, PaymentEnvironment: s.commerce.Environment()}, nil
+	return &pb.ListBillingCatalogResponse{Code: 0, Msg: "common.success", Products: products, PaymentEnvironment: s.commerce.Environment()}, nil
 }
 
 func (s *Server) GetBillingAccount(ctx context.Context, req *pb.GetBillingAccountRequest) (*pb.GetBillingAccountResponse, error) {
@@ -162,7 +162,7 @@ func (s *Server) GetBillingAccount(ctx context.Context, req *pb.GetBillingAccoun
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	response := &pb.GetBillingAccountResponse{
-		Code: 0, Msg: "ok", Subscription: subscription, ScheduledSubscription: scheduledSubscription,
+		Code: 0, Msg: "common.success", Subscription: subscription, ScheduledSubscription: scheduledSubscription,
 		AvailableCredits: int64(balance.AvailableCredits), ReservedCredits: int64(balance.ReservedCredits),
 		PaymentEnvironment: s.commerce.Environment(), TotalCredits: totalCredits, UsedCredits: usedCredits,
 		NextRefreshAtUnixMs: s.commerce.NextRefreshAt(subscription),
@@ -182,7 +182,7 @@ func (s *Server) ListBillingOrders(ctx context.Context, req *pb.ListBillingOrder
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &pb.ListBillingOrdersResponse{Code: 0, Msg: "ok", Orders: orders, Total: total}, nil
+	return &pb.ListBillingOrdersResponse{Code: 0, Msg: "common.success", Orders: orders, Total: total}, nil
 }
 
 func (s *Server) CreateBillingOrder(ctx context.Context, req *pb.CreateBillingOrderRequest) (*pb.BillingOrderResponse, error) {
@@ -197,7 +197,7 @@ func (s *Server) CreateBillingOrder(ctx context.Context, req *pb.CreateBillingOr
 	if err != nil {
 		return nil, createBillingOrderError(err)
 	}
-	return &pb.BillingOrderResponse{Code: 0, Msg: "ok", Order: order}, nil
+	return &pb.BillingOrderResponse{Code: 0, Msg: "common.success", Order: order}, nil
 }
 
 func createBillingOrderError(err error) error {
@@ -232,7 +232,7 @@ func (s *Server) CreateAlipayPayment(ctx context.Context, req *pb.CreateAlipayPa
 				return nil, status.Error(codes.FailedPrecondition, "支付宝沙箱支付暂不可用，请检查沙箱配置或稍后重试")
 			}
 		}
-		return &pb.CreateAlipayPaymentResponse{Code: 0, Msg: "ok", PaymentNo: paymentNo, RedirectUrl: "", PaymentEnvironment: s.commerce.Environment()}, nil
+		return &pb.CreateAlipayPaymentResponse{Code: 0, Msg: "common.success", PaymentNo: paymentNo, RedirectUrl: "", PaymentEnvironment: s.commerce.Environment()}, nil
 	}
 	paymentNo, redirectURL, reused, expiresAt, err := s.commerce.CreatePayment(ctx, owner, req.GetOrderNo(), req.GetScene())
 	if err != nil {
@@ -247,7 +247,7 @@ func (s *Server) CreateAlipayPayment(ctx context.Context, req *pb.CreateAlipayPa
 			return nil, status.Error(codes.FailedPrecondition, "支付宝沙箱支付暂不可用，请检查沙箱配置或稍后重试")
 		}
 	}
-	return &pb.CreateAlipayPaymentResponse{Code: 0, Msg: "ok", PaymentNo: paymentNo, RedirectUrl: redirectURL, PaymentEnvironment: s.commerce.Environment(), Reused: reused, Status: "pending", ExpiresAtUnixMs: expiresAt.UnixMilli()}, nil
+	return &pb.CreateAlipayPaymentResponse{Code: 0, Msg: "common.success", PaymentNo: paymentNo, RedirectUrl: redirectURL, PaymentEnvironment: s.commerce.Environment(), Reused: reused, Status: "pending", ExpiresAtUnixMs: expiresAt.UnixMilli()}, nil
 }
 
 func (s *Server) RequestBillingRefund(ctx context.Context, req *pb.RequestBillingRefundRequest) (*pb.BillingRefundResponse, error) {
@@ -262,7 +262,7 @@ func (s *Server) RequestBillingRefund(ctx context.Context, req *pb.RequestBillin
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &pb.BillingRefundResponse{Code: 0, Msg: "ok", RefundNo: refundNo, Status: statusValue, ReviewMode: reviewMode}, nil
+	return &pb.BillingRefundResponse{Code: 0, Msg: "common.success", RefundNo: refundNo, Status: statusValue, ReviewMode: reviewMode}, nil
 }
 
 func (s *Server) ProcessAlipayNotification(ctx context.Context, req *pb.ProcessAlipayNotificationRequest) (*pb.ProcessAlipayNotificationResponse, error) {
@@ -278,7 +278,7 @@ func (s *Server) ProcessAlipayNotification(ctx context.Context, req *pb.ProcessA
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &pb.ProcessAlipayNotificationResponse{Code: 0, Msg: "ok", Accepted: true}, nil
+	return &pb.ProcessAlipayNotificationResponse{Code: 0, Msg: "common.success", Accepted: true}, nil
 }
 
 func (s *Server) ResolveAlipayReturn(ctx context.Context, req *pb.ResolveAlipayReturnRequest) (*pb.ResolveAlipayReturnResponse, error) {
@@ -295,7 +295,7 @@ func (s *Server) ResolveAlipayReturn(ctx context.Context, req *pb.ResolveAlipayR
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &pb.ResolveAlipayReturnResponse{Code: 0, Msg: "ok", SourceApp: sourceApp, ReturnToken: returnToken}, nil
+	return &pb.ResolveAlipayReturnResponse{Code: 0, Msg: "common.success", SourceApp: sourceApp, ReturnToken: returnToken}, nil
 }
 
 func (s *Server) SyncAlipayReturn(ctx context.Context, req *pb.SyncAlipayReturnRequest) (*pb.CreateAlipayPaymentResponse, error) {
@@ -310,7 +310,7 @@ func (s *Server) SyncAlipayReturn(ctx context.Context, req *pb.SyncAlipayReturnR
 		}
 		return nil, status.Error(codes.FailedPrecondition, "当前支付返回无法确认，请刷新订单状态")
 	}
-	return &pb.CreateAlipayPaymentResponse{Code: 0, Msg: "ok", PaymentNo: paymentNo, PaymentEnvironment: s.commerce.Environment(), Status: "succeeded"}, nil
+	return &pb.CreateAlipayPaymentResponse{Code: 0, Msg: "common.success", PaymentNo: paymentNo, PaymentEnvironment: s.commerce.Environment(), Status: "succeeded"}, nil
 }
 
 func (s *Server) ListBillingRefunds(ctx context.Context, req *pb.ListBillingRefundsRequest) (*pb.ListBillingRefundsResponse, error) {
@@ -318,7 +318,7 @@ func (s *Server) ListBillingRefunds(ctx context.Context, req *pb.ListBillingRefu
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &pb.ListBillingRefundsResponse{Code: 0, Msg: "ok", Refunds: refunds, Total: total}, nil
+	return &pb.ListBillingRefundsResponse{Code: 0, Msg: "common.success", Refunds: refunds, Total: total}, nil
 }
 
 func (s *Server) ReviewBillingRefund(ctx context.Context, req *pb.ReviewBillingRefundRequest) (*pb.BillingRefundResponse, error) {
@@ -326,7 +326,7 @@ func (s *Server) ReviewBillingRefund(ctx context.Context, req *pb.ReviewBillingR
 	if err != nil {
 		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
-	return &pb.BillingRefundResponse{Code: 0, Msg: "ok", RefundNo: refundNo, Status: statusValue, ReviewMode: "manual"}, nil
+	return &pb.BillingRefundResponse{Code: 0, Msg: "common.success", RefundNo: refundNo, Status: statusValue, ReviewMode: "manual"}, nil
 }
 
 func (s *Server) ListBillingAdminCatalog(ctx context.Context, _ *pb.ListBillingAdminCatalogRequest) (*pb.ListBillingCatalogResponse, error) {
@@ -334,7 +334,7 @@ func (s *Server) ListBillingAdminCatalog(ctx context.Context, _ *pb.ListBillingA
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &pb.ListBillingCatalogResponse{Code: 0, Msg: "ok", Products: products, PaymentEnvironment: s.commerce.Environment()}, nil
+	return &pb.ListBillingCatalogResponse{Code: 0, Msg: "common.success", Products: products, PaymentEnvironment: s.commerce.Environment()}, nil
 }
 
 func (s *Server) SaveBillingPriceVersion(ctx context.Context, req *pb.SaveBillingPriceVersionRequest) (*pb.BillingPriceInfo, error) {
@@ -353,7 +353,7 @@ func (s *Server) ListAIRateCards(ctx context.Context, _ *pb.ListAIRateCardsReque
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &pb.ListAIRateCardsResponse{Code: 0, Msg: "ok", Rates: rates}, nil
+	return &pb.ListAIRateCardsResponse{Code: 0, Msg: "common.success", Rates: rates}, nil
 }
 
 func (s *Server) SaveAIRateCard(ctx context.Context, req *pb.SaveAIRateCardRequest) (*pb.AIRateCardInfo, error) {

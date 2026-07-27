@@ -7,6 +7,17 @@ on:
     branches: [dev, main]
 
 jobs:
+  i18n-governance:
+    name: I18n Governance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify catalogs and governed message boundaries
+        run: node scripts/check-i18n-governance.mjs
+
   schema-governance:
     name: Schema Governance
     runs-on: ubuntu-latest

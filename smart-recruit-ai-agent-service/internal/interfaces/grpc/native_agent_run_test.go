@@ -248,7 +248,7 @@ func TestAgentRunFailureDetailsMapsInsufficientCreditsToUserMessage(t *testing.T
 		status.Error(codes.ResourceExhausted, "insufficient_credits"),
 		"provider",
 	)
-	if errorType != "insufficient_credits" || errorMessage != insufficientCreditsUserMessage {
+	if errorType != "insufficient_credits" || errorMessage != "ai.insufficient_credits" {
 		t.Fatalf("failure details = (%q, %q)", errorType, errorMessage)
 	}
 }

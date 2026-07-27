@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { DocumentCopy, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -70,7 +71,7 @@ const afterText = computed(() => prettyJson(selected.value?.after_json || ''))
 const copyRequestId = async (value: string) => {
   if (!value) return
   await navigator.clipboard.writeText(value)
-  ElMessage.success('Request ID 已复制')
+  ElMessage.success(t('common.success'))
 }
 
 onMounted(load)

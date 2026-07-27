@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
@@ -123,7 +124,7 @@ const finalizeAlipayReturn = async (orderNo: string) => {
       await load()
       const order = orders.value.find((item) => item.order_no === orderNo)
       if (order?.status === 'paid' || syncResult === 'paid') {
-        ElMessage.success('支付成功，套餐与订单状态已更新')
+        ElMessage.success(t('common.success'))
         return
       }
       if (syncResult === 'failed' && order && !isOrderPayable(order) && order.status !== 'paying' && order.status !== 'pending') {
@@ -131,7 +132,7 @@ const finalizeAlipayReturn = async (orderNo: string) => {
       }
       await sleep(1500)
     }
-    ElMessage.warning('支付结果仍在确认中，请稍后点击刷新')
+    ElMessage.warning(t('common.invalid_request'))
   } finally {
     syncingPayment.value = false
   }
@@ -147,7 +148,7 @@ const finalizePaymentReturnToken = async (token: string) => {
       try {
         await syncBillingPaymentReturn(token)
         await load()
-        ElMessage.success('支付成功，套餐与订单状态已更新')
+        ElMessage.success(t('common.success'))
         return
       } catch (error) {
         if (!errorMessage(error).includes('支付结果确认中')) break
@@ -155,13 +156,13 @@ const finalizePaymentReturnToken = async (token: string) => {
       await sleep(1500)
     }
     await load()
-    ElMessage.warning('支付结果仍在确认中，请稍后点击刷新')
+    ElMessage.warning(t('common.invalid_request'))
   } finally { syncingPayment.value = false }
 }
 
 const purchase = async (product: BillingProduct, priceId: number, amountFen: number) => {
   if (product.product_type === 'subscription' && scheduledSubscription.value) {
-    ElMessage.info('当前已有待生效套餐，无需重复购买')
+    ElMessage.info(t('common.operation_failed'))
     return
   }
   purchasingPriceId.value = priceId
@@ -212,7 +213,7 @@ const purchase = async (product: BillingProduct, priceId: number, amountFen: num
 const continuePayment = async (order: BillingOrder) => {
   currentTimeMs.value = Date.now()
   if (!isOrderPayable(order)) {
-    ElMessage.warning('订单已超过支付时限并关闭，请重新创建订单')
+    ElMessage.warning(t('common.invalid_request'))
     await load()
     return
   }
@@ -220,13 +221,13 @@ const continuePayment = async (order: BillingOrder) => {
   try {
     const scene = detectAlipayScene()
     const payment = await payBillingOrder(order.order_no, scene)
-    if (payment.payment_environment !== 'sandbox') throw new Error('当前开发版本只允许支付宝沙箱支付')
+    if (payment.payment_environment !== 'sandbox') throw new Error(t('billing.sandbox_only'))
     rememberBillingPendingOrder(order.order_no)
     submitAlipayPayment(payment.redirect_url)
   } catch (error) {
     await load()
     if (isBillingAlreadyPaidMessage(errorMessage(error))) {
-      ElMessage.success('订单已支付成功，套餐与订单状态已更新')
+      ElMessage.success(t('common.success'))
       return
     }
     throw error
@@ -242,7 +243,7 @@ const refund = async (order: BillingOrder) => {
     { inputPattern: /\S+/, inputErrorMessage: '退款原因不能为空' },
   )
   await refundBillingOrder(order.order_no, value)
-  ElMessage.success('退款申请已提交')
+  ElMessage.success(t('common.success'))
   await load()
 }
 

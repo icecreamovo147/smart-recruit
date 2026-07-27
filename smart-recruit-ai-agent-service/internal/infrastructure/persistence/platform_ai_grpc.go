@@ -34,7 +34,7 @@ func (s *platformAIControlPlaneServer) ListPlatformAICapabilities(ctx context.Co
 			CurrentPublishedVersionId: row.CurrentPublishedVersionID,
 		})
 	}
-	return &pb.ListPlatformAICapabilitiesResponse{Code: 0, Msg: "ok", List: result}, nil
+	return &pb.ListPlatformAICapabilitiesResponse{Code: 0, Msg: "common.success", List: result}, nil
 }
 
 func (s *platformAIControlPlaneServer) ListPlatformAICapabilityVersions(ctx context.Context, req *pb.ListPlatformAICapabilityVersionsRequest) (*pb.ListPlatformAICapabilityVersionsResponse, error) {
@@ -46,7 +46,7 @@ func (s *platformAIControlPlaneServer) ListPlatformAICapabilityVersions(ctx cont
 	for _, row := range rows {
 		result = append(result, platformAICapabilityVersionProto(row))
 	}
-	return &pb.ListPlatformAICapabilityVersionsResponse{Code: 0, Msg: "ok", List: result}, nil
+	return &pb.ListPlatformAICapabilityVersionsResponse{Code: 0, Msg: "common.success", List: result}, nil
 }
 
 func (s *platformAIControlPlaneServer) CreatePlatformAICapabilityDraft(ctx context.Context, req *pb.CreatePlatformAICapabilityDraftRequest) (*pb.PlatformAICapabilityVersionResponse, error) {
@@ -54,7 +54,7 @@ func (s *platformAIControlPlaneServer) CreatePlatformAICapabilityDraft(ctx conte
 	if err != nil {
 		return platformAICapabilityError(err), nil
 	}
-	return &pb.PlatformAICapabilityVersionResponse{Code: 0, Msg: "ok", Version: platformAICapabilityVersionProto(row)}, nil
+	return &pb.PlatformAICapabilityVersionResponse{Code: 0, Msg: "common.success", Version: platformAICapabilityVersionProto(row)}, nil
 }
 
 func (s *platformAIControlPlaneServer) UpdatePlatformAICapabilityDraft(ctx context.Context, req *pb.UpdatePlatformAICapabilityDraftRequest) (*pb.PlatformAICapabilityVersionResponse, error) {
@@ -62,15 +62,15 @@ func (s *platformAIControlPlaneServer) UpdatePlatformAICapabilityDraft(ctx conte
 	if err != nil {
 		return platformAICapabilityError(err), nil
 	}
-	return &pb.PlatformAICapabilityVersionResponse{Code: 0, Msg: "ok", Version: platformAICapabilityVersionProto(row)}, nil
+	return &pb.PlatformAICapabilityVersionResponse{Code: 0, Msg: "common.success", Version: platformAICapabilityVersionProto(row)}, nil
 }
 
 func (s *platformAIControlPlaneServer) DeletePlatformAICapabilityDraft(ctx context.Context, req *pb.DeletePlatformAICapabilityDraftRequest) (*pb.CommonResponse, error) {
 	if err := s.store.DeletePlatformAICapabilityDraft(ctx, req.GetVersionId(), req.GetActorUserId(), req.GetRequestId()); err != nil {
-		code, msg := platformAIErrorCode(err)
-		return &pb.CommonResponse{Code: code, Msg: msg}, nil
+		code, _ := platformAIErrorCode(err)
+		return &pb.CommonResponse{Code: code, Msg: "common.operation_failed"}, nil
 	}
-	return &pb.CommonResponse{Code: 0, Msg: "ok"}, nil
+	return &pb.CommonResponse{Code: 0, Msg: "common.success"}, nil
 }
 
 func (s *platformAIControlPlaneServer) PublishPlatformAICapabilityVersion(ctx context.Context, req *pb.PublishPlatformAICapabilityVersionRequest) (*pb.PlatformAICapabilityVersionResponse, error) {
@@ -78,14 +78,14 @@ func (s *platformAIControlPlaneServer) PublishPlatformAICapabilityVersion(ctx co
 	if err != nil {
 		return platformAICapabilityError(err), nil
 	}
-	return &pb.PlatformAICapabilityVersionResponse{Code: 0, Msg: "ok", Version: platformAICapabilityVersionProto(row)}, nil
+	return &pb.PlatformAICapabilityVersionResponse{Code: 0, Msg: "common.success", Version: platformAICapabilityVersionProto(row)}, nil
 }
 
 func (s *platformAIControlPlaneServer) ListPlatformAIRuntimeModels(ctx context.Context, req *pb.ListPlatformAIRuntimeModelsRequest) (*pb.ListPlatformAIRuntimeModelsResponse, error) {
 	models, version, err := s.store.ListAllowedRuntimeModels(ctx, req.GetCapabilityKey(), req.GetAudience(), req.GetCapabilityVersionId())
 	if err != nil {
-		code, msg := platformAIErrorCode(err)
-		return &pb.ListPlatformAIRuntimeModelsResponse{Code: code, Msg: msg}, nil
+		code, _ := platformAIErrorCode(err)
+		return &pb.ListPlatformAIRuntimeModelsResponse{Code: code, Msg: "common.operation_failed"}, nil
 	}
 	result := make([]*pb.PlatformAIRuntimeModelInfo, 0, len(models))
 	for _, model := range models {
@@ -100,18 +100,18 @@ func (s *platformAIControlPlaneServer) ListPlatformAIRuntimeModels(ctx context.C
 			ContextWindowTokens: model.ContextWindowTokens,
 		})
 	}
-	return &pb.ListPlatformAIRuntimeModelsResponse{Code: 0, Msg: "ok", CapabilityVersionId: version.ID, SnapshotHash: version.SnapshotHash, List: result}, nil
+	return &pb.ListPlatformAIRuntimeModelsResponse{Code: 0, Msg: "common.success", CapabilityVersionId: version.ID, SnapshotHash: version.SnapshotHash, List: result}, nil
 }
 
 func (s *platformAIControlPlaneServer) ResolvePlatformAIRuntimeModel(ctx context.Context, req *pb.ResolvePlatformAIRuntimeModelRequest) (*pb.ResolvePlatformAIRuntimeModelResponse, error) {
 	resolution, err := s.store.ResolveRuntimeModel(ctx, req.GetCapabilityKey(), req.GetAudience(), req.GetCapabilityVersionId(), req.GetRequestedModelId())
 	if err != nil {
-		code, msg := platformAIErrorCode(err)
-		return &pb.ResolvePlatformAIRuntimeModelResponse{Code: code, Msg: msg, RequestedModelId: req.GetRequestedModelId()}, nil
+		code, _ := platformAIErrorCode(err)
+		return &pb.ResolvePlatformAIRuntimeModelResponse{Code: code, Msg: "common.operation_failed", RequestedModelId: req.GetRequestedModelId()}, nil
 	}
 	return &pb.ResolvePlatformAIRuntimeModelResponse{
 		Code:                0,
-		Msg:                 "ok",
+		Msg:                 "common.success",
 		CapabilityKey:       resolution.CapabilityKey,
 		Audience:            resolution.Audience,
 		CapabilityVersionId: resolution.CapabilityVersionID,
@@ -147,7 +147,7 @@ func (s *platformAIControlPlaneServer) QueryPlatformAIConfigAuditLogs(ctx contex
 			CreatedAt:           businessclock.FormatRFC3339(row.CreatedAt),
 		})
 	}
-	return &pb.QueryPlatformAIConfigAuditLogsResponse{Code: 0, Msg: "ok", Total: total, List: result}, nil
+	return &pb.QueryPlatformAIConfigAuditLogsResponse{Code: 0, Msg: "common.success", Total: total, List: result}, nil
 }
 
 func platformAICapabilityVersionProto(row PlatformAICapabilityVersion) *pb.PlatformAICapabilityVersionInfo {
@@ -168,8 +168,8 @@ func platformAICapabilityVersionProto(row PlatformAICapabilityVersion) *pb.Platf
 }
 
 func platformAICapabilityError(err error) *pb.PlatformAICapabilityVersionResponse {
-	code, msg := platformAIErrorCode(err)
-	return &pb.PlatformAICapabilityVersionResponse{Code: code, Msg: msg}
+	code, _ := platformAIErrorCode(err)
+	return &pb.PlatformAICapabilityVersionResponse{Code: code, Msg: "common.operation_failed"}
 }
 
 func platformAIErrorCode(err error) (int32, string) {

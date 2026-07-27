@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, CircleCheck, Document, Edit, MoreFilled, Plus, Search, Tickets, TurnOff, WarningFilled, View } from '@element-plus/icons-vue'
@@ -816,7 +817,7 @@ const saveSkill = async () => {
   await refreshPreview()
   if (!validation.value.valid) {
     debugLog.skill.warn('saveSkill_skipped', { reason: 'validation_failed' })
-    ElMessage.warning('请先修复校验错误')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   saving.value = true
@@ -825,11 +826,11 @@ const saveSkill = async () => {
       const skillId = editingSkill.value.id
       await api.updateAgentSkill(skillId, updatePayload())
       await api.createAgentSkillVersion(skillId, versionPayload())
-      ElMessage.success('Agent Skill 已保存并激活新版本')
+      ElMessage.success(t('common.success'))
       debugLog.skill.info('saveSkill_succeeded', { skill_id: skillId, action: 'update' })
     } else {
       await api.createAgentSkill(payload())
-      ElMessage.success('Agent Skill 已创建')
+      ElMessage.success(t('common.success'))
       debugLog.skill.info('saveSkill_succeeded', { action: 'create', name: form.name })
     }
     builderDialogVisible.value = false
@@ -880,18 +881,18 @@ const regenerateEmbedding = async (row: AgentSkillInfo) => {
   try {
     const result = await api.regenerateAgentSkillEmbedding(row.id)
     if (result.failed_count > 0) {
-      ElMessage.error('Embedding 重新生成失败，请检查模型配置或服务日志')
+      ElMessage.error(t('frontend.operation_failed'))
       return
     }
     if (result.skipped_count > 0) {
-      ElMessage.warning('当前 Agent Skill 未发布、未启用或无可生成内容，已跳过')
+      ElMessage.warning(t('common.invalid_request'))
       return
     }
     if (result.success_count <= 0) {
-      ElMessage.warning('未生成任何 Embedding，请检查 Agent Skill 状态')
+      ElMessage.warning(t('common.invalid_request'))
       return
     }
-    ElMessage.success('Embedding 已重新生成')
+    ElMessage.success(t('common.success'))
     debugLog.skill.info('regenerateEmbedding_succeeded', { skill_id: row.id, success_count: result.success_count })
   } catch (e: unknown) {
     debugLog.skill.error('regenerateEmbedding_failed', { skill_id: row.id, error: getErrorMessage(e, '') })
@@ -1010,7 +1011,7 @@ const activateVersion = async (version: AgentSkillVersionInfo) => {
   activatingVersionId.value = version.id
   try {
     await api.activateAgentSkillVersion(versionSkill.value.id, version.id)
-    ElMessage.success('已设为当前版本')
+    ElMessage.success(t('common.success'))
     debugLog.skill.info('activateVersion_succeeded', { skill_id: versionSkill.value.id, version_id: version.id })
     await loadList()
     if (versionSkill.value) {

@@ -14,6 +14,7 @@ import (
 	"smart-recruit-interview-service/internal/domain/repository"
 	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/errs"
+	"smart-recruit-platform-go/i18n"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -23,7 +24,7 @@ func TestScheduleInterviewPreservesLegacyTimeParseMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ScheduleInterview error=%v", err)
 	}
-	if resp.Code != errs.ErrBadRequest || resp.Msg != "面试时间格式错误，请使用 RFC 3339 格式" {
+	if resp.Code != errs.ErrBadRequest || resp.Msg != "common.invalid_request" {
 		t.Fatalf("response=%+v, want legacy time parse bad request", resp)
 	}
 }
@@ -35,7 +36,7 @@ func TestScheduleInterviewSuccessMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ScheduleInterview error=%v", err)
 	}
-	if resp.Code != errs.OK || resp.Msg != "面试安排成功" || resp.InterviewId != 42 {
+	if resp.Code != errs.OK || resp.Msg != "common.success" || resp.InterviewId != 42 {
 		t.Fatalf("response=%+v, want success with interview id", resp)
 	}
 }
@@ -46,7 +47,7 @@ func TestBatchCancelZeroUsesLegacyMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BatchCancelInterviews error=%v", err)
 	}
-	if resp.Code != errs.OK || resp.Msg != "没有需要取消的面试" || resp.Affected != 0 {
+	if resp.Code != errs.OK || resp.Msg != "common.success" || resp.Affected != 0 {
 		t.Fatalf("response=%+v, want no active interviews message", resp)
 	}
 }
@@ -56,12 +57,11 @@ func TestSubmitFeedbackMapsLegacyErrors(t *testing.T) {
 		name string
 		err  error
 		code int32
-		msg  string
 	}{
-		{name: "assignment", err: model.ErrInterviewerMismatch, code: errs.ErrForbidden, msg: "您不是该面试的面试官，无法提交反馈"},
-		{name: "terminal", err: model.ErrFeedbackTerminalApplication, code: errs.ErrForbidden, msg: "该候选人已结束投递流程（已被淘汰或撤回），无法提交面试反馈"},
-		{name: "duplicate", err: model.ErrFeedbackAlreadyExists, code: errs.ErrConflict, msg: "您已提交过面试反馈，不可重复提交（如有更正需求请联系 HR）"},
-		{name: "recommendation", err: model.ErrFeedbackInvalidRecommendation, code: errs.ErrBadRequest, msg: "推荐结论值不合法"},
+		{name: "assignment", err: model.ErrInterviewerMismatch, code: errs.ErrForbidden},
+		{name: "terminal", err: model.ErrFeedbackTerminalApplication, code: errs.ErrForbidden},
+		{name: "duplicate", err: model.ErrFeedbackAlreadyExists, code: errs.ErrConflict},
+		{name: "recommendation", err: model.ErrFeedbackInvalidRecommendation, code: errs.ErrBadRequest},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -70,8 +70,8 @@ func TestSubmitFeedbackMapsLegacyErrors(t *testing.T) {
 			if err != nil {
 				t.Fatalf("SubmitFeedback error=%v", err)
 			}
-			if resp.Code != tt.code || resp.Msg != tt.msg {
-				t.Fatalf("response=%+v, want code=%d msg=%q", resp, tt.code, tt.msg)
+			if resp.Code != tt.code || resp.Msg != i18n.KeyForCode(tt.code) {
+				t.Fatalf("response=%+v, want code=%d and stable message key", resp, tt.code)
 			}
 		})
 	}
@@ -108,7 +108,7 @@ func TestGetInterviewNotFoundMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetInterview error=%v", err)
 	}
-	if resp.Code != errs.ErrBadRequest || resp.Msg != "面试记录不存在" {
+	if resp.Code != errs.ErrBadRequest || resp.Msg != "common.invalid_request" {
 		t.Fatalf("response=%+v, want legacy not found", resp)
 	}
 }
@@ -198,7 +198,7 @@ func TestListMyInterviewsMapsHasFeedbackAndForbiddenMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListMyInterviews forbidden error=%v", err)
 	}
-	if forbiddenResp.Code != errs.ErrForbidden || forbiddenResp.Msg != "无权限查看面试列表" {
+	if forbiddenResp.Code != errs.ErrForbidden || forbiddenResp.Msg != "common.forbidden" {
 		t.Fatalf("response=%+v, want legacy forbidden list message", forbiddenResp)
 	}
 }

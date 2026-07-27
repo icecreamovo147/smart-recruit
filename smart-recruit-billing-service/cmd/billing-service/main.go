@@ -13,11 +13,14 @@ import (
 	"syscall"
 	"time"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"smart-recruit-platform-go/businessclock"
+	"smart-recruit-platform-go/i18n"
+	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/mysqltime"
 	platformserver "smart-recruit-platform-go/server"
 	"smart-recruit-proto/recruitment/pb"
@@ -32,6 +35,10 @@ import (
 )
 
 func main() {
+	if err := i18n.ConfigureFromEnv(); err != nil {
+		logger.L().Error("log.service.config_failed", zap.String("cause", err.Error()))
+		os.Exit(2)
+	}
 	businessclock.Configure()
 	check := flag.Bool("check", false, "validate Billing service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start Billing gRPC runtime")
@@ -40,18 +47,18 @@ func main() {
 	flag.Parse()
 	if *check {
 		if err := checkRuntime(); err != nil {
-			fmt.Fprintf(os.Stderr, "billing-service check failed: %v\n", err)
+			logger.L().Error("log.service.check_failed", zap.String("service", "billing-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
-		fmt.Fprintln(os.Stdout, "billing-service runtime check passed")
+		logger.L().Info("log.service.check_passed", zap.String("service", "billing-service"))
 		return
 	}
 	if !*serve {
-		fmt.Fprintln(os.Stderr, "billing-service requires --check or --serve")
+		logger.L().Error("log.service.arguments_required", zap.String("service", "billing-service"))
 		os.Exit(2)
 	}
 	if err := serveBilling(*addr, *configPath); err != nil {
-		fmt.Fprintf(os.Stderr, "billing-service failed: %v\n", err)
+		logger.L().Error("log.service.serve_failed", zap.String("service", "billing-service"), zap.String("cause", err.Error()))
 		os.Exit(1)
 	}
 }
@@ -159,7 +166,11 @@ func serveBilling(addr, configPath string) error {
 	defer stop()
 	go maintainBilling(ctx, repo, commerce)
 	go func() { <-ctx.Done(); server.GracefulStop() }()
-	fmt.Fprintf(os.Stdout, "billing grpc server listening on %s in %s mode\n", listener.Addr(), mode)
+	logger.L().Info("log.service.listening",
+		zap.String("service", "billing-service"),
+		zap.String("addr", listener.Addr().String()),
+		zap.String("mode", string(mode)),
+	)
 	if err := server.Serve(listener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 		return err
 	}
@@ -171,7 +182,10 @@ func maintainBilling(ctx context.Context, repo *persistence.GormRepository, comm
 	// entering the periodic cadence. This keeps restart recovery bounded by the
 	// Alipay query latency instead of adding another five-minute delay.
 	if err := commerce.ReconcilePendingPayments(ctx, 100); err != nil {
-		fmt.Fprintf(os.Stderr, "reconcile pending Alipay payments on startup: %v\n", err)
+		logger.L().Error("log.service.maintenance_failed",
+			zap.String("operation", "reconcile_pending_alipay_startup"),
+			zap.String("cause", err.Error()),
+		)
 	}
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
@@ -182,15 +196,24 @@ func maintainBilling(ctx context.Context, repo *persistence.GormRepository, comm
 			return
 		case now := <-ticker.C:
 			if err := repo.RunMaintenance(ctx, now.In(businessclock.Location)); err != nil {
-				fmt.Fprintf(os.Stderr, "billing maintenance: %v\n", err)
+				logger.L().Error("log.service.maintenance_failed",
+					zap.String("operation", "billing_maintenance"),
+					zap.String("cause", err.Error()),
+				)
 			}
 			if err := commerce.UpdateOperationalMetrics(ctx); err != nil {
-				fmt.Fprintf(os.Stderr, "update billing operational metrics: %v\n", err)
+				logger.L().Error("log.service.maintenance_failed",
+					zap.String("operation", "billing_operational_metrics"),
+					zap.String("cause", err.Error()),
+				)
 			}
 			cycles++
 			if cycles%5 == 0 {
 				if err := commerce.ReconcilePendingPayments(ctx, 100); err != nil {
-					fmt.Fprintf(os.Stderr, "reconcile pending Alipay payments: %v\n", err)
+					logger.L().Error("log.service.maintenance_failed",
+						zap.String("operation", "reconcile_pending_alipay"),
+						zap.String("cause", err.Error()),
+					)
 				}
 			}
 		}

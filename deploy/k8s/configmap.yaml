@@ -5,6 +5,7 @@ metadata:
   namespace: recruitment
 data:
   TZ: "Asia/Shanghai"
+  APP_LOCALE: "zh-CN"
   GRPC_ADDR: ":50061"
   GRPC_INTERNAL_AUTH: "required"
   GRPC_INTERNAL_TLS: "required"
@@ -61,6 +62,7 @@ metadata:
   namespace: recruitment
 data:
   TZ: "Asia/Shanghai"
+  APP_LOCALE: "zh-CN"
   HTTP_PORT: "8080"
   GRPC_ADDR: "dns:///smart-recruit-identity-service.recruitment.svc.cluster.local:50061"
   GRPC_INTERNAL_TLS: "required"

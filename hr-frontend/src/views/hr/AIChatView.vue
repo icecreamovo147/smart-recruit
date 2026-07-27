@@ -78,6 +78,7 @@ export const buildApplicationAnalysisRunRequest = (input: {
 </script>
 
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -863,7 +864,7 @@ const restoreActiveRunForSession = async (session: Session) => {
     }
 
     if (settlement === 'timed_out') {
-      markAssistantError(assistantIndex, new Error('AI 服务响应超时，请稍后重试'), 'timeout')
+      markAssistantError(assistantIndex, new Error(t('ai.stream_timeout')), 'timeout')
       return
     }
 
@@ -1035,7 +1036,7 @@ const renameSession = async (session: Session) => {
     if (currentSession.value?.id === session.id) {
       currentSession.value.title = value.trim()
     }
-    ElMessage.success('会话名称已更新')
+    ElMessage.success(t('common.success'))
   } catch {
     // user cancelled
   }
@@ -1061,7 +1062,7 @@ const removeSession = async (session: Session) => {
     messages.value = []
     router.replace({ path: '/hr/ai' })
   }
-  ElMessage.success('会话已删除')
+  ElMessage.success(t('common.success'))
 }
 
 const batchRemoveSessions = async (sessionIds: number[]) => {
@@ -1071,7 +1072,7 @@ const batchRemoveSessions = async (sessionIds: number[]) => {
       await deleteSession(id)
       forgetContextUsage(id)
     } catch {
-      ElMessage.error(`删除会话 #${id} 失败`)
+      ElMessage.error(t('frontend.operation_failed'))
     }
   }
   sessions.value = sessions.value.filter((s) => !idSet.has(s.id))
@@ -1082,7 +1083,7 @@ const batchRemoveSessions = async (sessionIds: number[]) => {
     messages.value = []
     router.replace({ path: '/hr/ai' })
   }
-  ElMessage.success(`已删除 ${sessionIds.length} 个会话`)
+  ElMessage.success(t('common.success'))
 }
 
 const createAnalysisSessionFromRoute = async () => {
@@ -1102,7 +1103,7 @@ const createAnalysisSessionFromRoute = async () => {
   try {
     data = await createApplicationAnalysisSession({ application_id: applicationId, ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}) })
   } catch {
-    ElMessage.error('创建分析会话失败，请稍后重试')
+    ElMessage.error(t('frontend.operation_failed'))
     loading.value = false
     streaming.value = false
     return true
@@ -1155,7 +1156,7 @@ const createAnalysisSessionFromRoute = async () => {
       return true
     }
     if (result.outcome === 'failed') {
-      markAssistantError(assistantIndex, result.error || new Error('AI 分析请求失败，请稍后重试'), result.state.errorType)
+      markAssistantError(assistantIndex, result.error || new Error(t('ai.stream_failed')), result.state.errorType)
       return true
     }
     await waitForAssistantTextQueue(assistantIndex)
@@ -1167,7 +1168,7 @@ const createAnalysisSessionFromRoute = async () => {
     if (userAborted.value) {
       return true
     }
-    markAssistantError(assistantIndex, new Error('AI 分析请求失败，请稍后重试'))
+    markAssistantError(assistantIndex, new Error(t('ai.stream_failed')))
     return true
   } finally {
     finishAgentRunUi(token)
@@ -1202,7 +1203,7 @@ const confirmAction = async (data: StreamPayload) => {
     }
   }
   await updateApplicationStatus(data.application_id, actionKey, reason)
-  ElMessage.success(`已标记为${actionText}`)
+  ElMessage.success(t('common.success'))
   messages.value.push({ role: 'assistant', content: `已将「${data.candidate_name || '该候选人'}」的投递状态更新为"${actionText}"。` })
   scrollBottom()
 }
@@ -1261,7 +1262,7 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
       return
     }
     if (result.outcome === 'failed') {
-      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'), result.state.errorType)
+      markAssistantError(assistantIndex, result.error || new Error(t('ai.stream_failed')), result.state.errorType)
       ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
     }
@@ -1273,7 +1274,7 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
     router.replace({ path: '/hr/ai', query: { session_id: matched.id } })
   } catch (error: unknown) {
     if (userAborted.value) return
-    markAssistantError(assistantIndex, error instanceof Error ? error : new Error('AI 流式响应失败'))
+    markAssistantError(assistantIndex, error instanceof Error ? error : new Error(t('ai.stream_failed')))
     ElMessage.error(error instanceof Error ? error.message : 'AI 流式响应失败')
   } finally {
     finishAgentRunUi(token)
@@ -1406,7 +1407,7 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
       return
     }
     if (result.outcome === 'failed') {
-      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'), result.state.errorType)
+      markAssistantError(assistantIndex, result.error || new Error(t('ai.stream_failed')), result.state.errorType)
       ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
     }
@@ -1425,10 +1426,10 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
     await refreshSessions()
   } catch (error: unknown) {
     if (userAborted.value) return
-    markAssistantError(assistantIndex, error instanceof Error ? error : new Error('AI 流式响应失败'))
+    markAssistantError(assistantIndex, error instanceof Error ? error : new Error(t('ai.stream_failed')))
     const err = error as { code?: string; message?: string }
     if (err.code === 'ECONNABORTED') {
-      ElMessage.warning('AI 分析耗时较长，请稍后重新发送')
+      ElMessage.warning(t('common.invalid_request'))
     } else {
       ElMessage.error(err.message || 'AI 流式响应失败')
     }
@@ -1487,7 +1488,7 @@ const submit = async (textOverride?: string) => {
     if (result.outcome === 'failed') {
       selectedAgentSkillIds.value = agentSkillIdsForMessage
       selectedSkillKeys.value = skillKeysForMessage
-      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'), result.state.errorType)
+      markAssistantError(assistantIndex, result.error || new Error(t('ai.stream_failed')), result.state.errorType)
       ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
     }
@@ -1505,12 +1506,12 @@ const submit = async (textOverride?: string) => {
     await refreshSessions()
   } catch (error: unknown) {
     if (userAborted.value) return
-    markAssistantError(assistantIndex, error instanceof Error ? error : new Error('AI 流式响应失败'))
+    markAssistantError(assistantIndex, error instanceof Error ? error : new Error(t('ai.stream_failed')))
     input.value = text
     selectedAgentSkillIds.value = agentSkillIdsForMessage
     const err = error as { code?: string; message?: string }
     if (err.code === 'ECONNABORTED') {
-      ElMessage.warning('AI 分析耗时较长，请稍后重新发送')
+      ElMessage.warning(t('common.invalid_request'))
     } else {
       ElMessage.error(err.message || 'AI 流式响应失败')
     }
@@ -1575,7 +1576,7 @@ const retry = async (failedIndex: number) => {
       return
     }
     if (result.outcome === 'failed') {
-      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'), result.state.errorType)
+      markAssistantError(assistantIndex, result.error || new Error(t('ai.stream_failed')), result.state.errorType)
       ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
     }
@@ -1593,10 +1594,10 @@ const retry = async (failedIndex: number) => {
     await refreshSessions()
   } catch (error: unknown) {
     if (userAborted.value) return
-    markAssistantError(assistantIndex, error instanceof Error ? error : new Error('AI 流式响应失败'))
+    markAssistantError(assistantIndex, error instanceof Error ? error : new Error(t('ai.stream_failed')))
     const err = error as { code?: string; message?: string }
     if (err.code === 'ECONNABORTED') {
-      ElMessage.warning('AI 分析耗时较长，请稍后重新发送')
+      ElMessage.warning(t('common.invalid_request'))
     } else {
       ElMessage.error(err.message || 'AI 流式响应失败')
     }
@@ -1642,7 +1643,7 @@ const handleContextUsage = (payload: StreamPayload) => {
       const signature = `${nextUsage.capability_version_id || 0}:${nextUsage.requested_model_id || 0}:${nextUsage.effective_model_id}`
       if (signature !== lastModelFallbackSignature.value) {
         lastModelFallbackSignature.value = signature
-        ElMessage.warning(`所选模型当前不可用，已按平台能力版本切换为 ${nextUsage.model_name || '默认模型'}`)
+        ElMessage.warning(t('common.invalid_request'))
       }
     }
     if (sessionId > 0) {

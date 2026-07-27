@@ -101,7 +101,7 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	ctx := stream.Context()
 	if req == nil || strings.TrimSpace(req.GetMessage()) == "" {
 		return stream.Send(&pb.ChatStreamResponse{
-			Code: agentRunCodeBadRequest, Msg: candidateChatEmptyMessageError, Done: true,
+			Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Done: true,
 			CreatedAt: formatTime(time.Now()), EventType: "done",
 		})
 	}
@@ -160,7 +160,7 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 		Stage:                  "model_selected",
 	}
 	if err := stream.Send(&pb.ChatStreamResponse{
-		Code: 0, Msg: "success", EventType: "model_info", ContextUsage: modelInfoUsage,
+		Code: 0, Msg: "common.success", EventType: "model_info", ContextUsage: modelInfoUsage,
 		SessionId: session.ID, CreatedAt: formatTime(time.Now()),
 	}); err != nil {
 		return err
@@ -170,13 +170,13 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	streamFilter := newCandidateSuggestionStreamFilter(func(delta string) error {
 		partialReply.WriteString(delta)
 		return stream.Send(&pb.ChatStreamResponse{
-			Code: 0, Msg: "success", Delta: delta, SessionId: session.ID,
-			CreatedAt: formatTime(time.Now()), EventType: "generating", EventMessage: "streaming answer",
+			Code: 0, Msg: "common.success", Delta: delta, SessionId: session.ID,
+			CreatedAt: formatTime(time.Now()), EventType: "generating", EventMessage: "ai.event.streaming_answer",
 		})
 	})
 	statusSender := func(eventType, eventMessage, errorType, toolName string) error {
 		return stream.Send(&pb.ChatStreamResponse{
-			Code: 0, Msg: "success", EventType: eventType, EventMessage: eventMessage,
+			Code: 0, Msg: "common.success", EventType: eventType, EventMessage: eventMessage,
 			ErrorType: errorType, ToolName: toolName, SessionId: session.ID,
 			CreatedAt: formatTime(time.Now()),
 		})
@@ -324,12 +324,12 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 		if len(metadata.ToolTraces) > 0 {
 			fallback := commonsai.BuildCandidateFallbackReply(metadata.ToolTraces)
 			_ = stream.Send(&pb.ChatStreamResponse{
-				Code: 0, Msg: "success", EventType: "partial_done",
-				EventMessage: "已基于已查询数据给出保守回复", ErrorType: "provider_error",
+				Code: 0, Msg: "common.success", EventType: "partial_done",
+				EventMessage: "ai.event.conservative_fallback", ErrorType: "provider_error",
 				SessionId: session.ID, CreatedAt: formatTime(time.Now()),
 			})
 			if err := stream.Send(&pb.ChatStreamResponse{
-				Code: 0, Msg: "success", Delta: fallback, SessionId: session.ID,
+				Code: 0, Msg: "common.success", Delta: fallback, SessionId: session.ID,
 				CreatedAt: formatTime(time.Now()),
 			}); err != nil {
 				return err
@@ -343,7 +343,7 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 			}
 			_ = s.recordCandidateUsageAudit(ctx, req.GetUserId(), inputChars, len([]rune(fallback)), "error", "fallback", int(time.Since(startedAt).Milliseconds()), auditOpts)
 			return stream.Send(&pb.ChatStreamResponse{
-				Code: 0, Msg: "success", Done: true, SessionId: session.ID,
+				Code: 0, Msg: "common.success", Done: true, SessionId: session.ID,
 				CreatedAt: formatTime(time.Now()), EventType: "done",
 				SuggestedQuestions: candidateSuggestedQuestionsFallback(),
 			})
@@ -388,7 +388,7 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	}
 	s.asyncExtractCandidateMemory(req.GetUserId(), session.ID, session.ApplicationID, candidateJobIDFromSession(session), req.GetMessage(), cleanReply)
 	return stream.Send(&pb.ChatStreamResponse{
-		Code: 0, Msg: "success", Done: true, SessionId: session.ID,
+		Code: 0, Msg: "common.success", Done: true, SessionId: session.ID,
 		CreatedAt: formatTime(time.Now()), EventType: "done",
 		SuggestedQuestions: suggestedQuestions,
 	})

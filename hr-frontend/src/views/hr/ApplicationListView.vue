@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -95,12 +96,12 @@ const setRowStatus = async (row: Application, statusKey: string, successMessage:
 
 const viewResume = async (row: Application) => {
   if (!row.resume_url) {
-    ElMessage.warning('简历链接暂不可用')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   window.open(row.resume_url, '_blank', 'noopener')
   if (row.file_type && row.file_type !== 'pdf') {
-    ElMessage.info('系统暂不支持预览 DOCX 格式的文档，请在本地进行查看')
+    ElMessage.info(t('common.operation_failed'))
   }
   const currentKey = getStatusKey(row)
   if (!currentKey || currentKey === APP_STATUS_KEY.APPLIED) {
@@ -193,7 +194,7 @@ const openScheduleDialog = (row: Application) => {
 }
 
 const onScheduleSuccess = () => {
-  ElMessage.success('面试安排成功，候选人状态已更新')
+  ElMessage.success(t('common.success'))
   // Reload list because backend auto-transitions application status to interview_pending
   load()
 }
@@ -207,7 +208,7 @@ const handleCancelInterview = async (row: Application) => {
       (iv: InterviewSchedule) => iv.status === 'scheduled' || iv.status === 'pending',
     )
     if (activeInterviews.length === 0) {
-      ElMessage.warning('该候选人没有可取消的面试')
+      ElMessage.warning(t('common.invalid_request'))
       return
     }
     const { value: reason } = await ElMessageBox.prompt('请输入取消原因', '取消面试', {
@@ -218,7 +219,7 @@ const handleCancelInterview = async (row: Application) => {
     })
     // Cancel all active interviews for this application via batch API
     await batchCancelInterviews(row.application_id, reason || '')
-    ElMessage.success('已取消该候选人的所有面试')
+    ElMessage.success(t('common.success'))
     load()
   } catch {
     // User cancelled or error handled by interceptor

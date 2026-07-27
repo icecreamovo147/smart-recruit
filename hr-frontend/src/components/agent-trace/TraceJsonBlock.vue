@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { formatJsonContent, previewJsonContent } from './agentTraceViewModel'
@@ -44,11 +45,11 @@ const copy = async () => {
       area.select()
       const ok = document.execCommand('copy')
       document.body.removeChild(area)
-      if (!ok) throw new Error('copy failed')
+      if (!ok) throw new Error(t('frontend.copy_failed'))
     }
-    ElMessage.success('已复制')
+    ElMessage.success(t('common.success'))
   } catch {
-    ElMessage.warning('复制失败，请手动选择文本')
+    ElMessage.warning(t('common.invalid_request'))
   }
 }
 </script>

@@ -123,7 +123,14 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 					return
 				}
 				info := base.PublicError(result.err)
-				payload := fmt.Sprintf("event: message\ndata: %s\n\n", mustMarshalHR(gin.H{"code": info.Code, "msg": info.Msg, "done": true, "request_id": base.RequestID(c)}))
+				messageKey, message := base.LocalizedMessage(info.Code, info.Msg)
+				payload := fmt.Sprintf("event: message\ndata: %s\n\n", mustMarshalHR(gin.H{
+					"code":        info.Code,
+					"message_key": messageKey,
+					"msg":         message,
+					"done":        true,
+					"request_id":  base.RequestID(c),
+				}))
 				if n, err := c.Writer.Write([]byte(payload)); err != nil || n == 0 {
 					return
 				}
@@ -133,9 +140,12 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				return
 			}
 			contextUsage := mapHRContextUsage(result.chunk.GetContextUsage())
+			messageKey, message := base.LocalizedMessage(result.chunk.Code, result.chunk.Msg)
+			eventMessageKey, eventMessage := base.LocalizedSystemMessage(result.chunk.EventMessage)
 			payload := gin.H{
 				"code":                  result.chunk.Code,
-				"msg":                   result.chunk.Msg,
+				"message_key":           messageKey,
+				"msg":                   message,
 				"delta":                 result.chunk.Delta,
 				"done":                  result.chunk.Done,
 				"action":                result.chunk.Action,
@@ -149,7 +159,8 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				"candidate_options":     result.chunk.CandidateOptions,
 				"suggested_questions":   result.chunk.GetSuggestedQuestions(),
 				"event_type":            result.chunk.EventType,
-				"event_message":         result.chunk.EventMessage,
+				"event_message_key":     eventMessageKey,
+				"event_message":         eventMessage,
 				"error_type":            result.chunk.ErrorType,
 				"tool_name":             result.chunk.ToolName,
 				"context_usage":         contextUsage,
@@ -592,11 +603,13 @@ func (h *AIHandler) SubscribeAgentRunEvents(c *gin.Context) {
 					return
 				}
 				info := base.PublicError(result.err)
+				messageKey, message := base.LocalizedMessage(info.Code, info.Msg)
 				payload := fmt.Sprintf("data: %s\n\n", mustMarshalHR(gin.H{
-					"code":       info.Code,
-					"msg":        info.Msg,
-					"done":       true,
-					"request_id": base.RequestID(c),
+					"code":        info.Code,
+					"message_key": messageKey,
+					"msg":         message,
+					"done":        true,
+					"request_id":  base.RequestID(c),
 				}))
 				if n, writeErr := c.Writer.Write([]byte(payload)); writeErr != nil || n == 0 {
 					return
@@ -717,6 +730,7 @@ func agentRunSnapshotPayload(run *pb.AgentRunSnapshot) map[string]any {
 	if run == nil {
 		return nil
 	}
+	errorKey, errorMessage := localizedAgentError(run.GetErrorMessage())
 	return gin.H{
 		"run_id":               run.GetRunId(),
 		"session_id":           run.GetSessionId(),
@@ -732,7 +746,8 @@ func agentRunSnapshotPayload(run *pb.AgentRunSnapshot) map[string]any {
 		"option_context_json":  run.GetOptionContextJson(),
 		"last_event_seq":       run.GetLastEventSeq(),
 		"error_type":           run.GetErrorType(),
-		"error_message":        run.GetErrorMessage(),
+		"error_message_key":    errorKey,
+		"error_message":        errorMessage,
 		"model_id":             run.GetModelId(),
 		"model_name":           run.GetModelName(),
 		"agent_type":           run.GetAgentType(),
@@ -751,20 +766,22 @@ func agentRunEventPayload(event *pb.AgentRunEvent) gin.H {
 	if event == nil {
 		return gin.H{}
 	}
+	errorKey, errorMessage := localizedAgentError(event.GetErrorMessage())
 	return gin.H{
-		"run_id":          event.GetRunId(),
-		"seq":             event.GetSeq(),
-		"event_type":      event.GetEventType(),
-		"payload_json":    event.GetPayloadJson(),
-		"status":          event.GetStatus(),
-		"delta":           event.GetDelta(),
-		"snapshot_text":   event.GetSnapshotText(),
-		"result_metadata": agentRunResultMetadataPayload(event.GetResultMetadata()),
-		"confirmation":    agentRunConfirmationPayload(event.GetConfirmation()),
-		"tool_name":       event.GetToolName(),
-		"error_type":      event.GetErrorType(),
-		"error_message":   event.GetErrorMessage(),
-		"created_at":      event.GetCreatedAt(),
+		"run_id":            event.GetRunId(),
+		"seq":               event.GetSeq(),
+		"event_type":        event.GetEventType(),
+		"payload_json":      event.GetPayloadJson(),
+		"status":            event.GetStatus(),
+		"delta":             event.GetDelta(),
+		"snapshot_text":     event.GetSnapshotText(),
+		"result_metadata":   agentRunResultMetadataPayload(event.GetResultMetadata()),
+		"confirmation":      agentRunConfirmationPayload(event.GetConfirmation()),
+		"tool_name":         event.GetToolName(),
+		"error_type":        event.GetErrorType(),
+		"error_message_key": errorKey,
+		"error_message":     errorMessage,
+		"created_at":        event.GetCreatedAt(),
 	}
 }
 
@@ -822,6 +839,7 @@ func agentRunResultMetadataPayload(meta *pb.AgentRunResultMetadata) map[string]a
 		return nil
 	}
 	contextUsage := mapHRContextUsage(meta.GetContextUsage())
+	errorKey, errorMessage := localizedAgentError(meta.GetErrorMessage())
 	return gin.H{
 		"action":              meta.GetAction(),
 		"application_id":      meta.GetApplicationId(),
@@ -833,9 +851,17 @@ func agentRunResultMetadataPayload(meta *pb.AgentRunResultMetadata) map[string]a
 		"suggested_questions": meta.GetSuggestedQuestions(),
 		"context_usage":       contextUsage,
 		"error_type":          meta.GetErrorType(),
-		"error_message":       meta.GetErrorMessage(),
+		"error_message_key":   errorKey,
+		"error_message":       errorMessage,
 		"raw_json":            meta.GetRawJson(),
 	}
+}
+
+func localizedAgentError(message string) (string, string) {
+	if strings.TrimSpace(message) == "" {
+		return "", ""
+	}
+	return base.LocalizedMessage(500, message)
 }
 
 func agentRunConfirmationPayload(confirmation *pb.AgentRunConfirmationPayload) map[string]any {

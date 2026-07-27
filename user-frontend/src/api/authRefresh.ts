@@ -1,3 +1,5 @@
+import { t } from '@shared/i18n'
+
 type ClientApp = 'candidate' | 'hr'
 
 export const silentRefresh = async (clientApp: ClientApp = 'candidate'): Promise<void> => {
@@ -8,7 +10,6 @@ export const silentRefresh = async (clientApp: ClientApp = 'candidate'): Promise
   })
   const json = await resp.json()
   if (json.code !== 0) {
-    throw new Error('refresh failed')
+    throw new Error(t('common.refresh_failed'))
   }
 }
-

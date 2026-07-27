@@ -359,12 +359,13 @@ func TestHRCompletionWithoutProviderUsageKeepsEstimateOfExactSentPromptAndResolv
 
 func TestHRContextGuardRejectsBeforeProviderWithStableChatAndStreamErrors(t *testing.T) {
 	for _, tt := range []struct {
-		name  string
-		model *pb.LlmModelInfo
-		want  string
+		name    string
+		model   *pb.LlmModelInfo
+		want    string
+		wantKey string
 	}{
-		{name: "invalid configuration", model: &pb.LlmModelInfo{Id: 7, ModelName: "invalid", IsEnabled: true, IsDefault: true, ContextWindowTokens: 256, MaxTokens: 1}, want: hrContextConfigInvalidCode},
-		{name: "fixed envelope overflow", model: &pb.LlmModelInfo{Id: 7, ModelName: "small", IsEnabled: true, IsDefault: true, ContextWindowTokens: 520, MaxTokens: 100}, want: hrContextBudgetExceededCode},
+		{name: "invalid configuration", model: &pb.LlmModelInfo{Id: 7, ModelName: "invalid", IsEnabled: true, IsDefault: true, ContextWindowTokens: 256, MaxTokens: 1}, want: hrContextConfigInvalidCode, wantKey: "ai.context_config_invalid"},
+		{name: "fixed envelope overflow", model: &pb.LlmModelInfo{Id: 7, ModelName: "small", IsEnabled: true, IsDefault: true, ContextWindowTokens: 520, MaxTokens: 100}, want: hrContextBudgetExceededCode, wantKey: "ai.context_budget_exceeded"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			store := newFakeAIStore()
@@ -375,7 +376,7 @@ func TestHRContextGuardRejectsBeforeProviderWithStableChatAndStreamErrors(t *tes
 			if err != nil {
 				t.Fatalf("Chat: %v", err)
 			}
-			if resp.GetMsg() != tt.want || len(provider.prompts) != 0 {
+			if resp.GetMsg() != tt.wantKey || len(provider.prompts) != 0 {
 				t.Fatalf("chat msg=%q provider_calls=%d", resp.GetMsg(), len(provider.prompts))
 			}
 
@@ -388,7 +389,7 @@ func TestHRContextGuardRejectsBeforeProviderWithStableChatAndStreamErrors(t *tes
 				t.Fatalf("ChatStream: %v", err)
 			}
 			last := stream.responses[len(stream.responses)-1]
-			if last.GetErrorType() != tt.want || last.GetEventMessage() != tt.want || !last.GetDone() || len(streamProvider.prompts) != 0 {
+			if last.GetErrorType() != tt.want || last.GetEventMessage() != tt.wantKey || !last.GetDone() || len(streamProvider.prompts) != 0 {
 				t.Fatalf("stream last=%+v provider_calls=%d", last, len(streamProvider.prompts))
 			}
 		})
