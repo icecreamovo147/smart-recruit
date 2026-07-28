@@ -45,7 +45,7 @@ const props = defineProps<{
   skillCapabilities: CapabilityInfo[]
   selectedSkillKeys: string[]
   agentSkills: AvailableAgentSkill[]
-  selectedAgentSkillIds: number[]
+  selectedAgentSkillVersionIds: number[]
   disabled?: boolean
 }>()
 
@@ -53,7 +53,7 @@ const emit = defineEmits<{
   (e: 'update:input', value: string): void
   (e: 'update:selectedModelId', value: number | null): void
   (e: 'update:selectedSkillKeys', value: string[]): void
-  (e: 'update:selectedAgentSkillIds', value: number[]): void
+  (e: 'update:selectedAgentSkillVersionIds', value: number[]): void
   (e: 'submit'): void
   (e: 'stop'): void
 }>()
@@ -102,13 +102,16 @@ const filteredSkillCapabilities = computed(() => {
 
 const filteredAgentSkills = computed(() => {
   const query = slashQuery.value
-  if (!query) return props.agentSkills
-  return props.agentSkills.filter((skill) => {
+  const selectable = props.agentSkills.filter((skill) => Boolean(skill.current_version?.version_id))
+  if (!query) return selectable
+  return selectable.filter((skill) => {
     const haystack = [
       skill.display_name,
       skill.name,
       skill.description,
-      ...(skill.trigger_keywords || []),
+      skill.current_version?.version,
+      skill.current_version?.category,
+      skill.current_version?.scenario,
     ].filter(Boolean).join(' ').toLowerCase()
     return haystack.includes(query)
   })
@@ -121,13 +124,31 @@ const selectedSkillCapabilities = computed(() =>
 )
 
 const selectedAgentSkills = computed(() =>
-  props.selectedAgentSkillIds
-    .map((id) => props.agentSkills.find((skill) => skill.id === id))
+  props.selectedAgentSkillVersionIds
+    .map((versionId) => props.agentSkills.find(
+      (skill) => skill.current_version?.version_id === versionId,
+    ))
     .filter((skill): skill is AvailableAgentSkill => Boolean(skill)),
 )
 
 const skillLabel = (cap: CapabilityInfo) => cap.display_name || cap.name || cap.key
 const agentSkillLabel = (skill: AvailableAgentSkill) => skill.display_name || skill.name
+const agentSkillVersionId = (skill: AvailableAgentSkill): number =>
+  Number(skill.current_version?.version_id) || 0
+const agentSkillMeta = (skill: AvailableAgentSkill): string => {
+  const version = skill.current_version
+  if (!version) return '不可用'
+  const role = version.composition_role === 'supporting' ? 'supporting' : 'primary'
+  const risk = ['low', 'medium', 'high', 'critical'].includes(version.risk)
+    ? version.risk
+    : 'low'
+  return [
+    `v${version.version}`,
+    role,
+    risk,
+    `${version.core_estimated_tokens} tokens`,
+  ].join(' · ')
+}
 
 const clearSlashToken = () => {
   const index = activeSlashIndex.value
@@ -147,8 +168,23 @@ const selectSkill = (cap: CapabilityInfo) => {
 
 const selectAgentSkill = (skill: AvailableAgentSkill) => {
   if (props.disabled) return
-  if (!props.selectedAgentSkillIds.includes(skill.id)) {
-    emit('update:selectedAgentSkillIds', [...props.selectedAgentSkillIds, skill.id])
+  const versionId = agentSkillVersionId(skill)
+  const selected = selectedAgentSkills.value
+  const role = skill.current_version?.composition_role === 'supporting' ? 'supporting' : 'primary'
+  const roleAlreadySelected = selected.some(
+    (item) => (item.current_version?.composition_role === 'supporting' ? 'supporting' : 'primary') === role,
+  )
+  const supportingWithoutPrimary = role === 'supporting' && !selected.some(
+    (item) => item.current_version?.composition_role !== 'supporting',
+  )
+  if (
+    versionId > 0
+    && selected.length < 2
+    && !roleAlreadySelected
+    && !supportingWithoutPrimary
+    && !props.selectedAgentSkillVersionIds.includes(versionId)
+  ) {
+    emit('update:selectedAgentSkillVersionIds', [...props.selectedAgentSkillVersionIds, versionId])
   }
   clearSlashToken()
 }
@@ -158,9 +194,12 @@ const removeSkill = (key: string) => {
   emit('update:selectedSkillKeys', props.selectedSkillKeys.filter((item) => item !== key))
 }
 
-const removeAgentSkill = (id: number) => {
+const removeAgentSkill = (versionId: number) => {
   if (props.disabled) return
-  emit('update:selectedAgentSkillIds', props.selectedAgentSkillIds.filter((item) => item !== id))
+  emit(
+    'update:selectedAgentSkillVersionIds',
+    props.selectedAgentSkillVersionIds.filter((item) => item !== versionId),
+  )
 }
 
 const selectedModel = computed(() => props.selectedModelId == null
@@ -237,14 +276,14 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
         </div>
         <button
           v-for="skill in filteredAgentSkills"
-          :key="`agent-${skill.id}`"
+          :key="`agent-version-${agentSkillVersionId(skill)}`"
           type="button"
           class="chat-composer__skill-option"
-          :class="{ 'chat-composer__skill-option--selected': selectedAgentSkillIds.includes(skill.id) }"
+          :class="{ 'chat-composer__skill-option--selected': selectedAgentSkillVersionIds.includes(agentSkillVersionId(skill)) }"
           @click="selectAgentSkill(skill)"
         >
           <span class="chat-composer__skill-name">{{ agentSkillLabel(skill) }}</span>
-          <span class="chat-composer__skill-meta">Skill</span>
+          <span class="chat-composer__skill-meta">{{ agentSkillMeta(skill) }}</span>
         </button>
         <div v-if="filteredAgentSkills.length === 0" class="chat-composer__skill-empty">
           暂无匹配 Skill
@@ -268,13 +307,13 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
       </button>
       <button
         v-for="skill in selectedAgentSkills"
-        :key="skill.id"
+        :key="agentSkillVersionId(skill)"
         type="button"
         class="chat-composer__skill-badge"
         :disabled="disabled"
-        @click="removeAgentSkill(skill.id)"
+        @click="removeAgentSkill(agentSkillVersionId(skill))"
       >
-        <span>/{{ agentSkillLabel(skill) }}</span>
+        <span>/{{ agentSkillLabel(skill) }} v{{ skill.current_version?.version }}</span>
         <el-icon class="chat-composer__skill-close"><Close /></el-icon>
       </button>
     </div>

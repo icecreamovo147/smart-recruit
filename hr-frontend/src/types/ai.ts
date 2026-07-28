@@ -1,11 +1,16 @@
 // ---- AI Chat Types ----
 
-import type { AgentSkillRuntimeEvidence } from '@shared/types/agentRun'
+import type {
+  AgentRunSkillCandidate,
+  AgentSkillRuntimeEvidence,
+} from '@shared/types/agentRun'
 
 export interface ChatMessageSkill {
   id?: string | number
   name: string
   command?: string
+  version?: string
+  compiled_hash?: string
 }
 
 export interface ChatMessage {
@@ -117,41 +122,24 @@ export interface StreamPayload {
   error_type?: string
   tool_name?: string
   model_name?: string
-  agent_skill_ids?: number[]
+  agent_skill_version_ids?: number[]
+  agent_skill_runtime_evidence?: AgentSkillRuntimeEvidence[]
   agent_skill_selection?: AgentSkillSelectionPayload
   context_usage?: ContextUsageInfo
   suggested_questions?: string[]
 }
 
-export interface AgentSkillSelectionCandidate {
-  id: number
-  name: string
-  display_name: string
-  reason: string
-  score: number
-  priority: number
-  category: string
-  scenario: string
-  risk_level: string
-  recommended: boolean
-  vector_score: number
-  lexical_score: number
-  metadata_score: number
-  relevance_score: number
-  business_boost: number
-  final_rank_score: number
-  relevance_mode: string
-  pool_rank: number
-  ranking_confidence: string
-}
+export type AgentSkillSelectionCandidate = AgentRunSkillCandidate
 
 export interface AgentSkillSelectionPayload {
   required: boolean
   reason: string
   candidates: AgentSkillSelectionCandidate[]
-  recommended_agent_skill_ids: number[]
-  user_message_id?: number
-  confirmation_kind?: 'agent_skill' | 'mcp_tool'
+  confirmation_kind: 'agent_skill' | 'mcp_tool'
+  confirmation_id?: string
+  recommended_agent_skill_version_ids: number[]
+  expires_at?: string
+  /** Opaque MCP approval payload; never reused for Agent Skill confirmation. */
   confirmation_payload_json?: string
 }
 
@@ -259,7 +247,7 @@ export interface AgentRunPlanJSON {
   planner_json?: string | AgentRunRecruitingPlan
   risk_flags?: string[]
   decision?: AgentRunDecision
-  selected_agent_skill_ids?: number[]
+  selected_agent_skill_version_ids?: number[]
   selected_memory_ids?: number[]
   status?: string
   partial?: boolean

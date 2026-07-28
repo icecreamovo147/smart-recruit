@@ -882,7 +882,7 @@ export function buildRunVM(run: AgentRunItem): TraceRunVM {
 
   const hasStructuredPlan = Boolean(
     recruitingPlan
-    || normalizeNumberList(plan?.selected_agent_skill_ids).length > 0
+    || normalizeNumberList(plan?.selected_agent_skill_version_ids).length > 0
     || normalizeNumberList(plan?.selected_memory_ids).length > 0
     || decisionEntries.length > 0,
   )

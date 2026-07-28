@@ -754,7 +754,7 @@ const capabilityItems = (run: AgentRunItem): string[] => {
 }
 
 const selectedSkillIds = (run: AgentRunItem): number[] =>
-  normalizeNumberList(runPlan(run)?.selected_agent_skill_ids)
+  normalizeNumberList(runPlan(run)?.selected_agent_skill_version_ids)
 
 const selectedMemoryIds = (run: AgentRunItem): number[] =>
   normalizeNumberList(runPlan(run)?.selected_memory_ids)

@@ -1,6 +1,19 @@
 <script lang="ts">
 import type { CreateAgentRunRequest } from '@shared/types/agentRun'
 
+export const runExclusiveConfirmationSubmission = async <T>(
+  lock: { value: boolean },
+  operation: () => Promise<T>,
+): Promise<T | undefined> => {
+  if (lock.value) return undefined
+  lock.value = true
+  try {
+    return await operation()
+  } finally {
+    lock.value = false
+  }
+}
+
 export const normalizeSuggestedQuestions = (value: unknown): string[] => {
   let source = value
   if (typeof value === 'string') {
@@ -66,6 +79,7 @@ export const buildApplicationAnalysisRunRequest = (input: {
   clientRequestId: string
   modelId?: number
   skillCapabilityKeys?: string[]
+  agentSkillVersionIds?: number[]
 }): CreateAgentRunRequest => ({
   session_id: input.sessionId,
   message: input.message.trim(),
@@ -74,6 +88,9 @@ export const buildApplicationAnalysisRunRequest = (input: {
   client_request_id: input.clientRequestId,
   ...(input.modelId != null ? { model_id: input.modelId } : {}),
   ...(input.skillCapabilityKeys?.length ? { skill_capability_keys: [...input.skillCapabilityKeys] } : {}),
+  ...(input.agentSkillVersionIds?.length
+    ? { agent_skill_version_ids: [...input.agentSkillVersionIds] }
+    : {}),
 })
 </script>
 
@@ -99,6 +116,7 @@ import {
   friendlyDurableRunErrorMessage,
   hasPendingRunConfirmation,
   isMCPConfirmationExpired,
+  isAgentSkillConfirmationExpired,
   modelFallbackMessage,
   streamTimeoutMessage,
   toAgentSkillSelectionPayload,
@@ -110,7 +128,7 @@ import ConversationHeader from '@/components/chat/ConversationHeader.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import { useHrAgentRun } from '@/composables/useHrAgentRun'
-import type { AgentRunResultMetadata } from '@shared/types/agentRun'
+import type { AgentRunResultMetadata, AgentSkillRuntimeEvidence } from '@shared/types/agentRun'
 import type { AgentSkillSelectionPayload, ChatMessageSkill, ChatSessionListItem, Session, CandidateOption, StreamPayload, ContextUsageInfo } from '@/types/ai'
 import type { CapabilityInfo } from '@shared/types/agent'
 import type { LlmModel } from '@shared/types/llm'
@@ -136,10 +154,9 @@ interface MessageItem {
   skillId?: string | number
   skillName?: string
   skillCommand?: string
-  agent_skill_ids?: number[]
+  agent_skill_version_ids?: number[]
   agent_skill_names?: string[]
-  agentSkillIds?: number[]
-  agentSkillNames?: string[]
+  agent_skill_runtime_evidence?: AgentSkillRuntimeEvidence[]
   pending?: boolean
   failed?: boolean
   retryDisabled?: boolean
@@ -154,16 +171,16 @@ interface MessageItem {
   candidateOptions?: CandidateOption[]
   agentSkillSelection?: AgentSkillSelectionPayload
   skillSelectionRequest?: SkillSelectionRequest
-  skillSelectionConfirmed?: boolean
 }
 
 interface SkillSelectionRequest {
   message: string
   sessionId: number
   modelId: number | null
-  messageId?: number
   runId?: number
   confirmationKind?: 'agent_skill' | 'mcp_tool'
+  confirmationId?: string
+  confirmationExpiresAt?: string
   confirmationPayloadJson?: string
 }
 
@@ -175,6 +192,7 @@ const currentSession = ref<Session | null>(null)
 const input = ref('')
 const loading = ref(false)
 const streaming = ref(false)
+const confirmationSubmitting = ref(false)
 const sessionLoading = ref(false)
 const menuSessionId = ref(0)
 /** 移动端：会话列表抽屉是否打开 */
@@ -248,7 +266,7 @@ const selectedModelId = ref<number | null>(null)
 const dataSource = ref('招聘业务数据库')
 const tracePanelVisible = ref(false)
 const agentSkills = ref<AvailableAgentSkill[]>([])
-const selectedAgentSkillIds = ref<number[]>([])
+const selectedAgentSkillVersionIds = ref<number[]>([])
 const skillCapabilities = ref<CapabilityInfo[]>([])
 const selectedSkillKeys = ref<string[]>([])
 const contextUsage = ref<ContextUsageInfo | null>(null)
@@ -363,7 +381,9 @@ const agentSkillLabel = (skill: AvailableAgentSkill) => skill.display_name || sk
 const resolveAgentSkillLabel = (id?: number | string, fallbackName?: string): string => {
   const numericId = typeof id === 'string' ? Number(id) : id
   if (typeof numericId === 'number' && Number.isFinite(numericId) && numericId > 0) {
-    const byId = agentSkills.value.find((skill) => skill.id === numericId)
+    const byId = agentSkills.value.find(
+      (skill) => skill.current_version?.version_id === numericId,
+    )
     if (byId) return agentSkillLabel(byId)
   }
   const key = (fallbackName || '').trim()
@@ -379,10 +399,16 @@ const resolveAgentSkillLabel = (id?: number | string, fallbackName?: string): st
 const toMessageSkill = (id?: number | string, fallbackName?: string): ChatMessageSkill | undefined => {
   const name = resolveAgentSkillLabel(id, fallbackName)
   if (!name) return undefined
+  const numericId = typeof id === 'string' ? Number(id) : id
+  const version = typeof numericId === 'number'
+    ? agentSkills.value.find((skill) => skill.current_version?.version_id === numericId)?.current_version
+    : undefined
   return {
     ...(id !== undefined && id !== null && id !== '' ? { id } : {}),
     name,
     command: `/${name}`,
+    ...(version?.version ? { version: version.version } : {}),
+    ...(version?.compiled_hash ? { compiled_hash: version.compiled_hash } : {}),
   }
 }
 
@@ -412,16 +438,16 @@ const normalizeSkillsMeta = (message: Partial<MessageItem>, fallback?: MessageIt
       .filter((skill): skill is ChatMessageSkill => Boolean(skill))
     if (resolved.length > 0) return resolved
   }
-  const agentSkillNames = message.agent_skill_names || message.agentSkillNames
-  const agentSkillIds = message.agent_skill_ids || message.agentSkillIds || []
+  const agentSkillNames = message.agent_skill_names
+  const agentSkillVersionIds = message.agent_skill_version_ids || []
   if (Array.isArray(agentSkillNames) && agentSkillNames.length > 0) {
     const resolved = agentSkillNames
-      .map((name, index) => toMessageSkill(agentSkillIds[index], name))
+      .map((name, index) => toMessageSkill(agentSkillVersionIds[index], name))
       .filter((skill): skill is ChatMessageSkill => Boolean(skill))
     if (resolved.length > 0) return resolved
   }
-  if (Array.isArray(agentSkillIds) && agentSkillIds.length > 0) {
-    const resolved = agentSkillIds
+  if (Array.isArray(agentSkillVersionIds) && agentSkillVersionIds.length > 0) {
+    const resolved = agentSkillVersionIds
       .map((id) => toMessageSkill(id))
       .filter((skill): skill is ChatMessageSkill => Boolean(skill))
     if (resolved.length > 0) return resolved
@@ -646,6 +672,7 @@ const resultMetaToStreamPayload = (
   status: meta?.status,
   candidate_options: meta?.candidate_options,
   suggested_questions: meta?.suggested_questions,
+  agent_skill_runtime_evidence: meta?.agent_skill_runtime_evidence,
   session_id: sessionId ?? undefined,
   context_usage: (meta?.context_usage as ContextUsageInfo | undefined) || undefined,
 })
@@ -708,8 +735,15 @@ const makeChatUiBinder = (
   onResultMetadata: (meta) => {
     const msg = messages.value[assistantIndex]
     const suggestedQuestions = normalizeSuggestedQuestions(meta?.suggested_questions)
-    if (msg && suggestedQuestions.length > 0) {
-      messages.value[assistantIndex] = { ...msg, suggestedQuestions }
+    const evidence = Array.isArray(meta?.agent_skill_runtime_evidence)
+      ? meta.agent_skill_runtime_evidence
+      : []
+    if (msg && (suggestedQuestions.length > 0 || evidence.length > 0)) {
+      messages.value[assistantIndex] = {
+        ...msg,
+        ...(suggestedQuestions.length > 0 ? { suggestedQuestions } : {}),
+        ...(evidence.length > 0 ? { agent_skill_runtime_evidence: evidence } : {}),
+      }
     }
     if (meta?.context_usage) {
       handleContextUsage({
@@ -1151,6 +1185,9 @@ const createAnalysisSessionFromRoute = async () => {
       clientRequestId: createClientRequestId(),
       ...(selectedModelId.value != null ? { modelId: selectedModelId.value } : {}),
       ...(selectedSkillKeys.value.length > 0 ? { skillCapabilityKeys: selectedSkillKeys.value } : {}),
+      ...(selectedAgentSkillVersionIds.value.length > 0
+        ? { agentSkillVersionIds: selectedAgentSkillVersionIds.value }
+        : {}),
     })
     const result = await executeCreateChatRun(
       agentRun,
@@ -1262,6 +1299,9 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
         applicationId: option.application_id,
         clientRequestId: createClientRequestId(),
         ...(selectedModelId.value != null ? { modelId: selectedModelId.value } : {}),
+        ...(selectedAgentSkillVersionIds.value.length > 0
+          ? { agentSkillVersionIds: selectedAgentSkillVersionIds.value }
+          : {}),
       }),
       makeChatUiBinder(assistantIndex),
       { isAborted: () => userAborted.value || !isActiveAgentRun(token) },
@@ -1319,15 +1359,14 @@ const stopStreaming = async () => {
   streaming.value = false
 }
 
-const applyUserMessageSkillsBefore = (assistantIndex: number, skillIds: number[]) => {
+const applyUserMessageSkillsBefore = (assistantIndex: number, skillVersionIds: number[]) => {
   for (let i = assistantIndex - 1; i >= 0; i--) {
     if (messages.value[i]?.role !== 'user') continue
-    const skills = buildMessageSkills(skillIds)
+    const skills = buildMessageSkills(skillVersionIds)
     messages.value[i] = {
       ...messages.value[i],
       skill: skills[0],
       skills,
-      skillSelectionConfirmed: true,
     }
     return
   }
@@ -1349,9 +1388,10 @@ const setSkillSelectionMessage = (
       message: text,
       sessionId: session.id,
       modelId: selectedModelId.value,
-      messageId: selection.user_message_id,
       runId: runId || agentRun.state.value.runId || undefined,
       confirmationKind: selection.confirmation_kind,
+      confirmationId: selection.confirmation_id,
+      confirmationExpiresAt: selection.expires_at,
       confirmationPayloadJson: selection.confirmation_payload_json,
     },
   }
@@ -1360,19 +1400,21 @@ const setSkillSelectionMessage = (
   scrollBottom()
 }
 
-const cancelMCPConfirmation = async (
+const cancelPendingConfirmation = async (
   assistantIndex: number,
   reason: 'rejected' | 'expired' | 'invalid',
 ) => {
   const current = messages.value[assistantIndex]
   const request = current?.skillSelectionRequest
-  if (!current || request?.confirmationKind !== 'mcp_tool') return
+  if (!current || !request) return
   const runId = request.runId || agentRun.state.value.runId
   if (!runId) {
     ElMessage.error(t('common.not_found'))
     return
   }
 
+  if (confirmationSubmitting.value) return
+  confirmationSubmitting.value = true
   loading.value = true
   streaming.value = false
   try {
@@ -1383,9 +1425,13 @@ const cancelMCPConfirmation = async (
     agentRun.dispose()
     messages.value[assistantIndex] = {
       ...current,
-      content: reason === 'rejected'
-        ? '已拒绝执行 MCP 工具，本次运行已取消。'
-        : 'MCP 执行确认已失效，本次运行已取消。请重新发送请求。',
+      content: request.confirmationKind === 'mcp_tool'
+        ? reason === 'rejected'
+          ? '已拒绝执行 MCP 工具，本次运行已取消。'
+          : 'MCP 执行确认已失效，本次运行已取消。请重新发送请求。'
+        : reason === 'expired'
+          ? 'Agent Skill 确认已过期，本次运行已取消。请重新发送请求。'
+          : '本次 Agent Skill 运行已取消。',
       pending: false,
       failed: false,
       agentSkillSelection: undefined,
@@ -1400,17 +1446,70 @@ const cancelMCPConfirmation = async (
   } catch (error: unknown) {
     ElMessage.error(error instanceof Error ? error.message : t('common.operation_failed'))
   } finally {
+    confirmationSubmitting.value = false
     loading.value = false
     streaming.value = false
   }
 }
 
 const rejectSkillSelection = async (assistantIndex: number) => {
-  await cancelMCPConfirmation(assistantIndex, 'rejected')
+  const current = messages.value[assistantIndex]
+  const request = current?.skillSelectionRequest
+  if (!current || !request || confirmationSubmitting.value) return
+  if (request.confirmationKind === 'mcp_tool') {
+    await cancelPendingConfirmation(assistantIndex, 'rejected')
+    return
+  }
+  const runId = request.runId || agentRun.state.value.runId
+  if (!runId || !request.confirmationId) {
+    ElMessage.error(t('common.not_found'))
+    return
+  }
+  confirmationSubmitting.value = true
+  loading.value = true
+  try {
+    if (agentRun.state.value.runId !== runId) {
+      await agentRun.hydrateFromRunId(runId, { autoSubscribe: false })
+    }
+    const result = await executeConfirmChatRun(
+      agentRun,
+      {
+        client_request_id: createClientRequestId(),
+        agent_skill_confirmation_id: request.confirmationId,
+        agent_skill_confirmation_decision: 'reject',
+      },
+      makeChatUiBinder(assistantIndex),
+      { isAborted: () => false },
+    )
+    if (result.outcome !== 'terminal') {
+      throw result.error || new Error(t('common.operation_failed'))
+    }
+    agentRun.dispose()
+    messages.value[assistantIndex] = {
+      ...current,
+      content: '已拒绝启用 Agent Skill，本次运行已结束。',
+      pending: false,
+      failed: false,
+      agentSkillSelection: undefined,
+      skillSelectionRequest: undefined,
+    }
+    ElMessage.info(t('common.canceled'))
+    scrollBottom()
+  } catch (error: unknown) {
+    ElMessage.error(error instanceof Error ? error.message : t('common.operation_failed'))
+  } finally {
+    confirmationSubmitting.value = false
+    loading.value = false
+    streaming.value = false
+  }
 }
 
-const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: number[]) => {
-  if (quotaExhausted.value || billingAccessLoading.value) return
+const cancelSkillSelectionRun = async (assistantIndex: number) => {
+  await cancelPendingConfirmation(assistantIndex, 'rejected')
+}
+
+const submitConfirmedSkillSelection = async (assistantIndex: number, skillVersionIds: number[]) => {
+  if (quotaExhausted.value || billingAccessLoading.value || confirmationSubmitting.value) return
   const current = messages.value[assistantIndex]
   const request = current?.skillSelectionRequest
   const session = currentSession.value
@@ -1420,116 +1519,139 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
     request.confirmationKind === 'mcp_tool'
     && isMCPConfirmationExpired(request.confirmationPayloadJson)
   ) {
-    await cancelMCPConfirmation(assistantIndex, 'expired')
+    await cancelPendingConfirmation(assistantIndex, 'expired')
     return
   }
-
   if (
-    request.confirmationKind === 'mcp_tool'
-    && request.runId
-    && agentRun.state.value.runId !== request.runId
+    request.confirmationKind === 'agent_skill'
+    && isAgentSkillConfirmationExpired(request.confirmationExpiresAt)
   ) {
-    try {
-      await agentRun.hydrateFromRunId(request.runId, { autoSubscribe: false })
-    } catch {
-      ElMessage.error(t('common.not_found'))
-      return
-    }
-  }
-
-  const hasActiveRun =
-    Boolean(request.runId && agentRun.state.value.runId === request.runId) ||
-    Boolean(agentRun.state.value.runId && agentRun.state.value.status === 'waiting_confirmation')
-  if (request.confirmationKind === 'mcp_tool' && !hasActiveRun) {
-    ElMessage.error(t('common.not_found'))
+    await cancelPendingConfirmation(assistantIndex, 'expired')
     return
   }
 
-  applyUserMessageSkillsBefore(assistantIndex, skillIds)
-  messages.value[assistantIndex] = {
-    role: 'assistant',
-    content: '',
-    pending: true,
-    waitingText: session.application_id ? '分析中' : '响应中',
-  }
-  loading.value = true
-  streaming.value = true
-  scrollBottom()
+  await runExclusiveConfirmationSubmission(confirmationSubmitting, async () => {
+    let token: number | null = null
+    try {
+      if (
+        request.runId
+        && agentRun.state.value.runId !== request.runId
+      ) {
+        try {
+          await agentRun.hydrateFromRunId(request.runId, { autoSubscribe: false })
+        } catch {
+          ElMessage.error(t('common.not_found'))
+          return
+        }
+      }
 
-  const token = beginAgentRun()
-  try {
-    // Prefer resuming the same durable run; fall back to create if run id was lost.
-    const result = hasActiveRun
-      ? await executeConfirmChatRun(
-        agentRun,
-        {
-          client_request_id: createClientRequestId(),
-          ...(skillIds.length > 0 ? { agent_skill_ids: skillIds } : {}),
-          agent_skill_selection_confirmed: request.confirmationKind !== 'mcp_tool',
-          ...(request.messageId ? { agent_skill_selection_message_id: request.messageId } : {}),
-          ...(request.confirmationPayloadJson
-            ? { confirmation_payload_json: request.confirmationPayloadJson }
-            : {}),
-        },
-        makeChatUiBinder(assistantIndex),
-        { isAborted: () => userAborted.value || !isActiveAgentRun(token) },
-      )
-      : await executeCreateChatRun(
-        agentRun,
-        {
-          session_id: request.sessionId,
-          message: request.message,
-          client_request_id: createClientRequestId(),
-          ...(request.modelId != null ? { model_id: request.modelId } : {}),
-          ...(skillIds.length > 0 ? { agent_skill_ids: skillIds } : {}),
-          agent_skill_selection_confirmed: true,
-          ...(request.messageId ? { agent_skill_selection_message_id: request.messageId } : {}),
-        },
-        makeChatUiBinder(assistantIndex),
-        { isAborted: () => userAborted.value || !isActiveAgentRun(token) },
-      )
-
-    scrollBottom()
-    if (result.outcome === 'aborted' || userAborted.value) return
-    if (result.outcome === 'waiting_confirmation') {
-      applySkillSelectionFromRun(assistantIndex, request.message, session, result.state.runId)
-      return
-    }
-    if (result.outcome === 'failed') {
-      if (request.confirmationKind === 'mcp_tool') {
-        messages.value[assistantIndex] = current
-        await cancelMCPConfirmation(assistantIndex, 'invalid')
+      const hasActiveRun =
+        Boolean(request.runId && agentRun.state.value.runId === request.runId) ||
+        Boolean(agentRun.state.value.runId && agentRun.state.value.status === 'waiting_confirmation')
+      if (!hasActiveRun) {
+        ElMessage.error(t('common.not_found'))
         return
       }
-      markAssistantError(assistantIndex, result.error || new Error(t('ai.stream_failed')), result.state.errorType)
-      ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
-      return
-    }
+      if (
+        request.confirmationKind === 'agent_skill'
+        && (!request.confirmationId || skillVersionIds.length === 0)
+      ) {
+        ElMessage.error(t('common.invalid_request'))
+        return
+      }
 
-    await waitForAssistantTextQueue(assistantIndex)
-    const finalPayload = resultMetaToStreamPayload(result.state.resultMetadata, result.state.sessionId || request.sessionId)
-    if (finalPayload.session_id && currentSession.value) {
-      currentSession.value = { ...currentSession.value, id: finalPayload.session_id }
+      applyUserMessageSkillsBefore(assistantIndex, skillVersionIds)
+      messages.value[assistantIndex] = {
+        role: 'assistant',
+        content: '',
+        pending: true,
+        waitingText: session.application_id ? '分析中' : '响应中',
+      }
+      loading.value = true
+      streaming.value = true
+      scrollBottom()
+
+      token = beginAgentRun()
+      const result = await executeConfirmChatRun(
+        agentRun,
+        request.confirmationKind === 'mcp_tool'
+          ? {
+              client_request_id: createClientRequestId(),
+              confirmation_payload_json: request.confirmationPayloadJson,
+            }
+          : {
+              client_request_id: createClientRequestId(),
+              agent_skill_confirmation_id: request.confirmationId,
+              agent_skill_confirmation_decision: 'approve',
+              selected_agent_skill_version_ids: [...skillVersionIds],
+            },
+        makeChatUiBinder(assistantIndex),
+        { isAborted: () => userAborted.value || (token !== null && !isActiveAgentRun(token)) },
+      )
+
+      scrollBottom()
+      if (result.outcome === 'aborted' || userAborted.value) return
+      if (result.outcome === 'waiting_confirmation') {
+        applySkillSelectionFromRun(assistantIndex, request.message, session, result.state.runId)
+        return
+      }
+      if (result.outcome === 'failed') {
+        if (request.confirmationKind === 'mcp_tool') {
+          messages.value[assistantIndex] = current
+          const runId = request.runId || agentRun.state.value.runId
+          if (!runId) {
+            ElMessage.error(t('common.not_found'))
+            return
+          }
+          const canceled = await cancelPendingAgentRun(agentRun, runId)
+          if (!canceled.isTerminal || canceled.status !== 'canceled') {
+            throw new Error(t('common.operation_failed'))
+          }
+          agentRun.dispose()
+          messages.value[assistantIndex] = {
+            ...current,
+            content: 'MCP 执行确认已失效，本次运行已取消。请重新发送请求。',
+            pending: false,
+            failed: false,
+            agentSkillSelection: undefined,
+            skillSelectionRequest: undefined,
+          }
+          ElMessage.warning(t('common.not_found'))
+          scrollBottom()
+          return
+        }
+        markAssistantError(assistantIndex, result.error || new Error(t('ai.stream_failed')), result.state.errorType)
+        ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
+        return
+      }
+
+      await waitForAssistantTextQueue(assistantIndex)
+      const finalPayload = resultMetaToStreamPayload(result.state.resultMetadata, result.state.sessionId || request.sessionId)
+      if (finalPayload.session_id && currentSession.value) {
+        currentSession.value = { ...currentSession.value, id: finalPayload.session_id }
+      }
+      await confirmAction(finalPayload)
+      if (!messages.value[assistantIndex]?.content && !messages.value[assistantIndex]?.agentSkillSelection) {
+        const sid = finalPayload.session_id || request.sessionId
+        const data = await getSessionMessages(sid, { page: 1, page_size: 100 })
+        messages.value = normalizeMessages(data.list || [], messages.value)
+      }
+      await refreshSessions()
+    } catch (error: unknown) {
+      if (userAborted.value) return
+      markAssistantError(assistantIndex, error instanceof Error ? error : new Error(t('ai.stream_failed')))
+      const err = error as { code?: string; message?: string }
+      if (err.code === 'ECONNABORTED') {
+        ElMessage.warning(streamTimeoutMessage())
+      } else {
+        ElMessage.error(err.message || 'AI 流式响应失败')
+      }
+    } finally {
+      if (token !== null) {
+        finishAgentRunUi(token)
+      }
     }
-    await confirmAction(finalPayload)
-    if (!messages.value[assistantIndex]?.content && !messages.value[assistantIndex]?.agentSkillSelection) {
-      const sid = finalPayload.session_id || request.sessionId
-      const data = await getSessionMessages(sid, { page: 1, page_size: 100 })
-      messages.value = normalizeMessages(data.list || [], messages.value)
-    }
-    await refreshSessions()
-  } catch (error: unknown) {
-    if (userAborted.value) return
-    markAssistantError(assistantIndex, error instanceof Error ? error : new Error(t('ai.stream_failed')))
-    const err = error as { code?: string; message?: string }
-    if (err.code === 'ECONNABORTED') {
-      ElMessage.warning(streamTimeoutMessage())
-    } else {
-      ElMessage.error(err.message || 'AI 流式响应失败')
-    }
-  } finally {
-    finishAgentRunUi(token)
-  }
+  })
 }
 
 const submit = async (textOverride?: string) => {
@@ -1543,10 +1665,10 @@ const submit = async (textOverride?: string) => {
   if (!currentSession.value) {
     await createNewSession()
   }
-  const agentSkillIdsForMessage = [...selectedAgentSkillIds.value]
-  const messageSkills = buildMessageSkills(agentSkillIdsForMessage)
+  const agentSkillVersionIdsForMessage = [...selectedAgentSkillVersionIds.value]
+  const messageSkills = buildMessageSkills(agentSkillVersionIdsForMessage)
   input.value = ''
-  selectedAgentSkillIds.value = []
+  selectedAgentSkillVersionIds.value = []
   messages.value.push({
     role: 'user',
     content: text,
@@ -1570,7 +1692,9 @@ const submit = async (textOverride?: string) => {
         message: text,
         client_request_id: createClientRequestId(),
         ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
-        ...(agentSkillIdsForMessage.length > 0 ? { agent_skill_ids: agentSkillIdsForMessage } : {}),
+        ...(agentSkillVersionIdsForMessage.length > 0
+          ? { agent_skill_version_ids: agentSkillVersionIdsForMessage }
+          : {}),
         ...(skillKeysForMessage.length > 0 ? { skill_capability_keys: skillKeysForMessage } : {}),
         ...(session.application_id ? { application_id: session.application_id } : {}),
       },
@@ -1584,7 +1708,7 @@ const submit = async (textOverride?: string) => {
       return
     }
     if (result.outcome === 'failed') {
-      selectedAgentSkillIds.value = agentSkillIdsForMessage
+      selectedAgentSkillVersionIds.value = agentSkillVersionIdsForMessage
       selectedSkillKeys.value = skillKeysForMessage
       markAssistantError(assistantIndex, result.error || new Error(t('ai.stream_failed')), result.state.errorType)
       ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
@@ -1606,7 +1730,7 @@ const submit = async (textOverride?: string) => {
     if (userAborted.value) return
     markAssistantError(assistantIndex, error instanceof Error ? error : new Error(t('ai.stream_failed')))
     input.value = text
-    selectedAgentSkillIds.value = agentSkillIdsForMessage
+    selectedAgentSkillVersionIds.value = agentSkillVersionIdsForMessage
     const err = error as { code?: string; message?: string }
     if (err.code === 'ECONNABORTED') {
       ElMessage.warning(streamTimeoutMessage())
@@ -1624,15 +1748,13 @@ const retry = async (failedIndex: number) => {
   if (!failedMsg || failedMsg.role !== 'assistant' || !failedMsg.failed || failedMsg.retryDisabled) return
 
   let lastUserContent = ''
-  let lastUserSkillIds: number[] = []
-  let lastUserSkillSelectionConfirmed = false
+  let lastUserSkillVersionIds: number[] = []
   for (let i = failedIndex - 1; i >= 0; i--) {
     if (messages.value[i]?.role === 'user') {
       lastUserContent = messages.value[i].content
-      lastUserSkillSelectionConfirmed = Boolean(messages.value[i].skillSelectionConfirmed)
       const skillsForRetry = (messages.value[i].skills || (messages.value[i].skill ? [messages.value[i].skill] : []))
         .filter((skill): skill is ChatMessageSkill => Boolean(skill))
-      lastUserSkillIds = skillsForRetry
+      lastUserSkillVersionIds = skillsForRetry
         .map((skill) => Number(skill.id))
         .filter((id) => Number.isFinite(id))
       break
@@ -1660,8 +1782,9 @@ const retry = async (failedIndex: number) => {
         message: lastUserContent,
         client_request_id: createClientRequestId(),
         ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
-        ...(lastUserSkillIds.length > 0 ? { agent_skill_ids: lastUserSkillIds } : {}),
-        ...(lastUserSkillSelectionConfirmed ? { agent_skill_selection_confirmed: true } : {}),
+        ...(lastUserSkillVersionIds.length > 0
+          ? { agent_skill_version_ids: lastUserSkillVersionIds }
+          : {}),
         ...(session.application_id ? { application_id: session.application_id } : {}),
       },
       makeChatUiBinder(assistantIndex),
@@ -1787,7 +1910,7 @@ const requestContextPreview = (notifyOnError = true) => {
   const sessionId = session.id
   const requestedModelId = selectedModelId.value ?? 0
   const skillCapabilityKeys = [...selectedSkillKeys.value]
-  const agentSkillIds = [...selectedAgentSkillIds.value]
+  const agentSkillVersionIds = [...selectedAgentSkillVersionIds.value]
   contextPreviewing.value = true
   contextPreviewTimer = setTimeout(async () => {
     contextPreviewTimer = null
@@ -1797,7 +1920,9 @@ const requestContextPreview = (notifyOnError = true) => {
       const result = await previewSessionContext(sessionId, {
         model_id: requestedModelId,
         ...(skillCapabilityKeys.length > 0 ? { skill_capability_keys: skillCapabilityKeys } : {}),
-        ...(agentSkillIds.length > 0 ? { agent_skill_ids: agentSkillIds } : {}),
+        ...(agentSkillVersionIds.length > 0
+          ? { agent_skill_version_ids: agentSkillVersionIds }
+          : {}),
       }, controller.signal)
       if (version !== contextPreviewVersion || currentSession.value?.id !== sessionId) return
       contextUsage.value = result.context_usage
@@ -1841,8 +1966,8 @@ const handleSelectedSkillKeysUpdate = (value: string[]) => {
   requestContextPreview(false)
 }
 
-const handleSelectedAgentSkillIdsUpdate = (value: number[]) => {
-  selectedAgentSkillIds.value = value
+const handleSelectedAgentSkillVersionIdsUpdate = (value: number[]) => {
+  selectedAgentSkillVersionIds.value = value
   requestContextPreview(false)
 }
 
@@ -1961,6 +2086,7 @@ onBeforeUnmount(() => {
             @retry="retry"
             @confirm-skill-selection="submitConfirmedSkillSelection"
             @reject-skill-selection="rejectSkillSelection"
+            @cancel-pending-run="cancelSkillSelectionRun"
           />
 
           <div v-if="latestSuggestedQuestions.length" class="ai-suggested ai-suggested--composer" aria-label="快速回复">
@@ -1996,12 +2122,12 @@ onBeforeUnmount(() => {
             :skill-capabilities="skillCapabilities"
             :selected-skill-keys="selectedSkillKeys"
             :agent-skills="agentSkills"
-            :selected-agent-skill-ids="selectedAgentSkillIds"
+            :selected-agent-skill-version-ids="selectedAgentSkillVersionIds"
             :disabled="quotaExhausted || billingAccessLoading || awaitingRunConfirmation"
             @update:input="(val: string) => input = val"
             @update:selected-model-id="handleSelectedModelUpdate"
             @update:selected-skill-keys="handleSelectedSkillKeysUpdate"
-            @update:selected-agent-skill-ids="handleSelectedAgentSkillIdsUpdate"
+            @update:selected-agent-skill-version-ids="handleSelectedAgentSkillVersionIdsUpdate"
             @submit="submit"
             @stop="stopStreaming"
           />

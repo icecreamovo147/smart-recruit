@@ -13,6 +13,7 @@ import {
   friendlyDurableRunErrorMessage,
   hasPendingRunConfirmation,
   insufficientCreditsMessage,
+  isAgentSkillConfirmationExpired,
   isMCPConfirmationExpired,
   modelFallbackMessage,
   parseCandidateOptionsFromMeta,
@@ -104,30 +105,34 @@ describe('agentRunChatFlow helpers', () => {
     expect(modelFallbackMessage('GPT-4.1')).toBe('请求的模型不可用，已自动切换至 GPT-4.1')
   })
 
-  it('toAgentSkillSelectionPayload maps nested agent_skill_selection', () => {
+  it('maps exact Package v2 candidates without legacy aliases', () => {
     const payload = toAgentSkillSelectionPayload({
       required: true,
       reason: 'pick',
-      raw_json: JSON.stringify({
-        required: true,
-        reason: 'pick',
-        agent_skill_selection: {
-          candidates: [
-            {
-              id: 7,
-              name: 'resume_review',
-              display_name: '简历复核',
-              recommended: true,
-            },
-          ],
-          recommended_agent_skill_ids: [7],
-          user_message_id: 42,
-        },
-      }),
+      agent_skill_confirmation_id: 'skill-confirm-7',
+      recommended_agent_skill_version_ids: [17],
+      agent_skill_confirmation_expires_at: '2026-07-28T12:10:00Z',
+      candidates: [{
+        skill_id: 7,
+        version_id: 17,
+        version: '2.0.0',
+        compiled_hash: 'abcdef0123456789',
+        name: 'resume_review',
+        display_name: '简历复核',
+        composition_role: 'primary',
+        risk: 'high',
+        activation_policy: 'confirm',
+        core_estimated_tokens: 320,
+        recommended: true,
+      }],
     })
-    expect(payload?.candidates[0]?.id).toBe(7)
-    expect(payload?.recommended_agent_skill_ids).toEqual([7])
-    expect(payload?.user_message_id).toBe(42)
+    expect(payload?.candidates[0]?.version_id).toBe(17)
+    expect(payload?.candidates[0]?.risk).toBe('high')
+    expect(payload?.recommended_agent_skill_version_ids).toEqual([17])
+    expect(payload?.confirmation_id).toBe('skill-confirm-7')
+    expect(payload?.expires_at).toBe('2026-07-28T12:10:00Z')
+    expect(payload).not.toHaveProperty('recommended_agent_skill_ids')
+    expect(payload).not.toHaveProperty('user_message_id')
   })
 
   it('detects expired MCP confirmations from the bound approval payload', () => {
@@ -140,6 +145,13 @@ describe('agentRunChatFlow helpers', () => {
     expect(isMCPConfirmationExpired('not-json', Date.now())).toBe(false)
   })
 
+  it('detects exact Agent Skill confirmation expiry', () => {
+    const expiresAt = '2026-07-28T12:10:00Z'
+    expect(isAgentSkillConfirmationExpired(expiresAt, Date.parse('2026-07-28T12:09:59Z'))).toBe(false)
+    expect(isAgentSkillConfirmationExpired(expiresAt, Date.parse(expiresAt))).toBe(true)
+    expect(isAgentSkillConfirmationExpired(undefined, Date.now())).toBe(false)
+  })
+
   it('blocks a second run while durable confirmation is pending', () => {
     expect(hasPendingRunConfirmation('waiting_confirmation', [])).toBe(true)
     expect(hasPendingRunConfirmation('running', [{
@@ -147,6 +159,76 @@ describe('agentRunChatFlow helpers', () => {
       skillSelectionRequest: { runId: 35 },
     }])).toBe(true)
     expect(hasPendingRunConfirmation('succeeded', [])).toBe(false)
+  })
+
+  it('preserves a cancel-only card when refreshed confirmation data is incomplete', () => {
+    expect(toAgentSkillSelectionPayload({
+      required: true,
+      reason: 'confirmation payload incomplete',
+    })).toEqual({
+      required: true,
+      reason: 'confirmation payload incomplete',
+      candidates: [],
+      confirmation_kind: 'agent_skill',
+      recommended_agent_skill_version_ids: [],
+    })
+  })
+
+  it('preserves a cancel-only card when typed candidates are missing a confirmation ID', () => {
+    const payload = toAgentSkillSelectionPayload({
+      required: true,
+      candidates: [{
+        skill_id: 7,
+        version_id: 17,
+        version: '2.0.0',
+        compiled_hash: 'abcdef0123456789',
+        name: 'resume_review',
+        display_name: '简历复核',
+        composition_role: 'primary',
+        risk: 'high',
+        activation_policy: 'confirm',
+        core_estimated_tokens: 320,
+        recommended: true,
+      }],
+    })
+
+    expect(payload).toEqual({
+      required: true,
+      reason: 'Agent Skill 确认信息不完整',
+      candidates: [],
+      confirmation_kind: 'agent_skill',
+      recommended_agent_skill_version_ids: [],
+    })
+  })
+
+  it('preserves a cancel-only card when typed candidates are invalid', () => {
+    const payload = toAgentSkillSelectionPayload({
+      required: true,
+      reason: 'restore failed',
+      agent_skill_confirmation_id: 'skill-confirm-7',
+      candidates: [{
+        skill_id: 7,
+        version_id: 0,
+        version: '',
+        compiled_hash: '',
+        name: '',
+        display_name: '',
+        composition_role: 'primary',
+        risk: 'high',
+        activation_policy: 'confirm',
+        core_estimated_tokens: 320,
+        recommended: true,
+      }],
+    })
+
+    expect(payload).toEqual({
+      required: true,
+      reason: 'restore failed',
+      candidates: [],
+      confirmation_kind: 'agent_skill',
+      confirmation_id: 'skill-confirm-7',
+      recommended_agent_skill_version_ids: [],
+    })
   })
 
   it('parseCandidateOptionsFromMeta parses JSON string', () => {
@@ -248,7 +330,12 @@ describe('agentRunChatFlow entry paths (submit + skill confirm)', () => {
 
     const result = await executeCreateChatRun(
       api,
-      { session_id: 3, message: 'hi', client_request_id: 'req-submit-1' },
+      {
+        session_id: 3,
+        message: 'hi',
+        client_request_id: 'req-submit-1',
+        agent_skill_version_ids: [701],
+      },
       binder,
       { isAborted: () => false },
     )
@@ -258,8 +345,10 @@ describe('agentRunChatFlow entry paths (submit + skill confirm)', () => {
         session_id: 3,
         message: 'hi',
         client_request_id: 'req-submit-1',
+        agent_skill_version_ids: [701],
       }),
     )
+    expect(createAgentRun.mock.calls[0]?.[0]).not.toHaveProperty('agent_skill_ids')
     expect(result.outcome).toBe('terminal')
     expect(result.state.assistantText).toBe('Hello world')
     expect(deltas.join('')).toBe('Hello world')
@@ -314,8 +403,20 @@ describe('agentRunChatFlow entry paths (submit + skill confirm)', () => {
       confirmation: {
         required: true,
         reason: 'pick skills',
-        candidates: [{ id: 1, name: 'skill_a', display_name: 'Skill A' }],
-        recommended_agent_skill_ids: [1],
+        agent_skill_confirmation_id: 'skill-confirm-1',
+        recommended_agent_skill_version_ids: [11],
+        candidates: [{
+          skill_id: 1,
+          version_id: 11,
+          version: '2.0.0',
+          compiled_hash: 'hash-11',
+          name: 'skill_a',
+          display_name: 'Skill A',
+          composition_role: 'primary',
+          risk: 'high',
+          activation_policy: 'confirm',
+          core_estimated_tokens: 200,
+        }],
       },
     })
 
@@ -324,8 +425,9 @@ describe('agentRunChatFlow entry paths (submit + skill confirm)', () => {
       api,
       {
         client_request_id: 'req-confirm-1',
-        agent_skill_ids: [1],
-        agent_skill_selection_confirmed: true,
+        agent_skill_confirmation_id: 'skill-confirm-1',
+        agent_skill_confirmation_decision: 'approve',
+        selected_agent_skill_version_ids: [11],
       },
       binder,
       { isAborted: () => false },
@@ -334,8 +436,9 @@ describe('agentRunChatFlow entry paths (submit + skill confirm)', () => {
     expect(confirmAgentRun).toHaveBeenCalledWith(
       33,
       expect.objectContaining({
-        agent_skill_ids: [1],
-        agent_skill_selection_confirmed: true,
+        agent_skill_confirmation_id: 'skill-confirm-1',
+        agent_skill_confirmation_decision: 'approve',
+        selected_agent_skill_version_ids: [11],
         client_request_id: 'req-confirm-1',
       }),
     )
@@ -398,19 +501,19 @@ describe('agentRunChatFlow entry paths (submit + skill confirm)', () => {
       api,
       {
         confirmation_payload_json: selection?.confirmation_payload_json,
-        agent_skill_selection_confirmed: false,
       },
       collectBinder().binder,
       { isAborted: () => false },
     )
 
-    expect(confirmAgentRun).toHaveBeenCalledWith(
-      34,
-      expect.objectContaining({
-        confirmation_payload_json: selection?.confirmation_payload_json,
-        agent_skill_selection_confirmed: false,
-      }),
-    )
+    const mcpRequest = confirmAgentRun.mock.calls[0]?.[1]
+    expect(mcpRequest).toEqual({
+      confirmation_payload_json: selection?.confirmation_payload_json,
+      client_request_id: expect.any(String),
+    })
+    expect(mcpRequest).not.toHaveProperty('agent_skill_confirmation_id')
+    expect(mcpRequest).not.toHaveProperty('agent_skill_confirmation_decision')
+    expect(mcpRequest).not.toHaveProperty('selected_agent_skill_version_ids')
     wrapper.unmount()
   })
 
@@ -488,8 +591,20 @@ describe('agentRunChatFlow entry paths (submit + skill confirm)', () => {
           payload_json: JSON.stringify({
             required: true,
             reason: 'select',
-            candidates: [{ id: 2, name: 's2', display_name: 'S2' }],
-            recommended_agent_skill_ids: [2],
+            agent_skill_confirmation_id: 'skill-confirm-2',
+            recommended_agent_skill_version_ids: [22],
+            candidates: [{
+              skill_id: 2,
+              version_id: 22,
+              version: '2.0.0',
+              compiled_hash: 'hash-22',
+              name: 's2',
+              display_name: 'S2',
+              composition_role: 'primary',
+              risk: 'critical',
+              activation_policy: 'manual_only',
+              core_estimated_tokens: 300,
+            }],
           }),
         })
         handlers.onDone?.()
@@ -508,7 +623,8 @@ describe('agentRunChatFlow entry paths (submit + skill confirm)', () => {
     expect(result.outcome).toBe('waiting_confirmation')
     expect(result.state.status).toBe('waiting_confirmation')
     const selection = toAgentSkillSelectionPayload(result.state.confirmation)
-    expect(selection?.candidates[0]?.id).toBe(2)
+    expect(selection?.candidates[0]?.version_id).toBe(22)
+    expect(selection?.candidates[0]?.risk).toBe('critical')
 
     wrapper.unmount()
   })

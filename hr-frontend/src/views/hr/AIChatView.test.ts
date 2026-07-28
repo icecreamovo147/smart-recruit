@@ -3,13 +3,14 @@
  * Full view mount is heavy (router, many APIs); composable tests cover reconnect/cancel.
  * Here we exercise message-slot seeding rules used by restoreActiveRunForSession.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   buildApplicationAnalysisMessage,
   buildApplicationAnalysisRunRequest,
   isInsufficientCreditsFailure,
   normalizeSuggestedQuestions,
   resolveApplicationAnalysisMessage,
+  runExclusiveConfirmationSubmission,
   suggestedQuestionsFromProcessContent,
 } from './AIChatView.vue'
 import { sanitizeAssistantProcessText } from '@/utils/hrAssistantProcess'
@@ -208,5 +209,35 @@ describe('AIChatView quota guard', () => {
     expect(isInsufficientCreditsFailure('insufficient_credits')).toBe(true)
     expect(isInsufficientCreditsFailure('AI 套餐额度不足，请购买套餐后重试')).toBe(true)
     expect(isInsufficientCreditsFailure('timeout')).toBe(false)
+  })
+})
+
+describe('AIChatView confirmation submission guard', () => {
+  it('allows exactly one confirmation request while run hydration is deferred', async () => {
+    let releaseHydration: (() => void) | undefined
+    const hydration = new Promise<void>((resolve) => {
+      releaseHydration = resolve
+    })
+    const hydrateFromRunId = vi.fn(() => hydration)
+    const confirmAgentRun = vi.fn(async () => {})
+    const lock = { value: false }
+    const submit = () => runExclusiveConfirmationSubmission(lock, async () => {
+      await hydrateFromRunId()
+      await confirmAgentRun()
+    })
+
+    const first = submit()
+    const second = submit()
+
+    expect(lock.value).toBe(true)
+    expect(hydrateFromRunId).toHaveBeenCalledTimes(1)
+    expect(confirmAgentRun).not.toHaveBeenCalled()
+    await expect(second).resolves.toBeUndefined()
+
+    releaseHydration?.()
+    await first
+
+    expect(confirmAgentRun).toHaveBeenCalledTimes(1)
+    expect(lock.value).toBe(false)
   })
 })
