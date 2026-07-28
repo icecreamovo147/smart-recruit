@@ -1,5 +1,7 @@
 // ---- AI Chat Types ----
 
+import type { AgentSkillRuntimeEvidence } from '@shared/types/agentRun'
+
 export interface ChatMessageSkill {
   id?: string | number
   name: string
@@ -14,16 +16,9 @@ export interface ChatMessage {
   model_name?: string
   skill?: ChatMessageSkill
   skills?: ChatMessageSkill[]
-  skill_id?: string | number
-  skill_name?: string
-  skill_command?: string
-  skillId?: string | number
-  skillName?: string
-  skillCommand?: string
-  agent_skill_ids?: number[]
+  agent_skill_version_ids?: number[]
   agent_skill_names?: string[]
-  agentSkillIds?: number[]
-  agentSkillNames?: string[]
+  agent_skill_runtime_evidence?: AgentSkillRuntimeEvidence[]
   pending?: boolean
   failed?: boolean
   waitingText?: string

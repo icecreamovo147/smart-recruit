@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { BusinessError } from '@/types/api'
 import type { StreamHandlers, StreamPayload, ChatSessionListItem, ToolTraceItem, AgentRunItem, ChatMessage, ContextUsageInfo } from '@/types/ai'
 import type { CapabilityInfo } from '@shared/types/agent'
+import type { AgentSkillRuntimeEvidence } from '@shared/types/agentRun'
 import request from './request'
 import { silentRefresh } from './authRefresh'
 import { contextGuardCodeFrom, contextGuardMessage } from '@/utils/contextUsage'
@@ -16,9 +17,7 @@ export interface ChatRequestPayload {
   session_id?: number
   model_id?: number
   skill_capability_keys?: string[]
-  agent_skill_ids?: number[]
-  agent_skill_selection_confirmed?: boolean
-  agent_skill_selection_message_id?: number
+  agent_skill_version_ids?: number[]
 }
 
 export const sendMessage = (data: ChatRequestPayload): Promise<{
@@ -33,6 +32,7 @@ export const sendMessage = (data: ChatRequestPayload): Promise<{
   session_id?: number
   context_usage?: ContextUsageInfo | null
   suggested_questions?: string[]
+  agent_skill_runtime_evidence?: AgentSkillRuntimeEvidence[]
 }> => request.post('/api/v1/hr/ai/chat', data)
 
 export const getHistory = (params: { page: number; page_size: number }): Promise<{
@@ -63,7 +63,7 @@ export const getSessionMessages = (sessionId: number, params: { page: number; pa
 
 export const previewSessionContext = (
   sessionId: number,
-  data: { model_id: number; skill_capability_keys?: string[]; agent_skill_ids?: number[] },
+  data: { model_id: number; skill_capability_keys?: string[]; agent_skill_version_ids?: number[] },
   signal?: AbortSignal,
 ): Promise<{ selected_model_id: number; context_usage: ContextUsageInfo }> =>
   request.put(`/api/v1/hr/ai/sessions/${sessionId}/context-model`, data, { signal })

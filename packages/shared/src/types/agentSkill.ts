@@ -1,77 +1,110 @@
-export type AgentSkillNodeType =
-  | 'trigger'
-  | 'context'
-  | 'instruction'
-  | 'condition'
-  | 'output'
-  | 'constraint'
+export type AgentSkillRiskLevel = 'low' | 'medium' | 'high' | 'critical'
+export type AgentSkillActivationPolicy = 'auto' | 'confirm' | 'manual_only'
+export type AgentSkillCompositionRole = 'primary' | 'supporting'
+export type AgentSkillOutputMode = 'none' | 'advisory' | 'strict'
 
-export const AGENT_SKILL_NODE_TYPES = [
-  'trigger',
-  'context',
-  'instruction',
-  'condition',
-  'output',
-  'constraint',
-] as const satisfies readonly AgentSkillNodeType[]
-
-export interface AgentSkillCanvasNodeData {
-  title: string
-  content: string
+export interface AgentSkillComposition {
+  role: AgentSkillCompositionRole
 }
 
-export interface AgentSkillCanvasPosition {
-  x: number
-  y: number
+export interface AgentSkillOutputContract {
+  mode: AgentSkillOutputMode
+  schema_id: string
+  schema_json: string
 }
 
-export type AgentSkillCanvasHandle = 'top' | 'right' | 'bottom' | 'left'
-
-export interface AgentSkillCanvasEdge {
-  id: string
-  source: string
-  target: string
-  sourceHandle?: AgentSkillCanvasHandle
-  targetHandle?: AgentSkillCanvasHandle
-  curvature?: number
-  label?: string
+export interface AgentSkillManifestDraft {
+  schema_version: 2
+  skill_name: string
+  display_name: string
+  description?: string
+  agent_type: string
+  category?: string
+  scenario?: string
+  priority?: number
+  risk: AgentSkillRiskLevel
+  /** Derived from risk by the server; clients may echo the read-only value. */
+  activation_policy?: AgentSkillActivationPolicy
+  required_capabilities?: string[]
+  trigger_keywords?: string[]
+  semantic_tags?: string[]
+  composition: AgentSkillComposition
+  output_contract?: AgentSkillOutputContract
+  evaluation_criteria?: string[]
 }
 
-export interface AgentSkillCanvasViewport {
-  x: number
-  y: number
-  zoom: number
-}
-
-export interface AgentSkillNodeTypeOption {
-  type: AgentSkillNodeType
-  label: string
+export interface AgentSkillManifest extends AgentSkillManifestDraft {
   description: string
-  placeholder?: string
+  category: string
+  scenario: string
+  priority: number
+  activation_policy: AgentSkillActivationPolicy
+  required_capabilities: string[]
+  trigger_keywords: string[]
+  semantic_tags: string[]
+  output_contract: AgentSkillOutputContract
+  evaluation_criteria: string[]
 }
 
-export interface AgentSkillNode {
-  id: string
-  type: AgentSkillNodeType
+export interface AgentSkillSectionDraft {
+  section_key: string
   title: string
-  content: string
-  order?: number
+  description?: string
+  content_markdown: string
+  trigger_terms?: string[]
+  semantic_tags?: string[]
+  planner_intents?: string[]
+  priority?: number
+  ordinal?: number
 }
 
-export interface AgentSkillCanvasNode {
-  id: string
-  type: AgentSkillNodeType
-  position: AgentSkillCanvasPosition
-  data: AgentSkillCanvasNodeData
+export interface AgentSkillSectionInfo {
+  id: number
+  section_key: string
+  title: string
+  description: string
+  content_markdown: string
+  trigger_terms: string[]
+  semantic_tags: string[]
+  planner_intents: string[]
+  priority: number
+  ordinal: number
+  estimated_tokens: number
+  content_hash: string
 }
 
-export interface AgentSkillCanvasFlow {
-  format: 'canvas.v1'
+export interface AgentSkillPackageDraft {
+  manifest: AgentSkillManifestDraft
+  core_markdown: string
+  sections?: AgentSkillSectionDraft[]
+  /** Editor-only state. Runtime never interprets this value. */
+  authoring_json?: string
+}
+
+export interface AgentSkillPackageInfo {
+  manifest: AgentSkillManifest
+  core_markdown: string
+  sections: AgentSkillSectionInfo[]
+  compiled_markdown: string
+  authoring_json: string
+  compiled_hash: string
+  core_estimated_tokens: number
+  package_estimated_tokens: number
+}
+
+export interface AgentSkillVersionSummary {
+  version_id: number
   version: string
-  type: 'agent-skill'
-  nodes: AgentSkillCanvasNode[]
-  edges: AgentSkillCanvasEdge[]
-  viewport?: AgentSkillCanvasViewport
+  compiled_hash: string
+  agent_type: string
+  category: string
+  scenario: string
+  priority: number
+  risk: AgentSkillRiskLevel
+  activation_policy: AgentSkillActivationPolicy
+  composition_role: AgentSkillCompositionRole
+  core_estimated_tokens: number
+  package_estimated_tokens: number
 }
 
 export interface AgentSkillInfo {
@@ -79,47 +112,25 @@ export interface AgentSkillInfo {
   name: string
   display_name: string
   description: string
-  agent_type?: string
-  category?: string
-  scenario?: string
-  priority?: number
-  risk_level?: string
-  required_capabilities?: string[]
-  output_schema?: string
-  evaluation_criteria?: string[]
-  semantic_tags?: string[]
-  unavailable_capabilities?: string[]
-  validation_warnings?: string[]
-  current_version_id?: number
+  current_version_id: number
   is_enabled: boolean
-  is_manual_invocable?: boolean
-  trigger_keywords?: string[]
-  node_schema?: AgentSkillNode[]
-  flow_json?: string
-  skill_md?: string
-  created_at?: string
-  updated_at?: string
+  is_manual_invocable: boolean
+  created_at: string
+  updated_at: string
+  current_version: AgentSkillVersionSummary | null
 }
 
 export interface AgentSkillVersionInfo {
   id: number
   skill_id: number
   version: string
-  flow_json: string
-  skill_md: string
-  frontmatter_json: string
-  body_markdown: string
   change_note: string
-  is_current?: boolean
-  created_at?: string
-}
-
-export interface AgentSkillDetail extends AgentSkillInfo {
-  current_version?: AgentSkillVersionInfo
+  created_at: string
+  package: AgentSkillPackageInfo
 }
 
 export interface AgentSkillDetailResponse {
-  skill: AgentSkillDetail
+  skill: AgentSkillInfo
 }
 
 export interface AgentSkillResponse {
@@ -142,44 +153,22 @@ export interface AgentSkillListParams {
 }
 
 export interface AgentSkillPreviewPayload {
-  name: string
-  display_name: string
-  description?: string
-  agent_type?: string
-  category?: string
-  scenario?: string
-  priority?: number
-  risk_level?: string
-  required_capabilities?: string[]
-  output_schema?: string
-  evaluation_criteria?: string[]
-  semantic_tags?: string[]
-  version?: string
-  flow_json?: string
-  nodes?: AgentSkillNode[]
+  package: AgentSkillPackageDraft
 }
 
 export interface AgentSkillPreviewResult {
-  skill_md: string
-  frontmatter_json: string
-  body_markdown: string
+  package: AgentSkillPackageInfo
 }
 
-export interface AgentSkillValidation {
-  valid: boolean
-  errors: string[]
-  warnings: string[]
-}
-
-export interface CreateAgentSkillPayload extends AgentSkillPreviewPayload {
+export interface CreateAgentSkillPayload {
+  version: string
+  package: AgentSkillPackageDraft
   is_enabled?: boolean
   is_enabled_set?: boolean
   is_manual_invocable?: boolean
   is_manual_invocable_set?: boolean
-  trigger_keywords?: string[]
   change_note?: string
   activate?: boolean
-  skill_md?: string
 }
 
 export interface UpdateAgentSkillPayload {
@@ -187,37 +176,15 @@ export interface UpdateAgentSkillPayload {
   display_name_set?: boolean
   description?: string
   description_set?: boolean
-  agent_type?: string
-  agent_type_set?: boolean
-  category?: string
-  category_set?: boolean
-  scenario?: string
-  scenario_set?: boolean
-  priority?: number
-  priority_set?: boolean
-  risk_level?: string
-  risk_level_set?: boolean
-  required_capabilities?: string[]
-  required_capabilities_set?: boolean
-  output_schema?: string
-  output_schema_set?: boolean
-  evaluation_criteria?: string[]
-  evaluation_criteria_set?: boolean
-  semantic_tags?: string[]
-  semantic_tags_set?: boolean
   is_enabled?: boolean
   is_enabled_set?: boolean
   is_manual_invocable?: boolean
   is_manual_invocable_set?: boolean
-  trigger_keywords?: string[]
-  trigger_keywords_set?: boolean
 }
 
 export interface CreateAgentSkillVersionPayload {
   version: string
-  flow_json?: string
-  nodes?: AgentSkillNode[]
-  skill_md?: string
+  package: AgentSkillPackageDraft
   change_note?: string
   activate?: boolean
 }
@@ -226,32 +193,20 @@ export interface UpdateAgentSkillStatusPayload {
   is_enabled: boolean
 }
 
-export interface AvailableAgentSkill {
-  id: number
-  name: string
-  display_name: string
-  description: string
-  agent_type?: string
-  category?: string
-  scenario?: string
-  priority?: number
-  risk_level?: string
-  required_capabilities?: string[]
-  output_schema?: string
-  semantic_tags?: string[]
-  unavailable_capabilities?: string[]
-  validation_warnings?: string[]
-  current_version_id?: number
-  trigger_keywords?: string[]
-}
+export type AvailableAgentSkill = AgentSkillInfo
 
 export interface SemanticSkillDebugItem {
-  id: number
+  skill_id: number
+  version_id: number
+  version: string
+  compiled_hash: string
   name: string
   display_name: string
   category?: string
   scenario?: string
   priority?: number
+  risk?: AgentSkillRiskLevel
+  composition_role?: AgentSkillCompositionRole
   score: number
   reason: string
   semantic_tags?: string[]

@@ -251,7 +251,7 @@ func TestPreviewChatContextForwardsSelectionAndMapsUsage(t *testing.T) {
 		}, nil
 	}}
 	r := newAgentRunTestRouter(mock, 42)
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/hr/ai/sessions/7/context-model", strings.NewReader(`{"model_id":8,"skill_capability_keys":["search"],"agent_skill_ids":[11]}`))
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/hr/ai/sessions/7/context-model", strings.NewReader(`{"model_id":8,"skill_capability_keys":["search"],"agent_skill_version_ids":[1011]}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -259,7 +259,8 @@ func TestPreviewChatContextForwardsSelectionAndMapsUsage(t *testing.T) {
 	if w.Code != http.StatusOK || captured == nil {
 		t.Fatalf("status=%d captured=%#v body=%s", w.Code, captured, w.Body.String())
 	}
-	if captured.GetHrId() != 42 || captured.GetSessionId() != 7 || captured.GetModelId() != 8 || len(captured.GetAgentSkillIds()) != 1 {
+	if captured.GetHrId() != 42 || captured.GetSessionId() != 7 || captured.GetModelId() != 8 ||
+		len(captured.GetAgentSkillVersionIds()) != 1 || captured.GetAgentSkillVersionIds()[0] != 1011 {
 		t.Fatalf("captured request = %#v", captured)
 	}
 	if !strings.Contains(w.Body.String(), `"selected_model_id":8`) || !strings.Contains(w.Body.String(), `"stage":"model_preview"`) {
@@ -331,7 +332,7 @@ func TestCreateAgentRun_ForwardsHrIDAndFields(t *testing.T) {
 		},
 	}
 	r := newAgentRunTestRouter(mock, 42)
-	body := `{"session_id":7,"client_request_id":"req-1","message":"hello","action_type":"submit","model_id":3}`
+	body := `{"session_id":7,"client_request_id":"req-1","message":"hello","action_type":"submit","model_id":3,"agent_skill_version_ids":[101,102]}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/hr/ai/runs", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -346,8 +347,29 @@ func TestCreateAgentRun_ForwardsHrIDAndFields(t *testing.T) {
 	if captured.HrId != 42 || captured.SessionId != 7 || captured.ClientRequestId != "req-1" || captured.Message != "hello" {
 		t.Fatalf("unexpected RPC request: %+v", captured)
 	}
+	if len(captured.GetAgentSkillVersionIds()) != 2 || captured.GetAgentSkillVersionIds()[0] != 101 {
+		t.Fatalf("exact skill versions were not forwarded: %+v", captured.GetAgentSkillVersionIds())
+	}
 	if !strings.Contains(w.Body.String(), `"run_id":99`) {
 		t.Fatalf("expected run_id in response, got %s", w.Body.String())
+	}
+}
+
+func TestCreateAgentRun_RejectsInvalidSkillVersionIDs(t *testing.T) {
+	mock := &mockAIServiceClient{}
+	r := newAgentRunTestRouter(mock, 42)
+	for _, body := range []string{
+		`{"session_id":7,"message":"hello","agent_skill_version_ids":[0]}`,
+		`{"session_id":7,"message":"hello","agent_skill_version_ids":[101,101]}`,
+		`{"session_id":7,"message":"hello","agent_skill_ids":[101]}`,
+	} {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/hr/ai/runs", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if !strings.Contains(w.Body.String(), `"code":400`) {
+			t.Fatalf("expected invalid skill selection rejection for %s: %s", body, w.Body.String())
+		}
 	}
 }
 
@@ -540,7 +562,7 @@ func TestCancelAgentRun_ForwardsExplicitCommand(t *testing.T) {
 	}
 }
 
-func TestConfirmAgentRun_ForwardsSkills(t *testing.T) {
+func TestConfirmAgentRun_ForwardsExactSkillConfirmation(t *testing.T) {
 	var captured *pb.ConfirmAgentRunRequest
 	mock := &mockAIServiceClient{
 		confirmFn: func(_ context.Context, req *pb.ConfirmAgentRunRequest, _ ...grpc.CallOption) (*pb.ConfirmAgentRunResponse, error) {
@@ -553,17 +575,186 @@ func TestConfirmAgentRun_ForwardsSkills(t *testing.T) {
 		},
 	}
 	r := newAgentRunTestRouter(mock, 5)
-	body := `{"agent_skill_ids":[1,2],"agent_skill_selection_confirmed":true,"client_request_id":"cf1"}`
+	body := `{"agent_skill_confirmation_id":"skill-confirm-1","agent_skill_confirmation_decision":"approve","selected_agent_skill_version_ids":[101,102],"client_request_id":"cf1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/hr/ai/runs/8/confirm", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	if captured == nil || captured.RunId != 8 || captured.HrId != 5 || !captured.AgentSkillSelectionConfirmed {
+	if captured == nil || captured.RunId != 8 || captured.HrId != 5 ||
+		captured.GetAgentSkillConfirmationId() != "skill-confirm-1" ||
+		captured.GetAgentSkillConfirmationDecision() != pb.AgentSkillConfirmationDecision_AGENT_SKILL_CONFIRMATION_DECISION_APPROVE {
 		t.Fatalf("unexpected confirm request: %+v", captured)
 	}
-	if len(captured.AgentSkillIds) != 2 {
-		t.Fatalf("expected skill ids, got %+v", captured.AgentSkillIds)
+	if len(captured.GetSelectedAgentSkillVersionIds()) != 2 {
+		t.Fatalf("expected exact skill version ids, got %+v", captured.GetSelectedAgentSkillVersionIds())
+	}
+}
+
+func TestConfirmAgentRun_ForwardsIndependentMCPConfirmation(t *testing.T) {
+	var captured *pb.ConfirmAgentRunRequest
+	mock := &mockAIServiceClient{
+		confirmFn: func(_ context.Context, req *pb.ConfirmAgentRunRequest, _ ...grpc.CallOption) (*pb.ConfirmAgentRunResponse, error) {
+			captured = req
+			return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "ok", Run: &pb.AgentRunSnapshot{RunId: req.RunId}}, nil
+		},
+	}
+	r := newAgentRunTestRouter(mock, 5)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/hr/ai/runs/8/confirm", strings.NewReader(
+		`{"confirmation_payload_json":"{\"confirmation_id\":\"mcp-1\"}","client_request_id":"mcp-cf1"}`,
+	))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if captured == nil || captured.GetConfirmationPayloadJson() == "" {
+		t.Fatalf("MCP confirmation was not forwarded: %+v body=%s", captured, w.Body.String())
+	}
+	if captured.GetAgentSkillConfirmationId() != "" ||
+		captured.GetAgentSkillConfirmationDecision() != pb.AgentSkillConfirmationDecision_AGENT_SKILL_CONFIRMATION_DECISION_UNSPECIFIED ||
+		len(captured.GetSelectedAgentSkillVersionIds()) != 0 {
+		t.Fatalf("MCP confirmation must not approve skills: %+v", captured)
+	}
+}
+
+func TestConfirmAgentRun_RejectsLegacySkillBoolean(t *testing.T) {
+	mock := &mockAIServiceClient{}
+	r := newAgentRunTestRouter(mock, 5)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/hr/ai/runs/8/confirm", strings.NewReader(
+		`{"agent_skill_ids":[1],"agent_skill_selection_confirmed":true}`,
+	))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if !strings.Contains(w.Body.String(), `"code":400`) {
+		t.Fatalf("expected legacy payload rejection: %s", w.Body.String())
+	}
+}
+
+func TestAgentRunResultMetadataPayloadIncludesVersionedSkillEvidence(t *testing.T) {
+	payload := agentRunResultMetadataPayload(&pb.AgentRunResultMetadata{
+		AgentSkillRuntimeEvidence: []*pb.AgentSkillRuntimeEvidence{{
+			SkillId:             7,
+			VersionId:           70,
+			Version:             "2.0.0",
+			CompiledHash:        "sha256",
+			SkillName:           "candidate_screening",
+			DisplayName:         "Candidate Screening",
+			CompositionRole:     pb.AgentSkillCompositionRole_AGENT_SKILL_COMPOSITION_ROLE_PRIMARY,
+			Risk:                pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_HIGH,
+			ActivationPolicy:    pb.AgentSkillActivationPolicy_AGENT_SKILL_ACTIVATION_POLICY_CONFIRM,
+			CoreEstimatedTokens: 120,
+			LoadedTokens:        180,
+			Included:            true,
+			Sections: []*pb.AgentSkillSectionRuntimeEvidence{{
+				SectionId:       9,
+				SectionKey:      "rubric",
+				ContentHash:     "section-hash",
+				EstimatedTokens: 60,
+				Included:        true,
+			}},
+		}},
+	})
+	data, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	body := string(data)
+	for _, expected := range []string{
+		`"version_id":70`,
+		`"compiled_hash":"sha256"`,
+		`"composition_role":"primary"`,
+		`"risk":"high"`,
+		`"activation_policy":"confirm"`,
+		`"section_key":"rubric"`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("missing %s in %s", expected, body)
+		}
+	}
+}
+
+func TestChatMessagePayloadMapsExactVersionedSkillEvidence(t *testing.T) {
+	messages := chatMessageListPayload([]*pb.ChatMessage{
+		nil,
+		{
+			Role:                 "assistant",
+			Content:              "screening complete",
+			AgentSkillVersionIds: []int64{701},
+			AgentSkillRuntimeEvidence: []*pb.AgentSkillRuntimeEvidence{
+				nil,
+				{
+					SkillId:          7,
+					VersionId:        701,
+					Version:          "2.3.0",
+					CompiledHash:     "package-sha256",
+					CompositionRole:  pb.AgentSkillCompositionRole_AGENT_SKILL_COMPOSITION_ROLE_PRIMARY,
+					Risk:             pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_HIGH,
+					ActivationPolicy: pb.AgentSkillActivationPolicy_AGENT_SKILL_ACTIVATION_POLICY_CONFIRM,
+					Sections:         []*pb.AgentSkillSectionRuntimeEvidence{nil},
+				},
+			},
+		},
+	})
+	if len(messages) != 1 {
+		t.Fatalf("nil proto messages must be skipped: %#v", messages)
+	}
+	data, err := json.Marshal(messages)
+	if err != nil {
+		t.Fatalf("marshal messages: %v", err)
+	}
+	body := string(data)
+	for _, expected := range []string{
+		`"agent_skill_names":[]`,
+		`"agent_skill_version_ids":[701]`,
+		`"version_id":701`,
+		`"version":"2.3.0"`,
+		`"compiled_hash":"package-sha256"`,
+		`"composition_role":"primary"`,
+		`"risk":"high"`,
+		`"activation_policy":"confirm"`,
+		`"sections":[]`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("missing %s in %s", expected, body)
+		}
+	}
+}
+
+func TestAgentSkillSelectionPayloadSkipsNilCandidatesAndUsesNonNilLists(t *testing.T) {
+	payload := agentSkillSelectionPayload(&pb.AgentSkillSelection{
+		Candidates: []*pb.AgentSkillSelectionCandidate{
+			nil,
+			{
+				SkillId:          8,
+				VersionId:        801,
+				Version:          "2.0.0",
+				CompiledHash:     "selection-hash",
+				CompositionRole:  pb.AgentSkillCompositionRole_AGENT_SKILL_COMPOSITION_ROLE_SUPPORTING,
+				Risk:             pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_MEDIUM,
+				ActivationPolicy: pb.AgentSkillActivationPolicy_AGENT_SKILL_ACTIVATION_POLICY_AUTO,
+			},
+		},
+	})
+	if payload == nil || len(payload.Candidates) != 1 {
+		t.Fatalf("nil proto candidates must be skipped: %#v", payload)
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal selection: %v", err)
+	}
+	body := string(data)
+	for _, expected := range []string{
+		`"recommended_agent_skill_version_ids":[]`,
+		`"version_id":801`,
+		`"compiled_hash":"selection-hash"`,
+		`"composition_role":"supporting"`,
+		`"risk":"medium"`,
+		`"activation_policy":"auto"`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("missing %s in %s", expected, body)
+		}
 	}
 }
 
