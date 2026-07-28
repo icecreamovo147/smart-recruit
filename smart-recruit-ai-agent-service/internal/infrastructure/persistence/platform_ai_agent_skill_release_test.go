@@ -15,6 +15,57 @@ import (
 	"smart-recruit-ai-agent-service/internal/domain/agentskill"
 )
 
+type capturingPlatformAITestEvaluator struct {
+	input PlatformAIAgentSkillReleaseEvaluationInput
+}
+
+func (e *capturingPlatformAITestEvaluator) EvaluateAgentSkillRelease(
+	_ context.Context,
+	input PlatformAIAgentSkillReleaseEvaluationInput,
+) (PlatformAIAgentSkillReleaseEvaluationResult, error) {
+	e.input = input
+	return PlatformAIAgentSkillReleaseEvaluationResult{
+		Passed:     true,
+		SuiteHash:  strings.Repeat("a", 64),
+		ResultHash: strings.Repeat("b", 64),
+	}, nil
+}
+
+func TestEvaluateAgentSkillReleasePassesImmutableSnapshotPolicy(t *testing.T) {
+	store := &NativeStore{}
+	evaluator := &capturingPlatformAITestEvaluator{}
+	store.SetAgentSkillReleaseEvaluator(evaluator)
+	policy := PlatformAISkillRuntimePolicy{
+		PolicyVersion:        PlatformAISkillPolicyVersion,
+		MaxSkillTokens:       1777,
+		MaxInputRatio:        0.123,
+		MaxSkills:            2,
+		EvaluationSuiteHash:  strings.Repeat("c", 64),
+		EvaluationResultHash: strings.Repeat("d", 64),
+	}
+	snapshot := PlatformAICapabilitySnapshot{
+		CapabilityKey:      "ai.agent_run",
+		Audience:           PlatformAIAudienceTenantHR,
+		SkillRuntimePolicy: policy,
+	}
+	packages := []PlatformAIAgentSkillReleasePackage{{
+		SkillID:   41,
+		VersionID: 73,
+	}}
+
+	if _, err := store.evaluateAgentSkillRelease(context.Background(), snapshot, packages); err != nil {
+		t.Fatalf("evaluate release: %v", err)
+	}
+	if !reflect.DeepEqual(evaluator.input.Policy, policy) {
+		t.Fatalf("evaluation policy = %+v, want immutable snapshot policy %+v", evaluator.input.Policy, policy)
+	}
+	if evaluator.input.CapabilityKey != snapshot.CapabilityKey ||
+		evaluator.input.Audience != snapshot.Audience ||
+		!reflect.DeepEqual(evaluator.input.Packages, packages) {
+		t.Fatalf("evaluation input = %+v, want snapshot/packages preserved", evaluator.input)
+	}
+}
+
 func TestValidatePublishedAgentSkillPackagesLoadsCanonicalPackageFromGORM(t *testing.T) {
 	db, _, capability, defaultModelID := setupPlatformAIAgentSkillReleaseTest(t, "ai.chat")
 	version := seedPlatformAIAgentSkillPackage(

@@ -467,7 +467,7 @@ func (s *NativeStore) evaluateAgentSkillRelease(
 	result, err := s.agentSkillReleaseEvaluator.EvaluateAgentSkillRelease(ctx, PlatformAIAgentSkillReleaseEvaluationInput{
 		CapabilityKey: snapshot.CapabilityKey,
 		Audience:      snapshot.Audience,
-		Policy:        policy,
+		Policy:        snapshot.SkillRuntimePolicy,
 		Packages:      packages,
 	})
 	if err != nil {
