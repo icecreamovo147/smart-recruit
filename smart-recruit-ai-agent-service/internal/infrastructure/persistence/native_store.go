@@ -219,19 +219,19 @@ func (s *NativeStore) AppendChatMessage(ctx context.Context, message aiagentgrpc
 		return aiagentgrpc.ChatMessageRow{}, fmt.Errorf("marshal chat message context usage: %w", err)
 	}
 	row := aiChatHistoryRecord{
-		HRID:             chatCompatibilityHRID(message.OwnerRole, message.OwnerID),
-		OwnerRole:        message.OwnerRole,
-		OwnerID:          message.OwnerID,
-		SessionID:        message.SessionID,
-		Role:             message.Role,
-		Content:          message.Content,
-		ProcessContent:   message.ProcessContent,
-		ModelID:          message.ModelID,
-		ModelName:        message.ModelName,
-		ContextUsageJSON: contextUsageJSON,
-		AgentSkillIDs:    nullableJSON(marshalInt64Slice(message.AgentSkillIDs)),
-		AgentSkillNames:  nullableJSON(marshalStringSlice(message.AgentSkillNames)),
-		CreatedAt:        now,
+		HRID:                 chatCompatibilityHRID(message.OwnerRole, message.OwnerID),
+		OwnerRole:            message.OwnerRole,
+		OwnerID:              message.OwnerID,
+		SessionID:            message.SessionID,
+		Role:                 message.Role,
+		Content:              message.Content,
+		ProcessContent:       message.ProcessContent,
+		ModelID:              message.ModelID,
+		ModelName:            message.ModelName,
+		ContextUsageJSON:     contextUsageJSON,
+		AgentSkillVersionIDs: nullableJSON(marshalInt64Slice(message.AgentSkillVersionIDs)),
+		AgentSkillNames:      nullableJSON(marshalStringSlice(message.AgentSkillNames)),
+		CreatedAt:            now,
 	}
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&row).Error; err != nil {
@@ -1967,22 +1967,22 @@ type aiChatSessionRecord struct {
 func (aiChatSessionRecord) TableName() string { return "ai_chat_sessions" }
 
 type aiChatHistoryRecord struct {
-	ID               int64     `gorm:"primaryKey"`
-	TenantID         *int64    `gorm:"column:tenant_id"`
-	HRID             int64     `gorm:"column:hr_id"`
-	OwnerRole        int32     `gorm:"column:owner_role"`
-	OwnerID          int64     `gorm:"column:owner_id"`
-	SessionID        int64     `gorm:"column:session_id"`
-	Role             string    `gorm:"column:role"`
-	Content          string    `gorm:"column:content"`
-	ProcessContent   string    `gorm:"column:process_content"`
-	ModelID          int64     `gorm:"column:model_id"`
-	ModelName        string    `gorm:"column:model_name"`
-	ContextUsageJSON *string   `gorm:"column:context_usage_json"`
-	AgentSkillIDs    *string   `gorm:"column:agent_skill_ids_json"`
-	AgentSkillNames  *string   `gorm:"column:agent_skill_names_json"`
-	AgentRunID       *int64    `gorm:"column:agent_run_id"`
-	CreatedAt        time.Time `gorm:"column:created_at"`
+	ID                   int64     `gorm:"primaryKey"`
+	TenantID             *int64    `gorm:"column:tenant_id"`
+	HRID                 int64     `gorm:"column:hr_id"`
+	OwnerRole            int32     `gorm:"column:owner_role"`
+	OwnerID              int64     `gorm:"column:owner_id"`
+	SessionID            int64     `gorm:"column:session_id"`
+	Role                 string    `gorm:"column:role"`
+	Content              string    `gorm:"column:content"`
+	ProcessContent       string    `gorm:"column:process_content"`
+	ModelID              int64     `gorm:"column:model_id"`
+	ModelName            string    `gorm:"column:model_name"`
+	ContextUsageJSON     *string   `gorm:"column:context_usage_json"`
+	AgentSkillVersionIDs *string   `gorm:"column:agent_skill_version_ids_json"`
+	AgentSkillNames      *string   `gorm:"column:agent_skill_names_json"`
+	AgentRunID           *int64    `gorm:"column:agent_run_id"`
+	CreatedAt            time.Time `gorm:"column:created_at"`
 }
 
 func (aiChatHistoryRecord) TableName() string { return "ai_chat_history" }
@@ -2594,7 +2594,7 @@ func chatMessagePreview(content string) string {
 }
 
 func mapMessageRecord(ctx context.Context, row aiChatHistoryRecord) aiagentgrpc.ChatMessageRow {
-	return aiagentgrpc.ChatMessageRow{ID: row.ID, OwnerRole: row.OwnerRole, OwnerID: row.OwnerID, SessionID: row.SessionID, Role: row.Role, Content: row.Content, ProcessContent: row.ProcessContent, ModelID: row.ModelID, ModelName: row.ModelName, ContextUsage: parseContextUsage(ctx, "chat_message", row.ID, row.SessionID, row.ContextUsageJSON), AgentSkillIDs: parseInt64JSONSlice(stringValue(row.AgentSkillIDs)), AgentSkillNames: parseStringJSONSlice(stringValue(row.AgentSkillNames)), CreatedAt: row.CreatedAt}
+	return aiagentgrpc.ChatMessageRow{ID: row.ID, OwnerRole: row.OwnerRole, OwnerID: row.OwnerID, SessionID: row.SessionID, Role: row.Role, Content: row.Content, ProcessContent: row.ProcessContent, ModelID: row.ModelID, ModelName: row.ModelName, ContextUsage: parseContextUsage(ctx, "chat_message", row.ID, row.SessionID, row.ContextUsageJSON), AgentSkillVersionIDs: parseInt64JSONSlice(stringValue(row.AgentSkillVersionIDs)), AgentSkillNames: parseStringJSONSlice(stringValue(row.AgentSkillNames)), CreatedAt: row.CreatedAt}
 }
 
 var contextUsageMarshalOptions = protojson.MarshalOptions{UseProtoNames: true}

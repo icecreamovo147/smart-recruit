@@ -516,6 +516,12 @@ func (s *NativeStore) ResolveCapabilityRuntimeModel(ctx context.Context, capabil
 			AgentSkillVersionIDs: append([]int64(nil), snapshot.ConfigurationRef.AgentSkillVersionIDs...),
 			MCPPolicyIDs:         append([]int64(nil), snapshot.ConfigurationRef.MCPPolicyIDs...),
 		},
+		SkillRuntimePolicy: aiagentgrpc.CapabilitySkillRuntimePolicy{
+			PolicyVersion:  snapshot.SkillRuntimePolicy.PolicyVersion,
+			MaxSkillTokens: snapshot.SkillRuntimePolicy.MaxSkillTokens,
+			MaxInputRatio:  snapshot.SkillRuntimePolicy.MaxInputRatio,
+			MaxSkills:      snapshot.SkillRuntimePolicy.MaxSkills,
+		},
 	}, nil
 }
 

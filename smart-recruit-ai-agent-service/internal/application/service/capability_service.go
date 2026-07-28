@@ -92,22 +92,6 @@ func NewSkillService(deps SkillDeps) (*SkillService, error) {
 	return &SkillService{skills: deps.Skills, audit: deps.Audit, now: now}, nil
 }
 
-func (s *SkillService) Select(ctx context.Context, cmd command.SelectAgentSkills) (dto.AgentSkillSelectionResult, error) {
-	candidates, err := s.skills.ListEnabledAgentSkills(ctx)
-	if err != nil {
-		return dto.AgentSkillSelectionResult{}, err
-	}
-	selected := policy.SelectAgentSkills(candidates, model.AgentSkillSelectionRequest{
-		AgentType:             cmd.AgentType,
-		Question:              cmd.Question,
-		ManualIDs:             cmd.ManualIDs,
-		AvailableCapabilities: cmd.AvailableCapabilities,
-		SemanticScores:        cmd.SemanticScores,
-		MaxSkills:             cmd.MaxSkills,
-	})
-	return dto.AgentSkillSelectionResult{Selected: selected}, nil
-}
-
 func (s *SkillService) CreateVersion(ctx context.Context, cmd command.CreateSkillVersion) (dto.SkillVersionResult, error) {
 	if err := policy.ValidateSkillManifest(cmd.Manifest); err != nil {
 		return dto.SkillVersionResult{}, err

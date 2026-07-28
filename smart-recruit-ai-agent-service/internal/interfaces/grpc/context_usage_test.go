@@ -114,7 +114,7 @@ func TestEstimateHRPostTurnContextUsageIncludesConversationAndRuntimeContext(t *
 		t.Fatal("expected recruiting tool schemas")
 	}
 	governance := hrRuntimeGovernanceContext{
-		SelectedAgentSkills: []hrRuntimeAgentSkill{{SkillMD: "POST_TURN_SKILL_MARKER"}},
+		SelectedAgentSkills: []hrRuntimeAgentSkill{{CoreMarkdown: "POST_TURN_SKILL_MARKER", LoadedTokens: estimateTokensConservative("POST_TURN_SKILL_MARKER"), Included: true}},
 	}
 	usage := service.estimateHRPostTurnContextUsage(
 		context.Background(),
@@ -144,7 +144,7 @@ func TestEstimateHRPostTurnContextUsageIncludesConversationAndRuntimeContext(t *
 }
 
 func TestHRContextBreakdownClassifiesActiveSkillsAndChosenToolTraceFragments(t *testing.T) {
-	governance := hrRuntimeGovernanceContext{SelectedAgentSkills: []hrRuntimeAgentSkill{{SkillMD: "SKILL_MARKER"}}}
+	governance := hrRuntimeGovernanceContext{SelectedAgentSkills: []hrRuntimeAgentSkill{{CoreMarkdown: "SKILL_MARKER", LoadedTokens: estimateTokensConservative("SKILL_MARKER"), Included: true}}}
 	traces := []ToolTraceRow{
 		{ResultContent: "SUCCESS_RESULT"},
 		{ResultContent: "IGNORED_ERROR_RESULT", ErrorMsg: "CHOSEN_ERROR"},

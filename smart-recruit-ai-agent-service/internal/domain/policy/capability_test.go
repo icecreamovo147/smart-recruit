@@ -60,7 +60,7 @@ func TestValidateMCPServerConfigRejectsPrivateNetworkAndDisallowedCommand(t *tes
 	}
 }
 
-func TestSkillVersionAndSelectionPolicy(t *testing.T) {
+func TestLegacyExecutableSkillVersionPolicy(t *testing.T) {
 	manifest := model.SkillManifest{
 		Name:        "candidate_match",
 		Version:     "1.0.0",
@@ -79,44 +79,6 @@ func TestSkillVersionAndSelectionPolicy(t *testing.T) {
 	}
 	if next, changed := NextSkillVersion(2, false); next != 2 || changed {
 		t.Fatalf("NextSkillVersion unchanged = %d %v", next, changed)
-	}
-
-	selected := SelectAgentSkills([]model.AgentSkill{
-		{ID: 1, Name: "manual", AgentType: "hr", Enabled: true, ManualInvocable: true, Priority: 1, RequiredCapabilities: []string{"candidate.read"}},
-		{ID: 2, Name: "auto", AgentType: "hr", Enabled: true, Priority: 5, Category: "candidate"},
-	}, model.AgentSkillSelectionRequest{
-		AgentType:             "hr",
-		Question:              "帮我筛选候选人并匹配岗位",
-		ManualIDs:             []uint64{1},
-		AvailableCapabilities: map[string]bool{"candidate.read": true},
-	})
-	if len(selected) != 1 || !selected[0].Manual || selected[0].ID != 1 {
-		t.Fatalf("manual selected = %+v", selected)
-	}
-
-	semanticSelected := SelectAgentSkills([]model.AgentSkill{
-		{ID: 10, Name: "rule_priority", AgentType: "hr", Enabled: true, Priority: 20, Category: "candidate"},
-		{ID: 11, Name: "semantic_best", AgentType: "hr", Enabled: true, Priority: 1, Category: "candidate"},
-	}, model.AgentSkillSelectionRequest{
-		AgentType:      "hr",
-		Question:       "帮我筛选候选人并匹配岗位",
-		SemanticScores: map[uint64]float64{11: 0.95},
-		MaxSkills:      1,
-	})
-	if len(semanticSelected) != 1 || semanticSelected[0].ID != 11 {
-		t.Fatalf("semantic selected = %+v", semanticSelected)
-	}
-
-	fallbackSelected := SelectAgentSkills([]model.AgentSkill{
-		{ID: 20, Name: "resume_screen", DisplayName: "简历筛选", AgentType: "hr", Enabled: true, Priority: 1, TriggerKeywords: []string{"简历", "筛选"}},
-		{ID: 21, Name: "offer_writer", DisplayName: "Offer Writer", AgentType: "hr", Enabled: true, Priority: 100, SemanticTags: []string{"offer"}},
-	}, model.AgentSkillSelectionRequest{
-		AgentType: "hr",
-		Question:  "请筛选这批候选人的简历",
-		MaxSkills: 1,
-	})
-	if len(fallbackSelected) != 1 || fallbackSelected[0].ID != 20 || fallbackSelected[0].Reason != "lexical metadata fallback" {
-		t.Fatalf("fallback selected = %+v", fallbackSelected)
 	}
 }
 

@@ -641,13 +641,10 @@ func TestConfirmAgentRunWaitingConfirmationRedispatchesAndCompletes(t *testing.T
 	}
 
 	resp, err := service.ConfirmAgentRun(context.Background(), &pb.ConfirmAgentRunRequest{
-		HrId:                         77,
-		RunId:                        created.ID,
-		ClientRequestId:              "confirm-1",
-		AgentSkillIds:                []int64{7001, 7002},
-		AgentSkillSelectionConfirmed: true,
-		AgentSkillSelectionMessageId: 9001,
-		ConfirmationPayloadJson:      `{"approved":true}`,
+		HrId:                    77,
+		RunId:                   created.ID,
+		ClientRequestId:         "confirm-1",
+		ConfirmationPayloadJson: `{"approved":true}`,
 	})
 	if err != nil {
 		t.Fatalf("ConfirmAgentRun returned error: %v", err)
@@ -679,14 +676,11 @@ func TestConfirmAgentRunWaitingConfirmationRedispatchesAndCompletes(t *testing.T
 	if err := json.Unmarshal([]byte(finalRun.PlanJSON), &durable); err != nil {
 		t.Fatalf("PlanJSON = %q, want durable request JSON: %v", finalRun.PlanJSON, err)
 	}
-	if got := durable.DurableRequest.AgentSkillIDs; len(got) != 2 || got[0] != 7001 || got[1] != 7002 {
-		t.Fatalf("durable AgentSkillIDs = %v, want [7001 7002]", got)
+	if durable.DurableRequest.ConfirmationPayloadJSON != `{"approved":true}` {
+		t.Fatalf("durable confirmation fields = %#v, want opaque confirmation metadata", durable.DurableRequest)
 	}
-	if !durable.DurableRequest.AgentSkillSelectionConfirmed || durable.DurableRequest.AgentSkillSelectionMessageID != 9001 || durable.DurableRequest.ConfirmationPayloadJSON != `{"approved":true}` {
-		t.Fatalf("durable confirmation fields = %#v, want confirmed selection metadata", durable.DurableRequest)
-	}
-	if prompts := provider.promptsSnapshot(); len(prompts) != 1 || !strings.Contains(prompts[0], "agent_skill_ids") || !strings.Contains(prompts[0], "7001") {
-		t.Fatalf("provider prompts = %#v, want resumed runtime to use confirmed durable selection", prompts)
+	if prompts := provider.promptsSnapshot(); len(prompts) != 1 {
+		t.Fatalf("provider prompts = %#v, want one resumed provider invocation", prompts)
 	}
 	eventTypes := store.eventTypes(created.ID)
 	if !containsString(eventTypes, "confirmation.accepted") {
@@ -697,11 +691,6 @@ func TestConfirmAgentRunWaitingConfirmationRedispatchesAndCompletes(t *testing.T
 	}
 	if count := store.countStatusUpdates("running"); count != 1 {
 		t.Fatalf("running status updates = %d, want 1", count)
-	}
-	confirmationEvent := store.lastEvent(created.ID, "confirmation.accepted")
-	mapped := mapAgentRunEvent(confirmationEvent)
-	if got := mapped.GetConfirmation().GetRecommendedAgentSkillIds(); len(got) != 2 || got[0] != 7001 || got[1] != 7002 {
-		t.Fatalf("confirmation event = %#v, want confirmed skill ids", mapped.GetConfirmation())
 	}
 }
 
@@ -921,7 +910,7 @@ func TestSubscribeAgentRunEventsReplaysStructuredMetadata(t *testing.T) {
 	if _, err := store.AppendAgentRunEvent(context.Background(), run.ID, "run.result", `{"status":"succeeded","result_metadata":{"application_id":42,"candidate_name":"Ada","job_title":"Engineer","status":3,"context_usage":{"model_id":123,"prompt_tokens_estimated":88,"usage_ratio":0.25,"estimated":true,"source":"estimate","stage":"hr_chat"}}}`); err != nil {
 		t.Fatalf("AppendAgentRunEvent result seed returned error: %v", err)
 	}
-	if _, err := store.AppendAgentRunEvent(context.Background(), run.ID, "confirmation.required", `{"status":"waiting_confirmation","confirmation":{"required":true,"reason":"skill confirmation","recommended_agent_skill_ids":[7,8],"user_message_id":2001}}`); err != nil {
+	if _, err := store.AppendAgentRunEvent(context.Background(), run.ID, "confirmation.required", `{"status":"waiting_confirmation","confirmation":{"required":true,"reason":"skill confirmation","recommended_agent_skill_version_ids":[7,8],"agent_skill_user_message_id":2001}}`); err != nil {
 		t.Fatalf("AppendAgentRunEvent confirmation seed returned error: %v", err)
 	}
 
@@ -944,8 +933,8 @@ func TestSubscribeAgentRunEventsReplaysStructuredMetadata(t *testing.T) {
 	if !confirmationEvent.GetConfirmation().GetRequired() || confirmationEvent.GetConfirmation().GetReason() != "skill confirmation" {
 		t.Fatalf("confirmation = %#v, want replayed structured confirmation", confirmationEvent.GetConfirmation())
 	}
-	if got := confirmationEvent.GetConfirmation().GetRecommendedAgentSkillIds(); len(got) != 2 || got[0] != 7 || got[1] != 8 {
-		t.Fatalf("recommended skill ids = %v, want [7 8]", got)
+	if got := confirmationEvent.GetConfirmation().GetRecommendedAgentSkillVersionIds(); len(got) != 2 || got[0] != 7 || got[1] != 8 {
+		t.Fatalf("recommended skill version ids = %v, want [7 8]", got)
 	}
 
 	cancel()

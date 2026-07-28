@@ -10,10 +10,8 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"smart-recruit-ai-agent-service/internal/domain/model"
 )
@@ -152,127 +150,6 @@ func NextSkillVersion(current int64, contentChanged bool) (int64, bool) {
 		return 1, true
 	}
 	return current + 1, true
-}
-
-func SelectAgentSkills(candidates []model.AgentSkill, req model.AgentSkillSelectionRequest) []model.SelectedAgentSkill {
-	maxSkills := req.MaxSkills
-	if maxSkills <= 0 || maxSkills > 3 {
-		maxSkills = 3
-	}
-	manualSet := map[uint64]bool{}
-	for _, id := range req.ManualIDs {
-		if id > 0 {
-			manualSet[id] = true
-		}
-	}
-	selected := make([]model.SelectedAgentSkill, 0, maxSkills)
-	seen := map[uint64]bool{}
-	for _, skill := range candidates {
-		if len(selected) >= maxSkills {
-			break
-		}
-		if !manualSet[skill.ID] || !skill.Enabled || !skill.ManualInvocable || !agentTypeMatches(skill.AgentType, req.AgentType) || !capabilitiesAvailable(skill.RequiredCapabilities, req.AvailableCapabilities) {
-			continue
-		}
-		selected = append(selected, model.SelectedAgentSkill{ID: skill.ID, Name: skill.Name, Manual: true, Score: float64(skill.Priority), Reason: "manual selection", RiskLevel: skill.RiskLevel})
-		seen[skill.ID] = true
-	}
-	if len(manualSet) > 0 {
-		return selected
-	}
-	if !agentSkillAutoEligible(req.Question) {
-		return nil
-	}
-	auto := make([]model.SelectedAgentSkill, 0, len(candidates))
-	for _, skill := range candidates {
-		if seen[skill.ID] || !skill.Enabled || !agentTypeMatches(skill.AgentType, req.AgentType) || !capabilitiesAvailable(skill.RequiredCapabilities, req.AvailableCapabilities) {
-			continue
-		}
-		lexical := agentSkillLexicalScore(req.Question, skill)
-		semantic, hasSemantic := req.SemanticScores[skill.ID]
-		if (!hasSemantic || semantic <= 0) && lexical <= 0 {
-			continue
-		}
-		score := float64(skill.Priority)
-		reason := "lexical metadata fallback"
-		if hasSemantic && semantic > 0 {
-			score += semantic * 100
-			reason = "semantic selection"
-		}
-		score += lexical * 25
-		auto = append(auto, model.SelectedAgentSkill{ID: skill.ID, Name: skill.Name, Score: score, Reason: reason, RiskLevel: skill.RiskLevel})
-	}
-	sort.SliceStable(auto, func(i, j int) bool {
-		if auto[i].Score == auto[j].Score {
-			return auto[i].ID < auto[j].ID
-		}
-		return auto[i].Score > auto[j].Score
-	})
-	for i := range auto {
-		auto[i].PoolRank = i + 1
-		if len(selected) < maxSkills {
-			selected = append(selected, auto[i])
-		}
-	}
-	return selected
-}
-
-func agentSkillLexicalScore(question string, skill model.AgentSkill) float64 {
-	query := strings.ToLower(strings.TrimSpace(question))
-	if query == "" {
-		return 0
-	}
-	queryTokens := expandedAgentSkillQueryTokens(query)
-	values := []string{skill.Name, skill.DisplayName, skill.Content, skill.Category, skill.Scenario}
-	values = append(values, skill.TriggerKeywords...)
-	values = append(values, skill.SemanticTags...)
-	score := 0.0
-	for _, value := range values {
-		normalized := strings.ToLower(strings.TrimSpace(value))
-		if normalized == "" {
-			continue
-		}
-		if strings.Contains(query, normalized) || strings.Contains(normalized, query) {
-			score += 0.6
-		}
-		normalized = strings.NewReplacer("_", " ", "-", " ", "/", " ").Replace(normalized)
-		for _, token := range strings.Fields(normalized) {
-			if len([]rune(token)) > 1 && queryTokens[token] {
-				score += 0.2
-			}
-		}
-	}
-	if score > 1 {
-		return 1
-	}
-	return score
-}
-
-func expandedAgentSkillQueryTokens(query string) map[string]bool {
-	normalized := strings.NewReplacer("_", " ", "-", " ", "/", " ").Replace(query)
-	result := make(map[string]bool)
-	for _, token := range strings.Fields(normalized) {
-		if len([]rune(token)) > 1 {
-			result[token] = true
-		}
-	}
-	for marker, aliases := range map[string][]string{
-		"候选": {"candidate"},
-		"简历": {"resume"},
-		"面试": {"interview"},
-		"岗位": {"job", "position"},
-		"职位": {"job", "position"},
-		"招聘": {"recruiting"},
-		"筛选": {"screen"},
-		"匹配": {"match"},
-	} {
-		if strings.Contains(query, marker) {
-			for _, alias := range aliases {
-				result[alias] = true
-			}
-		}
-	}
-	return result
 }
 
 func ValidateEmbeddingProvider(provider model.EmbeddingProviderConfig) error {
@@ -544,70 +421,6 @@ func validateOptionalObjectSchema(field, raw string) error {
 		return fmt.Errorf("%w: %s.type must be object", ErrSkillManifestInvalid, field)
 	}
 	return nil
-}
-
-func agentTypeMatches(skillAgentType, requested string) bool {
-	return strings.TrimSpace(skillAgentType) == "" || strings.EqualFold(skillAgentType, requested)
-}
-
-func capabilitiesAvailable(required []string, available map[string]bool) bool {
-	for _, capability := range required {
-		if capabilitySatisfied(capability, available) {
-			continue
-		}
-		return false
-	}
-	return true
-}
-
-func capabilitySatisfied(required string, available map[string]bool) bool {
-	required = strings.TrimSpace(required)
-	if required == "" {
-		return true
-	}
-	if available[required] {
-		return true
-	}
-	// Normalize "builtin:foo" <-> "foo" so admin UI prefixes match runtime keys.
-	if i := strings.IndexByte(required, ':'); i >= 0 {
-		bare := strings.TrimSpace(required[i+1:])
-		if bare != "" && available[bare] {
-			return true
-		}
-	} else if available["builtin:"+required] {
-		return true
-	}
-	return false
-}
-
-func agentSkillAutoEligible(question string) bool {
-	normalized := strings.ToLower(strings.TrimSpace(question))
-	if meaningfulRuneCount(normalized) <= 4 {
-		return false
-	}
-	action := hasAnyTerm(normalized, []string{"筛", "匹配", "评估", "分析", "推荐", "搜索", "安排", "生成", "比较", "screen", "match", "evaluate", "analyze", "recommend", "search"})
-	object := hasAnyTerm(normalized, []string{"简历", "候选", "面试", "职位", "岗位", "招聘", "resume", "candidate", "interview", "job", "position", "recruiting"})
-	return action && object
-}
-
-func hasAnyTerm(text string, terms []string) bool {
-	for _, term := range terms {
-		if strings.Contains(text, term) {
-			return true
-		}
-	}
-	return false
-}
-
-func meaningfulRuneCount(text string) int {
-	count := 0
-	for _, r := range text {
-		if unicode.IsSpace(r) || unicode.IsPunct(r) || unicode.IsSymbol(r) {
-			continue
-		}
-		count++
-	}
-	return count
 }
 
 func scoreRequirements(requirements []model.CandidateRequirement, results map[string]model.CandidateRequirementResult, predicate func(model.CandidateRequirement) bool, defaultScore float64) float64 {

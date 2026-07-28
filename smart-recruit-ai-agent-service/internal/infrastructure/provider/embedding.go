@@ -140,7 +140,7 @@ func (r *HTTPEmbeddingRunner) Embed(ctx context.Context, req EmbedRequest) (Embe
 type EmbeddingStore interface {
 	ResolveEmbeddingConfig(ctx context.Context, providerID, modelID int64) (EmbeddingConfig, bool, error)
 	UpdateEmbeddingTestStatus(ctx context.Context, modelID int64, status, lastError string, testedAt time.Time) error
-	ListAgentSkillVersionEmbeddingDocuments(ctx context.Context, versionID int64, limit int) ([]AgentSkillVersionEmbeddingDocument, error)
+	ListAgentSkillVersionEmbeddingDocuments(ctx context.Context, versionIDs []int64, limit int) ([]AgentSkillVersionEmbeddingDocument, error)
 	ListAgentSkillSectionEmbeddingDocuments(ctx context.Context, sectionID int64, versionIDs []int64, limit int) ([]AgentSkillSectionEmbeddingDocument, error)
 	ListMemoryEmbeddingDocuments(ctx context.Context, objectID int64, limit int) ([]MemoryEmbeddingDocument, error)
 	UpsertAIEmbedding(ctx context.Context, row AIEmbeddingRecord) error
@@ -151,15 +151,45 @@ type EmbeddingStore interface {
 }
 
 type AgentSkillVersionEmbeddingDocument struct {
-	ID            int64
-	SkillID       int64
-	Version       string
-	CompiledHash  string
-	Manifest      domainagentskill.Manifest
-	CoreMarkdown  string
-	RegistryName  string
-	RegistryLabel string
-	Enabled       bool
+	ID              int64
+	SkillID         int64
+	Version         string
+	CompiledHash    string
+	Manifest        domainagentskill.Manifest
+	CoreMarkdown    string
+	RegistryName    string
+	RegistryLabel   string
+	Enabled         bool
+	ManualInvocable bool
+}
+
+type AgentSkillRuntimePackage struct {
+	ID                  int64
+	SkillID             int64
+	Version             string
+	ManifestJSON        string
+	CoreMarkdown        string
+	CompiledMarkdown    string
+	CompiledHash        string
+	CoreEstimatedTokens int
+	Enabled             bool
+	ManualInvocable     bool
+	Sections            []AgentSkillRuntimeSection
+}
+
+type AgentSkillRuntimeSection struct {
+	ID              int64
+	SectionKey      string
+	Title           string
+	Description     string
+	ContentMarkdown string
+	TriggerTerms    []string
+	SemanticTags    []string
+	PlannerIntents  []string
+	Priority        int
+	Ordinal         int
+	EstimatedTokens int
+	ContentHash     string
 }
 
 type AgentSkillSectionEmbeddingDocument struct {
@@ -176,6 +206,8 @@ type AgentSkillSectionEmbeddingDocument struct {
 	SemanticTags    []string
 	PlannerIntents  []string
 	Priority        int
+	EstimatedTokens int
+	ContentHash     string
 }
 
 type RankedAgentSkillVersion struct {
@@ -328,7 +360,11 @@ func (s *EmbeddingService) Backfill(ctx context.Context, req *pb.BackfillEmbeddi
 	var success, failed, skipped int32
 	switch objectType {
 	case agentSkillVersionObjectType:
-		docs, err := s.store.ListAgentSkillVersionEmbeddingDocuments(ctx, req.GetObjectId(), limit)
+		var versionIDs []int64
+		if req.GetObjectId() > 0 {
+			versionIDs = []int64{req.GetObjectId()}
+		}
+		docs, err := s.store.ListAgentSkillVersionEmbeddingDocuments(ctx, versionIDs, limit)
 		if err != nil {
 			return nil, err
 		}
@@ -373,7 +409,7 @@ func (s *EmbeddingService) UpsertAgentSkillVersion(ctx context.Context, versionI
 	if err != nil || !ok {
 		return err
 	}
-	docs, err := s.store.ListAgentSkillVersionEmbeddingDocuments(ctx, versionID, 1)
+	docs, err := s.store.ListAgentSkillVersionEmbeddingDocuments(ctx, []int64{versionID}, 1)
 	if err != nil || len(docs) == 0 {
 		return err
 	}
@@ -669,7 +705,7 @@ func (s *EmbeddingService) SearchAgentSkills(ctx context.Context, query string, 
 			FallbackReason:     "embedding store is not bound",
 		}, nil
 	}
-	result, err := s.SearchAgentSkillVersions(ctx, query, limit)
+	result, err := s.SearchAgentSkillVersions(ctx, query, nil, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -696,12 +732,13 @@ func (s *EmbeddingService) SearchAgentSkills(ctx context.Context, query string, 
 	}, nil
 }
 
-func (s *EmbeddingService) SearchAgentSkillVersions(ctx context.Context, query string, limit int) (*AgentSkillVersionSearchResult, error) {
+func (s *EmbeddingService) SearchAgentSkillVersions(ctx context.Context, query string, allowedVersionIDs []int64, limit int) (*AgentSkillVersionSearchResult, error) {
 	if s == nil || s.store == nil {
 		return &AgentSkillVersionSearchResult{FallbackReason: "embedding store is not bound"}, nil
 	}
+	allowedVersionIDs = positiveUniqueIDs(allowedVersionIDs)
 	limit = normalizeLimit(limit)
-	docs, err := s.store.ListAgentSkillVersionEmbeddingDocuments(ctx, 0, maxAgentSkillEmbeddingPoolSize)
+	docs, err := s.store.ListAgentSkillVersionEmbeddingDocuments(ctx, allowedVersionIDs, maxAgentSkillEmbeddingPoolSize)
 	if err != nil {
 		return nil, err
 	}
@@ -724,7 +761,19 @@ func (s *EmbeddingService) SearchAgentSkillVersions(ctx context.Context, query s
 		return rankAgentSkillVersions(query, docs, nil, limit, "embedding provider returned an empty vector", cfg, time.Since(start).Milliseconds()), nil
 	}
 	queryVector := embed.Vectors[0]
-	rows, err := s.store.ListAIEmbeddings(ctx, agentSkillVersionObjectType, cfg.ModelName, maxAgentSkillEmbeddingPoolSize)
+	var rows []AIEmbeddingRecord
+	if len(allowedVersionIDs) > 0 {
+		rows, err = s.store.ListAIEmbeddingsByScopeIDs(
+			ctx,
+			agentSkillVersionObjectType,
+			cfg.ModelName,
+			agentSkillVersionScopeType,
+			allowedVersionIDs,
+			0,
+		)
+	} else {
+		rows, err = s.store.ListAIEmbeddings(ctx, agentSkillVersionObjectType, cfg.ModelName, maxAgentSkillEmbeddingPoolSize)
+	}
 	if err != nil {
 		return nil, err
 	}

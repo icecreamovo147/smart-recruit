@@ -32,7 +32,6 @@ import (
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
 	domainmemory "smart-recruit-ai-agent-service/internal/domain/memory"
 	"smart-recruit-ai-agent-service/internal/domain/model"
-	"smart-recruit-ai-agent-service/internal/domain/policy"
 	mcpinfra "smart-recruit-ai-agent-service/internal/infrastructure/mcp"
 	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
@@ -77,6 +76,7 @@ type RuntimeModelInfo struct {
 	CapabilityVersionID    int64
 	CapabilitySnapshotHash string
 	ConfigurationRefs      CapabilityConfigurationRefs
+	SkillRuntimePolicy     CapabilitySkillRuntimePolicy
 }
 
 // CapabilityConfigurationRefs is the immutable resource allowlist captured by
@@ -87,6 +87,13 @@ type CapabilityConfigurationRefs struct {
 	PromptTemplateIDs    []int64
 	AgentSkillVersionIDs []int64
 	MCPPolicyIDs         []int64
+}
+
+type CapabilitySkillRuntimePolicy struct {
+	PolicyVersion  string
+	MaxSkillTokens int
+	MaxInputRatio  float64
+	MaxSkills      int
 }
 
 type CapabilityRuntimeModelResolution struct {
@@ -100,6 +107,7 @@ type CapabilityRuntimeModelResolution struct {
 	ContextWindowTokens    int32
 	MaxOutputTokens        int32
 	ConfigurationRefs      CapabilityConfigurationRefs
+	SkillRuntimePolicy     CapabilitySkillRuntimePolicy
 }
 
 type capabilityRuntimeModelResolver interface {
@@ -279,19 +287,19 @@ type ChatSessionRow struct {
 }
 
 type ChatMessageRow struct {
-	ID              int64
-	OwnerRole       int32
-	OwnerID         int64
-	SessionID       int64
-	Role            string
-	Content         string
-	ProcessContent  string
-	ModelID         int64
-	ModelName       string
-	ContextUsage    *pb.ContextUsageInfo
-	AgentSkillIDs   []int64
-	AgentSkillNames []string
-	CreatedAt       time.Time
+	ID                   int64
+	OwnerRole            int32
+	OwnerID              int64
+	SessionID            int64
+	Role                 string
+	Content              string
+	ProcessContent       string
+	ModelID              int64
+	ModelName            string
+	ContextUsage         *pb.ContextUsageInfo
+	AgentSkillVersionIDs []int64
+	AgentSkillNames      []string
+	CreatedAt            time.Time
 }
 
 type ToolTraceRow struct {
@@ -510,26 +518,24 @@ type AgentRunEventRow struct {
 }
 
 type agentRunDurablePayload struct {
-	Message                      string                   `json:"message,omitempty"`
-	ActionType                   string                   `json:"action_type,omitempty"`
-	ActionPayloadJSON            string                   `json:"action_payload_json,omitempty"`
-	ApplicationID                int64                    `json:"application_id,omitempty"`
-	ModelID                      int64                    `json:"model_id,omitempty"`
-	AuthUserID                   int64                    `json:"auth_user_id,omitempty"`
-	AuthAccountType              string                   `json:"auth_account_type,omitempty"`
-	AuthTenantID                 int64                    `json:"auth_tenant_id,omitempty"`
-	AuthMembershipID             int64                    `json:"auth_membership_id,omitempty"`
-	AuthClientApp                string                   `json:"auth_client_app,omitempty"`
-	EffectiveAgentID             int64                    `json:"effective_agent_id,omitempty"`
-	EffectiveAgentPinned         bool                     `json:"effective_agent_pinned,omitempty"`
-	SkillCapabilityKeys          []string                 `json:"skill_capability_keys,omitempty"`
-	AgentSkillIDs                []int64                  `json:"agent_skill_ids,omitempty"`
-	AgentSkillSelectionConfirmed bool                     `json:"agent_skill_selection_confirmed,omitempty"`
-	AgentSkillSelectionMessageID int64                    `json:"agent_skill_selection_message_id,omitempty"`
-	ConfirmationPayloadJSON      string                   `json:"confirmation_payload_json,omitempty"`
-	ConfirmationClientRequestID  string                   `json:"confirmation_client_request_id,omitempty"`
-	PendingMCPConfirmation       *agentRunMCPConfirmation `json:"pending_mcp_confirmation,omitempty"`
-	MCPApproval                  *agentRunMCPApproval     `json:"mcp_approval,omitempty"`
+	Message                     string                   `json:"message,omitempty"`
+	ActionType                  string                   `json:"action_type,omitempty"`
+	ActionPayloadJSON           string                   `json:"action_payload_json,omitempty"`
+	ApplicationID               int64                    `json:"application_id,omitempty"`
+	ModelID                     int64                    `json:"model_id,omitempty"`
+	AuthUserID                  int64                    `json:"auth_user_id,omitempty"`
+	AuthAccountType             string                   `json:"auth_account_type,omitempty"`
+	AuthTenantID                int64                    `json:"auth_tenant_id,omitempty"`
+	AuthMembershipID            int64                    `json:"auth_membership_id,omitempty"`
+	AuthClientApp               string                   `json:"auth_client_app,omitempty"`
+	EffectiveAgentID            int64                    `json:"effective_agent_id,omitempty"`
+	EffectiveAgentPinned        bool                     `json:"effective_agent_pinned,omitempty"`
+	SkillCapabilityKeys         []string                 `json:"skill_capability_keys,omitempty"`
+	AgentSkillVersionIDs        []int64                  `json:"agent_skill_version_ids,omitempty"`
+	ConfirmationPayloadJSON     string                   `json:"confirmation_payload_json,omitempty"`
+	ConfirmationClientRequestID string                   `json:"confirmation_client_request_id,omitempty"`
+	PendingMCPConfirmation      *agentRunMCPConfirmation `json:"pending_mcp_confirmation,omitempty"`
+	MCPApproval                 *agentRunMCPApproval     `json:"mcp_approval,omitempty"`
 }
 
 type agentRunMCPConfirmation struct {
@@ -1028,9 +1034,9 @@ func (s *nativeAIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.Ch
 		return nil, err
 	}
 	if result.providerUnavailable && !result.fallbackUsed {
-		return &pb.ChatResponse{Code: configCodeUnavailable, Msg: "ai.provider_unavailable", CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), ContextUsage: result.contextUsage}, nil
+		return &pb.ChatResponse{Code: configCodeUnavailable, Msg: "ai.provider_unavailable", CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), ContextUsage: result.contextUsage, AgentSkillRuntimeEvidence: result.governance.AgentSkillRuntimeEvidence}, nil
 	}
-	return &pb.ChatResponse{Code: 0, Msg: "common.success", Reply: result.reply, CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, ContextUsage: result.contextUsage, SuggestedQuestions: result.suggestedQuestions}, nil
+	return &pb.ChatResponse{Code: 0, Msg: "common.success", Reply: result.reply, CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, ContextUsage: result.contextUsage, SuggestedQuestions: result.suggestedQuestions, AgentSkillRuntimeEvidence: result.governance.AgentSkillRuntimeEvidence}, nil
 }
 
 func (s *nativeAIService) ChatStream(req *pb.ChatRequest, stream gogrpc.ServerStreamingServer[pb.ChatStreamResponse]) error {
@@ -1053,9 +1059,9 @@ func (s *nativeAIService) ChatStream(req *pb.ChatRequest, stream gogrpc.ServerSt
 		return err
 	}
 	if result.providerUnavailable && !result.fallbackUsed {
-		return stream.Send(&pb.ChatStreamResponse{Code: configCodeUnavailable, Msg: "ai.provider_unavailable", Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CreatedAt: formatTime(time.Now()), EventType: "error", EventMessage: "ai.provider_unavailable", ErrorType: "AI_PROVIDER_UNAVAILABLE", ContextUsage: result.contextUsage})
+		return stream.Send(&pb.ChatStreamResponse{Code: configCodeUnavailable, Msg: "ai.provider_unavailable", Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CreatedAt: formatTime(time.Now()), EventType: "error", EventMessage: "ai.provider_unavailable", ErrorType: "AI_PROVIDER_UNAVAILABLE", ContextUsage: result.contextUsage, AgentSkillRuntimeEvidence: result.governance.AgentSkillRuntimeEvidence})
 	}
-	return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", Delta: result.reply, Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, CreatedAt: formatTime(time.Now()), EventType: "done", EventMessage: "ai.event.completed", ContextUsage: result.contextUsage, SuggestedQuestions: result.suggestedQuestions})
+	return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", Delta: result.reply, Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, CreatedAt: formatTime(time.Now()), EventType: "done", EventMessage: "ai.event.completed", ContextUsage: result.contextUsage, SuggestedQuestions: result.suggestedQuestions, AgentSkillRuntimeEvidence: result.governance.AgentSkillRuntimeEvidence})
 }
 
 func hrContextMessageKey(code string) string {
@@ -1106,21 +1112,21 @@ type hrChatRuntimeResult struct {
 }
 
 type hrRuntimeGovernanceContext struct {
-	Agent                        *pb.AgentConfigInfo
-	Prompt                       *pb.PromptTemplateInfo
-	PromptContent                string
-	CapabilityKeys               []string
-	ToolNames                    []string
-	ExecutableToolNames          []string
-	SelectedAgentSkills          []hrRuntimeAgentSkill
-	AgentSkillSelectionMode      string
-	AgentSkillSelectionConfirmed bool
-	AgentSkillSelectionMessageID int64
-	GovernanceErrors             []hrRuntimeGovernanceError
-	ReleaseRefs                  CapabilityConfigurationRefs
-	MemorySection                string
-	MemoryEvidence               hrRuntimeMemoryEvidence
-	MCPApproval                  *agentRunMCPApproval
+	Agent                          *pb.AgentConfigInfo
+	Prompt                         *pb.PromptTemplateInfo
+	PromptContent                  string
+	CapabilityKeys                 []string
+	ToolNames                      []string
+	ExecutableToolNames            []string
+	SelectedAgentSkills            []hrRuntimeAgentSkill
+	AgentSkillSelectionMode        string
+	AgentSkillRuntimeEvidence      []*pb.AgentSkillRuntimeEvidence
+	AgentSkillConfirmationRequired bool
+	GovernanceErrors               []hrRuntimeGovernanceError
+	ReleaseRefs                    CapabilityConfigurationRefs
+	MemorySection                  string
+	MemoryEvidence                 hrRuntimeMemoryEvidence
+	MCPApproval                    *agentRunMCPApproval
 }
 
 type hrRuntimeMemoryEvidence struct {
@@ -1128,19 +1134,6 @@ type hrRuntimeMemoryEvidence struct {
 	Count          int      `json:"count,omitempty"`
 	Chars          int      `json:"chars,omitempty"`
 	RelevanceModes []string `json:"relevance_modes,omitempty"`
-}
-
-type hrRuntimeAgentSkill struct {
-	ID                   int64    `json:"id"`
-	Name                 string   `json:"name"`
-	DisplayName          string   `json:"display_name,omitempty"`
-	Description          string   `json:"description,omitempty"`
-	VersionID            int64    `json:"version_id"`
-	SkillMD              string   `json:"skill_md,omitempty"`
-	Manual               bool     `json:"manual"`
-	Reason               string   `json:"reason,omitempty"`
-	RiskLevel            string   `json:"risk_level,omitempty"`
-	RequiredCapabilities []string `json:"required_capabilities,omitempty"`
 }
 
 type hrRuntimeGovernanceError struct {
@@ -1280,7 +1273,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	}
 	var governance hrRuntimeGovernanceContext
 	if result.runtimeModel.CapabilityVersionID > 0 {
-		governance, err = s.loadHRRuntimeGovernanceForAgentWithRelease(ctx, req, opts.effectiveAgentID, opts.effectiveAgentPinned, result.runtimeModel.ConfigurationRefs)
+		governance, err = s.loadHRRuntimeGovernanceForAgentWithRelease(ctx, req, opts.effectiveAgentID, opts.effectiveAgentPinned, result.runtimeModel)
 	} else {
 		governance, err = s.loadHRRuntimeGovernanceForAgent(ctx, req, opts.effectiveAgentID, opts.effectiveAgentPinned)
 	}
@@ -1288,10 +1281,13 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		return result, err
 	}
 	governance.MCPApproval = opts.durablePayload.MCPApproval
+	result.governance = governance
+	if governance.AgentSkillConfirmationRequired {
+		return result, hrRuntimeSkillConfirmationError(opts.agentRunID > 0)
+	}
 	if result.runtimeModel.CapabilityVersionID > 0 && (governance.Agent == nil || governance.Prompt == nil || len(governance.GovernanceErrors) > 0) {
 		return result, status.Error(codes.FailedPrecondition, "Agent or Prompt is unavailable in the capability release")
 	}
-	result.governance = governance
 
 	history, err := s.hrContextMessages(ctx, req.GetHrId(), session.ID)
 	if err != nil {
@@ -1303,7 +1299,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	}
 	if strings.TrimSpace(req.GetMessage()) != "" && s.store != nil {
 		if userMessage.ID == 0 {
-			userMessage, err = s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "user", Content: req.GetMessage(), ModelID: req.GetModelId(), AgentSkillIDs: hrRuntimeAgentSkillIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance)})
+			userMessage, err = s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "user", Content: req.GetMessage(), ModelID: req.GetModelId(), AgentSkillVersionIDs: hrRuntimeAgentSkillVersionIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance)})
 			if err != nil {
 				return result, err
 			}
@@ -1645,7 +1641,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	)
 	processContent := buildHRProcessContent(traces, result.contextUsage, result.fallbackUsed, governance, plan, s.hrRuntimeLabel(), result.suggestedQuestions)
 	if s.store != nil {
-		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ProcessContent: processContent, ModelID: result.modelID, ModelName: result.modelName, ContextUsage: result.contextUsage, AgentSkillIDs: hrRuntimeAgentSkillIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance), CreatedAt: time.Now()}); err != nil {
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ProcessContent: processContent, ModelID: result.modelID, ModelName: result.modelName, ContextUsage: result.contextUsage, AgentSkillVersionIDs: hrRuntimeAgentSkillVersionIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance), CreatedAt: time.Now()}); err != nil {
 			return result, err
 		}
 	}
@@ -2357,15 +2353,16 @@ type hrRuntimeAgentByIDStore interface {
 }
 
 func (s *nativeAIService) loadHRRuntimeGovernanceForAgent(ctx context.Context, req *pb.ChatRequest, effectiveAgentID int64, effectiveAgentPinned bool) (hrRuntimeGovernanceContext, error) {
-	return s.loadHRRuntimeGovernanceForAgentCore(ctx, req, effectiveAgentID, effectiveAgentPinned, CapabilityConfigurationRefs{}, false)
+	return s.loadHRRuntimeGovernanceForAgentCore(ctx, req, effectiveAgentID, effectiveAgentPinned, RuntimeModelInfo{}, false)
 }
 
-func (s *nativeAIService) loadHRRuntimeGovernanceForAgentWithRelease(ctx context.Context, req *pb.ChatRequest, effectiveAgentID int64, effectiveAgentPinned bool, refs CapabilityConfigurationRefs) (hrRuntimeGovernanceContext, error) {
-	return s.loadHRRuntimeGovernanceForAgentCore(ctx, req, effectiveAgentID, effectiveAgentPinned, refs, true)
+func (s *nativeAIService) loadHRRuntimeGovernanceForAgentWithRelease(ctx context.Context, req *pb.ChatRequest, effectiveAgentID int64, effectiveAgentPinned bool, model RuntimeModelInfo) (hrRuntimeGovernanceContext, error) {
+	return s.loadHRRuntimeGovernanceForAgentCore(ctx, req, effectiveAgentID, effectiveAgentPinned, model, true)
 }
 
-func (s *nativeAIService) loadHRRuntimeGovernanceForAgentCore(ctx context.Context, req *pb.ChatRequest, effectiveAgentID int64, effectiveAgentPinned bool, refs CapabilityConfigurationRefs, enforceRelease bool) (hrRuntimeGovernanceContext, error) {
+func (s *nativeAIService) loadHRRuntimeGovernanceForAgentCore(ctx context.Context, req *pb.ChatRequest, effectiveAgentID int64, effectiveAgentPinned bool, model RuntimeModelInfo, enforceRelease bool) (hrRuntimeGovernanceContext, error) {
 	var runtime hrRuntimeGovernanceContext
+	refs := model.ConfigurationRefs
 	runtime.ReleaseRefs = refs
 	memoryRecall := s.recallHRMemory(ctx, req, 0, 0)
 	runtime.MemorySection = memoryRecall.InjectText
@@ -2410,17 +2407,13 @@ func (s *nativeAIService) loadHRRuntimeGovernanceForAgentCore(ctx context.Contex
 	// as get_application_snapshot. ExecutableToolNames is the separate model /
 	// builtin-runner allowlist and must not erase those bindings.
 	runtime.Prompt, runtime.PromptContent, runtime.GovernanceErrors = s.loadHRRuntimePromptForRelease(ctx, req, agent, refs.PromptTemplateIDs, runtime.MemorySection)
-	runtime.AgentSkillSelectionConfirmed = req.GetAgentSkillSelectionConfirmed()
-	runtime.AgentSkillSelectionMessageID = req.GetAgentSkillSelectionMessageId()
 	var skillErrors []hrRuntimeGovernanceError
-	runtime.SelectedAgentSkills, skillErrors = s.selectHRRuntimeAgentSkillsForRelease(ctx, req, runtime.CapabilityKeys, refs.AgentSkillVersionIDs, enforceRelease)
+	runtime.SelectedAgentSkills, runtime.AgentSkillRuntimeEvidence, runtime.AgentSkillConfirmationRequired, skillErrors =
+		s.selectHRRuntimeAgentSkillPackages(ctx, req, runtime.CapabilityKeys, model, enforceRelease)
 	runtime.GovernanceErrors = append(runtime.GovernanceErrors, skillErrors...)
-	s.enrichHRRuntimeAgentSkillBodies(ctx, &runtime)
 	switch {
-	case len(req.GetAgentSkillIds()) > 0:
+	case len(req.GetAgentSkillVersionIds()) > 0:
 		runtime.AgentSkillSelectionMode = "manual"
-	case req.GetAgentSkillSelectionConfirmed():
-		runtime.AgentSkillSelectionMode = "confirmed_empty"
 	case len(runtime.SelectedAgentSkills) > 0:
 		runtime.AgentSkillSelectionMode = "auto"
 	default:
@@ -2657,202 +2650,6 @@ func renderHRRuntimePrompt(content string, variables map[string]string) (string,
 	return rendered.String(), nil
 }
 
-func (s *nativeAIService) enrichHRRuntimeAgentSkillBodies(ctx context.Context, runtime *hrRuntimeGovernanceContext) {
-	if s == nil || s.store == nil || runtime == nil || len(runtime.SelectedAgentSkills) == 0 {
-		return
-	}
-	detailStore, ok := s.store.(agentSkillDetailStore)
-	if !ok {
-		for _, skill := range runtime.SelectedAgentSkills {
-			runtime.GovernanceErrors = append(runtime.GovernanceErrors, hrRuntimeGovernanceError{Source: "agent_skill", Code: "version_store_unavailable", ResourceID: skill.ID})
-		}
-		runtime.SelectedAgentSkills = nil
-		return
-	}
-	valid := make([]hrRuntimeAgentSkill, 0, len(runtime.SelectedAgentSkills))
-	for i := range runtime.SelectedAgentSkills {
-		skill := runtime.SelectedAgentSkills[i]
-		if skill.ID <= 0 {
-			continue
-		}
-		resp, err := detailStore.GetAgentSkill(ctx, &pb.GetAgentSkillRequest{Id: skill.ID})
-		if err != nil || resp == nil || resp.GetCode() != 0 || resp.GetSkill() == nil {
-			runtime.GovernanceErrors = append(runtime.GovernanceErrors, hrRuntimeGovernanceError{Source: "agent_skill", Code: "detail_unavailable", ResourceID: skill.ID})
-			continue
-		}
-		detail := resp.GetSkill()
-		versionID := skill.VersionID
-		if versionID <= 0 {
-			versionID = detail.GetCurrentVersionId()
-		}
-		if !detail.GetIsEnabled() || versionID <= 0 {
-			runtime.GovernanceErrors = append(runtime.GovernanceErrors, hrRuntimeGovernanceError{Source: "agent_skill", Code: "current_version_missing", ResourceID: skill.ID})
-			continue
-		}
-		var current *pb.AgentSkillVersionInfo
-		if versions, vErr := detailStore.ListAgentSkillVersions(ctx, &pb.ListAgentSkillVersionsRequest{SkillId: skill.ID}); vErr == nil && versions != nil && versions.GetCode() == 0 {
-			for _, version := range versions.GetList() {
-				if version != nil && version.GetId() == versionID && version.GetSkillId() == skill.ID {
-					current = version
-					break
-				}
-			}
-		}
-		if current == nil || strings.TrimSpace(current.GetSkillMd()) == "" {
-			runtime.GovernanceErrors = append(runtime.GovernanceErrors, hrRuntimeGovernanceError{Source: "agent_skill", Code: "current_version_invalid", ResourceID: skill.ID})
-			continue
-		}
-		skill.VersionID = versionID
-		skill.SkillMD = strings.TrimSpace(current.GetSkillMd())
-		if strings.TrimSpace(skill.Description) == "" {
-			skill.Description = strings.TrimSpace(detail.GetDescription())
-		}
-		valid = append(valid, skill)
-	}
-	runtime.SelectedAgentSkills = valid
-}
-
-func (s *nativeAIService) selectHRRuntimeAgentSkills(ctx context.Context, req *pb.ChatRequest, capabilityKeys []string) []hrRuntimeAgentSkill {
-	selected, _ := s.selectHRRuntimeAgentSkillsForRelease(ctx, req, capabilityKeys, nil, false)
-	return selected
-}
-
-func (s *nativeAIService) selectHRRuntimeAgentSkillsForRelease(ctx context.Context, req *pb.ChatRequest, capabilityKeys []string, releasedVersionIDs []int64, enforceRelease bool) ([]hrRuntimeAgentSkill, []hrRuntimeGovernanceError) {
-	if s == nil || s.store == nil || req.GetAgentSkillSelectionConfirmed() && len(req.GetAgentSkillIds()) == 0 {
-		return nil, nil
-	}
-	if enforceRelease && len(releasedVersionIDs) == 0 {
-		return nil, outsideReleaseSkillErrors(req.GetAgentSkillIds())
-	}
-	rows, _, err := s.store.ListAgentSkills(ctx, 1, 100, "", true)
-	if err != nil || len(rows) == 0 {
-		return nil, nil
-	}
-	available := make(map[string]bool, len(capabilityKeys)*2)
-	for _, key := range capabilityKeys {
-		key = strings.TrimSpace(key)
-		if key == "" {
-			continue
-		}
-		available[key] = true
-		// Accept both bare keys and "builtin:key" forms used by admin UIs.
-		normalized := hr_tools.NormalizeToolName(key)
-		available[normalized] = true
-		if !strings.Contains(key, ":") {
-			available["builtin:"+key] = true
-		}
-	}
-	selectedCapabilities := normalizedStringSet(req.GetSkillCapabilityKeys())
-	if len(selectedCapabilities) > 0 {
-		for key := range available {
-			normalized := hr_tools.NormalizeToolName(key)
-			if !selectedCapabilities[key] && !selectedCapabilities[normalized] && !selectedCapabilities["builtin:"+normalized] {
-				delete(available, key)
-			}
-		}
-	}
-	allowedVersionIDs := int64RuntimeSet(releasedVersionIDs)
-	versionBySkillID := make(map[int64]int64)
-	if enforceRelease {
-		if detailStore, ok := s.store.(agentSkillDetailStore); ok {
-			for _, row := range rows {
-				if row == nil {
-					continue
-				}
-				versions, versionErr := detailStore.ListAgentSkillVersions(ctx, &pb.ListAgentSkillVersionsRequest{SkillId: row.GetId()})
-				if versionErr != nil || versions == nil || versions.GetCode() != 0 {
-					continue
-				}
-				for _, version := range versions.GetList() {
-					if version != nil && allowedVersionIDs[version.GetId()] && version.GetSkillId() == row.GetId() {
-						versionBySkillID[row.GetId()] = version.GetId()
-						break
-					}
-				}
-			}
-		}
-	}
-	candidates := make([]model.AgentSkill, 0, len(rows))
-	byID := make(map[uint64]*pb.AgentSkillInfo, len(rows))
-	for _, row := range rows {
-		if row == nil {
-			continue
-		}
-		if enforceRelease && versionBySkillID[row.GetId()] == 0 {
-			continue
-		}
-		id := uint64(row.GetId())
-		byID[id] = row
-		candidates = append(candidates, model.AgentSkill{
-			ID:                   id,
-			Name:                 row.GetName(),
-			DisplayName:          row.GetDisplayName(),
-			AgentType:            row.GetAgentType(),
-			Content:              row.GetDescription(),
-			Enabled:              row.GetIsEnabled(),
-			ManualInvocable:      row.GetIsManualInvocable(),
-			Category:             row.GetCategory(),
-			Scenario:             row.GetScenario(),
-			Priority:             int(row.GetPriority()),
-			RiskLevel:            row.GetRiskLevel(),
-			RequiredCapabilities: row.GetRequiredCapabilities(),
-			SemanticTags:         row.GetSemanticTags(),
-			TriggerKeywords:      row.GetTriggerKeywords(),
-		})
-	}
-	manualIDs := make([]uint64, 0, len(req.GetAgentSkillIds()))
-	for _, id := range req.GetAgentSkillIds() {
-		if id > 0 {
-			manualIDs = append(manualIDs, uint64(id))
-		}
-	}
-	semanticScores := map[uint64]float64(nil)
-	if len(manualIDs) == 0 && s.embedding != nil {
-		if scores, _ := s.embedding.SemanticScores(ctx, req.GetMessage(), 20); len(scores) > 0 {
-			semanticScores = scores
-		}
-	}
-	selected := policy.SelectAgentSkills(candidates, model.AgentSkillSelectionRequest{
-		AgentType:             hrRecruitingAgentType,
-		Question:              req.GetMessage(),
-		ManualIDs:             manualIDs,
-		AvailableCapabilities: available,
-		SemanticScores:        semanticScores,
-		MaxSkills:             3,
-	})
-	result := make([]hrRuntimeAgentSkill, 0, len(selected))
-	for _, skill := range selected {
-		row := byID[skill.ID]
-		if row == nil {
-			continue
-		}
-		result = append(result, hrRuntimeAgentSkill{
-			ID:                   row.GetId(),
-			Name:                 row.GetName(),
-			DisplayName:          row.GetDisplayName(),
-			Description:          row.GetDescription(),
-			Manual:               skill.Manual,
-			Reason:               skill.Reason,
-			RiskLevel:            skill.RiskLevel,
-			RequiredCapabilities: row.GetRequiredCapabilities(),
-			VersionID:            versionBySkillID[row.GetId()],
-		})
-	}
-	var governanceErrors []hrRuntimeGovernanceError
-	if enforceRelease && len(req.GetAgentSkillIds()) > 0 {
-		selectedIDs := make(map[int64]bool, len(result))
-		for _, skill := range result {
-			selectedIDs[skill.ID] = true
-		}
-		for _, id := range req.GetAgentSkillIds() {
-			if id > 0 && versionBySkillID[id] == 0 && !selectedIDs[id] {
-				governanceErrors = append(governanceErrors, hrRuntimeGovernanceError{Source: "agent_skill", Code: "outside_capability_release", ResourceID: id})
-			}
-		}
-	}
-	return result, governanceErrors
-}
-
 func outsideReleaseSkillErrors(ids []int64) []hrRuntimeGovernanceError {
 	result := make([]hrRuntimeGovernanceError, 0, len(ids))
 	seen := make(map[int64]bool, len(ids))
@@ -2918,11 +2715,11 @@ func hrRuntimeToolNames(agent *pb.AgentConfigInfo) []string {
 	return tools
 }
 
-func hrRuntimeAgentSkillIDs(governance hrRuntimeGovernanceContext) []int64 {
+func hrRuntimeAgentSkillVersionIDs(governance hrRuntimeGovernanceContext) []int64 {
 	ids := make([]int64, 0, len(governance.SelectedAgentSkills))
 	for _, skill := range governance.SelectedAgentSkills {
-		if skill.ID > 0 {
-			ids = append(ids, skill.ID)
+		if skill.VersionID > 0 && skill.Included {
+			ids = append(ids, skill.VersionID)
 		}
 	}
 	return ids
@@ -2931,6 +2728,9 @@ func hrRuntimeAgentSkillIDs(governance hrRuntimeGovernanceContext) []int64 {
 func hrRuntimeAgentSkillNames(governance hrRuntimeGovernanceContext) []string {
 	names := make([]string, 0, len(governance.SelectedAgentSkills))
 	for _, skill := range governance.SelectedAgentSkills {
+		if !skill.Included {
+			continue
+		}
 		// Persist the user-facing label for history badges; fall back to technical name.
 		label := strings.TrimSpace(skill.DisplayName)
 		if label == "" {
@@ -3309,7 +3109,7 @@ func renderHRProviderPrompt(req *pb.ChatRequest, history []ChatMessageRow, curre
 		b.WriteString("\n")
 	}
 	for _, skill := range governance.SelectedAgentSkills {
-		if strings.TrimSpace(skill.SkillMD) == "" {
+		if !skill.Included || strings.TrimSpace(skill.CoreMarkdown) == "" {
 			continue
 		}
 		b.WriteString("\n## Active Agent Skill: ")
@@ -3319,7 +3119,20 @@ func renderHRProviderPrompt(req *pb.ChatRequest, history []ChatMessageRow, curre
 			b.WriteString(skill.Name)
 		}
 		b.WriteString("\n")
-		b.WriteString(strings.TrimSpace(skill.SkillMD))
+		b.WriteString(strings.TrimSpace(skill.CoreMarkdown))
+		for _, section := range skill.Sections {
+			if !section.Included || strings.TrimSpace(section.ContentMarkdown) == "" {
+				continue
+			}
+			b.WriteString("\n\n### Reference: ")
+			if strings.TrimSpace(section.Title) != "" {
+				b.WriteString(strings.TrimSpace(section.Title))
+			} else {
+				b.WriteString(section.Key)
+			}
+			b.WriteString("\n")
+			b.WriteString(strings.TrimSpace(section.ContentMarkdown))
+		}
 		b.WriteString("\n")
 	}
 	if len(history) > 0 {
@@ -3349,13 +3162,11 @@ func renderHRProviderPrompt(req *pb.ChatRequest, history []ChatMessageRow, curre
 			b.WriteString("\n")
 		}
 	}
-	if req.GetAgentSkillSelectionConfirmed() || len(req.GetAgentSkillIds()) > 0 || len(req.GetSkillCapabilityKeys()) > 0 {
+	if len(req.GetAgentSkillVersionIds()) > 0 || len(req.GetSkillCapabilityKeys()) > 0 {
 		b.WriteString("\nRuntime selection:\n")
 		b.WriteString(marshalJSONString(map[string]any{
-			"agent_skill_ids":                  req.GetAgentSkillIds(),
-			"skill_capability_keys":            req.GetSkillCapabilityKeys(),
-			"agent_skill_selection_confirmed":  req.GetAgentSkillSelectionConfirmed(),
-			"agent_skill_selection_message_id": req.GetAgentSkillSelectionMessageId(),
+			"agent_skill_version_ids": req.GetAgentSkillVersionIds(),
+			"skill_capability_keys":   req.GetSkillCapabilityKeys(),
 		}))
 		b.WriteString("\n")
 	}
@@ -3363,8 +3174,6 @@ func renderHRProviderPrompt(req *pb.ChatRequest, history []ChatMessageRow, curre
 		b.WriteString("\nSelected Agent Skills:\n")
 		b.WriteString(marshalJSONString(map[string]any{
 			"mode":         governance.AgentSkillSelectionMode,
-			"confirmed":    governance.AgentSkillSelectionConfirmed,
-			"message_id":   governance.AgentSkillSelectionMessageID,
 			"agent_skills": hrRuntimeAgentSkillEvidence(governance.SelectedAgentSkills),
 		}))
 		b.WriteString("\n")
@@ -3487,7 +3296,9 @@ func allocateKnownContextTokens(available, wanted int64) (allocated, remaining i
 func estimateHRSkillFragmentTokens(governance hrRuntimeGovernanceContext) int64 {
 	var total int64
 	for _, skill := range governance.SelectedAgentSkills {
-		total += int64(estimateTokensConservative(skill.SkillMD))
+		if skill.Included {
+			total += int64(skill.LoadedTokens)
+		}
 	}
 	return total
 }
@@ -3779,18 +3590,16 @@ func buildHRProcessContent(traces []ToolTraceRow, usage *pb.ContextUsageInfo, fa
 	}
 	if governance.Agent != nil || governance.Prompt != nil || len(governance.SelectedAgentSkills) > 0 || governance.AgentSkillSelectionMode != "" || len(governance.GovernanceErrors) > 0 || governance.MemoryEvidence.Count > 0 {
 		governancePayload := map[string]any{
-			"agent_id":                         agentConfigID(governance.Agent),
-			"agent_type":                       agentConfigType(governance.Agent),
-			"agent_name":                       agentConfigName(governance.Agent),
-			"prompt_template_id":               promptTemplateID(governance.Prompt),
-			"prompt_template_version":          promptTemplateVersion(governance.Prompt),
-			"capability_keys":                  governance.CapabilityKeys,
-			"tool_names":                       governance.ToolNames,
-			"agent_skill_selection_mode":       governance.AgentSkillSelectionMode,
-			"agent_skill_selection_confirmed":  governance.AgentSkillSelectionConfirmed,
-			"agent_skill_selection_message_id": governance.AgentSkillSelectionMessageID,
-			"agent_skills":                     hrRuntimeAgentSkillEvidence(governance.SelectedAgentSkills),
-			"governance_errors":                governance.GovernanceErrors,
+			"agent_id":                     agentConfigID(governance.Agent),
+			"agent_type":                   agentConfigType(governance.Agent),
+			"agent_name":                   agentConfigName(governance.Agent),
+			"prompt_template_id":           promptTemplateID(governance.Prompt),
+			"prompt_template_version":      promptTemplateVersion(governance.Prompt),
+			"capability_keys":              governance.CapabilityKeys,
+			"tool_names":                   governance.ToolNames,
+			"agent_skill_selection_mode":   governance.AgentSkillSelectionMode,
+			"agent_skill_runtime_evidence": governance.AgentSkillRuntimeEvidence,
+			"governance_errors":            governance.GovernanceErrors,
 		}
 		if governance.MemoryEvidence.Count > 0 {
 			governancePayload["memory_inject"] = governance.MemoryEvidence
@@ -3879,13 +3688,17 @@ func hrRuntimeAgentSkillEvidence(skills []hrRuntimeAgentSkill) []map[string]any 
 	result := make([]map[string]any, 0, len(skills))
 	for _, skill := range skills {
 		result = append(result, map[string]any{
-			"id":                    skill.ID,
+			"skill_id":              skill.ID,
 			"version_id":            skill.VersionID,
+			"version":               skill.Version,
+			"compiled_hash":         skill.CompiledHash,
 			"name":                  skill.Name,
 			"display_name":          skill.DisplayName,
 			"manual":                skill.Manual,
 			"reason":                skill.Reason,
 			"risk_level":            skill.RiskLevel,
+			"composition_role":      skill.CompositionRole,
+			"loaded_tokens":         skill.LoadedTokens,
 			"required_capabilities": skill.RequiredCapabilities,
 		})
 	}
@@ -3971,7 +3784,7 @@ func (s *nativeAIService) AnalyzeApplication(ctx context.Context, req *pb.Analyz
 			return &pb.AnalyzeApplicationResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 		}
 		modelID = resolved.EffectiveModelID
-		runtimeModel = RuntimeModelInfo{ID: resolved.EffectiveModelID, Name: resolved.ModelName, ProviderName: resolved.ProviderName, ContextWindowTokens: resolved.ContextWindowTokens, MaxOutputTokens: resolved.MaxOutputTokens, RequestedModelID: resolved.RequestedModelID, FallbackReason: resolved.FallbackReason, CapabilityVersionID: resolved.CapabilityVersionID, CapabilitySnapshotHash: resolved.CapabilitySnapshotHash, ConfigurationRefs: resolved.ConfigurationRefs}
+		runtimeModel = RuntimeModelInfo{ID: resolved.EffectiveModelID, Name: resolved.ModelName, ProviderName: resolved.ProviderName, ContextWindowTokens: resolved.ContextWindowTokens, MaxOutputTokens: resolved.MaxOutputTokens, RequestedModelID: resolved.RequestedModelID, FallbackReason: resolved.FallbackReason, CapabilityVersionID: resolved.CapabilityVersionID, CapabilitySnapshotHash: resolved.CapabilitySnapshotHash, ConfigurationRefs: resolved.ConfigurationRefs, SkillRuntimePolicy: resolved.SkillRuntimePolicy}
 		ctx, resolveErr = s.reserveAIBilling(ctx, billingOwnerTenant, req.GetHrId(), "ai.application_analysis", "application_analysis", runtimeModel.ProviderName, runtimeModel.Name, len([]rune(fmt.Sprintf("Analyze application %d", req.GetApplicationId()))), runtimeModel)
 		if resolveErr != nil {
 			return nil, resolveErr
@@ -4042,12 +3855,12 @@ func (s *nativeAIService) PreviewChatContext(ctx context.Context, req *pb.Previe
 		return nil, status.Error(codes.InvalidArgument, "selected model is unavailable")
 	}
 	chatReq := &pb.ChatRequest{
-		HrId:                req.GetHrId(),
-		SessionId:           session.ID,
-		ApplicationId:       session.ApplicationID,
-		ModelId:             req.GetModelId(),
-		SkillCapabilityKeys: append([]string(nil), req.GetSkillCapabilityKeys()...),
-		AgentSkillIds:       append([]int64(nil), req.GetAgentSkillIds()...),
+		HrId:                 req.GetHrId(),
+		SessionId:            session.ID,
+		ApplicationId:        session.ApplicationID,
+		ModelId:              req.GetModelId(),
+		SkillCapabilityKeys:  append([]string(nil), req.GetSkillCapabilityKeys()...),
+		AgentSkillVersionIds: append([]int64(nil), req.GetAgentSkillVersionIds()...),
 	}
 	governance, err := s.loadHRRuntimeGovernance(ctx, chatReq)
 	if err != nil {
@@ -4894,15 +4707,13 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 		payload.AuthAccountType = "staff"
 	}
 	governance, err := s.loadHRRuntimeGovernance(ctx, &pb.ChatRequest{
-		HrId:                         req.GetHrId(),
-		SessionId:                    req.GetSessionId(),
-		Message:                      req.GetMessage(),
-		ApplicationId:                req.GetApplicationId(),
-		ModelId:                      req.GetModelId(),
-		SkillCapabilityKeys:          append([]string(nil), req.GetSkillCapabilityKeys()...),
-		AgentSkillIds:                append([]int64(nil), req.GetAgentSkillIds()...),
-		AgentSkillSelectionConfirmed: req.GetAgentSkillSelectionConfirmed(),
-		AgentSkillSelectionMessageId: req.GetAgentSkillSelectionMessageId(),
+		HrId:                 req.GetHrId(),
+		SessionId:            req.GetSessionId(),
+		Message:              req.GetMessage(),
+		ApplicationId:        req.GetApplicationId(),
+		ModelId:              req.GetModelId(),
+		SkillCapabilityKeys:  append([]string(nil), req.GetSkillCapabilityKeys()...),
+		AgentSkillVersionIds: append([]int64(nil), req.GetAgentSkillVersionIds()...),
 	})
 	if err != nil {
 		return nil, err
@@ -5182,15 +4993,6 @@ func (s *nativeAIService) updateAgentRunConfirmation(ctx context.Context, run Ag
 		payload.MCPApproval = approval
 		payload.PendingMCPConfirmation = nil
 	}
-	if len(req.GetAgentSkillIds()) > 0 {
-		payload.AgentSkillIDs = append([]int64(nil), req.GetAgentSkillIds()...)
-	}
-	if req.GetAgentSkillSelectionConfirmed() {
-		payload.AgentSkillSelectionConfirmed = true
-	}
-	if req.GetAgentSkillSelectionMessageId() != 0 {
-		payload.AgentSkillSelectionMessageID = req.GetAgentSkillSelectionMessageId()
-	}
 	if strings.TrimSpace(req.GetConfirmationPayloadJson()) != "" {
 		payload.ConfirmationPayloadJSON = strings.TrimSpace(req.GetConfirmationPayloadJson())
 	}
@@ -5360,15 +5162,13 @@ func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow) 
 	payload := agentRunPayloadFromRow(current)
 	ctx = agentRunExecutionContext(ctx, current, payload)
 	result, err := s.runHRChatRuntimeWithOptions(ctx, &pb.ChatRequest{
-		HrId:                         current.OwnerID,
-		SessionId:                    current.SessionID,
-		Message:                      payload.Message,
-		ApplicationId:                payload.ApplicationID,
-		ModelId:                      payload.ModelID,
-		SkillCapabilityKeys:          payload.SkillCapabilityKeys,
-		AgentSkillIds:                payload.AgentSkillIDs,
-		AgentSkillSelectionConfirmed: payload.AgentSkillSelectionConfirmed,
-		AgentSkillSelectionMessageId: payload.AgentSkillSelectionMessageID,
+		HrId:                 current.OwnerID,
+		SessionId:            current.SessionID,
+		Message:              payload.Message,
+		ApplicationId:        payload.ApplicationID,
+		ModelId:              payload.ModelID,
+		SkillCapabilityKeys:  payload.SkillCapabilityKeys,
+		AgentSkillVersionIds: payload.AgentSkillVersionIDs,
 	}, s.agentRunChatEmitter(current.ID), hrChatRuntimeOptions{
 		reuseExistingUserMessage: shouldReuseAgentRunUserMessage(run, payload),
 		agentRunID:               current.ID,
@@ -5905,10 +5705,11 @@ func agentRunResultPayload(result hrChatRuntimeResult, runtimeLabel string) stri
 	payload := map[string]any{
 		"status": agentRunStatusSucceeded,
 		"result_metadata": map[string]any{
-			"status":              result.status,
-			"suggested_questions": append([]string(nil), result.suggestedQuestions...),
-			"context_usage":       contextUsagePayload(result.contextUsage),
-			"raw_json":            buildHRProcessContent(result.toolTraces, result.contextUsage, result.fallbackUsed, result.governance, result.plan, runtimeLabel, result.suggestedQuestions),
+			"status":                       result.status,
+			"suggested_questions":          append([]string(nil), result.suggestedQuestions...),
+			"context_usage":                contextUsagePayload(result.contextUsage),
+			"agent_skill_runtime_evidence": result.governance.AgentSkillRuntimeEvidence,
+			"raw_json":                     buildHRProcessContent(result.toolTraces, result.contextUsage, result.fallbackUsed, result.governance, result.plan, runtimeLabel, result.suggestedQuestions),
 		},
 	}
 	return marshalJSONString(payload)
@@ -6095,15 +5896,13 @@ func agentRunPayloadFromCreateRequest(req *pb.CreateAgentRunRequest) agentRunDur
 		return agentRunDurablePayload{}
 	}
 	return agentRunDurablePayload{
-		Message:                      req.GetMessage(),
-		ActionType:                   req.GetActionType(),
-		ActionPayloadJSON:            req.GetActionPayloadJson(),
-		ApplicationID:                req.GetApplicationId(),
-		ModelID:                      req.GetModelId(),
-		SkillCapabilityKeys:          append([]string(nil), req.GetSkillCapabilityKeys()...),
-		AgentSkillIDs:                append([]int64(nil), req.GetAgentSkillIds()...),
-		AgentSkillSelectionConfirmed: req.GetAgentSkillSelectionConfirmed(),
-		AgentSkillSelectionMessageID: req.GetAgentSkillSelectionMessageId(),
+		Message:              req.GetMessage(),
+		ActionType:           req.GetActionType(),
+		ActionPayloadJSON:    req.GetActionPayloadJson(),
+		ApplicationID:        req.GetApplicationId(),
+		ModelID:              req.GetModelId(),
+		SkillCapabilityKeys:  append([]string(nil), req.GetSkillCapabilityKeys()...),
+		AgentSkillVersionIDs: append([]int64(nil), req.GetAgentSkillVersionIds()...),
 	}
 }
 
@@ -6128,14 +5927,8 @@ func agentRunRuntimePlanJSON(payload agentRunDurablePayload, req *pb.ChatRequest
 		if len(payload.SkillCapabilityKeys) == 0 {
 			payload.SkillCapabilityKeys = append([]string(nil), req.GetSkillCapabilityKeys()...)
 		}
-		if len(payload.AgentSkillIDs) == 0 {
-			payload.AgentSkillIDs = append([]int64(nil), req.GetAgentSkillIds()...)
-		}
-		if req.GetAgentSkillSelectionConfirmed() {
-			payload.AgentSkillSelectionConfirmed = true
-		}
-		if payload.AgentSkillSelectionMessageID == 0 {
-			payload.AgentSkillSelectionMessageID = req.GetAgentSkillSelectionMessageId()
+		if len(payload.AgentSkillVersionIDs) == 0 {
+			payload.AgentSkillVersionIDs = append([]int64(nil), req.GetAgentSkillVersionIds()...)
 		}
 	}
 	agentType := hrRecruitingAgentType
@@ -6225,9 +6018,8 @@ func agentRunConfirmationPayload(req *pb.ConfirmAgentRunRequest) map[string]any 
 		return nil
 	}
 	payload := map[string]any{
-		"required":                    false,
-		"recommended_agent_skill_ids": append([]int64(nil), req.GetAgentSkillIds()...),
-		"user_message_id":             req.GetAgentSkillSelectionMessageId(),
+		"required":                            false,
+		"recommended_agent_skill_version_ids": append([]int64(nil), req.GetSelectedAgentSkillVersionIds()...),
 	}
 	if strings.TrimSpace(req.GetConfirmationPayloadJson()) != "" {
 		payload["raw_json"] = strings.TrimSpace(req.GetConfirmationPayloadJson())
@@ -6547,7 +6339,7 @@ func (s nativeRecruitingIntelligenceService) capabilityRuntimeContext(ctx contex
 		RequestedModelID: resolved.RequestedModelID, FallbackReason: resolved.FallbackReason,
 		CapabilityVersionID: resolved.CapabilityVersionID, CapabilitySnapshotHash: resolved.CapabilitySnapshotHash,
 		ContextWindowTokens: resolved.ContextWindowTokens, MaxOutputTokens: resolved.MaxOutputTokens,
-		ConfigurationRefs: resolved.ConfigurationRefs,
+		ConfigurationRefs: resolved.ConfigurationRefs, SkillRuntimePolicy: resolved.SkillRuntimePolicy,
 	}
 	return withRecruitingCapabilityRuntime(ctx, runtimeModel), runtimeModel, nil
 }
@@ -8170,16 +7962,40 @@ func mapChatMessages(rows []ChatMessageRow) []*pb.ChatMessage {
 	items := make([]*pb.ChatMessage, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, &pb.ChatMessage{
-			Role:            row.Role,
-			Content:         row.Content,
-			ProcessContent:  row.ProcessContent,
-			ModelId:         row.ModelID,
-			ModelName:       row.ModelName,
-			ContextUsage:    row.ContextUsage,
-			AgentSkillIds:   append([]int64(nil), row.AgentSkillIDs...),
-			AgentSkillNames: append([]string(nil), row.AgentSkillNames...),
-			CreatedAt:       formatTime(row.CreatedAt),
+			Role:                      row.Role,
+			Content:                   row.Content,
+			ProcessContent:            row.ProcessContent,
+			ModelId:                   row.ModelID,
+			ModelName:                 row.ModelName,
+			ContextUsage:              row.ContextUsage,
+			AgentSkillVersionIds:      append([]int64(nil), row.AgentSkillVersionIDs...),
+			AgentSkillNames:           append([]string(nil), row.AgentSkillNames...),
+			AgentSkillRuntimeEvidence: agentSkillRuntimeEvidenceFromProcessContent(row.ProcessContent),
+			CreatedAt:                 formatTime(row.CreatedAt),
 		})
+	}
+	return items
+}
+
+func agentSkillRuntimeEvidenceFromProcessContent(processContent string) []*pb.AgentSkillRuntimeEvidence {
+	if strings.TrimSpace(processContent) == "" {
+		return nil
+	}
+	var envelope struct {
+		Governance struct {
+			AgentSkillRuntimeEvidence []json.RawMessage `json:"agent_skill_runtime_evidence"`
+		} `json:"governance"`
+	}
+	if err := json.Unmarshal([]byte(processContent), &envelope); err != nil {
+		return nil
+	}
+	items := make([]*pb.AgentSkillRuntimeEvidence, 0, len(envelope.Governance.AgentSkillRuntimeEvidence))
+	opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+	for _, raw := range envelope.Governance.AgentSkillRuntimeEvidence {
+		item := &pb.AgentSkillRuntimeEvidence{}
+		if err := opts.Unmarshal(raw, item); err == nil {
+			items = append(items, item)
+		}
 	}
 	return items
 }

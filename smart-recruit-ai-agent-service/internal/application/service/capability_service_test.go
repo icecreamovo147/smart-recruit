@@ -34,23 +34,12 @@ func TestMCPPolicyServiceEvaluatesRepositoryPolicy(t *testing.T) {
 	}
 }
 
-func TestSkillServiceCreatesVersionSelectsAndAudits(t *testing.T) {
-	repo := &fakeSkillRepo{skills: []model.AgentSkill{{ID: 7, Name: "match", AgentType: "hr", Enabled: true, Priority: 9, Category: "candidate"}}}
+func TestSkillServiceCreatesVersionAndAudits(t *testing.T) {
+	repo := &fakeSkillRepo{}
 	service, err := NewSkillService(SkillDeps{Skills: repo, Audit: fakeAudit{}, Now: fixedCapabilityNow})
 	if err != nil {
 		t.Fatalf("NewSkillService returned %v", err)
 	}
-	selected, err := service.Select(context.Background(), command.SelectAgentSkills{
-		AgentType: "hr",
-		Question:  "请分析候选人和岗位匹配度",
-	})
-	if err != nil {
-		t.Fatalf("Select returned %v", err)
-	}
-	if len(selected.Selected) != 1 || selected.Selected[0].ID != 7 {
-		t.Fatalf("selected = %+v", selected)
-	}
-
 	version, err := service.CreateVersion(context.Background(), command.CreateSkillVersion{
 		ActorID:  1,
 		SkillID:  7,
@@ -123,14 +112,9 @@ func (f *fakeMCPPolicyRepo) CountToolCallsSince(_ context.Context, _ uint64, _ s
 }
 
 type fakeSkillRepo struct {
-	skills           []model.AgentSkill
 	versions         []model.SkillVersion
 	activatedSkill   uint64
 	activatedVersion int64
-}
-
-func (f *fakeSkillRepo) ListEnabledAgentSkills(context.Context) ([]model.AgentSkill, error) {
-	return f.skills, nil
 }
 
 func (f *fakeSkillRepo) CreateSkillVersion(_ context.Context, version model.SkillVersion) (*model.SkillVersion, error) {

@@ -385,6 +385,12 @@ func TestResolveRuntimeModelHonorsPoolAndFallsBackWithinRelease(t *testing.T) {
 	if len(governed.ConfigurationRefs.AgentIDs) != 1 || governed.ConfigurationRefs.AgentIDs[0] != 10 || len(governed.ConfigurationRefs.PromptTemplateIDs) != 1 || governed.ConfigurationRefs.PromptTemplateIDs[0] != 20 {
 		t.Fatalf("released configuration refs = %+v", governed.ConfigurationRefs)
 	}
+	if governed.SkillRuntimePolicy.PolicyVersion != PlatformAISkillPolicyVersion ||
+		governed.SkillRuntimePolicy.MaxSkillTokens != PlatformAIDefaultMaxSkillTokens ||
+		governed.SkillRuntimePolicy.MaxInputRatio != PlatformAIDefaultMaxSkillInputRatio ||
+		governed.SkillRuntimePolicy.MaxSkills != PlatformAIDefaultMaxSkills {
+		t.Fatalf("released Skill runtime policy = %+v", governed.SkillRuntimePolicy)
+	}
 	if err := store.assertNotReleasedConfiguration(context.Background(), "agent", 10); !errors.Is(err, ErrReleasedConfigurationImmutable) {
 		t.Fatalf("released Agent mutation guard error = %v", err)
 	}

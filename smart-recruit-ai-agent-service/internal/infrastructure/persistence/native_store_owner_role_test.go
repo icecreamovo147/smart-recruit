@@ -142,26 +142,26 @@ func TestNativeStoreChatMessagePersistsAgentSkillMetadata(t *testing.T) {
 	}
 
 	saved, err := store.AppendChatMessage(ctx, aiagentgrpc.ChatMessageRow{
-		OwnerRole:       chatOwnerRoleHR,
-		OwnerID:         7,
-		SessionID:       session.ID,
-		Role:            "assistant",
-		Content:         "reply",
-		AgentSkillIDs:   []int64{7001, 7002},
-		AgentSkillNames: []string{"candidate_screen", "resume_match"},
+		OwnerRole:            chatOwnerRoleHR,
+		OwnerID:              7,
+		SessionID:            session.ID,
+		Role:                 "assistant",
+		Content:              "reply",
+		AgentSkillVersionIDs: []int64{7001, 7002},
+		AgentSkillNames:      []string{"candidate_screen", "resume_match"},
 	})
 	if err != nil {
 		t.Fatalf("AppendChatMessage error = %v", err)
 	}
-	if !reflect.DeepEqual(saved.AgentSkillIDs, []int64{7001, 7002}) || !reflect.DeepEqual(saved.AgentSkillNames, []string{"candidate_screen", "resume_match"}) {
-		t.Fatalf("saved skill metadata = ids %#v names %#v", saved.AgentSkillIDs, saved.AgentSkillNames)
+	if !reflect.DeepEqual(saved.AgentSkillVersionIDs, []int64{7001, 7002}) || !reflect.DeepEqual(saved.AgentSkillNames, []string{"candidate_screen", "resume_match"}) {
+		t.Fatalf("saved skill metadata = version ids %#v names %#v", saved.AgentSkillVersionIDs, saved.AgentSkillNames)
 	}
 
 	messages, err := store.ListChatMessages(ctx, chatOwnerRoleHR, 7, session.ID, 1, 20)
 	if err != nil {
 		t.Fatalf("ListChatMessages error = %v", err)
 	}
-	if len(messages) != 1 || !reflect.DeepEqual(messages[0].AgentSkillIDs, []int64{7001, 7002}) || !reflect.DeepEqual(messages[0].AgentSkillNames, []string{"candidate_screen", "resume_match"}) {
+	if len(messages) != 1 || !reflect.DeepEqual(messages[0].AgentSkillVersionIDs, []int64{7001, 7002}) || !reflect.DeepEqual(messages[0].AgentSkillNames, []string{"candidate_screen", "resume_match"}) {
 		t.Fatalf("listed messages = %#v, want skill metadata round-trip", messages)
 	}
 }

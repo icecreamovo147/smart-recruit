@@ -11,15 +11,6 @@ type EvaluateMCPToolPolicy struct {
 	Args                 map[string]any
 }
 
-type SelectAgentSkills struct {
-	AgentType             string
-	Question              string
-	ManualIDs             []uint64
-	AvailableCapabilities map[string]bool
-	SemanticScores        map[uint64]float64
-	MaxSkills             int
-}
-
 type CreateSkillVersion struct {
 	ActorID    uint64
 	SkillID    uint64
