@@ -16,12 +16,14 @@ import (
 )
 
 const (
-	MaxCoreTokens       = 800
-	MaxSectionTokens    = 1200
-	MaxSections         = 20
-	MaxPackageTokens    = 12000
-	maxSkillNameLength  = 128
-	maxSectionKeyLength = 128
+	MaxCoreTokens          = 800
+	MaxSectionTokens       = 1200
+	MaxSections            = 20
+	MaxPackageTokens       = 12000
+	MaxOutputSchemaBytes   = 8 * 1024
+	MaxOutputSchemaIDBytes = 256
+	maxSkillNameLength     = 128
+	maxSectionKeyLength    = 128
 )
 
 var (
@@ -203,11 +205,25 @@ func normalizeOutputContract(input OutputContract) (OutputContract, bool, error)
 		output.Schema = nil
 		return output, false, nil
 	}
+	if len(output.SchemaID) > MaxOutputSchemaIDBytes {
+		return OutputContract{}, false, compileError(
+			CodePackageInvalid,
+			"manifest.output_contract.schema_id",
+			fmt.Sprintf("size %d exceeds limit %d", len(output.SchemaID), MaxOutputSchemaIDBytes),
+		)
+	}
 	if !schemaDefined {
 		return OutputContract{}, false, compileError(
 			CodePackageInvalid,
 			"manifest.output_contract.schema",
 			"is required for advisory or strict mode",
+		)
+	}
+	if len(rawSchema) > MaxOutputSchemaBytes {
+		return OutputContract{}, false, compileError(
+			CodePackageInvalid,
+			"manifest.output_contract.schema",
+			fmt.Sprintf("size %d exceeds limit %d", len(rawSchema), MaxOutputSchemaBytes),
 		)
 	}
 	schema, err := normalizeJSONObject(rawSchema)
@@ -216,6 +232,13 @@ func normalizeOutputContract(input OutputContract) (OutputContract, bool, error)
 			CodePackageInvalid,
 			"manifest.output_contract.schema",
 			err.Error(),
+		)
+	}
+	if len(schema) > MaxOutputSchemaBytes {
+		return OutputContract{}, false, compileError(
+			CodePackageInvalid,
+			"manifest.output_contract.schema",
+			fmt.Sprintf("canonical size %d exceeds limit %d", len(schema), MaxOutputSchemaBytes),
 		)
 	}
 	if output.Mode == OutputModeStrict && output.SchemaID == "" {

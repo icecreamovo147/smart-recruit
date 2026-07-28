@@ -379,6 +379,14 @@ func TestSelectHRRuntimeAgentSkillPackagesCanonicalizesNestedOutputSchemaJSON(t 
 				runtimeSkillModel([]int64{101}, CapabilitySkillRuntimePolicy{}),
 				true,
 			)
+			if tt.mode == domainagentskill.OutputModeStrict {
+				if len(selected) != 0 || confirmationRequired || len(governanceErrors) != 1 ||
+					governanceErrors[0].Code != "strict_output_contract_unsupported" ||
+					len(evidence) != 1 || evidence[0].GetDecisionReason() != "strict_output_contract_unsupported" {
+					t.Fatalf("strict selected=%#v evidence=%#v errors=%#v confirmation=%v", selected, evidence, governanceErrors, confirmationRequired)
+				}
+				return
+			}
 			if len(selected) != 1 || selected[0].VersionID != 101 || confirmationRequired || len(governanceErrors) != 0 ||
 				len(evidence) != 1 || !evidence[0].GetIncluded() {
 				t.Fatalf("selected=%#v evidence=%#v errors=%#v confirmation=%v", selected, evidence, governanceErrors, confirmationRequired)

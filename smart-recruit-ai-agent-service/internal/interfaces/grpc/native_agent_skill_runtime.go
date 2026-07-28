@@ -62,6 +62,8 @@ type hrRuntimeAgentSkill struct {
 	ActivationPolicy     domainagentskill.ActivationPolicy
 	RequiredCapabilities []string
 	EvaluationCriteria   []string
+	OutputContract       domainagentskill.OutputContract
+	AdvisoryInstruction  string
 	Sections             []hrRuntimeAgentSkillSection
 	AvailableSections    []embeddinginfra.AgentSkillSectionEmbeddingDocument
 	Included             bool
@@ -331,6 +333,30 @@ func (s *nativeAIService) selectHRRuntimeAgentSkillPackages(
 	if len(selected) == 0 {
 		return nil, evidence, false, nil
 	}
+	if primary, ok := primaryHRRuntimeAgentSkill(selected); ok {
+		switch primary.OutputContract.Mode {
+		case domainagentskill.OutputModeStrict:
+			primary.DecisionReason = "strict_output_contract_unsupported"
+			evidence = append(evidence, hrRuntimeAgentSkillEvidenceToPB(*primary))
+			return nil, evidence, false, []hrRuntimeGovernanceError{{
+				Source:     "agent_skill",
+				Code:       "strict_output_contract_unsupported",
+				ResourceID: primary.VersionID,
+			}}
+		case domainagentskill.OutputModeAdvisory:
+			instruction, instructionErr := compileHRRuntimeAdvisoryInstruction(primary.OutputContract)
+			if instructionErr != nil {
+				primary.DecisionReason = "advisory_output_contract_invalid"
+				evidence = append(evidence, hrRuntimeAgentSkillEvidenceToPB(*primary))
+				return nil, evidence, false, []hrRuntimeGovernanceError{{
+					Source:     "agent_skill",
+					Code:       "advisory_output_contract_invalid",
+					ResourceID: primary.VersionID,
+				}}
+			}
+			primary.AdvisoryInstruction = instruction
+		}
+	}
 	for i := range selected {
 		selected[i].AvailableSections = append(
 			[]embeddinginfra.AgentSkillSectionEmbeddingDocument(nil),
@@ -360,7 +386,9 @@ func (s *nativeAIService) selectHRRuntimeAgentSkillPackages(
 	included := make([]hrRuntimeAgentSkill, 0, len(selected))
 	for i := range selected {
 		skill := &selected[i]
-		if skill.CoreEstimatedTokens > remaining {
+		instructionTokens := contextbudget.EstimateTokensConservative(skill.AdvisoryInstruction)
+		requiredTokens := skill.CoreEstimatedTokens + instructionTokens
+		if requiredTokens > remaining {
 			skill.DecisionReason = "core_budget_exceeded"
 			evidence = append(evidence, hrRuntimeAgentSkillEvidenceToPB(*skill))
 			if skill.CompositionRole == domainagentskill.CompositionRolePrimary {
@@ -375,8 +403,8 @@ func (s *nativeAIService) selectHRRuntimeAgentSkillPackages(
 		}
 		skill.Included = true
 		skill.DecisionReason = "core_included"
-		skill.LoadedTokens = skill.CoreEstimatedTokens
-		remaining -= skill.CoreEstimatedTokens
+		skill.LoadedTokens = requiredTokens
+		remaining -= requiredTokens
 		included = append(included, *skill)
 	}
 	if len(included) == 0 {
@@ -579,7 +607,98 @@ func hrRuntimeAgentSkillFromCandidate(candidate hrRankedAgentSkillVersion) hrRun
 		ActivationPolicy:     manifest.ActivationPolicy,
 		RequiredCapabilities: append([]string(nil), manifest.RequiredCapabilities...),
 		EvaluationCriteria:   append([]string(nil), manifest.EvaluationCriteria...),
+		OutputContract: domainagentskill.OutputContract{
+			Mode:     manifest.OutputContract.Mode,
+			SchemaID: manifest.OutputContract.SchemaID,
+			Schema:   append(json.RawMessage(nil), manifest.OutputContract.Schema...),
+		},
 	}
+}
+
+func primaryHRRuntimeAgentSkill(skills []hrRuntimeAgentSkill) (*hrRuntimeAgentSkill, bool) {
+	for i := range skills {
+		if skills[i].CompositionRole == domainagentskill.CompositionRolePrimary {
+			return &skills[i], true
+		}
+	}
+	return nil, false
+}
+
+func governanceHasAgentSkillError(governance hrRuntimeGovernanceContext, code string) bool {
+	for _, item := range governance.GovernanceErrors {
+		if item.Source == "agent_skill" && item.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
+const (
+	hrRuntimeAdvisoryHeading   = "### Advisory response structure"
+	hrRuntimeAdvisoryGuidance  = "Use the following immutable schema only as organization guidance for this answer."
+	hrRuntimeAdvisoryFreeText  = "Natural-language output remains allowed. Do not return raw JSON unless the user explicitly asks for JSON."
+	hrRuntimeAdvisoryNoEnforce = "The runtime does not validate, repair, retry, or reject this advisory response contract."
+	// encoding/json can expand one schema ID source byte to at most a six-byte
+	// JSON escape (for example, an ASCII control byte becomes `\u00xx`).
+	hrRuntimeMaxJSONEscapedByteExpansion  = 6
+	hrRuntimeAdvisoryPayloadOverheadBytes = len(`{"schema_id":"","schema":}`)
+	hrRuntimeMaxAdvisoryInstructionBytes  = len(hrRuntimeAdvisoryHeading) +
+		len(hrRuntimeAdvisoryGuidance) +
+		len(hrRuntimeAdvisoryFreeText) +
+		len(hrRuntimeAdvisoryNoEnforce) +
+		4 + // strings.Join separators
+		hrRuntimeAdvisoryPayloadOverheadBytes +
+		domainagentskill.MaxOutputSchemaIDBytes*hrRuntimeMaxJSONEscapedByteExpansion +
+		domainagentskill.MaxOutputSchemaBytes
+)
+
+func compileHRRuntimeAdvisoryInstruction(contract domainagentskill.OutputContract) (string, error) {
+	if contract.Mode != domainagentskill.OutputModeAdvisory {
+		return "", nil
+	}
+	schemaID := strings.TrimSpace(contract.SchemaID)
+	if len(schemaID) > domainagentskill.MaxOutputSchemaIDBytes {
+		return "", fmt.Errorf(
+			"advisory schema ID size %d exceeds limit %d",
+			len(schemaID),
+			domainagentskill.MaxOutputSchemaIDBytes,
+		)
+	}
+	canonicalSchema, err := canonicalizeRuntimeJSON(string(contract.Schema))
+	if err != nil {
+		return "", fmt.Errorf("canonicalize advisory schema: %w", err)
+	}
+	if canonicalSchema == "" {
+		return "", fmt.Errorf("canonicalize advisory schema: empty schema")
+	}
+	if len(canonicalSchema) > domainagentskill.MaxOutputSchemaBytes {
+		return "", fmt.Errorf(
+			"advisory schema size %d exceeds limit %d",
+			len(canonicalSchema),
+			domainagentskill.MaxOutputSchemaBytes,
+		)
+	}
+	payload, err := json.Marshal(struct {
+		SchemaID string          `json:"schema_id,omitempty"`
+		Schema   json.RawMessage `json:"schema"`
+	}{
+		SchemaID: schemaID,
+		Schema:   json.RawMessage(canonicalSchema),
+	})
+	if err != nil {
+		return "", fmt.Errorf("encode advisory schema: %w", err)
+	}
+	instruction := strings.Join([]string{
+		hrRuntimeAdvisoryHeading,
+		hrRuntimeAdvisoryGuidance,
+		hrRuntimeAdvisoryFreeText,
+		hrRuntimeAdvisoryNoEnforce,
+		string(payload),
+	}, "\n")
+	if len(instruction) > hrRuntimeMaxAdvisoryInstructionBytes {
+		return "", fmt.Errorf("advisory instruction exceeds bounded runtime limit")
+	}
+	return instruction, nil
 }
 
 func (s *nativeAIService) loadHRRuntimeAgentSkillSections(

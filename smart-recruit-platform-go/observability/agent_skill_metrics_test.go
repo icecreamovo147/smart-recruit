@@ -86,3 +86,34 @@ func TestAgentSkillMetricsExposeReservedLifecycleHooksWithoutRegistration(t *tes
 		}
 	}
 }
+
+func TestAgentSkillOutputContractLabelsAreFiniteAndHonest(t *testing.T) {
+	registry := NewRegistry("ai-agent")
+	registry.RecordAgentSkillOutputValidation(AgentSkillMetricLabels{
+		RuntimeMode: "v2", ExecutionMode: "direct", SelectionMode: "auto",
+		Role: "primary", Risk: "low", Result: "applied", Reason: "advisory_not_enforced",
+	})
+	registry.RecordAgentSkillOutputValidation(AgentSkillMetricLabels{
+		RuntimeMode: "v2", ExecutionMode: "durable", SelectionMode: "manual",
+		Role: "primary", Risk: "critical", Result: "unsupported", Reason: "strict_unsupported",
+	})
+	registry.RecordAgentSkillOutputValidation(AgentSkillMetricLabels{
+		RuntimeMode: "v2", ExecutionMode: "direct", SelectionMode: "schema-id-private",
+		Role: "primary", Risk: "low", Result: "schema-id-private", Reason: "schema-id-private",
+	})
+
+	output := registry.Prometheus()
+	for _, want := range []string{
+		`result="applied",reason="advisory_not_enforced"} 1`,
+		`result="unsupported",reason="strict_unsupported"} 1`,
+		`selection_mode="none",role="primary",risk="low",result="error",reason="other"} 1`,
+		"advisory applied outcomes are not validation",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("output-contract metric %q missing:\n%s", want, output)
+		}
+	}
+	if strings.Contains(output, "schema-id-private") {
+		t.Fatalf("unbounded schema identity leaked into metrics:\n%s", output)
+	}
+}

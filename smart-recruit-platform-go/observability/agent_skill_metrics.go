@@ -21,7 +21,7 @@ var (
 	agentSkillSelectionModes = labelSet("auto", "manual", "none")
 	agentSkillRoles          = labelSet("primary", "supporting", "none")
 	agentSkillRisks          = labelSet("low", "medium", "high", "critical", "unknown")
-	agentSkillResults        = labelSet("included", "dropped", "confirmation_required", "disabled", "no_match", "error", "queued", "passed", "failed", "unavailable")
+	agentSkillResults        = labelSet("included", "dropped", "confirmation_required", "disabled", "no_match", "error", "queued", "passed", "failed", "unavailable", "applied", "unsupported")
 	agentSkillReasons        = labelSet(
 		"none",
 		"no_match",
@@ -75,6 +75,10 @@ var (
 		"strict_valid",
 		"strict_invalid",
 		"schema_mismatch",
+		"advisory_not_enforced",
+		"strict_unsupported",
+		"strict_output_contract_unsupported",
+		"advisory_output_contract_invalid",
 	)
 )
 
@@ -237,7 +241,7 @@ func writeAgentSkillMetrics(builder *strings.Builder, snapshot agentSkillMetrics
 		agentSkillSelectionMetric:        "Agent Skill Package selection decisions.",
 		agentSkillConfirmationMetric:     "Agent Skill confirmation lifecycle decisions.",
 		agentSkillBudgetDropMetric:       "Agent Skill Package content dropped by the runtime budget.",
-		agentSkillOutputValidationMetric: "Agent Skill output validation and optional judge results.",
+		agentSkillOutputValidationMetric: "Agent Skill bounded output-contract outcomes and optional judge results; advisory applied outcomes are not validation.",
 	}
 	for _, name := range []string{
 		agentSkillSelectionMetric,

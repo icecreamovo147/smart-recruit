@@ -218,6 +218,86 @@ func TestCompileRejectsSupportingOutputContract(t *testing.T) {
 	assertCompileError(t, err, CodeCompositionConflict, "manifest.output_contract")
 }
 
+func TestCompileEnforcesOutputSchemaIDByteBoundary(t *testing.T) {
+	exactASCII := strings.Repeat("a", MaxOutputSchemaIDBytes)
+	exactMultibyte := strings.Repeat("界", MaxOutputSchemaIDBytes/len("界")) +
+		strings.Repeat("a", MaxOutputSchemaIDBytes%len("界"))
+	if len(exactMultibyte) != MaxOutputSchemaIDBytes {
+		t.Fatalf("multibyte fixture bytes=%d, want %d", len(exactMultibyte), MaxOutputSchemaIDBytes)
+	}
+
+	for _, test := range []struct {
+		name     string
+		mode     OutputMode
+		schemaID string
+		wantErr  bool
+	}{
+		{name: "advisory exact ASCII boundary", mode: OutputModeAdvisory, schemaID: exactASCII},
+		{name: "strict exact multibyte boundary", mode: OutputModeStrict, schemaID: exactMultibyte},
+		{name: "advisory over byte boundary", mode: OutputModeAdvisory, schemaID: exactASCII + "a", wantErr: true},
+		{name: "strict multibyte over byte boundary", mode: OutputModeStrict, schemaID: exactMultibyte + "界", wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			draft := validDraft()
+			draft.Manifest.OutputContract = OutputContract{
+				Mode:     test.mode,
+				SchemaID: test.schemaID,
+				Schema:   json.RawMessage(`{"type":"object"}`),
+			}
+			compiled, err := Compile(draft)
+			if test.wantErr {
+				assertCompileError(t, err, CodePackageInvalid, "manifest.output_contract.schema_id")
+				return
+			}
+			if err != nil {
+				t.Fatalf("Compile() error = %v", err)
+			}
+			if got := len(compiled.Manifest.OutputContract.SchemaID); got != MaxOutputSchemaIDBytes {
+				t.Fatalf("compiled schema_id bytes=%d, want %d", got, MaxOutputSchemaIDBytes)
+			}
+		})
+	}
+}
+
+func TestCompileEnforcesCanonicalOutputSchemaByteBoundary(t *testing.T) {
+	schemaWithSize := func(size int) json.RawMessage {
+		return json.RawMessage(`{"x":"` +
+			strings.Repeat("a", size-len(`{"x":""}`)) +
+			`"}`)
+	}
+	for _, test := range []struct {
+		name    string
+		schema  json.RawMessage
+		wantErr bool
+	}{
+		{name: "exact boundary", schema: schemaWithSize(MaxOutputSchemaBytes)},
+		{
+			name:    "canonical escaping over boundary",
+			schema:  json.RawMessage(`{"x":"` + strings.Repeat("<", MaxOutputSchemaBytes/4) + `"}`),
+			wantErr: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			draft := validDraft()
+			draft.Manifest.OutputContract = OutputContract{
+				Mode:   OutputModeAdvisory,
+				Schema: test.schema,
+			}
+			compiled, err := Compile(draft)
+			if test.wantErr {
+				assertCompileError(t, err, CodePackageInvalid, "manifest.output_contract.schema")
+				return
+			}
+			if err != nil {
+				t.Fatalf("Compile() error = %v", err)
+			}
+			if got := len(compiled.Manifest.OutputContract.Schema); got != MaxOutputSchemaBytes {
+				t.Fatalf("compiled schema bytes=%d, want %d", got, MaxOutputSchemaBytes)
+			}
+		})
+	}
+}
+
 func TestCompileEnforcesCoreBudget(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -352,17 +432,20 @@ func TestCompileEnforcesPackageBudget(t *testing.T) {
 
 func TestCompilePackageBudgetIncludesRenderedMetadata(t *testing.T) {
 	tests := []struct {
-		name   string
-		mutate func(*PackageDraft)
+		name      string
+		mutate    func(*PackageDraft)
+		wantField string
 	}{
 		{
-			name: "manifest metadata",
+			name:      "manifest metadata",
+			wantField: "package",
 			mutate: func(draft *PackageDraft) {
 				draft.Manifest.Description = strings.Repeat("m", MaxPackageTokens*4)
 			},
 		},
 		{
-			name: "output schema",
+			name:      "output schema",
+			wantField: "manifest.output_contract.schema",
 			mutate: func(draft *PackageDraft) {
 				schema, err := json.Marshal(map[string]any{
 					"type":        "object",
@@ -378,7 +461,8 @@ func TestCompilePackageBudgetIncludesRenderedMetadata(t *testing.T) {
 			},
 		},
 		{
-			name: "section title and description",
+			name:      "section title and description",
+			wantField: "package",
 			mutate: func(draft *PackageDraft) {
 				draft.Sections = []ReferenceSection{
 					{
@@ -397,7 +481,7 @@ func TestCompilePackageBudgetIncludesRenderedMetadata(t *testing.T) {
 			draft := validDraft()
 			test.mutate(&draft)
 			_, err := Compile(draft)
-			assertCompileError(t, err, CodePackageInvalid, "package")
+			assertCompileError(t, err, CodePackageInvalid, test.wantField)
 		})
 	}
 }

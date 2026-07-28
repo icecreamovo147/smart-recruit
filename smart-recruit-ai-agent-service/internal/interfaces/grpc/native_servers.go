@@ -30,6 +30,7 @@ import (
 	"smart-recruit-ai-agent-service/internal/application/hr_tools"
 	appmemory "smart-recruit-ai-agent-service/internal/application/memory"
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
+	domainagentskill "smart-recruit-ai-agent-service/internal/domain/agentskill"
 	domainmemory "smart-recruit-ai-agent-service/internal/domain/memory"
 	"smart-recruit-ai-agent-service/internal/domain/model"
 	mcpinfra "smart-recruit-ai-agent-service/internal/infrastructure/mcp"
@@ -1350,6 +1351,10 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	}
 	governance.MCPApproval = opts.durablePayload.MCPApproval
 	result.governance = governance
+	if governanceHasAgentSkillError(governance, "strict_output_contract_unsupported") {
+		s.recordAgentSkillStrictUnsupported(ctx, governance)
+		return result, statusErrorFailedPrecondition("AGENT_SKILL_STRICT_OUTPUT_UNSUPPORTED")
+	}
 	if governance.AgentSkillConfirmationRequired {
 		userMessageID := int64(0)
 		if opts.agentRunID > 0 {
@@ -1622,6 +1627,9 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 				onStatus,
 			)
 		}
+		if toolErr == nil {
+			s.recordAgentSkillAdvisoryResponse(ctx, governance)
+		}
 		if finishErr := streamFilter.Finish(); finishErr != nil {
 			return result, finishErr
 		}
@@ -1714,6 +1722,9 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		completionResult, err = s.completeWithUsage(ctx, contextPrompt, result.modelID, hrRuntimeCompletionOptions(governance))
 		reply = completionResult.Content
 		result.billingTokenUsage = cloneTokenUsage(completionResult.TokenUsage)
+		if err == nil {
+			s.recordAgentSkillAdvisoryResponse(ctx, governance)
+		}
 		if applyActualContextUsage(result.contextUsage, completionResult.TokenUsage) {
 			if emitErr := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "context_usage", EventMessage: "ai.event.provider_context_usage", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); emitErr != nil {
 				return result, emitErr
@@ -3365,6 +3376,12 @@ func renderHRProviderPrompt(req *pb.ChatRequest, history []ChatMessageRow, curre
 			}
 			b.WriteString("\n")
 			b.WriteString(strings.TrimSpace(section.ContentMarkdown))
+		}
+		if skill.CompositionRole == domainagentskill.CompositionRolePrimary &&
+			skill.OutputContract.Mode == domainagentskill.OutputModeAdvisory &&
+			strings.TrimSpace(skill.AdvisoryInstruction) != "" {
+			b.WriteString("\n\n")
+			b.WriteString(strings.TrimSpace(skill.AdvisoryInstruction))
 		}
 		b.WriteString("\n")
 	}
@@ -6076,6 +6093,10 @@ func agentRunFailureDetails(runErr error, defaultType string) (string, string) {
 	}
 	if contextCode := hrContextErrorCode(runErr); contextCode != "" {
 		return contextCode, hrContextMessageKey(contextCode)
+	}
+	if status.Code(runErr) == codes.FailedPrecondition &&
+		status.Convert(runErr).Message() == "AGENT_SKILL_STRICT_OUTPUT_UNSUPPORTED" {
+		return "agent_skill_strict_output_unsupported", "ai.agent_skill_strict_output_unsupported"
 	}
 	if strings.Contains(strings.ToLower(runErr.Error()), "insufficient_credits") {
 		return "insufficient_credits", "ai.insufficient_credits"

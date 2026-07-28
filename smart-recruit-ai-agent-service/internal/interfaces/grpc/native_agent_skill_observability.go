@@ -417,7 +417,7 @@ func (s *nativeAIService) recordAgentSkillOutputValidation(
 	result string,
 	reason string,
 ) {
-	if s == nil || s.metrics == nil {
+	if s == nil || s.metrics == nil || agentSkillMetricsSuppressed(ctx) {
 		return
 	}
 	s.metrics.RecordAgentSkillOutputValidation(observability.AgentSkillMetricLabels{
@@ -429,6 +429,47 @@ func (s *nativeAIService) recordAgentSkillOutputValidation(
 		Result:        result,
 		Reason:        reason,
 	})
+}
+
+func (s *nativeAIService) recordAgentSkillAdvisoryResponse(
+	ctx context.Context,
+	governance hrRuntimeGovernanceContext,
+) {
+	primary, ok := primaryHRRuntimeAgentSkill(governance.SelectedAgentSkills)
+	if !ok || primary.OutputContract.Mode != "advisory" || strings.TrimSpace(primary.AdvisoryInstruction) == "" {
+		return
+	}
+	s.recordAgentSkillOutputValidation(
+		ctx,
+		governance.AgentSkillSelectionMode,
+		"primary",
+		string(primary.RiskLevel),
+		"applied",
+		"advisory_not_enforced",
+	)
+}
+
+func (s *nativeAIService) recordAgentSkillStrictUnsupported(
+	ctx context.Context,
+	governance hrRuntimeGovernanceContext,
+) {
+	role, risk := "primary", "unknown"
+	for _, item := range governance.AgentSkillRuntimeEvidence {
+		if item == nil || item.GetDecisionReason() != "strict_output_contract_unsupported" {
+			continue
+		}
+		role = agentSkillMetricRole(item.GetCompositionRole())
+		risk = agentSkillMetricRisk(item.GetRisk())
+		break
+	}
+	s.recordAgentSkillOutputValidation(
+		ctx,
+		governance.AgentSkillSelectionMode,
+		role,
+		risk,
+		"unsupported",
+		"strict_unsupported",
+	)
 }
 
 func agentSkillRuntimeMode(enabled bool) string {
