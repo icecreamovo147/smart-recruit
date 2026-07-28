@@ -347,7 +347,7 @@ func (s *nativeAIService) selectHRRuntimeAgentSkillPackages(
 			break
 		}
 	}
-	if confirmationRequired {
+	if confirmationRequired && !agentSkillApprovalAllows(ctx, selected, model, req.GetMessage()) {
 		for i := range selected {
 			selected[i].DecisionReason = "blocked_by_confirmation"
 			if selected[i].RiskLevel == domainagentskill.RiskLevelHigh || selected[i].RiskLevel == domainagentskill.RiskLevelCritical {
@@ -853,14 +853,6 @@ func agentSkillActivationPolicyToPB(policy domainagentskill.ActivationPolicy) pb
 	default:
 		return pb.AgentSkillActivationPolicy_AGENT_SKILL_ACTIVATION_POLICY_UNSPECIFIED
 	}
-}
-
-func hrRuntimeSkillConfirmationError(durable bool) error {
-	code := "AGENT_SKILL_CONFIRMATION_REQUIRES_DURABLE_RUN"
-	if durable {
-		code = "AGENT_SKILL_CONFIRMATION_REQUIRED"
-	}
-	return statusErrorFailedPrecondition(code)
 }
 
 func statusErrorFailedPrecondition(code string) error {

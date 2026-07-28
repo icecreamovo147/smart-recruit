@@ -630,11 +630,12 @@ func TestCancelAgentRunQueuedWorkFinishesCanceledWithoutActiveWorker(t *testing.
 func TestConfirmAgentRunWaitingConfirmationRedispatchesAndCompletes(t *testing.T) {
 	store := newAgentRunTestStore()
 	store.seedChatSession(ownerRoleHR, 77, 101, "hr run session")
-	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: 77, SessionID: 101, Role: "user", Content: "user asks", ModelID: 123})
+	userMessage := store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: 77, SessionID: 101, Role: "user", Content: "user asks", ModelID: 123})
 	provider := newBlockingAgentRunProvider("assistant after confirmation")
 	service := &nativeAIService{store: store, provider: provider}
 	run := fallbackAgentRun(77, 101, "confirm-waiting", agentRunDurablePayload{Message: "user asks", ModelID: 123})
 	run.Status = "waiting_confirmation"
+	run.MessageID = userMessage.ID
 	created, _, err := store.CreateAgentRun(context.Background(), run)
 	if err != nil {
 		t.Fatalf("CreateAgentRun seed returned error: %v", err)
@@ -763,7 +764,7 @@ func TestNewAgentRunMCPConfirmationUsesParseableBusinessTimestamp(t *testing.T) 
 func TestConfirmAgentRunPersistsBoundMCPApprovalBeforeRedispatch(t *testing.T) {
 	store := newAgentRunTestStore()
 	store.seedChatSession(ownerRoleHR, 77, 101, "mcp confirmation")
-	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: 77, SessionID: 101, Role: "user", Content: "find Alice", ModelID: 123})
+	userMessage := store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: 77, SessionID: 101, Role: "user", Content: "find Alice", ModelID: 123})
 	provider := newBlockingAgentRunProvider("approved reply")
 	service := &nativeAIService{store: store, provider: provider}
 	pending := &agentRunMCPConfirmation{
@@ -774,6 +775,7 @@ func TestConfirmAgentRunPersistsBoundMCPApprovalBeforeRedispatch(t *testing.T) {
 	}
 	run := fallbackAgentRun(77, 101, "confirm-mcp", agentRunDurablePayload{Message: "find Alice", ModelID: 123, PendingMCPConfirmation: pending})
 	run.Status = agentRunStatusWaitingConfirmation
+	run.MessageID = userMessage.ID
 	created, _, err := store.CreateAgentRun(context.Background(), run)
 	if err != nil {
 		t.Fatalf("CreateAgentRun returned error: %v", err)
@@ -1197,6 +1199,196 @@ func (s *agentRunTestStore) UpdateAgentRunPlan(_ context.Context, ownerID, runID
 	run.UpdatedAt = time.Now()
 	s.runs[runID] = run
 	return run, true, nil
+}
+
+func (s *agentRunTestStore) UpdateAgentRunPlanForSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	planJSON string,
+	optionContextJSON string,
+) (AgentRunRow, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	if !ok || run.OwnerID != ownerID || run.Status != agentRunStatusRunning ||
+		agentRunTestSkillLease(run) != leaseID {
+		return AgentRunRow{}, false, nil
+	}
+	next := run
+	next.PlanJSON = planJSON
+	next.OptionContextJSON = optionContextJSON
+	next.UpdatedAt = time.Now()
+	if agentRunTestSkillLease(next) != leaseID {
+		return AgentRunRow{}, false, nil
+	}
+	s.runs[runID] = next
+	return next, true, nil
+}
+
+func (s *agentRunTestStore) VerifyAgentRunSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	return ok &&
+		run.OwnerID == ownerID &&
+		run.Status == agentRunStatusRunning &&
+		agentRunTestSkillLease(run) == leaseID, nil
+}
+
+func (s *agentRunTestStore) AppendAgentRunToolTraceForSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	step AgentRunStepRow,
+	trace ToolTraceRow,
+) (AgentRunStepRow, ToolTraceRow, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	if !ok || run.OwnerID != ownerID || run.Status != agentRunStatusRunning ||
+		agentRunTestSkillLease(run) != leaseID ||
+		step.RunID != runID || trace.AgentRunID != runID {
+		return AgentRunStepRow{}, ToolTraceRow{}, false, nil
+	}
+	if s.runSteps == nil {
+		s.runSteps = map[int64][]AgentRunStepRow{}
+	}
+	step.ID = int64(len(s.runSteps[runID]) + 1)
+	if step.StepIndex <= 0 {
+		step.StepIndex = int32(len(s.runSteps[runID]) + 1)
+	}
+	s.runSteps[runID] = append(s.runSteps[runID], step)
+	trace.ID = int64(len(s.toolTraces) + 1)
+	trace.AgentRunStepID = step.ID
+	s.toolTraces = append(s.toolTraces, trace)
+	return step, trace, true, nil
+}
+
+func (s *agentRunTestStore) UpdateAgentRunRuntimeGovernanceForSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	model RuntimeModelInfo,
+) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	if !ok || run.OwnerID != ownerID || run.Status != agentRunStatusRunning ||
+		agentRunTestSkillLease(run) != leaseID {
+		return false, nil
+	}
+	run.ModelID = model.ID
+	run.ModelName = model.Name
+	run.UpdatedAt = time.Now()
+	s.runs[runID] = run
+	return true, nil
+}
+
+func (s *agentRunTestStore) AppendAgentRunEventForSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	eventType string,
+	payload string,
+) (AgentRunEventRow, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	statusAllowed := run.Status == agentRunStatusRunning ||
+		((eventType == "run.completed" || eventType == "run.canceled") && isTerminalAgentRunStatus(run.Status))
+	if !ok || run.OwnerID != ownerID || !statusAllowed ||
+		agentRunTestSkillLease(run) != leaseID {
+		return AgentRunEventRow{}, false, nil
+	}
+	s.runEventSeq[runID]++
+	event := AgentRunEventRow{
+		RunID:       runID,
+		Seq:         s.runEventSeq[runID],
+		EventType:   eventType,
+		PayloadJSON: payload,
+		CreatedAt:   time.Now(),
+	}
+	s.runEvents[runID] = append(s.runEvents[runID], event)
+	run.LastEventSeq = event.Seq
+	run.UpdatedAt = event.CreatedAt
+	s.runs[runID] = run
+	return event, true, nil
+}
+
+func (s *agentRunTestStore) AppendAgentRunAssistantMessageForSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	message ChatMessageRow,
+) (ChatMessageRow, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	if !ok || run.OwnerID != ownerID || run.Status != agentRunStatusRunning ||
+		agentRunTestSkillLease(run) != leaseID ||
+		message.OwnerID != ownerID || message.SessionID != run.SessionID || message.Role != "assistant" {
+		return ChatMessageRow{}, false, nil
+	}
+	s.nextMessageID++
+	message.ID = s.nextMessageID
+	if message.CreatedAt.IsZero() {
+		message.CreatedAt = time.Now()
+	}
+	s.messages = append(s.messages, message)
+	return message, true, nil
+}
+
+func (s *agentRunTestStore) CompleteAgentRunForSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	assistantText string,
+	status string,
+	errorType string,
+	errorMessage string,
+) (AgentRunRow, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	statusAllowed := run.Status == agentRunStatusRunning ||
+		(run.Status == agentRunStatusCancelRequested && status == agentRunStatusCanceled)
+	if !ok || run.OwnerID != ownerID || !statusAllowed ||
+		agentRunTestSkillLease(run) != leaseID {
+		return AgentRunRow{}, false, nil
+	}
+	now := time.Now()
+	run.Status = status
+	run.AssistantText = assistantText
+	run.ErrorType = errorType
+	run.ErrorMessage = errorMessage
+	run.CompletedAt = &now
+	if status == agentRunStatusCanceled {
+		run.CanceledAt = &now
+	}
+	run.UpdatedAt = now
+	s.runs[runID] = run
+	return run, true, nil
+}
+
+func agentRunTestSkillLease(run AgentRunRow) string {
+	payload := agentRunPayloadFromRow(run)
+	if !validAgentRunSkillApprovalMarker(run, payload.AgentSkillApproval) ||
+		payload.AgentSkillApproval.DispatchState != agentSkillDispatchClaimed {
+		return ""
+	}
+	return payload.AgentSkillApproval.DispatchLeaseID
 }
 
 func (s *agentRunTestStore) CompleteAgentRun(_ context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage string) (AgentRunRow, bool, error) {

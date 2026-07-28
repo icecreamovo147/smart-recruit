@@ -252,6 +252,92 @@ func (s *NativeStore) AppendChatMessage(ctx context.Context, message aiagentgrpc
 	return mapMessageRecord(ctx, row), nil
 }
 
+// EnsureAgentRunUserMessage creates at most one user message for a durable Run
+// and binds agent_runs.message_id in the same transaction. Resume paths can
+// therefore restore the exact message identity without content matching.
+func (s *NativeStore) EnsureAgentRunUserMessage(
+	ctx context.Context,
+	ownerID int64,
+	runID int64,
+	message aiagentgrpc.ChatMessageRow,
+) (aiagentgrpc.ChatMessageRow, aiagentgrpc.AgentRunRow, bool, error) {
+	var (
+		history aiChatHistoryRecord
+		run     agentRunRecord
+		created bool
+	)
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND hr_id = ?", runID, ownerID).
+			First(&run).Error; err != nil {
+			return err
+		}
+		if run.MessageID > 0 {
+			return tx.Where(
+				"id = ? AND owner_role = ? AND owner_id = ? AND session_id = ? AND role = ?",
+				run.MessageID,
+				chatOwnerRoleHR,
+				ownerID,
+				run.SessionID,
+				"user",
+			).First(&history).Error
+		}
+		if message.OwnerRole != chatOwnerRoleHR ||
+			message.OwnerID != ownerID ||
+			message.SessionID != run.SessionID ||
+			strings.TrimSpace(message.Role) != "user" {
+			return fmt.Errorf("agent run user message binding is invalid")
+		}
+		contextUsageJSON, err := marshalContextUsage(message.ContextUsage)
+		if err != nil {
+			return fmt.Errorf("marshal agent run user message context usage: %w", err)
+		}
+		now := time.Now()
+		if !message.CreatedAt.IsZero() {
+			now = message.CreatedAt
+		}
+		history = aiChatHistoryRecord{
+			HRID:                 chatCompatibilityHRID(message.OwnerRole, message.OwnerID),
+			OwnerRole:            message.OwnerRole,
+			OwnerID:              message.OwnerID,
+			SessionID:            message.SessionID,
+			Role:                 message.Role,
+			Content:              message.Content,
+			ProcessContent:       message.ProcessContent,
+			ModelID:              message.ModelID,
+			ModelName:            message.ModelName,
+			ContextUsageJSON:     contextUsageJSON,
+			AgentSkillVersionIDs: nullableJSON(marshalInt64Slice(message.AgentSkillVersionIDs)),
+			AgentSkillNames:      nullableJSON(marshalStringSlice(message.AgentSkillNames)),
+			AgentRunID:           &runID,
+			CreatedAt:            now,
+		}
+		if err := tx.Create(&history).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&agentRunRecord{}).
+			Where("id = ? AND hr_id = ?", runID, ownerID).
+			Updates(map[string]any{"message_id": history.ID, "updated_at": now}).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&aiChatSessionRecord{}).Where("id = ?", run.SessionID).Updates(map[string]any{
+			"updated_at":           now,
+			"last_message_preview": chatMessagePreview(message.Content),
+			"message_count":        gorm.Expr("message_count + 1"),
+		}).Error; err != nil {
+			return err
+		}
+		run.MessageID = history.ID
+		run.UpdatedAt = now
+		created = true
+		return nil
+	})
+	if err != nil {
+		return aiagentgrpc.ChatMessageRow{}, aiagentgrpc.AgentRunRow{}, false, err
+	}
+	return mapMessageRecord(ctx, history), mapRunRecord(run), created, nil
+}
+
 func (s *NativeStore) ListChatMessages(ctx context.Context, ownerRole int32, ownerID, sessionID int64, page, pageSize int32) ([]aiagentgrpc.ChatMessageRow, error) {
 	query := s.db.WithContext(ctx).Model(&aiChatHistoryRecord{})
 	query = applyChatOwnerScope(query, ownerRole, ownerID)
@@ -593,6 +679,547 @@ func (s *NativeStore) UpdateAgentRunPlan(ctx context.Context, ownerID, runID int
 		return aiagentgrpc.AgentRunRow{}, false, nil
 	}
 	return s.GetAgentRun(ctx, ownerID, runID)
+}
+
+// TransitionAgentRunConfirmation atomically consumes a waiting confirmation.
+// The status predicate is the cross-replica compare-and-swap guard: only one
+// approver, rejecter, or expiry observer can move the Run out of
+// waiting_confirmation.
+func (s *NativeStore) TransitionAgentRunConfirmation(
+	ctx context.Context,
+	ownerID int64,
+	runID int64,
+	fromStatus string,
+	toStatus string,
+	expectedPlanJSON string,
+	planJSON string,
+	optionContextJSON string,
+	errorType string,
+	errorMessage string,
+) (aiagentgrpc.AgentRunRow, bool, error) {
+	now := time.Now()
+	updates := map[string]any{
+		"status":     toStatus,
+		"updated_at": now,
+	}
+	if strings.TrimSpace(planJSON) != "" {
+		updates["plan_json"] = nullableJSON(planJSON)
+	}
+	if strings.TrimSpace(optionContextJSON) != "" {
+		updates["option_context_json"] = nullableJSON(optionContextJSON)
+	}
+	if strings.TrimSpace(errorType) != "" {
+		updates["error_type"] = strings.TrimSpace(errorType)
+	}
+	if strings.TrimSpace(errorMessage) != "" {
+		updates["error_message"] = strings.TrimSpace(errorMessage)
+	}
+	if toStatus == "canceled" || toStatus == "succeeded" || toStatus == "failed" {
+		updates["completed_at"] = now
+	}
+	if toStatus == "canceled" {
+		updates["canceled_at"] = now
+	}
+	if toStatus == "cancel_requested" {
+		updates["cancel_requested_at"] = now
+	}
+	query := s.db.WithContext(ctx).Model(&agentRunRecord{}).
+		Where("id = ? AND hr_id = ? AND status = ?", runID, ownerID, fromStatus)
+	if expectedPlanJSON == "" {
+		query = query.Where("(plan_json IS NULL OR plan_json = '')")
+	} else {
+		query = query.Where("plan_json = ?", expectedPlanJSON)
+	}
+	result := query.Updates(updates)
+	if result.Error != nil {
+		return aiagentgrpc.AgentRunRow{}, false, result.Error
+	}
+	if result.RowsAffected != 1 {
+		return aiagentgrpc.AgentRunRow{}, false, nil
+	}
+	transitioned, found, err := s.GetAgentRun(ctx, ownerID, runID)
+	if err != nil {
+		return aiagentgrpc.AgentRunRow{}, false, err
+	}
+	return transitioned, found, nil
+}
+
+// FinalizeAgentRunSkillApproval atomically records the accepted event and
+// advances the durable dispatch marker. A committed marker therefore proves
+// that the event exists, while a pending marker can always be retried.
+func (s *NativeStore) FinalizeAgentRunSkillApproval(
+	ctx context.Context,
+	ownerID int64,
+	runID int64,
+	expectedPlanJSON string,
+	readyPlanJSON string,
+	optionContextJSON string,
+	eventPayloadJSON string,
+) (aiagentgrpc.AgentRunRow, aiagentgrpc.AgentRunEventRow, bool, error) {
+	var finalized agentRunRecord
+	var accepted agentRunEventRecord
+	inserted := false
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current agentRunRecord
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND hr_id = ?", runID, ownerID).
+			First(&current).Error; err != nil {
+			return err
+		}
+		if current.Status != "queued" || stringValue(current.PlanJSON) != expectedPlanJSON {
+			finalized = current
+			return nil
+		}
+		event := agentRunEventRecord{
+			RunID:       runID,
+			Seq:         current.LastEventSeq + 1,
+			EventType:   "confirmation.accepted",
+			PayloadJSON: eventPayloadJSON,
+			CreatedAt:   time.Now(),
+		}
+		if strings.TrimSpace(event.PayloadJSON) == "" {
+			event.PayloadJSON = "{}"
+		}
+		if err := tx.Create(&event).Error; err != nil {
+			return err
+		}
+		accepted = event
+		updates := map[string]any{
+			"plan_json":      nullableJSON(readyPlanJSON),
+			"last_event_seq": event.Seq,
+			"updated_at":     event.CreatedAt,
+		}
+		if strings.TrimSpace(optionContextJSON) != "" {
+			updates["option_context_json"] = nullableJSON(optionContextJSON)
+		}
+		if err := tx.Model(&agentRunRecord{}).Where("id = ?", runID).Updates(updates).Error; err != nil {
+			return err
+		}
+		if err := tx.First(&finalized, runID).Error; err != nil {
+			return err
+		}
+		inserted = true
+		return nil
+	})
+	if err != nil {
+		return aiagentgrpc.AgentRunRow{}, aiagentgrpc.AgentRunEventRow{}, false, err
+	}
+	return mapRunRecord(finalized), aiagentgrpc.AgentRunEventRow{
+		RunID:       accepted.RunID,
+		Seq:         accepted.Seq,
+		EventType:   accepted.EventType,
+		PayloadJSON: accepted.PayloadJSON,
+		CreatedAt:   accepted.CreatedAt,
+	}, inserted, nil
+}
+
+func agentRunSkillLeaseID(planJSON string) string {
+	var plan struct {
+		DurableRequest struct {
+			AgentSkillApproval *struct {
+				DispatchState   string `json:"dispatch_state"`
+				DispatchLeaseID string `json:"dispatch_lease_id"`
+			} `json:"agent_skill_approval"`
+		} `json:"durable_request"`
+	}
+	if json.Unmarshal([]byte(planJSON), &plan) != nil ||
+		plan.DurableRequest.AgentSkillApproval == nil ||
+		plan.DurableRequest.AgentSkillApproval.DispatchState != "claimed" {
+		return ""
+	}
+	return strings.TrimSpace(plan.DurableRequest.AgentSkillApproval.DispatchLeaseID)
+}
+
+func agentRunRecordOwnsSkillLease(run agentRunRecord, ownerID int64, leaseID string) bool {
+	return run.HRID == ownerID &&
+		strings.TrimSpace(leaseID) != "" &&
+		agentRunSkillLeaseID(stringValue(run.PlanJSON)) == strings.TrimSpace(leaseID)
+}
+
+func (s *NativeStore) VerifyAgentRunSkillLease(
+	ctx context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+) (bool, error) {
+	var current agentRunRecord
+	err := s.db.WithContext(ctx).
+		Select("id", "hr_id", "status", "plan_json").
+		Where("id = ? AND hr_id = ? AND status = ?", runID, ownerID, "running").
+		First(&current).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return agentRunRecordOwnsSkillLease(current, ownerID, leaseID), nil
+}
+
+func (s *NativeStore) AppendAgentRunToolTraceForSkillLease(
+	ctx context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	step aiagentgrpc.AgentRunStepRow,
+	trace aiagentgrpc.ToolTraceRow,
+) (aiagentgrpc.AgentRunStepRow, aiagentgrpc.ToolTraceRow, bool, error) {
+	var (
+		stepRecord  agentRunStepRecord
+		traceRecord aiToolTraceRecord
+		owned       bool
+	)
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current agentRunRecord
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Select("id", "hr_id", "status", "plan_json").
+			First(&current, runID).Error; err != nil {
+			return err
+		}
+		if current.Status != "running" || !agentRunRecordOwnsSkillLease(current, ownerID, leaseID) {
+			return nil
+		}
+		if step.RunID != runID || trace.AgentRunID != runID {
+			return fmt.Errorf("agent run tool evidence binding is invalid")
+		}
+		now := time.Now()
+		if step.CreatedAt.IsZero() {
+			step.CreatedAt = now
+		}
+		if step.UpdatedAt.IsZero() {
+			step.UpdatedAt = now
+		}
+		if step.StartedAt.IsZero() {
+			step.StartedAt = step.CreatedAt
+		}
+		if step.StepIndex <= 0 {
+			var maxIndex sql.NullInt64
+			if err := tx.Model(&agentRunStepRecord{}).
+				Select("MAX(step_index)").
+				Where("run_id = ?", runID).
+				Scan(&maxIndex).Error; err != nil {
+				return err
+			}
+			step.StepIndex = 1
+			if maxIndex.Valid {
+				step.StepIndex = int32(maxIndex.Int64) + 1
+			}
+		}
+		stepStatus := strings.TrimSpace(step.Status)
+		if stepStatus == "" {
+			stepStatus = "running"
+		}
+		stepRecord = agentRunStepRecord{
+			RunID:            runID,
+			StepIndex:        step.StepIndex,
+			StepType:         defaultString(strings.TrimSpace(step.StepType), "tool"),
+			CapabilitySource: strings.TrimSpace(step.CapabilitySource),
+			CapabilityKey:    strings.TrimSpace(step.CapabilityKey),
+			ToolName:         strings.TrimSpace(step.ToolName),
+			InputJSON:        nullableJSON(step.InputJSON),
+			OutputJSON:       nullableJSON(step.OutputJSON),
+			Status:           stepStatus,
+			DurationMs:       step.DurationMs,
+			ErrorMsg:         strings.TrimSpace(step.ErrorMsg),
+			StartedAt:        step.StartedAt,
+			CompletedAt:      step.CompletedAt,
+			CreatedAt:        step.CreatedAt,
+			UpdatedAt:        step.UpdatedAt,
+		}
+		if err := tx.Create(&stepRecord).Error; err != nil {
+			return err
+		}
+
+		traceTime := trace.CreatedAt
+		if traceTime.IsZero() {
+			traceTime = now
+		}
+		traceStatus := strings.TrimSpace(trace.Status)
+		if traceStatus == "" {
+			if strings.TrimSpace(trace.ErrorMsg) != "" {
+				traceStatus = "error"
+			} else {
+				traceStatus = "success"
+			}
+		}
+		traceRecord = aiToolTraceRecord{
+			HRID:           ownerID,
+			SessionID:      trace.SessionID,
+			AgentRunID:     &runID,
+			AgentRunStepID: &stepRecord.ID,
+			ToolCallID:     strings.TrimSpace(trace.ToolCallID),
+			ToolName:       strings.TrimSpace(trace.ToolName),
+			ArgsJSON:       strings.TrimSpace(trace.ArgsJSON),
+			ResultContent:  strings.TrimSpace(trace.ResultContent),
+			Status:         traceStatus,
+			DurationMs:     trace.DurationMs,
+			ErrorMsg:       strings.TrimSpace(trace.ErrorMsg),
+			CreatedAt:      traceTime,
+		}
+		if err := tx.Create(&traceRecord).Error; err != nil {
+			return err
+		}
+		owned = true
+		return nil
+	})
+	if err != nil || !owned {
+		return aiagentgrpc.AgentRunStepRow{}, aiagentgrpc.ToolTraceRow{}, owned, err
+	}
+	return mapAgentRunStepRecord(stepRecord), mapToolTraceRecord(traceRecord), true, nil
+}
+
+func (s *NativeStore) UpdateAgentRunPlanForSkillLease(
+	ctx context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	planJSON string,
+	optionContextJSON string,
+) (aiagentgrpc.AgentRunRow, bool, error) {
+	var updated agentRunRecord
+	owned := false
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current agentRunRecord
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, runID).Error; err != nil {
+			return err
+		}
+		if current.Status != "running" ||
+			!agentRunRecordOwnsSkillLease(current, ownerID, leaseID) ||
+			agentRunSkillLeaseID(planJSON) != strings.TrimSpace(leaseID) {
+			return nil
+		}
+		updates := map[string]any{
+			"plan_json":  nullableJSON(planJSON),
+			"updated_at": time.Now(),
+		}
+		if strings.TrimSpace(optionContextJSON) != "" {
+			updates["option_context_json"] = nullableJSON(optionContextJSON)
+		}
+		if err := tx.Model(&agentRunRecord{}).Where("id = ?", runID).Updates(updates).Error; err != nil {
+			return err
+		}
+		if err := tx.First(&updated, runID).Error; err != nil {
+			return err
+		}
+		owned = true
+		return nil
+	})
+	if err != nil || !owned {
+		return aiagentgrpc.AgentRunRow{}, owned, err
+	}
+	return mapRunRecord(updated), true, nil
+}
+
+func (s *NativeStore) UpdateAgentRunRuntimeGovernanceForSkillLease(
+	ctx context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	model aiagentgrpc.RuntimeModelInfo,
+) (bool, error) {
+	owned := false
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current agentRunRecord
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, runID).Error; err != nil {
+			return err
+		}
+		if current.Status != "running" || !agentRunRecordOwnsSkillLease(current, ownerID, leaseID) {
+			return nil
+		}
+		if err := tx.Model(&agentRunRecord{}).Where("id = ?", runID).Updates(map[string]any{
+			"requested_model_id":       model.RequestedModelID,
+			"effective_model_id":       model.ID,
+			"model_fallback_reason":    nullableSQLString(model.FallbackReason),
+			"capability_version_id":    model.CapabilityVersionID,
+			"capability_snapshot_hash": nullableSQLString(model.CapabilitySnapshotHash),
+			"updated_at":               time.Now(),
+		}).Error; err != nil {
+			return err
+		}
+		owned = true
+		return nil
+	})
+	return owned, err
+}
+
+func (s *NativeStore) AppendAgentRunEventForSkillLease(
+	ctx context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	eventType string,
+	payload string,
+) (aiagentgrpc.AgentRunEventRow, bool, error) {
+	var event agentRunEventRecord
+	owned := false
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var run agentRunRecord
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&run, runID).Error; err != nil {
+			return err
+		}
+		statusAllowed := run.Status == "running" ||
+			((eventType == "run.completed" || eventType == "run.canceled") &&
+				(run.Status == "succeeded" || run.Status == "failed" || run.Status == "canceled"))
+		if !statusAllowed || !agentRunRecordOwnsSkillLease(run, ownerID, leaseID) {
+			return nil
+		}
+		event = agentRunEventRecord{
+			RunID:       runID,
+			Seq:         run.LastEventSeq + 1,
+			EventType:   eventType,
+			PayloadJSON: payload,
+			CreatedAt:   time.Now(),
+		}
+		if strings.TrimSpace(event.PayloadJSON) == "" {
+			event.PayloadJSON = "{}"
+		}
+		if err := tx.Create(&event).Error; err != nil {
+			return err
+		}
+		updates := map[string]any{"last_event_seq": event.Seq, "updated_at": event.CreatedAt}
+		var snapshotPayload struct {
+			SnapshotText *string `json:"snapshot_text"`
+		}
+		if json.Unmarshal([]byte(event.PayloadJSON), &snapshotPayload) == nil && snapshotPayload.SnapshotText != nil {
+			updates["process_text"] = *snapshotPayload.SnapshotText
+		}
+		if err := tx.Model(&agentRunRecord{}).Where("id = ?", runID).Updates(updates).Error; err != nil {
+			return err
+		}
+		owned = true
+		return nil
+	})
+	if err != nil || !owned {
+		return aiagentgrpc.AgentRunEventRow{}, owned, err
+	}
+	return aiagentgrpc.AgentRunEventRow{
+		RunID:       event.RunID,
+		Seq:         event.Seq,
+		EventType:   event.EventType,
+		PayloadJSON: event.PayloadJSON,
+		CreatedAt:   event.CreatedAt,
+	}, true, nil
+}
+
+func (s *NativeStore) AppendAgentRunAssistantMessageForSkillLease(
+	ctx context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	message aiagentgrpc.ChatMessageRow,
+) (aiagentgrpc.ChatMessageRow, bool, error) {
+	var history aiChatHistoryRecord
+	owned := false
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var run agentRunRecord
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&run, runID).Error; err != nil {
+			return err
+		}
+		if run.Status != "running" ||
+			!agentRunRecordOwnsSkillLease(run, ownerID, leaseID) ||
+			message.OwnerRole != chatOwnerRoleHR ||
+			message.OwnerID != ownerID ||
+			message.SessionID != run.SessionID ||
+			strings.TrimSpace(message.Role) != "assistant" {
+			return nil
+		}
+		contextUsageJSON, err := marshalContextUsage(message.ContextUsage)
+		if err != nil {
+			return err
+		}
+		now := message.CreatedAt
+		if now.IsZero() {
+			now = time.Now()
+		}
+		history = aiChatHistoryRecord{
+			HRID:                 chatCompatibilityHRID(message.OwnerRole, message.OwnerID),
+			OwnerRole:            message.OwnerRole,
+			OwnerID:              message.OwnerID,
+			SessionID:            message.SessionID,
+			Role:                 message.Role,
+			Content:              message.Content,
+			ProcessContent:       message.ProcessContent,
+			ModelID:              message.ModelID,
+			ModelName:            message.ModelName,
+			ContextUsageJSON:     contextUsageJSON,
+			AgentSkillVersionIDs: nullableJSON(marshalInt64Slice(message.AgentSkillVersionIDs)),
+			AgentSkillNames:      nullableJSON(marshalStringSlice(message.AgentSkillNames)),
+			AgentRunID:           &runID,
+			CreatedAt:            now,
+		}
+		if err := tx.Create(&history).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&aiChatSessionRecord{}).Where("id = ?", run.SessionID).Updates(map[string]any{
+			"updated_at":           now,
+			"last_message_preview": chatMessagePreview(message.Content),
+			"message_count":        gorm.Expr("message_count + 1"),
+		}).Error; err != nil {
+			return err
+		}
+		owned = true
+		return nil
+	})
+	if err != nil || !owned {
+		return aiagentgrpc.ChatMessageRow{}, owned, err
+	}
+	return mapMessageRecord(ctx, history), true, nil
+}
+
+func (s *NativeStore) CompleteAgentRunForSkillLease(
+	ctx context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	assistantText string,
+	status string,
+	errorType string,
+	errorMessage string,
+) (aiagentgrpc.AgentRunRow, bool, error) {
+	var completed agentRunRecord
+	owned := false
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current agentRunRecord
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, runID).Error; err != nil {
+			return err
+		}
+		statusAllowed := current.Status == "running" ||
+			(current.Status == "cancel_requested" && status == "canceled")
+		if !statusAllowed ||
+			!agentRunRecordOwnsSkillLease(current, ownerID, leaseID) {
+			return nil
+		}
+		now := time.Now()
+		updates := map[string]any{
+			"status":         status,
+			"assistant_text": assistantText,
+			"updated_at":     now,
+		}
+		if status == "succeeded" || status == "failed" || status == "canceled" {
+			updates["completed_at"] = now
+		}
+		if status == "canceled" {
+			updates["canceled_at"] = now
+		}
+		if errorType != "" {
+			updates["error_type"] = errorType
+		}
+		if errorMessage != "" {
+			updates["error_message"] = errorMessage
+		}
+		if err := tx.Model(&agentRunRecord{}).Where("id = ?", runID).Updates(updates).Error; err != nil {
+			return err
+		}
+		if err := tx.First(&completed, runID).Error; err != nil {
+			return err
+		}
+		owned = true
+		return nil
+	})
+	if err != nil || !owned {
+		return aiagentgrpc.AgentRunRow{}, owned, err
+	}
+	return mapRunRecord(completed), true, nil
 }
 
 func (s *NativeStore) CompleteAgentRun(ctx context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage string) (aiagentgrpc.AgentRunRow, bool, error) {

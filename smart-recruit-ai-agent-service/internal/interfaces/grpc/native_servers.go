@@ -523,24 +523,26 @@ type AgentRunEventRow struct {
 }
 
 type agentRunDurablePayload struct {
-	Message                     string                   `json:"message,omitempty"`
-	ActionType                  string                   `json:"action_type,omitempty"`
-	ActionPayloadJSON           string                   `json:"action_payload_json,omitempty"`
-	ApplicationID               int64                    `json:"application_id,omitempty"`
-	ModelID                     int64                    `json:"model_id,omitempty"`
-	AuthUserID                  int64                    `json:"auth_user_id,omitempty"`
-	AuthAccountType             string                   `json:"auth_account_type,omitempty"`
-	AuthTenantID                int64                    `json:"auth_tenant_id,omitempty"`
-	AuthMembershipID            int64                    `json:"auth_membership_id,omitempty"`
-	AuthClientApp               string                   `json:"auth_client_app,omitempty"`
-	EffectiveAgentID            int64                    `json:"effective_agent_id,omitempty"`
-	EffectiveAgentPinned        bool                     `json:"effective_agent_pinned,omitempty"`
-	SkillCapabilityKeys         []string                 `json:"skill_capability_keys,omitempty"`
-	AgentSkillVersionIDs        []int64                  `json:"agent_skill_version_ids,omitempty"`
-	ConfirmationPayloadJSON     string                   `json:"confirmation_payload_json,omitempty"`
-	ConfirmationClientRequestID string                   `json:"confirmation_client_request_id,omitempty"`
-	PendingMCPConfirmation      *agentRunMCPConfirmation `json:"pending_mcp_confirmation,omitempty"`
-	MCPApproval                 *agentRunMCPApproval     `json:"mcp_approval,omitempty"`
+	Message                       string                     `json:"message,omitempty"`
+	ActionType                    string                     `json:"action_type,omitempty"`
+	ActionPayloadJSON             string                     `json:"action_payload_json,omitempty"`
+	ApplicationID                 int64                      `json:"application_id,omitempty"`
+	ModelID                       int64                      `json:"model_id,omitempty"`
+	AuthUserID                    int64                      `json:"auth_user_id,omitempty"`
+	AuthAccountType               string                     `json:"auth_account_type,omitempty"`
+	AuthTenantID                  int64                      `json:"auth_tenant_id,omitempty"`
+	AuthMembershipID              int64                      `json:"auth_membership_id,omitempty"`
+	AuthClientApp                 string                     `json:"auth_client_app,omitempty"`
+	EffectiveAgentID              int64                      `json:"effective_agent_id,omitempty"`
+	EffectiveAgentPinned          bool                       `json:"effective_agent_pinned,omitempty"`
+	SkillCapabilityKeys           []string                   `json:"skill_capability_keys,omitempty"`
+	AgentSkillVersionIDs          []int64                    `json:"agent_skill_version_ids,omitempty"`
+	ConfirmationPayloadJSON       string                     `json:"confirmation_payload_json,omitempty"`
+	ConfirmationClientRequestID   string                     `json:"confirmation_client_request_id,omitempty"`
+	PendingMCPConfirmation        *agentRunMCPConfirmation   `json:"pending_mcp_confirmation,omitempty"`
+	MCPApproval                   *agentRunMCPApproval       `json:"mcp_approval,omitempty"`
+	PendingAgentSkillConfirmation *agentRunSkillConfirmation `json:"pending_agent_skill_confirmation,omitempty"`
+	AgentSkillApproval            *agentRunSkillApproval     `json:"agent_skill_approval,omitempty"`
 }
 
 type agentRunMCPConfirmation struct {
@@ -572,6 +574,16 @@ type mcpConfirmationRequiredError struct {
 
 func (e *mcpConfirmationRequiredError) Error() string {
 	return "mcp tool confirmation is required"
+}
+
+type agentSkillConfirmationRequiredError struct {
+	Governance    hrRuntimeGovernanceContext
+	RuntimeModel  RuntimeModelInfo
+	UserMessageID int64
+}
+
+func (e *agentSkillConfirmationRequiredError) Error() string {
+	return "agent skill confirmation is required"
 }
 
 type RecruitingApplicationContext struct {
@@ -847,6 +859,8 @@ const (
 	agentRunStatusFailed              = "failed"
 	agentRunStatusCanceled            = "canceled"
 	agentRunStatusPartial             = "partial"
+
+	agentRunCancelTransitionMaxAttempts = 4
 )
 
 func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
@@ -976,6 +990,8 @@ type nativeAIService struct {
 	runCancelMu             sync.Mutex
 	runCancels              map[int64]*agentRunCancelEntry
 	runTransitionMu         sync.Mutex
+	agentSkillMetricMu      sync.Mutex
+	agentSkillMetricKeys    map[string]struct{}
 	memoryService           *appmemory.Service
 	skillPackageV2Enabled   bool
 	metrics                 *observability.Registry
@@ -1103,6 +1119,7 @@ type agentRunDisplayContext struct {
 
 type hrChatRuntimeOptions struct {
 	reuseExistingUserMessage bool
+	existingUserMessageID    int64
 	agentRunID               int64
 	effectiveAgentID         int64
 	effectiveAgentPinned     bool
@@ -1197,10 +1214,38 @@ func (r hrAllowlistedToolRunner) Execute(ctx context.Context, hrID int64, toolNa
 		err := &hr_tools.ToolExecutionError{Kind: "unavailable", ToolName: normalized, Message: "tool executor is unavailable"}
 		return commonsai.ToolResult{Content: marshalJSONString(map[string]any{"error": err.Error(), "error_type": err.Kind})}, err
 	}
-	if isRecruitingIntelligenceTool(normalized) {
-		return r.service.executeRecruitingIntelligenceTool(ctx, hrID, normalized, args, r.runID)
+	if r.service != nil {
+		if err := r.service.verifyAgentRunSkillExecutionLease(ctx); err != nil {
+			return agentRunSkillLeaseLostToolResult(normalized, err)
+		}
 	}
-	return r.delegate.Execute(ctx, hrID, normalized, args)
+	var (
+		result commonsai.ToolResult
+		err    error
+	)
+	if isRecruitingIntelligenceTool(normalized) {
+		result, err = r.service.executeRecruitingIntelligenceTool(ctx, hrID, normalized, args, r.runID)
+	} else {
+		result, err = r.delegate.Execute(ctx, hrID, normalized, args)
+	}
+	if r.service != nil {
+		if leaseErr := r.service.verifyAgentRunSkillExecutionLease(ctx); leaseErr != nil {
+			return agentRunSkillLeaseLostToolResult(normalized, leaseErr)
+		}
+	}
+	return result, err
+}
+
+func agentRunSkillLeaseLostToolResult(toolName string, cause error) (commonsai.ToolResult, error) {
+	err := fmt.Errorf("%w: tool %s was canceled before durable evidence could be committed", errAgentRunExecutionLeaseLost, toolName)
+	if cause != nil && !errors.Is(cause, errAgentRunExecutionLeaseLost) {
+		err = fmt.Errorf("%w: %v", errAgentRunExecutionLeaseLost, cause)
+	}
+	return commonsai.ToolResult{Content: marshalJSONString(map[string]any{
+		"error":      err.Error(),
+		"error_type": "execution_lease_lost",
+		"retryable":  false,
+	})}, err
 }
 
 type hrRuntimeAgentConfigStore interface {
@@ -1221,6 +1266,7 @@ func (s *nativeAIService) runHRChatRuntime(ctx context.Context, req *pb.ChatRequ
 
 func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *pb.ChatRequest, emit hrChatStreamEmitter, opts hrChatRuntimeOptions) (result hrChatRuntimeResult, err error) {
 	ctx = withAgentSkillExecutionMode(ctx, opts.agentRunID > 0)
+	ctx = withAgentSkillApproval(ctx, opts.agentRunID, req.GetHrId(), opts.durablePayload.AgentSkillApproval)
 	session, err := s.ensureSession(ctx, ownerRoleHR, req.GetHrId(), req.GetSessionId(), req.GetApplicationId(), req.GetMessage())
 	if err != nil {
 		return hrChatRuntimeResult{}, err
@@ -1305,7 +1351,38 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	governance.MCPApproval = opts.durablePayload.MCPApproval
 	result.governance = governance
 	if governance.AgentSkillConfirmationRequired {
-		return result, hrRuntimeSkillConfirmationError(opts.agentRunID > 0)
+		userMessageID := int64(0)
+		if opts.agentRunID > 0 {
+			userMessage, appendErr := s.ensureAgentRunSkillConfirmationUserMessage(ctx, req, governance, opts.agentRunID)
+			if appendErr != nil {
+				return result, appendErr
+			}
+			userMessageID = userMessage.ID
+		}
+		selection := agentSkillSelectionPayload(governance, userMessageID)
+		if emit != nil {
+			if sendErr := send(&pb.ChatStreamResponse{
+				Code:                      agentRunCodeBadRequest,
+				Msg:                       "ai.agent_skill_confirmation_required",
+				Done:                      true,
+				EventType:                 "agent_skill_selection_required",
+				EventMessage:              "ai.agent_skill_confirmation_required",
+				ErrorType:                 "AGENT_SKILL_CONFIRMATION_REQUIRED",
+				AgentSkillSelection:       selection,
+				AgentSkillRuntimeEvidence: governance.AgentSkillRuntimeEvidence,
+				CreatedAt:                 formatTime(time.Now()),
+			}); sendErr != nil {
+				return result, sendErr
+			}
+		}
+		if opts.agentRunID <= 0 {
+			return result, statusErrorFailedPrecondition("AGENT_SKILL_CONFIRMATION_REQUIRES_DURABLE_RUN")
+		}
+		return result, &agentSkillConfirmationRequiredError{
+			Governance:    governance,
+			RuntimeModel:  result.runtimeModel,
+			UserMessageID: userMessageID,
+		}
 	}
 	if result.runtimeModel.CapabilityVersionID > 0 && (governance.Agent == nil || governance.Prompt == nil || len(governance.GovernanceErrors) > 0) {
 		return result, status.Error(codes.FailedPrecondition, "Agent or Prompt is unavailable in the capability release")
@@ -1317,11 +1394,35 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	}
 	var userMessage ChatMessageRow
 	if opts.reuseExistingUserMessage {
-		userMessage = findHRUserMessage(history, req.GetMessage())
+		if opts.existingUserMessageID > 0 {
+			userMessage = findHRUserMessageByID(history, opts.existingUserMessageID)
+			if userMessage.ID == 0 {
+				return result, errInvalidAgentSkillConfirmation
+			}
+			if approval := opts.durablePayload.AgentSkillApproval; approval != nil &&
+				(approval.UserMessageID != userMessage.ID ||
+					approval.MessageDigest != agentSkillMessageDigest(userMessage.Content)) {
+				return result, errInvalidAgentSkillConfirmation
+			}
+		} else if strings.EqualFold(strings.TrimSpace(opts.durablePayload.ActionType), "analyze_application") {
+			// Application analysis sessions predate durable Run message binding
+			// and seed their user message before creating a Run. This compatibility
+			// path is not used by either Skill or MCP confirmation resume.
+			userMessage = findHRUserMessage(history, req.GetMessage())
+		}
 	}
 	if strings.TrimSpace(req.GetMessage()) != "" && s.store != nil {
 		if userMessage.ID == 0 {
-			userMessage, err = s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "user", Content: req.GetMessage(), ModelID: req.GetModelId(), AgentSkillVersionIDs: hrRuntimeAgentSkillVersionIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance)})
+			message := ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "user", Content: req.GetMessage(), ModelID: req.GetModelId(), AgentSkillVersionIDs: hrRuntimeAgentSkillVersionIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance)}
+			if opts.agentRunID > 0 {
+				binder, ok := s.store.(agentRunUserMessageStore)
+				if !ok {
+					return result, errInvalidAgentSkillConfirmation
+				}
+				userMessage, _, _, err = binder.EnsureAgentRunUserMessage(ctx, req.GetHrId(), opts.agentRunID, message)
+			} else {
+				userMessage, err = s.store.AppendChatMessage(ctx, message)
+			}
 			if err != nil {
 				return result, err
 			}
@@ -1642,6 +1743,9 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			}
 		}
 	}
+	if opts.agentRunID > 0 && agentRunExecutionCanceled(ctx, nil) {
+		return result, ctx.Err()
+	}
 	cleanReply, generatedQuestions := extractHRSuggestedQuestions(reply)
 	reply = cleanReply
 	if !plan.ConfirmationRequirement.Required {
@@ -1664,7 +1768,26 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	)
 	processContent := buildHRProcessContent(traces, result.contextUsage, result.fallbackUsed, governance, plan, s.hrRuntimeLabel(), result.suggestedQuestions)
 	if s.store != nil {
-		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ProcessContent: processContent, ModelID: result.modelID, ModelName: result.modelName, ContextUsage: result.contextUsage, AgentSkillVersionIDs: hrRuntimeAgentSkillVersionIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance), CreatedAt: time.Now()}); err != nil {
+		message := ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ProcessContent: processContent, ModelID: result.modelID, ModelName: result.modelName, ContextUsage: result.contextUsage, AgentSkillVersionIDs: hrRuntimeAgentSkillVersionIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance), CreatedAt: time.Now()}
+		if leaseID := agentRunSkillApprovalLeaseFromContext(ctx); leaseID != "" {
+			store, ok := s.store.(agentRunSkillExecutionFenceStore)
+			if !ok {
+				return result, errAgentRunExecutionLeaseLost
+			}
+			if _, owned, appendErr := store.AppendAgentRunAssistantMessageForSkillLease(
+				ctx,
+				req.GetHrId(),
+				opts.agentRunID,
+				leaseID,
+				message,
+			); appendErr != nil {
+				return result, appendErr
+			} else if !owned {
+				return result, errAgentRunExecutionLeaseLost
+			}
+		} else if hasAgentRunSkillApprovalContext(ctx) {
+			return result, errAgentRunExecutionLeaseLost
+		} else if _, err := s.store.AppendChatMessage(ctx, message); err != nil {
 			return result, err
 		}
 	}
@@ -1763,6 +1886,19 @@ func findHRUserMessage(messages []ChatMessageRow, content string) ChatMessageRow
 	for index := len(messages) - 1; index >= 0; index-- {
 		message := messages[index]
 		if message.Role == "user" && strings.TrimSpace(message.Content) == needle {
+			return message
+		}
+	}
+	return ChatMessageRow{}
+}
+
+func findHRUserMessageByID(messages []ChatMessageRow, messageID int64) ChatMessageRow {
+	if messageID <= 0 {
+		return ChatMessageRow{}
+	}
+	for index := len(messages) - 1; index >= 0; index-- {
+		message := messages[index]
+		if message.ID == messageID && message.Role == "user" {
 			return message
 		}
 	}
@@ -1947,10 +2083,22 @@ func plannedHRToolArgs(name string, req *pb.ChatRequest, traces []ToolTraceRow) 
 }
 
 func (s *nativeAIService) executePlannedHRTool(ctx context.Context, hrID int64, name string, args map[string]any, executor *hr_tools.Executor) (commonsai.ToolResult, error) {
-	if isRecruitingIntelligenceTool(name) {
-		return s.executeRecruitingIntelligenceTool(ctx, hrID, name, args, 0)
+	if err := s.verifyAgentRunSkillExecutionLease(ctx); err != nil {
+		return agentRunSkillLeaseLostToolResult(name, err)
 	}
-	return executor.Execute(ctx, hrID, name, args)
+	var (
+		result commonsai.ToolResult
+		err    error
+	)
+	if isRecruitingIntelligenceTool(name) {
+		result, err = s.executeRecruitingIntelligenceTool(ctx, hrID, name, args, 0)
+	} else {
+		result, err = executor.Execute(ctx, hrID, name, args)
+	}
+	if leaseErr := s.verifyAgentRunSkillExecutionLease(ctx); leaseErr != nil {
+		return agentRunSkillLeaseLostToolResult(name, leaseErr)
+	}
+	return result, err
 }
 
 func isRecruitingIntelligenceTool(name string) bool {
@@ -2838,9 +2986,15 @@ func (s *nativeAIService) executeHRContextTools(ctx context.Context, req *pb.Cha
 				return nil, err
 			}
 		}
+		if err := s.verifyAgentRunSkillExecutionLease(ctx); err != nil {
+			return traces, err
+		}
 		start := time.Now()
 		snapshot, err := s.applications.GetApplicationSnapshot(ctx, &pb.GetApplicationSnapshotRequest{ApplicationId: req.GetApplicationId()})
 		duration := time.Since(start)
+		if leaseErr := s.verifyAgentRunSkillExecutionLease(ctx); leaseErr != nil {
+			return traces, leaseErr
+		}
 		trace := ToolTraceRow{SessionID: sessionID, AgentRunID: agentRunID, ToolCallID: fmt.Sprintf("snapshot-%d", req.GetApplicationId()), ToolName: hrApplicationSnapshotTool, ArgsJSON: fmt.Sprintf(`{"application_id":%d}`, req.GetApplicationId()), DurationMs: duration.Milliseconds(), CreatedAt: time.Now()}
 		if err != nil {
 			trace.ErrorMsg = err.Error()
@@ -2925,7 +3079,13 @@ func (s *nativeAIService) executeHRMCPTools(ctx context.Context, req *pb.ChatReq
 				return traces, err
 			}
 		}
+		if err := s.verifyAgentRunSkillExecutionLease(ctx); err != nil {
+			return traces, err
+		}
 		resp, err := service.CallMCPTool(ctx, &pb.CallMCPToolRequest{ServerId: call.serverID, ToolName: call.toolName, ArgsJson: argsJSON, CalledByHrId: req.GetHrId(), SessionId: sessionID, CallerRole: "hr_agent", CallerScope: "agent_runtime", ConfirmationApproved: confirmationApproved})
+		if leaseErr := s.verifyAgentRunSkillExecutionLease(ctx); leaseErr != nil {
+			return traces, leaseErr
+		}
 		trace := ToolTraceRow{SessionID: sessionID, AgentRunID: agentRunID, ToolCallID: fmt.Sprintf("mcp-%d-%s", call.serverID, call.toolName), ToolName: call.runtimeName, ArgsJSON: service.RedactedArgsForTool(ctx, call.serverID, call.toolName, argsJSON), CreatedAt: time.Now()}
 		var confirmationErr *mcpConfirmationRequiredError
 		if err != nil {
@@ -3098,6 +3258,30 @@ func (s *nativeAIService) persistHRToolTrace(ctx context.Context, hrID int64, tr
 		if step.Status == "success" || step.Status == "error" {
 			completed := now
 			step.CompletedAt = &completed
+		}
+		if execution, governed := agentRunSkillApprovalExecutionFromContext(ctx); governed {
+			store, ok := s.store.(agentRunSkillExecutionFenceStore)
+			if !ok || execution.RunID != trace.AgentRunID || execution.HRID != hrID {
+				return ToolTraceRow{}, errAgentRunExecutionLeaseLost
+			}
+			_, persistedTrace, owned, err := store.AppendAgentRunToolTraceForSkillLease(
+				ctx,
+				hrID,
+				execution.RunID,
+				execution.Approval.DispatchLeaseID,
+				step,
+				trace,
+			)
+			if err != nil {
+				return ToolTraceRow{}, err
+			}
+			if !owned {
+				return ToolTraceRow{}, errAgentRunExecutionLeaseLost
+			}
+			return persistedTrace, nil
+		}
+		if hasAgentRunSkillApprovalContext(ctx) {
+			return ToolTraceRow{}, errAgentRunExecutionLeaseLost
 		}
 		if persistedStep, err := s.store.AppendAgentRunStep(ctx, step); err == nil && persistedStep.ID != 0 {
 			trace.AgentRunStepID = persistedStep.ID
@@ -4798,6 +4982,15 @@ func (s *nativeAIService) GetAgentRun(ctx context.Context, req *pb.GetAgentRunRe
 	if !found {
 		return &pb.GetAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
+	run, err = s.recoverApprovedAgentSkillHandoff(ctx, run, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	if expired, transitioned, expireErr := s.expirePendingAgentRunConfirmation(ctx, run, time.Now()); expireErr != nil {
+		return nil, expireErr
+	} else if transitioned {
+		run = expired
+	}
 	return &pb.GetAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
 }
 
@@ -4808,6 +5001,18 @@ func (s *nativeAIService) GetActiveAgentRun(ctx context.Context, req *pb.GetActi
 	run, found, err := s.store.GetActiveAgentRun(ctx, req.GetHrId(), req.GetSessionId())
 	if err != nil {
 		return nil, err
+	}
+	if found {
+		run, err = s.recoverApprovedAgentSkillHandoff(ctx, run, time.Now())
+		if err != nil {
+			return nil, err
+		}
+		if expired, transitioned, expireErr := s.expirePendingAgentRunConfirmation(ctx, run, time.Now()); expireErr != nil {
+			return nil, expireErr
+		} else if transitioned {
+			run = expired
+			found = false
+		}
 	}
 	if found && s.agentRunExceededDeadline(run, time.Now()) {
 		if err := s.ensureAgentRunTerminal(run, context.DeadlineExceeded); err != nil {
@@ -4927,55 +5132,204 @@ func (s *nativeAIService) CancelAgentRun(ctx context.Context, req *pb.CancelAgen
 		return &pb.CancelAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 
-	if isTerminalAgentRunStatus(run.Status) || run.Status == agentRunStatusCancelRequested {
+	if isTerminalAgentRunStatus(run.Status) {
 		return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
 	}
-	if !isCancelableAgentRunStatus(run.Status) {
+	if run.Status == agentRunStatusCancelRequested &&
+		agentRunPayloadFromRow(run).AgentSkillApproval == nil {
+		return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
+	}
+	if run.Status != agentRunStatusCancelRequested && !isCancelableAgentRunStatus(run.Status) {
 		return &pb.CancelAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
 	}
 
-	s.runTransitionMu.Lock()
+	if lockErr := lockMutexWithContext(ctx, &s.runTransitionMu); lockErr != nil {
+		return nil, status.FromContextError(lockErr).Err()
+	}
 	defer s.runTransitionMu.Unlock()
-	run, found, err = s.getRun(ctx, req.GetHrId(), req.GetRunId())
-	if err != nil {
-		return nil, err
-	}
-	if !found {
-		return &pb.CancelAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
-	}
-	if isTerminalAgentRunStatus(run.Status) || run.Status == agentRunStatusCancelRequested {
-		return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
-	}
-	if !isCancelableAgentRunStatus(run.Status) {
-		return &pb.CancelAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
-	}
-	run, found, err = s.updateRun(ctx, req.GetHrId(), req.GetRunId(), agentRunStatusCancelRequested)
-	if err != nil {
-		return nil, err
-	}
-	if !found {
-		return &pb.CancelAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
-	}
-	activeExecution := s.cancelAgentRunExecution(req.GetRunId())
-	if !activeExecution {
-		if err := s.completeAgentRunCanceledLocked(ctx, run); err != nil {
-			return nil, err
+	// Progress writes and worker claims use the same exact status/plan CAS from
+	// other replicas. Reload after a miss so cancellation is rebuilt from the
+	// winning snapshot without ever falling back to an unconditional update.
+	for attempt := 0; attempt < agentRunCancelTransitionMaxAttempts; attempt++ {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
 		}
-		finalRun, finalFound, err := s.getRun(ctx, req.GetHrId(), req.GetRunId())
+		run, found, err = s.getRun(ctx, req.GetHrId(), req.GetRunId())
 		if err != nil {
 			return nil, err
 		}
-		if finalFound {
-			run = finalRun
+		if !found {
+			return &pb.CancelAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
+		}
+		if isTerminalAgentRunStatus(run.Status) {
+			return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
+		}
+		if run.Status == agentRunStatusCancelRequested &&
+			agentRunPayloadFromRow(run).AgentSkillApproval == nil {
+			return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
+		}
+		if run.Status != agentRunStatusCancelRequested && !isCancelableAgentRunStatus(run.Status) {
+			return &pb.CancelAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
+		}
+
+		payload := agentRunPayloadFromRow(run)
+		if run.Status == agentRunStatusWaitingConfirmation ||
+			run.Status == agentRunStatusQueued ||
+			run.Status == agentRunStatusPlanning {
+			var pendingSkill *agentRunSkillConfirmation
+			nextPlanJSON := run.PlanJSON
+			nextOptionContextJSON := run.OptionContextJSON
+			if run.Status == agentRunStatusWaitingConfirmation && payload.PendingAgentSkillConfirmation != nil {
+				pending := *payload.PendingAgentSkillConfirmation
+				pendingSkill = &pending
+				payload.PendingAgentSkillConfirmation = nil
+				nextPlanJSON = agentRunPlanJSON(payload)
+				nextOptionContextJSON = agentRunSkillResolutionContextJSON(pending, "canceled")
+			}
+			canceled, transitioned, transitionErr := s.transitionAgentRunState(
+				ctx,
+				run,
+				run.Status,
+				agentRunStatusCanceled,
+				nextPlanJSON,
+				nextOptionContextJSON,
+				"",
+				"",
+			)
+			if transitionErr != nil {
+				return nil, transitionErr
+			}
+			if !transitioned {
+				continue
+			}
+			s.cancelAgentRunExecution(req.GetRunId())
+			if _, eventErr := s.appendAgentRunEvent(ctx, canceled.ID, "run.status_changed", fmt.Sprintf(`{"status":%q}`, agentRunStatusCanceled)); eventErr != nil {
+				return nil, eventErr
+			}
+			_, _ = s.appendAgentRunEvent(ctx, canceled.ID, "run.canceled", marshalJSONString(map[string]any{
+				"status": agentRunStatusCanceled,
+			}))
+			if pendingSkill != nil {
+				s.recordAgentSkillConfirmation(
+					withAgentSkillExecutionMode(ctx, true),
+					pendingSkill.SelectionMode,
+					pendingSkill.Role,
+					pendingSkill.Risk,
+					"failed",
+					"canceled",
+				)
+			}
+			return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(canceled)}, nil
+		}
+		if run.Status == agentRunStatusCancelRequested {
+			if s.cancelAgentRunExecution(req.GetRunId()) {
+				return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
+			}
+			canceled, transitioned, transitionErr := s.transitionAgentRunState(
+				ctx,
+				run,
+				agentRunStatusCancelRequested,
+				agentRunStatusCanceled,
+				run.PlanJSON,
+				run.OptionContextJSON,
+				"",
+				"",
+			)
+			if transitionErr != nil {
+				return nil, transitionErr
+			}
+			if !transitioned {
+				continue
+			}
+			_, _ = s.appendAgentRunEvent(ctx, canceled.ID, "run.canceled", marshalJSONString(map[string]any{
+				"status": agentRunStatusCanceled,
+			}))
+			return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(canceled)}, nil
+		}
+
+		cancelRequested, transitioned, transitionErr := s.transitionAgentRunState(
+			ctx,
+			run,
+			agentRunStatusRunning,
+			agentRunStatusCancelRequested,
+			run.PlanJSON,
+			run.OptionContextJSON,
+			"",
+			"",
+		)
+		if transitionErr != nil {
+			return nil, transitionErr
+		}
+		if !transitioned {
+			continue
+		}
+		activeExecution := s.cancelAgentRunExecution(req.GetRunId())
+		if _, eventErr := s.appendAgentRunEvent(ctx, cancelRequested.ID, "run.status_changed", fmt.Sprintf(`{"status":%q}`, agentRunStatusCancelRequested)); eventErr != nil {
+			return nil, eventErr
+		}
+		if activeExecution {
+			return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(cancelRequested)}, nil
+		}
+		canceled, finalized, finalizeErr := s.transitionAgentRunState(
+			ctx,
+			cancelRequested,
+			agentRunStatusCancelRequested,
+			agentRunStatusCanceled,
+			cancelRequested.PlanJSON,
+			cancelRequested.OptionContextJSON,
+			"",
+			"",
+		)
+		if finalizeErr != nil {
+			return nil, finalizeErr
+		}
+		if !finalized {
+			continue
+		}
+		_, _ = s.appendAgentRunEvent(ctx, canceled.ID, "run.canceled", marshalJSONString(map[string]any{
+			"status": agentRunStatusCanceled,
+		}))
+		return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(canceled)}, nil
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, ctxErr
+	}
+	return nil, status.Error(codes.Aborted, "agent run cancellation conflicted; retry")
+}
+
+func lockMutexWithContext(ctx context.Context, mutex *sync.Mutex) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if mutex.TryLock() {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				mutex.Unlock()
+				return ctxErr
+			}
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
 		}
 	}
-	return &pb.CancelAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
 }
 
 func (s *nativeAIService) ConfirmAgentRun(ctx context.Context, req *pb.ConfirmAgentRunRequest) (*pb.ConfirmAgentRunResponse, error) {
 	if req == nil {
 		return nil, errors.New("confirm agent run request is required")
 	}
+	hasAgentSkillDecision := strings.TrimSpace(req.GetAgentSkillConfirmationId()) != "" ||
+		req.GetAgentSkillConfirmationDecision() != pb.AgentSkillConfirmationDecision_AGENT_SKILL_CONFIRMATION_DECISION_UNSPECIFIED ||
+		len(req.GetSelectedAgentSkillVersionIds()) > 0
 	run, found, err := s.getRun(ctx, req.GetHrId(), req.GetRunId())
 	if err != nil {
 		return nil, err
@@ -4983,13 +5337,6 @@ func (s *nativeAIService) ConfirmAgentRun(ctx context.Context, req *pb.ConfirmAg
 	if !found {
 		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
-	if run.Status == agentRunStatusRunning || isTerminalAgentRunStatus(run.Status) {
-		return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
-	}
-	if run.Status != agentRunStatusWaitingConfirmation {
-		return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
-	}
-
 	s.runTransitionMu.Lock()
 	defer s.runTransitionMu.Unlock()
 	run, found, err = s.getRun(ctx, req.GetHrId(), req.GetRunId())
@@ -4999,10 +5346,147 @@ func (s *nativeAIService) ConfirmAgentRun(ctx context.Context, req *pb.ConfirmAg
 	if !found {
 		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
+	payload := agentRunPayloadFromRow(run)
+	if payload.AgentSkillApproval != nil && hasAgentSkillDecision {
+		if validateErr := validateApprovedAgentSkillRetry(ctx, run, payload, req); validateErr != nil {
+			return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
+		}
+		if validateErr := s.validateAgentRunSkillMessageBinding(
+			ctx,
+			run,
+			payload.AgentSkillApproval.UserMessageID,
+			payload.AgentSkillApproval.MessageDigest,
+		); validateErr != nil {
+			return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
+		}
+		run, err = s.recoverStaleAgentSkillDispatchLocked(ctx, run, time.Now())
+		if err != nil {
+			return nil, err
+		}
+		run, err = s.finalizeApprovedAgentSkillHandoff(ctx, run)
+		if err != nil {
+			return nil, err
+		}
+		if run.Status == agentRunStatusQueued {
+			s.dispatchAgentRun(run)
+		}
+		return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
+	}
 	if run.Status == agentRunStatusRunning || isTerminalAgentRunStatus(run.Status) {
+		if hasAgentSkillDecision {
+			return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
+		}
 		return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
 	}
 	if run.Status != agentRunStatusWaitingConfirmation {
+		return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
+	}
+	payload = agentRunPayloadFromRow(run)
+	if payload.PendingAgentSkillConfirmation != nil {
+		if payload.PendingMCPConfirmation != nil || !hasAgentSkillDecision {
+			return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
+		}
+		now := time.Now()
+		if validateErr := validateAgentRunSkillConfirmation(ctx, run, payload, req, now); validateErr != nil {
+			if errors.Is(validateErr, errExpiredAgentSkillConfirmation) {
+				expired, transitioned, transitionErr := s.transitionAgentRunConfirmation(
+					ctx,
+					run,
+					agentRunStatusFailed,
+					run.PlanJSON,
+					agentRunSkillResolutionContextJSON(*payload.PendingAgentSkillConfirmation, "expired"),
+					"AGENT_SKILL_CONFIRMATION_EXPIRED",
+					"ai.agent_skill_confirmation_expired",
+				)
+				if transitionErr != nil {
+					return nil, transitionErr
+				}
+				if transitioned {
+					_, _ = s.appendAgentRunEvent(ctx, expired.ID, "run.status_changed", marshalJSONString(map[string]any{
+						"status":        agentRunStatusFailed,
+						"error_type":    "AGENT_SKILL_CONFIRMATION_EXPIRED",
+						"error_message": "ai.agent_skill_confirmation_expired",
+					}))
+					s.recordAgentSkillConfirmation(
+						withAgentSkillExecutionMode(ctx, true),
+						payload.PendingAgentSkillConfirmation.SelectionMode,
+						payload.PendingAgentSkillConfirmation.Role,
+						payload.PendingAgentSkillConfirmation.Risk,
+						"failed",
+						"expired",
+					)
+					run = expired
+				}
+			}
+			return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
+		}
+		pending := *payload.PendingAgentSkillConfirmation
+		if req.GetAgentSkillConfirmationDecision() == pb.AgentSkillConfirmationDecision_AGENT_SKILL_CONFIRMATION_DECISION_REJECT {
+			payload.PendingAgentSkillConfirmation = nil
+			rejected, transitioned, transitionErr := s.transitionAgentRunConfirmation(
+				ctx,
+				run,
+				agentRunStatusCanceled,
+				agentRunPlanJSON(payload),
+				agentRunSkillResolutionContextJSON(pending, "rejected"),
+				"",
+				"",
+			)
+			if transitionErr != nil {
+				return nil, transitionErr
+			}
+			if !transitioned {
+				return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
+			}
+			_, _ = s.appendAgentRunEvent(ctx, rejected.ID, "confirmation.rejected", marshalJSONString(map[string]any{
+				"status": agentRunStatusCanceled,
+			}))
+			_, _ = s.appendAgentRunEvent(ctx, rejected.ID, "run.canceled", marshalJSONString(map[string]any{
+				"status": agentRunStatusCanceled,
+			}))
+			s.recordAgentSkillConfirmation(
+				withAgentSkillExecutionMode(ctx, true),
+				pending.SelectionMode,
+				pending.Role,
+				pending.Risk,
+				"failed",
+				"rejected",
+			)
+			return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(rejected)}, nil
+		}
+		if _, validateErr := s.revalidateAgentRunSkillBinding(ctx, run, payload); validateErr != nil {
+			return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
+		}
+		payload = approvedAgentRunSkillPayload(
+			payload,
+			pending,
+			req.GetSelectedAgentSkillVersionIds(),
+			req.GetClientRequestId(),
+			now,
+		)
+		run, found, err = s.transitionAgentRunConfirmation(
+			ctx,
+			run,
+			agentRunStatusQueued,
+			agentRunPlanJSON(payload),
+			agentRunSkillResolutionContextJSON(pending, "approved"),
+			"",
+			"",
+		)
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
+		}
+		run, err = s.finalizeApprovedAgentSkillHandoff(ctx, run)
+		if err != nil {
+			return nil, err
+		}
+		s.dispatchAgentRun(run)
+		return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "common.success", Run: mapAgentRunSnapshot(run)}, nil
+	}
+	if hasAgentSkillDecision {
 		return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
 	}
 	run, found, err = s.updateAgentRunConfirmation(ctx, run, req)
@@ -5167,9 +5651,12 @@ func (s *nativeAIService) completeWithUsage(ctx context.Context, prompt string, 
 
 func (s *nativeAIService) dispatchAgentRun(run AgentRunRow) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.effectiveAgentRunTimeout())
-	s.storeAgentRunCancel(run.ID, cancel)
+	cancelEntry := &agentRunCancelEntry{cancel: cancel}
 	go func() {
-		if err := s.executeAgentRun(ctx, run); err != nil {
+		if err := s.executeAgentRun(ctx, run, cancelEntry); err != nil {
+			if errors.Is(err, errAgentRunExecutionLeaseLost) {
+				return
+			}
 			logger.L().Error("agent run execution failed",
 				zap.Int64("run_id", run.ID),
 				zap.String("status", run.Status),
@@ -5195,19 +5682,50 @@ func (s *nativeAIService) effectiveAgentRunTimeout() time.Duration {
 }
 
 func (s *nativeAIService) agentRunExceededDeadline(run AgentRunRow, now time.Time) bool {
-	if isTerminalAgentRunStatus(run.Status) || run.StartedAt.IsZero() || now.Before(run.StartedAt) {
+	if isTerminalAgentRunStatus(run.Status) {
+		return false
+	}
+	payload := agentRunPayloadFromRow(run)
+	if run.Status == agentRunStatusWaitingConfirmation {
+		expiresAt := ""
+		if payload.PendingAgentSkillConfirmation != nil {
+			expiresAt = payload.PendingAgentSkillConfirmation.ExpiresAt
+		} else if payload.PendingMCPConfirmation != nil {
+			expiresAt = payload.PendingMCPConfirmation.ExpiresAt
+		}
+		deadline, err := time.Parse(time.RFC3339Nano, expiresAt)
+		return err != nil || !now.Before(deadline)
+	}
+	if approval := payload.AgentSkillApproval; validAgentRunSkillApprovalMarker(run, approval) {
+		switch {
+		case run.Status == agentRunStatusQueued &&
+			(approval.DispatchState == agentSkillDispatchPendingEvent ||
+				approval.DispatchState == agentSkillDispatchReady):
+			// Confirmation may legitimately be approved after the ordinary Run
+			// timeout. The durable handoff is still recoverable until claimed.
+			return false
+		case run.Status == agentRunStatusRunning && approval.DispatchState == agentSkillDispatchClaimed:
+			// Governed execution ownership is defined by the persisted lease,
+			// including any later renewal, rather than the original creation time.
+			return agentSkillDispatchLeaseExpired(approval, now)
+		}
+	}
+	if run.StartedAt.IsZero() || now.Before(run.StartedAt) {
 		return false
 	}
 	return now.Sub(run.StartedAt) >= s.effectiveAgentRunTimeout()
 }
 
-func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow) error {
-	defer s.clearAgentRunCancel(run.ID)
-
+func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow, cancelEntry *agentRunCancelEntry) error {
 	current, shouldExecute, err := s.beginAgentRunExecution(ctx, run)
 	if err != nil || !shouldExecute {
+		if cancelEntry != nil && cancelEntry.cancel != nil {
+			cancelEntry.cancel()
+		}
 		return err
 	}
+	s.storeAgentRunCancel(run.ID, cancelEntry)
+	defer s.clearAgentRunCancel(run.ID, cancelEntry)
 	payload := agentRunPayloadFromRow(current)
 	ctx = agentRunExecutionContext(ctx, current, payload)
 	result, err := s.runHRChatRuntimeWithOptions(ctx, &pb.ChatRequest{
@@ -5218,14 +5736,19 @@ func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow) 
 		ModelId:              payload.ModelID,
 		SkillCapabilityKeys:  payload.SkillCapabilityKeys,
 		AgentSkillVersionIds: payload.AgentSkillVersionIDs,
-	}, s.agentRunChatEmitter(current.ID), hrChatRuntimeOptions{
+	}, s.agentRunChatEmitterForExecution(current), hrChatRuntimeOptions{
 		reuseExistingUserMessage: shouldReuseAgentRunUserMessage(run, payload),
+		existingUserMessageID:    current.MessageID,
 		agentRunID:               current.ID,
 		effectiveAgentID:         payload.EffectiveAgentID,
 		effectiveAgentPinned:     payload.EffectiveAgentPinned,
 		durablePayload:           payload,
 	})
 	if err != nil {
+		var skillConfirmationErr *agentSkillConfirmationRequiredError
+		if errors.As(err, &skillConfirmationErr) {
+			return s.finishAgentRunWaitingForSkillConfirmation(ctx, current, skillConfirmationErr)
+		}
 		var confirmationErr *mcpConfirmationRequiredError
 		if errors.As(err, &confirmationErr) {
 			return s.finishAgentRunWaitingForMCPConfirmation(ctx, current, confirmationErr.Confirmation)
@@ -5312,7 +5835,9 @@ func (s *nativeAIService) finishAgentRunWaitingForMCPConfirmation(ctx context.Co
 }
 
 func shouldReuseAgentRunUserMessage(run AgentRunRow, payload agentRunDurablePayload) bool {
-	if run.Status == agentRunStatusRunning || run.Status == agentRunStatusWaitingConfirmation {
+	if run.Status == agentRunStatusRunning ||
+		run.Status == agentRunStatusWaitingConfirmation ||
+		(payload.AgentSkillApproval != nil && payload.AgentSkillApproval.UserMessageID > 0) {
 		return true
 	}
 	return strings.EqualFold(strings.TrimSpace(payload.ActionType), "analyze_application")
@@ -5337,10 +5862,40 @@ func (s *nativeAIService) beginAgentRunExecution(ctx context.Context, run AgentR
 		return current, false, nil
 	}
 	if current.Status == agentRunStatusRunning {
+		// A running Run has already been claimed by a worker. Executing it from
+		// a second dispatch would duplicate provider/tool side effects.
+		if agentRunPayloadFromRow(current).AgentSkillApproval != nil {
+			return current, false, nil
+		}
 		return current, true, nil
 	}
 	if !isExecutableAgentRunStatus(current.Status) {
 		return current, false, nil
+	}
+	payload := agentRunPayloadFromRow(current)
+	if approval := payload.AgentSkillApproval; approval != nil {
+		if current.Status != agentRunStatusQueued ||
+			approval.DispatchState != agentSkillDispatchReady ||
+			!validAgentRunSkillApprovalMarker(current, approval) {
+			return current, false, errInvalidAgentSkillConfirmation
+		}
+		leaseDuration := 2*s.effectiveAgentRunTimeout() + agentSkillDispatchLeaseGrace
+		claimedPayload := claimedAgentRunSkillPayload(
+			payload,
+			newAgentSkillDispatchLeaseID(current.ID),
+			time.Now().Add(leaseDuration),
+		)
+		next, claimed, claimErr := s.transitionAgentRunState(
+			storeCtx,
+			current,
+			agentRunStatusQueued,
+			agentRunStatusRunning,
+			agentRunPlanJSON(claimedPayload),
+			current.OptionContextJSON,
+			"",
+			"",
+		)
+		return next, claimed, claimErr
 	}
 	next, found, err := s.updateRun(storeCtx, current.OwnerID, current.ID, agentRunStatusRunning)
 	if err != nil || !found {
@@ -5369,12 +5924,12 @@ func (s *nativeAIService) finishAgentRunSucceeded(ctx context.Context, run Agent
 	}
 	reply := result.reply
 	if strings.TrimSpace(reply) != "" && !result.streamedTextDelta {
-		if _, err := s.appendAgentRunEvent(storeCtx, run.ID, "assistant.delta", fmt.Sprintf(`{"status":%q,"delta":%q}`, agentRunStatusRunning, reply)); err != nil {
+		if _, err := s.appendAgentRunExecutionEvent(storeCtx, run, "assistant.delta", fmt.Sprintf(`{"status":%q,"delta":%q}`, agentRunStatusRunning, reply)); err != nil {
 			return err
 		}
 	}
 	if result.plan.Intent != "" {
-		payload := agentRunPayloadFromRow(current)
+		payload := agentRunPayloadFromRow(run)
 		planJSON := agentRunRuntimePlanJSON(payload, &pb.ChatRequest{
 			HrId:          current.OwnerID,
 			SessionId:     current.SessionID,
@@ -5382,29 +5937,62 @@ func (s *nativeAIService) finishAgentRunSucceeded(ctx context.Context, run Agent
 			ApplicationId: payload.ApplicationID,
 			ModelId:       payload.ModelID,
 		}, result.governance, result.plan, result.modelID, result.modelName, result.runtimeWarnings, s.hrRuntimeLabel())
-		if _, _, err := s.store.UpdateAgentRunPlan(storeCtx, current.OwnerID, current.ID, planJSON, current.OptionContextJSON); err != nil {
+		if leaseID := agentRunSkillExecutionLease(run); leaseID != "" {
+			store, ok := s.store.(agentRunSkillExecutionFenceStore)
+			if !ok {
+				return errAgentRunExecutionLeaseLost
+			}
+			if _, owned, err := store.UpdateAgentRunPlanForSkillLease(
+				storeCtx,
+				run.OwnerID,
+				run.ID,
+				leaseID,
+				planJSON,
+				current.OptionContextJSON,
+			); err != nil {
+				return err
+			} else if !owned {
+				return errAgentRunExecutionLeaseLost
+			}
+		} else if _, _, err := s.store.UpdateAgentRunPlan(storeCtx, current.OwnerID, current.ID, planJSON, current.OptionContextJSON); err != nil {
 			return err
 		}
 	}
 	processSnapshot := buildAgentRunProcessSnapshot(result.plan, result.toolTraces, result.contextUsage, result.fallbackUsed)
-	if _, err := s.appendAgentRunEvent(storeCtx, run.ID, "process.snapshot", marshalJSONString(map[string]any{
+	if _, err := s.appendAgentRunExecutionEvent(storeCtx, run, "process.snapshot", marshalJSONString(map[string]any{
 		"status":        agentRunStatusRunning,
 		"snapshot_text": processSnapshot,
 	})); err != nil {
 		return err
 	}
-	if _, err := s.appendAgentRunEvent(storeCtx, run.ID, "run.result", agentRunResultPayload(result, s.hrRuntimeLabel())); err != nil {
+	if _, err := s.appendAgentRunExecutionEvent(storeCtx, run, "run.result", agentRunResultPayload(result, s.hrRuntimeLabel())); err != nil {
 		return err
 	}
 	if governanceStore, ok := s.store.(agentRunRuntimeGovernanceStore); ok {
-		if err := governanceStore.UpdateAgentRunRuntimeGovernance(storeCtx, run.OwnerID, run.ID, result.runtimeModel); err != nil {
+		if leaseID := agentRunSkillExecutionLease(run); leaseID != "" {
+			fencedStore, supported := s.store.(agentRunSkillExecutionFenceStore)
+			if !supported {
+				return errAgentRunExecutionLeaseLost
+			}
+			if owned, err := fencedStore.UpdateAgentRunRuntimeGovernanceForSkillLease(
+				storeCtx,
+				run.OwnerID,
+				run.ID,
+				leaseID,
+				result.runtimeModel,
+			); err != nil {
+				return err
+			} else if !owned {
+				return errAgentRunExecutionLeaseLost
+			}
+		} else if err := governanceStore.UpdateAgentRunRuntimeGovernance(storeCtx, run.OwnerID, run.ID, result.runtimeModel); err != nil {
 			return err
 		}
 	}
-	if _, _, err := s.store.CompleteAgentRun(storeCtx, run.OwnerID, run.ID, reply, agentRunStatusSucceeded, "", ""); err != nil {
+	if _, _, err := s.completeAgentRunExecution(storeCtx, run, reply, agentRunStatusSucceeded, "", ""); err != nil {
 		return err
 	}
-	_, err = s.appendAgentRunEvent(storeCtx, run.ID, "run.completed", fmt.Sprintf(`{"status":%q}`, agentRunStatusSucceeded))
+	_, err = s.appendAgentRunExecutionEvent(storeCtx, run, "run.completed", fmt.Sprintf(`{"status":%q}`, agentRunStatusSucceeded))
 	return err
 }
 
@@ -5424,13 +6012,13 @@ func (s *nativeAIService) finishAgentRunFailed(ctx context.Context, run AgentRun
 		return nil
 	}
 	errorType, errorMessage := agentRunFailureDetails(runErr, "provider")
-	if _, eventErr := s.appendAgentRunEvent(storeCtx, run.ID, "run.error", fmt.Sprintf(`{"status":%q,"error_type":%q,"error_message":%q}`, agentRunStatusFailed, errorType, errorMessage)); eventErr != nil {
+	if _, eventErr := s.appendAgentRunExecutionEvent(storeCtx, run, "run.error", fmt.Sprintf(`{"status":%q,"error_type":%q,"error_message":%q}`, agentRunStatusFailed, errorType, errorMessage)); eventErr != nil {
 		return eventErr
 	}
-	if _, _, completeErr := s.store.CompleteAgentRun(storeCtx, run.OwnerID, run.ID, "", agentRunStatusFailed, errorType, errorMessage); completeErr != nil {
+	if _, _, completeErr := s.completeAgentRunExecution(storeCtx, run, "", agentRunStatusFailed, errorType, errorMessage); completeErr != nil {
 		return completeErr
 	}
-	_, eventErr := s.appendAgentRunEvent(storeCtx, run.ID, "run.completed", fmt.Sprintf(`{"status":%q,"error_type":%q,"error_message":%q}`, agentRunStatusFailed, errorType, errorMessage))
+	_, eventErr := s.appendAgentRunExecutionEvent(storeCtx, run, "run.completed", fmt.Sprintf(`{"status":%q,"error_type":%q,"error_message":%q}`, agentRunStatusFailed, errorType, errorMessage))
 	return eventErr
 }
 
@@ -5450,11 +6038,11 @@ func (s *nativeAIService) completeAgentRunCanceledLocked(ctx context.Context, ru
 	if run.Status == agentRunStatusCanceled || isTerminalAgentRunStatus(run.Status) {
 		return nil
 	}
-	completed, found, err := s.store.CompleteAgentRun(ctx, run.OwnerID, run.ID, run.AssistantText, agentRunStatusCanceled, "", "")
+	_, found, err := s.completeAgentRunExecution(ctx, run, run.AssistantText, agentRunStatusCanceled, "", "")
 	if err != nil || !found {
 		return err
 	}
-	_, err = s.appendAgentRunEvent(ctx, completed.ID, "run.canceled", fmt.Sprintf(`{"status":%q}`, agentRunStatusCanceled))
+	_, err = s.appendAgentRunExecutionEvent(ctx, run, "run.canceled", fmt.Sprintf(`{"status":%q}`, agentRunStatusCanceled))
 	return err
 }
 
@@ -5505,18 +6093,29 @@ func (s *nativeAIService) ensureAgentRunTerminal(run AgentRunRow, runErr error) 
 		return err
 	}
 	errorType, errorMessage := agentRunFailureDetails(runErr, "runtime")
-	completed, found, err := s.store.CompleteAgentRun(storeCtx, current.OwnerID, current.ID, current.AssistantText, agentRunStatusFailed, errorType, errorMessage)
+	_, found, err = s.completeAgentRunExecution(
+		storeCtx,
+		run,
+		current.AssistantText,
+		agentRunStatusFailed,
+		errorType,
+		errorMessage,
+	)
 	if err != nil {
 		return err
 	}
 	if !found {
 		return fmt.Errorf("agent run %d not found while applying terminal fallback", current.ID)
 	}
-	_, err = s.appendAgentRunEvent(storeCtx, completed.ID, "run.completed", fmt.Sprintf(`{"status":%q,"error_type":%q,"error_message":%q}`, agentRunStatusFailed, errorType, errorMessage))
+	_, err = s.appendAgentRunExecutionEvent(storeCtx, run, "run.completed", fmt.Sprintf(`{"status":%q,"error_type":%q,"error_message":%q}`, agentRunStatusFailed, errorType, errorMessage))
 	return err
 }
 
 func (s *nativeAIService) agentRunChatEmitter(runID int64) hrChatStreamEmitter {
+	return s.agentRunChatEmitterForExecution(AgentRunRow{ID: runID})
+}
+
+func (s *nativeAIService) agentRunChatEmitterForExecution(run AgentRunRow) hrChatStreamEmitter {
 	processDisplay := newAgentRunProcessDisplayState()
 	var emitMu sync.Mutex
 	return func(event *pb.ChatStreamResponse, display *agentRunDisplayContext) error {
@@ -5580,7 +6179,12 @@ func (s *nativeAIService) agentRunChatEmitter(runID int64) hrChatStreamEmitter {
 		if event.GetEventType() == "error" && event.GetErrorType() == "TOOL_ERROR" {
 			payload["error_message"] = event.GetEventMessage()
 		}
-		_, err := s.appendAgentRunEvent(agentRunStoreContext(context.Background()), runID, eventType, marshalJSONString(payload))
+		_, err := s.appendAgentRunExecutionEvent(
+			agentRunStoreContext(context.Background()),
+			run,
+			eventType,
+			marshalJSONString(payload),
+		)
 		return err
 	}
 }
@@ -6038,6 +6642,28 @@ func (s *nativeAIService) persistAgentRunRuntimePlan(ctx context.Context, req *p
 	}
 	payload := opts.durablePayload
 	planJSON := agentRunRuntimePlanJSON(payload, req, governance, plan, runtimeModelID, runtimeModelName, runtimeWarnings, s.hrRuntimeLabel())
+	if leaseID := agentRunSkillApprovalLeaseFromContext(ctx); leaseID != "" {
+		store, ok := s.store.(agentRunSkillExecutionFenceStore)
+		if !ok {
+			return errAgentRunExecutionLeaseLost
+		}
+		if _, owned, err := store.UpdateAgentRunPlanForSkillLease(
+			ctx,
+			req.GetHrId(),
+			opts.agentRunID,
+			leaseID,
+			planJSON,
+			"",
+		); err != nil {
+			return err
+		} else if !owned {
+			return errAgentRunExecutionLeaseLost
+		}
+		return nil
+	}
+	if hasAgentRunSkillApprovalContext(ctx) {
+		return errAgentRunExecutionLeaseLost
+	}
 	_, found, err := s.store.UpdateAgentRunPlan(ctx, req.GetHrId(), opts.agentRunID, planJSON, "")
 	if err != nil {
 		return err
@@ -6179,8 +6805,8 @@ func (s *nativeAIService) agentRunEvents() *agentRunEventHub {
 	return s.eventHub
 }
 
-func (s *nativeAIService) storeAgentRunCancel(runID int64, cancel context.CancelFunc) {
-	if runID == 0 || cancel == nil {
+func (s *nativeAIService) storeAgentRunCancel(runID int64, entry *agentRunCancelEntry) {
+	if runID == 0 || entry == nil || entry.cancel == nil {
 		return
 	}
 	s.runCancelMu.Lock()
@@ -6188,7 +6814,7 @@ func (s *nativeAIService) storeAgentRunCancel(runID int64, cancel context.Cancel
 	if s.runCancels == nil {
 		s.runCancels = make(map[int64]*agentRunCancelEntry)
 	}
-	s.runCancels[runID] = &agentRunCancelEntry{cancel: cancel}
+	s.runCancels[runID] = entry
 }
 
 func (s *nativeAIService) cancelAgentRunExecution(runID int64) bool {
@@ -6202,13 +6828,15 @@ func (s *nativeAIService) cancelAgentRunExecution(runID int64) bool {
 	return false
 }
 
-func (s *nativeAIService) clearAgentRunCancel(runID int64) {
+func (s *nativeAIService) clearAgentRunCancel(runID int64, expected *agentRunCancelEntry) {
 	s.runCancelMu.Lock()
 	entry := s.runCancels[runID]
-	delete(s.runCancels, runID)
+	if entry == expected {
+		delete(s.runCancels, runID)
+	}
 	s.runCancelMu.Unlock()
-	if entry != nil && entry.cancel != nil {
-		entry.cancel()
+	if expected != nil && expected.cancel != nil {
+		expected.cancel()
 	}
 }
 
