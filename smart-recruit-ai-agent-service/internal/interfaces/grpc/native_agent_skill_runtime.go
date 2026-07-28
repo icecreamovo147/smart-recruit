@@ -61,6 +61,7 @@ type hrRuntimeAgentSkill struct {
 	RiskLevel            domainagentskill.RiskLevel
 	ActivationPolicy     domainagentskill.ActivationPolicy
 	RequiredCapabilities []string
+	EvaluationCriteria   []string
 	Sections             []hrRuntimeAgentSkillSection
 	AvailableSections    []embeddinginfra.AgentSkillSectionEmbeddingDocument
 	Included             bool
@@ -577,6 +578,7 @@ func hrRuntimeAgentSkillFromCandidate(candidate hrRankedAgentSkillVersion) hrRun
 		RiskLevel:            manifest.RiskLevel,
 		ActivationPolicy:     manifest.ActivationPolicy,
 		RequiredCapabilities: append([]string(nil), manifest.RequiredCapabilities...),
+		EvaluationCriteria:   append([]string(nil), manifest.EvaluationCriteria...),
 	}
 }
 

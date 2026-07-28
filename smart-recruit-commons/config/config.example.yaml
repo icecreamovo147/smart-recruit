@@ -90,6 +90,8 @@ agent:
     structured_resume_parse: true       # AGENT_FEATURE_STRUCTURED_RESUME_PARSE
     candidate_match: true               # AGENT_FEATURE_CANDIDATE_MATCH
     skill_governance: true              # AGENT_FEATURE_SKILL_GOVERNANCE
+    skill_package_v2: false             # AGENT_FEATURE_SKILL_PACKAGE_V2
+    agent_skill_judge: false            # AGENT_FEATURE_AGENT_SKILL_JUDGE
     semantic_retrieval: true            # AGENT_FEATURE_SEMANTIC_RETRIEVAL
     mcp_policy: true                    # AGENT_FEATURE_MCP_POLICY
     fallbacks: true                     # AGENT_FEATURE_FALLBACKS

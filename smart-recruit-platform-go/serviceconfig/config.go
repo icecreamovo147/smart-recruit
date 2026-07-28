@@ -84,20 +84,22 @@ type Config struct {
 		MaxPromptChars         int `yaml:"max_prompt_chars"`
 		MaxMemories            int `yaml:"max_memories"`
 		Memory                 struct {
-			Enabled           *bool    `yaml:"enabled"`
-			WriteEnabled      *bool    `yaml:"write_enabled"`
-			InjectEnabled     *bool    `yaml:"inject_enabled"`
-			CleanupInterval   Duration `yaml:"cleanup_interval"`
-			CleanupTimeout    Duration `yaml:"cleanup_timeout"`
-			RevokedRetention  Duration `yaml:"revoked_retention"`
+			Enabled          *bool    `yaml:"enabled"`
+			WriteEnabled     *bool    `yaml:"write_enabled"`
+			InjectEnabled    *bool    `yaml:"inject_enabled"`
+			CleanupInterval  Duration `yaml:"cleanup_interval"`
+			CleanupTimeout   Duration `yaml:"cleanup_timeout"`
+			RevokedRetention Duration `yaml:"revoked_retention"`
 		} `yaml:"memory"`
-		Features               struct {
+		Features struct {
 			Planner                  *bool    `yaml:"planner"`
 			StructuredResumeParse    *bool    `yaml:"structured_resume_parse"`
 			CandidateMatch           *bool    `yaml:"candidate_match"`
 			CandidateMatchSemantic   *bool    `yaml:"candidate_match_semantic"`
 			CandidateMatchShadow     *bool    `yaml:"candidate_match_shadow"`
 			SkillGovernance          *bool    `yaml:"skill_governance"`
+			SkillPackageV2           *bool    `yaml:"skill_package_v2"`
+			AgentSkillJudge          *bool    `yaml:"agent_skill_judge"`
 			SemanticRetrieval        *bool    `yaml:"semantic_retrieval"`
 			MCPPolicy                *bool    `yaml:"mcp_policy"`
 			Fallbacks                *bool    `yaml:"fallbacks"`
@@ -311,15 +313,7 @@ func Load() (Config, error) {
 	if cfg.Agent.Memory.RevokedRetention.Duration <= 0 {
 		cfg.Agent.Memory.RevokedRetention.Duration = 30 * 24 * time.Hour
 	}
-	defaultBool(&cfg.Agent.Features.Planner, true)
-	defaultBool(&cfg.Agent.Features.StructuredResumeParse, true)
-	defaultBool(&cfg.Agent.Features.CandidateMatch, true)
-	defaultBool(&cfg.Agent.Features.CandidateMatchSemantic, true)
-	defaultBool(&cfg.Agent.Features.CandidateMatchShadow, false)
-	defaultBool(&cfg.Agent.Features.SkillGovernance, true)
-	defaultBool(&cfg.Agent.Features.SemanticRetrieval, true)
-	defaultBool(&cfg.Agent.Features.MCPPolicy, true)
-	defaultBool(&cfg.Agent.Features.Fallbacks, true)
+	applyAgentFeatureDefaults(&cfg)
 	if cfg.Agent.Features.ResumeParseTimeout.Duration <= 0 {
 		cfg.Agent.Features.ResumeParseTimeout.Duration = 30 * time.Second
 	}
@@ -416,6 +410,23 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
+func applyAgentFeatureDefaults(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+	defaultBool(&cfg.Agent.Features.Planner, true)
+	defaultBool(&cfg.Agent.Features.StructuredResumeParse, true)
+	defaultBool(&cfg.Agent.Features.CandidateMatch, true)
+	defaultBool(&cfg.Agent.Features.CandidateMatchSemantic, true)
+	defaultBool(&cfg.Agent.Features.CandidateMatchShadow, false)
+	defaultBool(&cfg.Agent.Features.SkillGovernance, true)
+	defaultBool(&cfg.Agent.Features.SkillPackageV2, false)
+	defaultBool(&cfg.Agent.Features.AgentSkillJudge, false)
+	defaultBool(&cfg.Agent.Features.SemanticRetrieval, true)
+	defaultBool(&cfg.Agent.Features.MCPPolicy, true)
+	defaultBool(&cfg.Agent.Features.Fallbacks, true)
+}
+
 func applyEnvOverrides(cfg *Config) {
 	setString(&cfg.MySQL.DSN, "MYSQL_DSN")
 	setInt(&cfg.MySQL.MaxOpenConns, "MYSQL_MAX_OPEN_CONNS")
@@ -492,6 +503,8 @@ func applyEnvOverrides(cfg *Config) {
 	setBoolPtr(&cfg.Agent.Features.CandidateMatchSemantic, "AGENT_FEATURE_CANDIDATE_MATCH_SEMANTIC")
 	setBoolPtr(&cfg.Agent.Features.CandidateMatchShadow, "AGENT_FEATURE_CANDIDATE_MATCH_SHADOW")
 	setBoolPtr(&cfg.Agent.Features.SkillGovernance, "AGENT_FEATURE_SKILL_GOVERNANCE")
+	setBoolPtr(&cfg.Agent.Features.SkillPackageV2, "AGENT_FEATURE_SKILL_PACKAGE_V2")
+	setBoolPtr(&cfg.Agent.Features.AgentSkillJudge, "AGENT_FEATURE_AGENT_SKILL_JUDGE")
 	setBoolPtr(&cfg.Agent.Features.SemanticRetrieval, "AGENT_FEATURE_SEMANTIC_RETRIEVAL")
 	setBoolPtr(&cfg.Agent.Features.MCPPolicy, "AGENT_FEATURE_MCP_POLICY")
 	setBoolPtr(&cfg.Agent.Features.Fallbacks, "AGENT_FEATURE_FALLBACKS")

@@ -40,6 +40,7 @@ import (
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-platform-go/logger"
 	platformmetadata "smart-recruit-platform-go/metadata"
+	"smart-recruit-platform-go/observability"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -267,6 +268,10 @@ type RuntimeDeps struct {
 	Jobs             pb.JobServiceClient
 	MCPRunner        mcpinfra.Runner
 	EmbeddingRunner  embeddinginfra.EmbeddingRunner
+	SkillPackageV2   bool
+	AgentSkillJudge  bool
+	SkillJudgeRunner AgentSkillJudgeRunner
+	Metrics          *observability.Registry
 }
 
 type ChatSessionRow struct {
@@ -856,6 +861,9 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 		embeddingService = embeddinginfra.NewEmbeddingService(store, deps.EmbeddingRunner)
 	}
 	ai := newNativeAIServiceWithRunner(deps.Store, deps.Provider, deps.Applications, deps.Jobs, deps.AppList, mcpRunner, embeddingService)
+	if deps.Metrics != nil {
+		ai.metrics = deps.Metrics
+	}
 	ai.recruitingPolicy = deps.RecruitingPolicy
 	ai.auth = deps.Auth
 	ai.billing = deps.Billing
@@ -863,6 +871,8 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 	ai.agentRunTimeout = deps.AgentRunTimeout
 	ai.agentRuntime = normalizeAgentRuntime(deps.RuntimeName)
 	ai.memoryService = deps.MemoryService
+	ai.skillPackageV2Enabled = deps.SkillPackageV2
+	ai.agentSkillJudge = newAgentSkillJudgeDispatcher(deps.AgentSkillJudge, deps.SkillJudgeRunner, ai.metrics)
 	if store, ok := deps.Store.(candidatetools.DataStore); ok {
 		ai.candidateTools = candidatetools.NewExecutor(store)
 	}
@@ -899,6 +909,13 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 	}
 }
 
+func (s *nativeAIService) Close() error {
+	if s != nil {
+		s.agentSkillJudge.Close()
+	}
+	return nil
+}
+
 func NewNativeAIService(store AIStore, provider ChatProvider) pb.AIServiceServer {
 	return newNativeAIService(store, provider, nil, nil, nil)
 }
@@ -918,6 +935,7 @@ func newNativeAIServiceWithRunner(store AIStore, provider ChatProvider, applicat
 		embedding:    embedding,
 		agentRuntime: agentRuntimeADK,
 		eventHub:     newAgentRunEventHub(),
+		metrics:      observability.DefaultMetrics,
 	}
 }
 
@@ -959,6 +977,9 @@ type nativeAIService struct {
 	runCancels              map[int64]*agentRunCancelEntry
 	runTransitionMu         sync.Mutex
 	memoryService           *appmemory.Service
+	skillPackageV2Enabled   bool
+	metrics                 *observability.Registry
+	agentSkillJudge         *agentSkillJudgeDispatcher
 }
 
 func (s *nativeAIService) effectiveAgentRuntime() string {
@@ -1199,6 +1220,7 @@ func (s *nativeAIService) runHRChatRuntime(ctx context.Context, req *pb.ChatRequ
 }
 
 func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *pb.ChatRequest, emit hrChatStreamEmitter, opts hrChatRuntimeOptions) (result hrChatRuntimeResult, err error) {
+	ctx = withAgentSkillExecutionMode(ctx, opts.agentRunID > 0)
 	session, err := s.ensureSession(ctx, ownerRoleHR, req.GetHrId(), req.GetSessionId(), req.GetApplicationId(), req.GetMessage())
 	if err != nil {
 		return hrChatRuntimeResult{}, err
@@ -1626,6 +1648,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		result.suggestedQuestions = normalizeHRSuggestedQuestions(generatedQuestions, plan.SuggestedQuestions, result.candidateName, result.jobTitle)
 	}
 	result.reply = reply
+	s.trySubmitAgentSkillJudge(ctx, reply, result.candidateName, result.jobTitle, governance)
 	result.toolTraces = append([]ToolTraceRow(nil), traces...)
 	result.contextUsage = s.estimateHRPostTurnContextUsage(
 		ctx,
@@ -2407,7 +2430,25 @@ func (s *nativeAIService) loadHRRuntimeGovernanceForAgentCore(ctx context.Contex
 	// as get_application_snapshot. ExecutableToolNames is the separate model /
 	// builtin-runner allowlist and must not erase those bindings.
 	runtime.Prompt, runtime.PromptContent, runtime.GovernanceErrors = s.loadHRRuntimePromptForRelease(ctx, req, agent, refs.PromptTemplateIDs, runtime.MemorySection)
+	selectionMode := "none"
+	if len(req.GetAgentSkillVersionIds()) > 0 {
+		selectionMode = "manual"
+	}
+	if !s.skillPackageV2Enabled {
+		runtime.AgentSkillSelectionMode = selectionMode
+		runtime.AgentSkillRuntimeEvidence = disabledAgentSkillRuntimeEvidence(req, model)
+		s.recordAgentSkillRuntimeDecision(
+			ctx,
+			"disabled",
+			runtime.AgentSkillSelectionMode,
+			runtime.AgentSkillRuntimeEvidence,
+			nil,
+			0,
+		)
+		return runtime, nil
+	}
 	var skillErrors []hrRuntimeGovernanceError
+	skillStartedAt := time.Now()
 	runtime.SelectedAgentSkills, runtime.AgentSkillRuntimeEvidence, runtime.AgentSkillConfirmationRequired, skillErrors =
 		s.selectHRRuntimeAgentSkillPackages(ctx, req, runtime.CapabilityKeys, model, enforceRelease)
 	runtime.GovernanceErrors = append(runtime.GovernanceErrors, skillErrors...)
@@ -2419,6 +2460,14 @@ func (s *nativeAIService) loadHRRuntimeGovernanceForAgentCore(ctx context.Contex
 	default:
 		runtime.AgentSkillSelectionMode = "none"
 	}
+	s.recordAgentSkillRuntimeDecision(
+		ctx,
+		"v2",
+		runtime.AgentSkillSelectionMode,
+		runtime.AgentSkillRuntimeEvidence,
+		skillErrors,
+		time.Since(skillStartedAt),
+	)
 	return runtime, nil
 }
 
@@ -3862,7 +3911,7 @@ func (s *nativeAIService) PreviewChatContext(ctx context.Context, req *pb.Previe
 		SkillCapabilityKeys:  append([]string(nil), req.GetSkillCapabilityKeys()...),
 		AgentSkillVersionIds: append([]int64(nil), req.GetAgentSkillVersionIds()...),
 	}
-	governance, err := s.loadHRRuntimeGovernance(ctx, chatReq)
+	governance, err := s.loadHRRuntimeGovernance(withoutAgentSkillMetrics(ctx), chatReq)
 	if err != nil {
 		return nil, err
 	}
@@ -4706,7 +4755,7 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 	if strings.TrimSpace(payload.AuthAccountType) == "" {
 		payload.AuthAccountType = "staff"
 	}
-	governance, err := s.loadHRRuntimeGovernance(ctx, &pb.ChatRequest{
+	governance, err := s.loadHRRuntimeGovernance(withoutAgentSkillMetrics(ctx), &pb.ChatRequest{
 		HrId:                 req.GetHrId(),
 		SessionId:            req.GetSessionId(),
 		Message:              req.GetMessage(),

@@ -326,6 +326,7 @@ func TestSelectHRRuntimeAgentSkillPackagesFailsClosedOnImmutablePackageTampering
 
 			provider := &fakeChatProvider{reply: "must not run"}
 			service = newNativeAIService(store, provider, nil, nil, nil)
+			service.skillPackageV2Enabled = true
 			_, _ = service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "resume screening"})
 			if provider.calls != 0 {
 				t.Fatalf("provider calls = %d, want zero after package integrity failure", provider.calls)
@@ -442,6 +443,7 @@ func TestSelectHRRuntimeAgentSkillPackagesRejectsNestedOutputSchemaSemanticTampe
 	}
 	provider := &fakeChatProvider{reply: "must not run"}
 	service := newNativeAIService(store, provider, nil, nil, nil)
+	service.skillPackageV2Enabled = true
 
 	selected, evidence, confirmationRequired, governanceErrors := service.selectHRRuntimeAgentSkillPackages(
 		context.Background(),
@@ -589,6 +591,7 @@ func TestHRRuntimeSkillConfirmationStopsProviderBeforeInvocation(t *testing.T) {
 	}
 	provider := &fakeChatProvider{reply: "must not run"}
 	service := newNativeAIService(store, provider, nil, nil, nil)
+	service.skillPackageV2Enabled = true
 
 	_, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "resume screening"})
 	if status.Code(err) != codes.FailedPrecondition || !strings.Contains(status.Convert(err).Message(), "AGENT_SKILL_CONFIRMATION_REQUIRES_DURABLE_RUN") {

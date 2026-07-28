@@ -7,6 +7,7 @@ import (
 	"time"
 
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
+	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
 	platformconfig "smart-recruit-platform-go/config"
 	logicconfig "smart-recruit-platform-go/serviceconfig"
 )
@@ -69,6 +70,32 @@ func TestRecruitingRuntimePolicyUsesDeterministicDefaultsForUnsetSettings(t *tes
 	}
 	if policy.ResumeParseTimeout() != 30*time.Second || policy.CandidateMatchTimeout() != 15*time.Second {
 		t.Fatalf("timeouts = %v/%v", policy.ResumeParseTimeout(), policy.CandidateMatchTimeout())
+	}
+}
+
+func TestAgentSkillPackageFeaturesUseFailClosedDefaults(t *testing.T) {
+	var cfg logicconfig.Config
+	if boolSetting(cfg.Agent.Features.SkillPackageV2, false) {
+		t.Fatal("unset Skill Package v2 feature must be disabled")
+	}
+	if boolSetting(cfg.Agent.Features.AgentSkillJudge, false) {
+		t.Fatal("unset Agent Skill judge feature must be disabled")
+	}
+	enabled := true
+	cfg.Agent.Features.SkillPackageV2 = &enabled
+	cfg.Agent.Features.AgentSkillJudge = &enabled
+	if !boolSetting(cfg.Agent.Features.SkillPackageV2, false) || !boolSetting(cfg.Agent.Features.AgentSkillJudge, false) {
+		t.Fatal("explicit Agent Skill features were not enabled")
+	}
+}
+
+func TestCloseAIRuntimeClosesNativeAIServiceLifecycle(t *testing.T) {
+	service := &closeTrackingAIService{}
+	closeAIRuntime(nil)
+	closeAIRuntime(&aiagentruntime.Runtime{})
+	closeAIRuntime(&aiagentruntime.Runtime{AI: service})
+	if service.closeCalls != 1 {
+		t.Fatalf("AI service Close calls = %d, want 1", service.closeCalls)
 	}
 }
 
@@ -150,6 +177,16 @@ func runtimePolicyBoolean(policy recruitingruntime.RuntimePolicy, name string) b
 	default:
 		panic("unknown runtime policy boolean: " + name)
 	}
+}
+
+type closeTrackingAIService struct {
+	noopAIService
+	closeCalls int
+}
+
+func (s *closeTrackingAIService) Close() error {
+	s.closeCalls++
+	return nil
 }
 
 func TestSetupNacosSupportsLocalStaticFallback(t *testing.T) {

@@ -240,6 +240,8 @@ func serveAIAgent(addr string) error {
 		Billing:          billingClient,
 		BillingRequired:  strings.EqualFold(envOrDefault("AI_BILLING_MODE", "shadow"), "enforce"),
 		AgentRunTimeout:  cfg.AI.TotalTimeout.Duration,
+		SkillPackageV2:   boolSetting(cfg.Agent.Features.SkillPackageV2, false),
+		AgentSkillJudge:  boolSetting(cfg.Agent.Features.AgentSkillJudge, false),
 		Applications:     pb.NewApplicationOwnerServiceClient(recruitmentConn),
 		AppList:          pb.NewApplicationServiceClient(recruitmentConn),
 		Jobs:             pb.NewJobServiceClient(recruitmentConn),
@@ -247,6 +249,7 @@ func serveAIAgent(addr string) error {
 	if err != nil {
 		return err
 	}
+	defer closeAIRuntime(runtime)
 
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -298,6 +301,15 @@ func serveAIAgent(addr string) error {
 		return fmt.Errorf("grpc serve: %w", err)
 	}
 	return nil
+}
+
+func closeAIRuntime(runtime *aiagentruntime.Runtime) {
+	if runtime == nil || runtime.AI == nil {
+		return
+	}
+	if closer, ok := runtime.AI.(interface{ Close() error }); ok {
+		_ = closer.Close()
+	}
 }
 
 func recruitingRuntimePolicy(cfg logicconfig.Config) recruitingruntime.RuntimePolicy {

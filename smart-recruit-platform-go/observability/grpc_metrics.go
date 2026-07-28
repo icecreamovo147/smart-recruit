@@ -11,13 +11,16 @@ import (
 var DefaultMetrics = NewRegistry("smart-recruit-service")
 
 type Registry struct {
-	service       string
-	mu            sync.Mutex
-	rpc           map[rpcKey]*histogram
-	panics        map[panicKey]uint64
-	auth          map[authKey]uint64
-	billingEvents map[billingKey]uint64
-	billingGauges map[billingKey]float64
+	service                    string
+	mu                         sync.Mutex
+	rpc                        map[rpcKey]*histogram
+	panics                     map[panicKey]uint64
+	auth                       map[authKey]uint64
+	billingEvents              map[billingKey]uint64
+	billingGauges              map[billingKey]float64
+	agentSkillCounters         map[agentSkillMetricKey]uint64
+	agentSkillTokenHistograms  map[agentSkillMetricKey]*histogram
+	agentSkillRetrievalLatency map[agentSkillMetricKey]*histogram
 }
 
 type rpcKey struct {
@@ -46,12 +49,15 @@ var defaultBuckets = []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5,
 
 func NewRegistry(service string) *Registry {
 	return &Registry{
-		service:       service,
-		rpc:           make(map[rpcKey]*histogram),
-		panics:        make(map[panicKey]uint64),
-		auth:          make(map[authKey]uint64),
-		billingEvents: make(map[billingKey]uint64),
-		billingGauges: make(map[billingKey]float64),
+		service:                    service,
+		rpc:                        make(map[rpcKey]*histogram),
+		panics:                     make(map[panicKey]uint64),
+		auth:                       make(map[authKey]uint64),
+		billingEvents:              make(map[billingKey]uint64),
+		billingGauges:              make(map[billingKey]float64),
+		agentSkillCounters:         make(map[agentSkillMetricKey]uint64),
+		agentSkillTokenHistograms:  make(map[agentSkillMetricKey]*histogram),
+		agentSkillRetrievalLatency: make(map[agentSkillMetricKey]*histogram),
 	}
 }
 
@@ -151,6 +157,7 @@ func (r *Registry) Prometheus() string {
 	for key, value := range r.billingGauges {
 		billingGauges = append(billingGauges, billingMetric{key: key, value: value})
 	}
+	agentSkillMetrics := r.agentSkillMetricsSnapshotLocked()
 	r.mu.Unlock()
 	sortBilling := func(items []billingMetric) {
 		sort.Slice(items, func(i, j int) bool {
@@ -214,6 +221,7 @@ func (r *Registry) Prometheus() string {
 	for _, item := range billingGauges {
 		fmt.Fprintf(&b, "smart_recruit_billing_state_count{service=\"%s\",resource=\"%s\",state=\"%s\"} %.0f\n", escapeLabel(r.service), escapeLabel(item.key.Name), escapeLabel(item.key.State), item.value)
 	}
+	writeAgentSkillMetrics(&b, agentSkillMetrics)
 	return b.String()
 }
 
