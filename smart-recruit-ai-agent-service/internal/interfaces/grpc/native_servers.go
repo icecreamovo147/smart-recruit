@@ -2140,6 +2140,7 @@ func (s *nativeAIService) executeRecruitingIntelligenceTool(ctx context.Context,
 		auth:         s.auth,
 		applications: s.applications,
 		jobs:         s.jobs,
+		meter:        s.recruitingIntelligenceMeter(),
 	}
 	toolName := hr_tools.NormalizeToolName(name)
 	switch toolName {
@@ -2171,6 +2172,19 @@ func (s *nativeAIService) executeRecruitingIntelligenceTool(ctx context.Context,
 	default:
 		return hrToolErrorResult(toolName, "unsupported", fmt.Sprintf("unsupported tool: %s", name), nil)
 	}
+}
+
+func (s *nativeAIService) recruitingIntelligenceMeter() *nativeAIService {
+	if s == nil || s.store == nil {
+		return nil
+	}
+	// Production NativeStore implements the release resolver. Keeping the
+	// meter absent for isolated legacy stores prevents their current/request
+	// model compatibility path from masquerading as an exact v2 release.
+	if _, ok := s.store.(capabilityRuntimeModelResolver); !ok {
+		return nil
+	}
+	return s
 }
 
 func (s *nativeAIService) executeLegacyCandidateMatchReadTool(ctx context.Context, name string, args map[string]any) (commonsai.ToolResult, error) {
@@ -7043,9 +7057,14 @@ func (s nativeRecruitingIntelligenceService) capabilityRuntimeContext(ctx contex
 }
 
 func withRecruitingCapabilityRuntime(ctx context.Context, model RuntimeModelInfo) context.Context {
+	return withRecruitingCapabilityRuntimeFeature(ctx, model, false)
+}
+
+func withRecruitingCapabilityRuntimeFeature(ctx context.Context, model RuntimeModelInfo, skillPackageV2 bool) context.Context {
 	return recruitingruntime.WithCapabilityRuntime(
 		ctx, model.RequestedModelID, model.ID, model.CapabilityVersionID,
 		model.FallbackReason, model.CapabilitySnapshotHash, model.ConfigurationRefs.PromptTemplateIDs,
+		model.ConfigurationRefs.AgentSkillVersionIDs, skillPackageV2,
 	)
 }
 
@@ -7146,7 +7165,25 @@ func newRecruitingStructuredRuntime(store AIStore, provider ChatProvider, polici
 	if !promptOK || !providerOK {
 		return nil
 	}
-	return recruitingruntime.NewRuntimeWithObserver(recruitingruntime.NewPromptLoader(promptStore), structuredProvider, newRecruitingRuntimeObserver(), policies...)
+	return recruitingruntime.NewRuntimeWithObserverAndStrictContracts(
+		recruitingruntime.NewPromptLoader(promptStore),
+		structuredProvider,
+		newRecruitingRuntimeObserver(),
+		recruitingStrictContractResolver(store),
+		policies...,
+	)
+}
+
+func recruitingStrictContractResolver(store any) *recruitingruntime.StrictContractResolver {
+	packageStore, ok := store.(hrRuntimeAgentSkillPackageStore)
+	if !ok {
+		// Keep the resolver installed even for partial/legacy store adapters.
+		// The resolver remains a no-op while v2 is disabled or no exact release
+		// versions are present, and fails closed before prompt/provider access
+		// when an enabled exact v2 release cannot load its immutable package.
+		return recruitingruntime.NewStrictContractResolver(nil)
+	}
+	return recruitingruntime.NewStrictContractResolver(recruitingAgentSkillPackageLoader{store: packageStore})
 }
 
 func (s nativeRecruitingIntelligenceService) hasRecruitingStructuredRuntime() bool {
@@ -7390,7 +7427,7 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 		if s.meter != nil {
 			runtimeModel, runtimeErr = s.meter.resolveCapabilityRuntimeModel(ctx, billingOwnerTenant, req.GetStaffUserId(), "ai.resume_parse", platformAIAudienceTenantHR, req.GetModelId())
 			if runtimeErr == nil {
-				ctx = withRecruitingCapabilityRuntime(ctx, runtimeModel)
+				ctx = withRecruitingCapabilityRuntimeFeature(ctx, runtimeModel, s.meter.skillPackageV2Enabled)
 			}
 		} else {
 			ctx, runtimeModel, runtimeErr = s.capabilityRuntimeContext(ctx, "ai.resume_parse", req.GetCapabilityVersionId(), req.GetModelId())
@@ -7429,6 +7466,8 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 		defer cancel()
 		parseCtx = recruitingruntime.WithObservationMetadata(parseCtx, platformmetadata.GetRequestID(ctx), "resume", resumeID)
 		parseCtx, billingUsage := recruitingruntime.WithBillingUsageCollector(parseCtx)
+		parseCtx, strictValidation := s.withStrictValidationMetrics(parseCtx)
+		defer s.finalizeStrictValidationMetrics(ctx, strictValidation)
 		if s.meter != nil {
 			defer s.meter.finalizeStructuredBilling(ctx, runtimeModel, billingUsage)
 		}
@@ -7579,7 +7618,7 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 		if s.meter != nil {
 			runtimeModel, runtimeErr = s.meter.resolveCapabilityRuntimeModel(ctx, billingOwnerTenant, req.GetStaffUserId(), "ai.match_evaluation", platformAIAudienceTenantHR, req.GetModelId())
 			if runtimeErr == nil {
-				ctx = withRecruitingCapabilityRuntime(ctx, runtimeModel)
+				ctx = withRecruitingCapabilityRuntimeFeature(ctx, runtimeModel, s.meter.skillPackageV2Enabled)
 			}
 		} else {
 			ctx, runtimeModel, runtimeErr = s.capabilityRuntimeContext(ctx, "ai.match_evaluation", req.GetCapabilityVersionId(), req.GetModelId())
@@ -7600,6 +7639,8 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 		defer cancel()
 		generationCtx = recruitingruntime.WithObservationMetadata(generationCtx, platformmetadata.GetRequestID(ctx), "application", req.GetApplicationId())
 		generationCtx, billingUsage := recruitingruntime.WithBillingUsageCollector(generationCtx)
+		generationCtx, strictValidation := s.withStrictValidationMetrics(generationCtx)
+		defer s.finalizeStrictValidationMetrics(ctx, strictValidation)
 		if s.meter != nil {
 			defer s.meter.finalizeStructuredBilling(ctx, runtimeModel, billingUsage)
 		}
@@ -7700,7 +7741,13 @@ func (s nativeRecruitingIntelligenceService) generateResumeProfileDraft(ctx cont
 		promptStore, promptOK := s.store.(recruitingruntime.PromptStore)
 		structuredProvider, providerOK := s.provider.(recruitingruntime.StructuredCompletionProvider)
 		if promptOK && providerOK {
-			structured = recruitingruntime.NewRuntimeWithObserver(recruitingruntime.NewPromptLoader(promptStore), structuredProvider, newRecruitingRuntimeObserver(), s.policy)
+			structured = recruitingruntime.NewRuntimeWithObserverAndStrictContracts(
+				recruitingruntime.NewPromptLoader(promptStore),
+				structuredProvider,
+				newRecruitingRuntimeObserver(),
+				recruitingStrictContractResolver(s.store),
+				s.policy,
+			)
 		}
 	}
 	result, err := recruitingruntime.NewResumeProfileExtractor(structured, s.policy).Extract(ctx, recruitingruntime.ResumeSource{

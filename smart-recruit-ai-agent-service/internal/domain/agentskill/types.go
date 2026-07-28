@@ -99,12 +99,13 @@ type CompiledSection struct {
 }
 
 type CompiledPackage struct {
-	Manifest         Manifest          `json:"manifest"`
-	Core             CompiledCore      `json:"core"`
-	Sections         []CompiledSection `json:"sections"`
-	ManifestJSON     string            `json:"manifest_json"`
-	CanonicalJSON    string            `json:"canonical_json"`
-	CompiledMarkdown string            `json:"compiled_markdown"`
-	CompiledHash     string            `json:"compiled_hash"`
-	EstimatedTokens  int               `json:"estimated_tokens"`
+	Manifest         Manifest            `json:"manifest"`
+	Core             CompiledCore        `json:"core"`
+	Sections         []CompiledSection   `json:"sections"`
+	ManifestJSON     string              `json:"manifest_json"`
+	CanonicalJSON    string              `json:"canonical_json"`
+	CompiledMarkdown string              `json:"compiled_markdown"`
+	CompiledHash     string              `json:"compiled_hash"`
+	EstimatedTokens  int                 `json:"estimated_tokens"`
+	StrictSchema     *StrictOutputSchema `json:"-"`
 }

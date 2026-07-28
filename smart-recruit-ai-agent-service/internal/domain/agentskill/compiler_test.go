@@ -105,6 +105,52 @@ func TestCompileNormalizesDeterministically(t *testing.T) {
 	}
 }
 
+func TestCompileRejectsUnsupportedStrictSchemaBeforeReleaseEvaluation(t *testing.T) {
+	draft := validDraft()
+	draft.Manifest.OutputContract = OutputContract{
+		Mode:     OutputModeStrict,
+		SchemaID: "strict-test-v1",
+		Schema:   json.RawMessage(`{"type":"object","properties":{"created_at":{"type":"string","format":"date-time"}}}`),
+	}
+	_, err := Compile(draft)
+	if err == nil {
+		t.Fatal("Compile() accepted unsupported strict-schema keyword")
+	}
+	var compileErr *CompileError
+	if !errors.As(err, &compileErr) || compileErr.Code != CodePackageInvalid {
+		t.Fatalf("Compile() error = %v", err)
+	}
+}
+
+func TestCompileRejectsDuplicateStrictSchemaKeysBeforeNormalization(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema json.RawMessage
+	}{
+		{
+			name:   "root keyword",
+			schema: json.RawMessage(`{"type":"object","type":"string"}`),
+		},
+		{
+			name:   "nested property keyword",
+			schema: json.RawMessage(`{"type":"object","properties":{"ok":{"type":"boolean","type":"string"}}}`),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			draft := validDraft()
+			draft.Manifest.OutputContract = OutputContract{
+				Mode:     OutputModeStrict,
+				SchemaID: "strict-test-v1",
+				Schema:   test.schema,
+			}
+			if _, err := Compile(draft); err == nil {
+				t.Fatal("Compile() accepted duplicate strict-schema key")
+			}
+		})
+	}
+}
+
 func TestCompileDerivesActivationPolicy(t *testing.T) {
 	tests := []struct {
 		name string

@@ -38,7 +38,7 @@ type canonicalPackage struct {
 }
 
 func Compile(draft PackageDraft) (*CompiledPackage, error) {
-	manifest, err := normalizeManifest(draft.Manifest)
+	manifest, strictSchema, err := normalizeManifestWithStrictSchema(draft.Manifest)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +94,7 @@ func Compile(draft PackageDraft) (*CompiledPackage, error) {
 		CompiledMarkdown: compiledMarkdown,
 		CompiledHash:     hex.EncodeToString(sum[:]),
 		EstimatedTokens:  totalTokens,
+		StrictSchema:     strictSchema,
 	}, nil
 }
 
@@ -110,6 +111,11 @@ func normalizedReferenceSections(sections []CompiledSection) []ReferenceSection 
 }
 
 func normalizeManifest(input Manifest) (Manifest, error) {
+	manifest, _, err := normalizeManifestWithStrictSchema(input)
+	return manifest, err
+}
+
+func normalizeManifestWithStrictSchema(input Manifest) (Manifest, *StrictOutputSchema, error) {
 	output := input
 	output.SkillName = strings.TrimSpace(output.SkillName)
 	output.DisplayName = strings.TrimSpace(output.DisplayName)
@@ -124,31 +130,31 @@ func normalizeManifest(input Manifest) (Manifest, error) {
 	output.OutputContract.SchemaID = strings.TrimSpace(output.OutputContract.SchemaID)
 
 	if output.SchemaVersion != SchemaVersion {
-		return Manifest{}, compileError(CodePackageInvalid, "manifest.schema_version", "must be 2")
+		return Manifest{}, nil, compileError(CodePackageInvalid, "manifest.schema_version", "must be 2")
 	}
 	if output.SkillName == "" {
-		return Manifest{}, compileError(CodePackageInvalid, "manifest.skill_name", "is required")
+		return Manifest{}, nil, compileError(CodePackageInvalid, "manifest.skill_name", "is required")
 	}
 	if len(output.SkillName) > maxSkillNameLength || !skillNamePattern.MatchString(output.SkillName) {
-		return Manifest{}, compileError(
+		return Manifest{}, nil, compileError(
 			CodePackageInvalid,
 			"manifest.skill_name",
 			"must start with a lowercase letter and contain only lowercase letters, digits, underscores, or hyphens",
 		)
 	}
 	if output.DisplayName == "" {
-		return Manifest{}, compileError(CodePackageInvalid, "manifest.display_name", "is required")
+		return Manifest{}, nil, compileError(CodePackageInvalid, "manifest.display_name", "is required")
 	}
 	if output.AgentType == "" {
-		return Manifest{}, compileError(CodePackageInvalid, "manifest.agent_type", "is required")
+		return Manifest{}, nil, compileError(CodePackageInvalid, "manifest.agent_type", "is required")
 	}
 
 	derivedPolicy, ok := activationPolicyForRisk(output.RiskLevel)
 	if !ok {
-		return Manifest{}, compileError(CodePackageInvalid, "manifest.risk_level", "must be low, medium, high, or critical")
+		return Manifest{}, nil, compileError(CodePackageInvalid, "manifest.risk_level", "must be low, medium, high, or critical")
 	}
 	if output.ActivationPolicy != "" && output.ActivationPolicy != derivedPolicy {
-		return Manifest{}, compileError(
+		return Manifest{}, nil, compileError(
 			CodePackageInvalid,
 			"manifest.activation_policy",
 			fmt.Sprintf("must be %q for risk level %q", derivedPolicy, output.RiskLevel),
@@ -159,25 +165,30 @@ func normalizeManifest(input Manifest) (Manifest, error) {
 	switch output.Composition.Role {
 	case CompositionRolePrimary, CompositionRoleSupporting:
 	default:
-		return Manifest{}, compileError(CodePackageInvalid, "manifest.composition.role", "must be primary or supporting")
+		return Manifest{}, nil, compileError(CodePackageInvalid, "manifest.composition.role", "must be primary or supporting")
 	}
 
-	contract, contractDefined, err := normalizeOutputContract(output.OutputContract)
+	contract, contractDefined, strictSchema, err := normalizeOutputContractWithStrictSchema(output.OutputContract)
 	if err != nil {
-		return Manifest{}, err
+		return Manifest{}, nil, err
 	}
 	if output.Composition.Role == CompositionRoleSupporting && contractDefined {
-		return Manifest{}, compileError(
+		return Manifest{}, nil, compileError(
 			CodeCompositionConflict,
 			"manifest.output_contract",
 			"supporting skills cannot define an output contract",
 		)
 	}
 	output.OutputContract = contract
-	return output, nil
+	return output, strictSchema, nil
 }
 
 func normalizeOutputContract(input OutputContract) (OutputContract, bool, error) {
+	contract, defined, _, err := normalizeOutputContractWithStrictSchema(input)
+	return contract, defined, err
+}
+
+func normalizeOutputContractWithStrictSchema(input OutputContract) (OutputContract, bool, *StrictOutputSchema, error) {
 	output := input
 	if output.Mode == "" {
 		output.Mode = OutputModeNone
@@ -185,7 +196,7 @@ func normalizeOutputContract(input OutputContract) (OutputContract, bool, error)
 	switch output.Mode {
 	case OutputModeNone, OutputModeAdvisory, OutputModeStrict:
 	default:
-		return OutputContract{}, false, compileError(
+		return OutputContract{}, false, nil, compileError(
 			CodePackageInvalid,
 			"manifest.output_contract.mode",
 			"must be none, advisory, or strict",
@@ -196,60 +207,103 @@ func normalizeOutputContract(input OutputContract) (OutputContract, bool, error)
 	schemaDefined := len(rawSchema) > 0 && !bytes.Equal(rawSchema, []byte("null"))
 	if output.Mode == OutputModeNone {
 		if output.SchemaID != "" || schemaDefined {
-			return OutputContract{}, false, compileError(
+			return OutputContract{}, false, nil, compileError(
 				CodePackageInvalid,
 				"manifest.output_contract",
 				"mode none cannot define schema_id or schema",
 			)
 		}
 		output.Schema = nil
-		return output, false, nil
+		return output, false, nil, nil
 	}
 	if len(output.SchemaID) > MaxOutputSchemaIDBytes {
-		return OutputContract{}, false, compileError(
+		return OutputContract{}, false, nil, compileError(
 			CodePackageInvalid,
 			"manifest.output_contract.schema_id",
 			fmt.Sprintf("size %d exceeds limit %d", len(output.SchemaID), MaxOutputSchemaIDBytes),
 		)
 	}
 	if !schemaDefined {
-		return OutputContract{}, false, compileError(
+		return OutputContract{}, false, nil, compileError(
 			CodePackageInvalid,
 			"manifest.output_contract.schema",
 			"is required for advisory or strict mode",
 		)
 	}
 	if len(rawSchema) > MaxOutputSchemaBytes {
-		return OutputContract{}, false, compileError(
+		return OutputContract{}, false, nil, compileError(
 			CodePackageInvalid,
 			"manifest.output_contract.schema",
 			fmt.Sprintf("size %d exceeds limit %d", len(rawSchema), MaxOutputSchemaBytes),
 		)
 	}
-	schema, err := normalizeJSONObject(rawSchema)
-	if err != nil {
-		return OutputContract{}, false, compileError(
-			CodePackageInvalid,
-			"manifest.output_contract.schema",
-			err.Error(),
-		)
+	var (
+		schema       json.RawMessage
+		strictSchema *StrictOutputSchema
+		err          error
+	)
+	if output.Mode == OutputModeStrict {
+		schema, strictSchema, err = compileStrictOutputSchemaCanonical(rawSchema)
+		if err != nil {
+			return OutputContract{}, false, nil, compileError(
+				CodePackageInvalid,
+				"manifest.output_contract.schema",
+				"contains unsupported or invalid strict JSON Schema",
+			)
+		}
+	} else {
+		schema, err = normalizeJSONObject(rawSchema)
+		if err != nil {
+			return OutputContract{}, false, nil, compileError(
+				CodePackageInvalid,
+				"manifest.output_contract.schema",
+				err.Error(),
+			)
+		}
 	}
 	if len(schema) > MaxOutputSchemaBytes {
-		return OutputContract{}, false, compileError(
+		return OutputContract{}, false, nil, compileError(
 			CodePackageInvalid,
 			"manifest.output_contract.schema",
 			fmt.Sprintf("canonical size %d exceeds limit %d", len(schema), MaxOutputSchemaBytes),
 		)
 	}
 	if output.Mode == OutputModeStrict && output.SchemaID == "" {
-		return OutputContract{}, false, compileError(
+		return OutputContract{}, false, nil, compileError(
 			CodePackageInvalid,
 			"manifest.output_contract.schema_id",
 			"is required for strict mode",
 		)
 	}
 	output.Schema = schema
-	return output, true, nil
+	return output, true, strictSchema, nil
+}
+
+// DecodeManifestJSON rejects duplicate keys at every depth before typed
+// decoding and returns the semantic canonical form used for integrity checks.
+// This prevents stored manifests from relying on last-key-wins behavior.
+func DecodeManifestJSON(raw []byte) (Manifest, json.RawMessage, error) {
+	value, err := decodeStrictJSON(raw, "compile")
+	if err != nil {
+		return Manifest{}, nil, err
+	}
+	if _, ok := value.(map[string]any); !ok {
+		return Manifest{}, nil, fmt.Errorf("manifest must be a JSON object")
+	}
+	canonical, err := json.Marshal(value)
+	if err != nil {
+		return Manifest{}, nil, fmt.Errorf("cannot encode canonical manifest")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(canonical))
+	decoder.DisallowUnknownFields()
+	var manifest Manifest
+	if err := decoder.Decode(&manifest); err != nil {
+		return Manifest{}, nil, fmt.Errorf("manifest does not match the v2 contract")
+	}
+	if err := ensureJSONEOF(decoder); err != nil {
+		return Manifest{}, nil, err
+	}
+	return manifest, canonical, nil
 }
 
 func normalizeSections(input []ReferenceSection) ([]CompiledSection, int, error) {

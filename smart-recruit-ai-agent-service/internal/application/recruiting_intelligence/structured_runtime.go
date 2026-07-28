@@ -43,10 +43,11 @@ const (
 // RuntimeError deliberately omits prompt/message/model-output bodies from its
 // string form while preserving the underlying error for classification.
 type RuntimeError struct {
-	Kind      ErrorKind
-	Operation string
-	AgentType string
-	Cause     error
+	Kind                  ErrorKind
+	Operation             string
+	AgentType             string
+	StrictContractApplied bool
+	Cause                 error
 }
 
 func (e *RuntimeError) Error() string {
@@ -113,11 +114,12 @@ type StructuredCompletionProvider interface {
 }
 
 type CompletionResult struct {
-	Content     string
-	ProviderKey string
-	ModelName   string
-	TokenUsage  *schema.TokenUsage
-	Prompt      PromptDescriptor
+	Content               string
+	ProviderKey           string
+	ModelName             string
+	TokenUsage            *schema.TokenUsage
+	Prompt                PromptDescriptor
+	StrictContractApplied bool
 }
 
 type BillingProviderUsage struct {
@@ -221,12 +223,13 @@ func NormalizeObservation(observation Observation) Observation {
 	observation.Stage = allowObservationValue(observation.Stage,
 		"runtime_policy", "prompt_load", "structured_completion", "resume_profile_extraction",
 		"job_requirement_extraction", "candidate_requirement_evaluation", "source", "generation",
-		"aggregation", "persistence", "operation")
+		"strict_output_validation", "aggregation", "persistence", "operation")
 	observation.Category = allowObservationValue(observation.Category,
 		"success", "failure", "fallback_success", "prompt_failure", "provider_failure",
 		"empty_response_failure", "json_failure", "schema_failure", "policy_failure", "timeout",
 		"fallback_failure", "domain_validation_failure", "aggregation_failure", "source_failure",
-		"persistence_failure", "configuration_failure", "authorization_failure", "not_found")
+		"persistence_failure", "configuration_failure", "authorization_failure", "not_found",
+		"strict_valid", "strict_invalid")
 	observation.AgentType = allowObservationValue(observation.AgentType,
 		AgentTypeResumeProfileExtractor, AgentTypeJobRequirementExtractor, AgentTypeCandidateMatchEvaluator)
 	if observation.PromptID < 0 {
@@ -345,10 +348,11 @@ func WithObservationMetadata(ctx context.Context, requestID, resourceType string
 }
 
 type Runtime struct {
-	prompts  *PromptLoader
-	provider StructuredCompletionProvider
-	policy   RuntimePolicy
-	observer Observer
+	prompts         *PromptLoader
+	provider        StructuredCompletionProvider
+	policy          RuntimePolicy
+	observer        Observer
+	strictContracts *StrictContractResolver
 }
 
 func NewRuntime(prompts *PromptLoader, provider StructuredCompletionProvider, policies ...RuntimePolicy) *Runtime {
@@ -356,11 +360,21 @@ func NewRuntime(prompts *PromptLoader, provider StructuredCompletionProvider, po
 }
 
 func NewRuntimeWithObserver(prompts *PromptLoader, provider StructuredCompletionProvider, observer Observer, policies ...RuntimePolicy) *Runtime {
+	return NewRuntimeWithObserverAndStrictContracts(prompts, provider, observer, nil, policies...)
+}
+
+func NewRuntimeWithObserverAndStrictContracts(
+	prompts *PromptLoader,
+	provider StructuredCompletionProvider,
+	observer Observer,
+	strictContracts *StrictContractResolver,
+	policies ...RuntimePolicy,
+) *Runtime {
 	policy := DefaultRuntimePolicy()
 	if len(policies) > 0 {
 		policy = policies[0].effective()
 	}
-	return &Runtime{prompts: prompts, provider: provider, policy: policy, observer: observer}
+	return &Runtime{prompts: prompts, provider: provider, policy: policy, observer: observer, strictContracts: strictContracts}
 }
 
 func (r *Runtime) Policy() RuntimePolicy {
@@ -386,9 +400,23 @@ func (r *Runtime) Complete(ctx context.Context, agentType, userPrompt string) (C
 		return CompletionResult{}, err
 	}
 	defer cancel()
+	strictContract, err := r.resolveStrictContract(operationCtx, agentType)
+	if err != nil {
+		recordStrictValidationOutcome(operationCtx, nil, false)
+		r.observeStrictValidation(operationCtx, agentType, false)
+		return CompletionResult{}, err
+	}
 	prompt, err := r.prompts.LoadSystemPrompt(operationCtx, agentType)
 	if err != nil {
 		r.observe(operationCtx, Observation{Operation: agentType, Stage: "prompt_load", Category: "prompt_failure", AgentType: agentType, Outcome: "error", Duration: time.Since(promptStarted)})
+		if strictContract != nil {
+			recordStrictValidationOutcome(operationCtx, strictContract, false)
+			r.observeStrictValidation(operationCtx, agentType, false)
+			var runtimeErr *RuntimeError
+			if errors.As(err, &runtimeErr) {
+				runtimeErr.StrictContractApplied = true
+			}
+		}
 		return CompletionResult{}, err
 	}
 	r.observe(operationCtx, observationForPrompt("prompt_load", "success", prompt, "", "", time.Since(promptStarted)))
@@ -396,25 +424,100 @@ func (r *Runtime) Complete(ctx context.Context, agentType, userPrompt string) (C
 		event := observationForPrompt("structured_completion", "error", prompt, "", "none", 0)
 		event.Category = "provider_failure"
 		r.observe(operationCtx, event)
-		return CompletionResult{}, &RuntimeError{Kind: ErrorKindProvider, Operation: "complete", AgentType: agentType, Cause: ErrProvider}
+		providerErr := &RuntimeError{Kind: ErrorKindProvider, Operation: "complete", AgentType: agentType, Cause: ErrProvider}
+		if strictContract != nil {
+			recordStrictValidationOutcome(operationCtx, strictContract, false)
+			r.observeStrictValidation(operationCtx, agentType, false)
+			providerErr.StrictContractApplied = true
+			return CompletionResult{}, providerErr
+		}
+		return CompletionResult{}, providerErr
+	}
+	systemPrompt := prompt.Content
+	if strictContract != nil {
+		systemPrompt += strictSystemDirective(strictContract)
 	}
 	completionStarted := time.Now()
-	result, err := r.provider.CompleteStructured(operationCtx, prompt.Content, userPrompt)
+	result, err := r.provider.CompleteStructured(operationCtx, systemPrompt, userPrompt)
 	if err != nil {
 		event := observationForPrompt("structured_completion", "error", prompt, "", "none", time.Since(completionStarted))
 		event.Category = "provider_failure"
 		r.observe(operationCtx, event)
-		return CompletionResult{}, &RuntimeError{Kind: ErrorKindProvider, Operation: "complete", AgentType: agentType, Cause: err}
+		providerErr := &RuntimeError{Kind: ErrorKindProvider, Operation: "complete", AgentType: agentType, Cause: err}
+		if strictContract != nil {
+			recordStrictValidationOutcome(operationCtx, strictContract, false)
+			r.observeStrictValidation(operationCtx, agentType, false)
+			providerErr.StrictContractApplied = true
+			return CompletionResult{}, providerErr
+		}
+		return CompletionResult{}, providerErr
 	}
 	r.observe(operationCtx, observationForPrompt("structured_completion", "success", prompt, result.ModelName, "none", time.Since(completionStarted)))
-	if collector, _ := operationCtx.Value(billingUsageCollectorContextKey{}).(*BillingUsageCollector); collector != nil {
-		collector.add(BillingProviderUsage{
-			ProviderKey: result.ProviderKey, ModelName: result.ModelName, TokenUsage: result.TokenUsage,
-			EstimatedInputTokens:  estimateStructuredTokens(prompt.Content + "\n" + userPrompt),
-			EstimatedOutputTokens: estimateStructuredTokens(result.Content),
-		})
+	r.collectProviderUsage(operationCtx, result, systemPrompt, userPrompt)
+	if strictContract != nil {
+		canonical, summary, validationErr := strictContract.schema.ValidateJSON(result.Content)
+		if validationErr != nil {
+			repairPrompt := strictRepairPrompt(result.Content, summary)
+			repairStarted := time.Now()
+			repaired, repairErr := r.provider.CompleteStructured(operationCtx, systemPrompt, repairPrompt)
+			if repairErr != nil {
+				event := observationForPrompt("structured_completion", "error", prompt, "", "none", time.Since(repairStarted))
+				event.Category = "provider_failure"
+				r.observe(operationCtx, event)
+				recordStrictValidationOutcome(operationCtx, strictContract, false)
+				r.observeStrictValidation(operationCtx, agentType, false)
+				providerErr := &RuntimeError{Kind: ErrorKindProvider, Operation: "repair", AgentType: agentType, Cause: repairErr}
+				providerErr.StrictContractApplied = true
+				return CompletionResult{}, providerErr
+			}
+			r.observe(operationCtx, observationForPrompt("structured_completion", "success", prompt, repaired.ModelName, "none", time.Since(repairStarted)))
+			r.collectProviderUsage(operationCtx, repaired, systemPrompt, repairPrompt)
+			canonical, _, validationErr = strictContract.schema.ValidateJSON(repaired.Content)
+			if validationErr != nil {
+				recordStrictValidationOutcome(operationCtx, strictContract, false)
+				r.observeStrictValidation(operationCtx, agentType, false)
+				return CompletionResult{}, &StrictOutputError{Kind: StrictOutputValidation, Cause: ErrStrictOutputInvalid}
+			}
+			result = repaired
+		}
+		result.Content = canonical
+		recordStrictValidationOutcome(operationCtx, strictContract, true)
+		r.observeStrictValidation(operationCtx, agentType, true)
 	}
-	return CompletionResult{Content: result.Content, ProviderKey: result.ProviderKey, ModelName: result.ModelName, TokenUsage: result.TokenUsage, Prompt: prompt}, nil
+	return CompletionResult{
+		Content: result.Content, ProviderKey: result.ProviderKey, ModelName: result.ModelName,
+		TokenUsage: result.TokenUsage, Prompt: prompt, StrictContractApplied: strictContract != nil,
+	}, nil
+}
+
+func (r *Runtime) resolveStrictContract(ctx context.Context, agentType string) (*resolvedStrictContract, error) {
+	if r == nil || r.strictContracts == nil {
+		return nil, nil
+	}
+	return r.strictContracts.Resolve(ctx, agentType)
+}
+
+func (r *Runtime) collectProviderUsage(ctx context.Context, result StructuredCompletionResult, systemPrompt, userPrompt string) {
+	collector, _ := ctx.Value(billingUsageCollectorContextKey{}).(*BillingUsageCollector)
+	if collector == nil {
+		return
+	}
+	collector.add(BillingProviderUsage{
+		ProviderKey: result.ProviderKey, ModelName: result.ModelName, TokenUsage: result.TokenUsage,
+		EstimatedInputTokens:  estimateStructuredTokens(systemPrompt + "\n" + userPrompt),
+		EstimatedOutputTokens: estimateStructuredTokens(result.Content),
+	})
+}
+
+func (r *Runtime) observeStrictValidation(ctx context.Context, agentType string, valid bool) {
+	category, outcome := "strict_invalid", "error"
+	if valid {
+		category, outcome = "strict_valid", "success"
+	}
+	r.observe(ctx, Observation{
+		Operation: agentType, Stage: "strict_output_validation", Category: category,
+		AgentType: agentType, Outcome: outcome, Fallback: "none",
+	})
 }
 
 func estimateStructuredTokens(value string) int {

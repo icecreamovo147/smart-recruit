@@ -81,8 +81,8 @@ func validateHRRuntimeAgentSkillPackage(runtimePackage embeddinginfra.AgentSkill
 	[]embeddinginfra.AgentSkillSectionEmbeddingDocument,
 	error,
 ) {
-	var manifest domainagentskill.Manifest
-	if err := decodeStrictJSON(runtimePackage.ManifestJSON, &manifest); err != nil {
+	manifest, storedManifestCanonical, err := domainagentskill.DecodeManifestJSON([]byte(runtimePackage.ManifestJSON))
+	if err != nil {
 		return embeddinginfra.AgentSkillVersionEmbeddingDocument{}, nil, fmt.Errorf("decode manifest: %w", err)
 	}
 	draft := domainagentskill.PackageDraft{
@@ -107,17 +107,13 @@ func validateHRRuntimeAgentSkillPackage(runtimePackage embeddinginfra.AgentSkill
 	if err != nil {
 		return embeddinginfra.AgentSkillVersionEmbeddingDocument{}, nil, fmt.Errorf("compile package: %w", err)
 	}
-	storedManifestCanonical, err := canonicalizeRuntimeJSON(runtimePackage.ManifestJSON)
-	if err != nil {
-		return embeddinginfra.AgentSkillVersionEmbeddingDocument{}, nil, fmt.Errorf("canonicalize stored manifest: %w", err)
-	}
-	compiledManifestCanonical, err := canonicalizeRuntimeJSON(compiled.ManifestJSON)
+	_, compiledManifestCanonical, err := domainagentskill.DecodeManifestJSON([]byte(compiled.ManifestJSON))
 	if err != nil {
 		return embeddinginfra.AgentSkillVersionEmbeddingDocument{}, nil, fmt.Errorf("canonicalize compiled manifest: %w", err)
 	}
 	if runtimePackage.ID <= 0 ||
 		runtimePackage.SkillID <= 0 ||
-		storedManifestCanonical != compiledManifestCanonical ||
+		!bytes.Equal(storedManifestCanonical, compiledManifestCanonical) ||
 		runtimePackage.CoreMarkdown != compiled.Core.ContentMarkdown ||
 		runtimePackage.CompiledMarkdown != compiled.CompiledMarkdown ||
 		runtimePackage.CompiledHash != compiled.CompiledHash ||
@@ -170,21 +166,6 @@ func validateHRRuntimeAgentSkillPackage(runtimePackage embeddinginfra.AgentSkill
 		Enabled:         runtimePackage.Enabled,
 		ManualInvocable: runtimePackage.ManualInvocable,
 	}, sections, nil
-}
-
-func decodeStrictJSON(raw string, destination any) error {
-	decoder := json.NewDecoder(bytes.NewBufferString(raw))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		if err == nil {
-			return fmt.Errorf("unexpected trailing JSON value")
-		}
-		return err
-	}
-	return nil
 }
 
 func canonicalizeRuntimeJSON(raw string) (string, error) {

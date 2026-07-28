@@ -168,6 +168,66 @@ func TestEvaluatorHonorsCanceledContext(t *testing.T) {
 	}
 }
 
+func TestEvaluatorCannotReceiveUnsupportedStrictSchema(t *testing.T) {
+	draft := evaluationDraft()
+	draft.Manifest.OutputContract = agentskill.OutputContract{
+		Mode:     agentskill.OutputModeStrict,
+		SchemaID: "strict-test-v1",
+		Schema:   json.RawMessage(`{"type":"string","format":"date-time"}`),
+	}
+	if _, err := agentskill.Compile(draft); err == nil {
+		t.Fatal("unsupported strict schema reached release evaluator input")
+	}
+}
+
+func TestEvaluatorRejectsDuplicateReleaseManifestKeys(t *testing.T) {
+	evaluator, err := NewDefaultEvaluator()
+	if err != nil {
+		t.Fatalf("NewDefaultEvaluator() error = %v", err)
+	}
+	tests := []struct {
+		name   string
+		mutate func(string) string
+	}{
+		{
+			name: "root known field",
+			mutate: func(manifest string) string {
+				return strings.Replace(manifest, `"display_name":`, `"display_name":"shadow","display_name":`, 1)
+			},
+		},
+		{
+			name: "nested strict schema field",
+			mutate: func(manifest string) string {
+				return strings.Replace(manifest, `"properties":{"ok":`, `"properties":{"ok":{"type":"string"},"ok":`, 1)
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			draft := evaluationDraft()
+			draft.Manifest.OutputContract = agentskill.OutputContract{
+				Mode:     agentskill.OutputModeStrict,
+				SchemaID: "strict-test-v1",
+				Schema:   json.RawMessage(`{"type":"object","properties":{"ok":{"type":"boolean"}}}`),
+			}
+			compiled, compileErr := agentskill.Compile(draft)
+			if compileErr != nil {
+				t.Fatalf("Compile() error = %v", compileErr)
+			}
+			compiled.ManifestJSON = test.mutate(compiled.ManifestJSON)
+			input := validInput(t)
+			input.Packages = []ReleasePackage{{SkillID: 1, VersionID: 10, Package: *compiled}}
+			result, evalErr := evaluator.Evaluate(context.Background(), input)
+			if evalErr != nil {
+				t.Fatalf("Evaluate() error = %v", evalErr)
+			}
+			if result.Passed || !containsFailedCase(result.Cases, "release-package-00000000000000000010") {
+				t.Fatalf("duplicate manifest result = %+v", result)
+			}
+		})
+	}
+}
+
 func validInput(t *testing.T) Input {
 	t.Helper()
 	compiled := compilePackage(t, "candidate-screening", agentskill.CompositionRolePrimary)

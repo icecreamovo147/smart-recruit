@@ -477,8 +477,12 @@ func evaluateReleasePackage(item ReleasePackage) CaseResult {
 	if item.SkillID <= 0 || item.VersionID <= 0 {
 		return failedResult(id, "release_package", "invalid_identity")
 	}
+	manifest, storedManifestCanonical, err := agentskill.DecodeManifestJSON([]byte(item.Package.ManifestJSON))
+	if err != nil {
+		return failedResult(id, "release_package", "compile_failed")
+	}
 	draft := agentskill.PackageDraft{
-		Manifest: item.Package.Manifest,
+		Manifest: manifest,
 		Core:     item.Package.Core.Core,
 		Sections: make([]agentskill.ReferenceSection, 0, len(item.Package.Sections)),
 	}
@@ -489,9 +493,13 @@ func evaluateReleasePackage(item ReleasePackage) CaseResult {
 	if err != nil {
 		return failedResult(id, "release_package", "compile_failed")
 	}
+	_, recompiledManifestCanonical, err := agentskill.DecodeManifestJSON([]byte(recompiled.ManifestJSON))
+	if err != nil {
+		return failedResult(id, "release_package", "compile_failed")
+	}
 	if recompiled.CompiledHash != strings.ToLower(strings.TrimSpace(item.Package.CompiledHash)) ||
 		recompiled.CanonicalJSON != item.Package.CanonicalJSON ||
-		recompiled.ManifestJSON != item.Package.ManifestJSON ||
+		!bytes.Equal(recompiledManifestCanonical, storedManifestCanonical) ||
 		recompiled.CompiledMarkdown != item.Package.CompiledMarkdown ||
 		recompiled.EstimatedTokens != item.Package.EstimatedTokens ||
 		recompiled.Core.EstimatedTokens != item.Package.Core.EstimatedTokens ||

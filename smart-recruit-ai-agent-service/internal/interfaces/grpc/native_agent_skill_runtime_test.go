@@ -262,6 +262,35 @@ func TestSelectHRRuntimeAgentSkillPackagesFailsClosedOnImmutablePackageTampering
 		mutate func(*embeddinginfra.AgentSkillRuntimePackage)
 	}{
 		{
+			name: "manifest duplicate known field",
+			mutate: func(runtimePackage *embeddinginfra.AgentSkillRuntimePackage) {
+				runtimePackage.ManifestJSON = strings.Replace(
+					runtimePackage.ManifestJSON,
+					`"display_name":`,
+					`"display_name":"shadow","display_name":`,
+					1,
+				)
+			},
+		},
+		{
+			name: "manifest duplicate nested known field",
+			mutate: func(runtimePackage *embeddinginfra.AgentSkillRuntimePackage) {
+				runtimePackage.ManifestJSON = strings.Replace(
+					runtimePackage.ManifestJSON,
+					`"role":"primary"`,
+					`"role":"supporting","role":"primary"`,
+					1,
+				)
+			},
+		},
+		{
+			name: "manifest duplicate unknown field",
+			mutate: func(runtimePackage *embeddinginfra.AgentSkillRuntimePackage) {
+				runtimePackage.ManifestJSON = strings.TrimSuffix(runtimePackage.ManifestJSON, "}") +
+					`,"unknown_runtime_field":true,"unknown_runtime_field":false}`
+			},
+		},
+		{
 			name: "manifest unknown field",
 			mutate: func(runtimePackage *embeddinginfra.AgentSkillRuntimePackage) {
 				runtimePackage.ManifestJSON = strings.TrimSuffix(runtimePackage.ManifestJSON, "}") + `,"unknown_runtime_field":true}`
