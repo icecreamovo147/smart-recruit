@@ -10,8 +10,6 @@
     "ai_billing_settlement_outbox": "Scope is enforced through the mandatory Billing reservation and polymorphic owner identity.",
     "agent_capability_bindings": "Scope is inherited through the mandatory owning agent configuration.",
     "agent_configs": "Platform and tenant ownership is represented by the configuration scope fields.",
-    "agent_skill_versions": "Scope is inherited from the mandatory parent agent skill.",
-    "agent_skills": "Platform and tenant ownership is represented by explicit scope and owner fields.",
     "agent_tool_bindings": "Scope is inherited through the mandatory owning agent configuration.",
     "ai_credit_grants": "Owner type and owner id encode either tenant or candidate ownership.",
     "ai_credit_reservation_allocations": "Scope is inherited from the mandatory reservation and grant foreign keys.",
@@ -129,7 +127,8 @@
     "mcp_tool_logs": {"scope": "mixed_scope", "reason": "Tool execution log inherits the invoking principal scope."},
     "mcp_tool_policies": {"scope": "mixed_scope", "reason": "Platform policies coexist with tenant policy overrides."},
     "agent_capability_bindings": {"scope": "mixed_scope", "reason": "Inherits the scope of the owning agent configuration."},
-    "agent_skills": {"scope": "mixed_scope", "reason": "Platform agent skills coexist with tenant customizations."},
-    "agent_skill_versions": {"scope": "mixed_scope", "reason": "Inherits the scope of its agent skill."}
+    "agent_skills": {"scope": "global", "reason": "Agent Skill Package registries are governed platform-wide."},
+    "agent_skill_versions": {"scope": "global", "reason": "Immutable Agent Skill Package versions are governed platform-wide."},
+    "agent_skill_version_sections": {"scope": "global", "reason": "Reference sections inherit their platform-wide Package version governance."}
   }
 }

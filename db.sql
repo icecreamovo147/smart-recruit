@@ -409,7 +409,7 @@ CREATE TABLE IF NOT EXISTS `ai_chat_history` (
   `context_usage_json` TEXT NULL COMMENT '本条消息对应的上下文占用快照(JSON)',
   `model_id` BIGINT NULL COMMENT 'assistant 实际使用的模型ID',
   `model_name` VARCHAR(128) NULL COMMENT 'assistant 实际使用的模型名称',
-  `agent_skill_ids_json` TEXT NULL COMMENT '本条用户消息选择的 Agent Skill ID 快照(JSON数组)',
+  `agent_skill_version_ids_json` TEXT NULL COMMENT '本条用户消息选择的 Agent Skill 版本 ID 快照(JSON数组)',
   `agent_skill_names_json` TEXT NULL COMMENT '本条用户消息选择的 Agent Skill 名称快照(JSON数组)',
   `agent_run_id` BIGINT NULL COMMENT 'Optional agent_runs.id that produced this history message',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1887,20 +1887,10 @@ CREATE TABLE IF NOT EXISTS `agent_skills` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(128) NOT NULL,
   `display_name` VARCHAR(128) NOT NULL,
-  `description` TEXT,
+  `description` TEXT NULL,
   `current_version_id` BIGINT NULL,
   `is_enabled` TINYINT(1) NOT NULL DEFAULT 1,
   `is_manual_invocable` TINYINT(1) NOT NULL DEFAULT 1,
-  `trigger_keywords` JSON NULL,
-  `agent_type` VARCHAR(64) NOT NULL DEFAULT 'hr_recruiting_agent',
-  `category` VARCHAR(64) NOT NULL DEFAULT 'general',
-  `scenario` VARCHAR(128) NOT NULL DEFAULT '',
-  `priority` INT NOT NULL DEFAULT 0,
-  `risk_level` VARCHAR(32) NOT NULL DEFAULT 'medium',
-  `required_capabilities` JSON NULL,
-  `output_schema` JSON NULL,
-  `evaluation_criteria` JSON NULL,
-  `semantic_tags` JSON NULL,
   `created_by` BIGINT NULL,
   `updated_by` BIGINT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1908,26 +1898,58 @@ CREATE TABLE IF NOT EXISTS `agent_skills` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_agent_skills_name` (`name`),
   KEY `idx_agent_skills_enabled` (`is_enabled`),
-  KEY `idx_agent_skills_governance` (`agent_type`, `category`, `priority`),
   KEY `idx_agent_skills_current_version` (`current_version_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Governed Agent SKILL.md registry';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent Skill Package v2 registry';
 
 CREATE TABLE IF NOT EXISTS `agent_skill_versions` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `skill_id` BIGINT NOT NULL,
   `version` VARCHAR(64) NOT NULL,
-  `flow_json` JSON NULL,
-  `skill_md` MEDIUMTEXT NOT NULL,
-  `frontmatter_json` JSON NULL,
-  `body_markdown` MEDIUMTEXT,
-  `change_note` TEXT,
+  `manifest_json` JSON NOT NULL,
+  `core_markdown` MEDIUMTEXT NOT NULL,
+  `compiled_markdown` MEDIUMTEXT NOT NULL,
+  `authoring_json` JSON NULL,
+  `compiled_hash` CHAR(64) NOT NULL,
+  `core_estimated_tokens` INT UNSIGNED NOT NULL,
+  `change_note` TEXT NULL,
   `created_by` BIGINT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_agent_skill_versions_skill_version` (`skill_id`, `version`),
   KEY `idx_agent_skill_versions_skill` (`skill_id`),
-  CONSTRAINT `fk_agent_skill_versions_skill` FOREIGN KEY (`skill_id`) REFERENCES `agent_skills` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Immutable Agent SKILL.md versions';
+  KEY `idx_agent_skill_versions_compiled_hash` (`compiled_hash`),
+  CONSTRAINT `fk_agent_skill_versions_skill`
+    FOREIGN KEY (`skill_id`) REFERENCES `agent_skills` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `chk_agent_skill_versions_core_tokens`
+    CHECK (`core_estimated_tokens` BETWEEN 1 AND 800)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Immutable Agent Skill Package v2 versions';
+
+CREATE TABLE IF NOT EXISTS `agent_skill_version_sections` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `skill_version_id` BIGINT NOT NULL,
+  `section_key` VARCHAR(128) NOT NULL,
+  `title` VARCHAR(256) NOT NULL,
+  `description` TEXT NULL,
+  `content_markdown` MEDIUMTEXT NOT NULL,
+  `trigger_terms_json` JSON NULL,
+  `semantic_tags_json` JSON NULL,
+  `planner_intents_json` JSON NULL,
+  `priority` INT NOT NULL DEFAULT 0,
+  `ordinal` INT UNSIGNED NOT NULL,
+  `estimated_tokens` INT UNSIGNED NOT NULL,
+  `content_hash` CHAR(64) NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_agent_skill_version_sections_key` (`skill_version_id`, `section_key`),
+  KEY `idx_agent_skill_version_sections_order` (`skill_version_id`, `ordinal`, `id`),
+  KEY `idx_agent_skill_version_sections_priority` (`skill_version_id`, `priority`, `id`),
+  CONSTRAINT `fk_agent_skill_version_sections_version`
+    FOREIGN KEY (`skill_version_id`) REFERENCES `agent_skill_versions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `chk_agent_skill_version_sections_key`
+    CHECK (REGEXP_LIKE(`section_key`, '^[a-z][a-z0-9_-]{1,127}$', 'c')),
+  CONSTRAINT `chk_agent_skill_version_sections_tokens`
+    CHECK (`estimated_tokens` BETWEEN 1 AND 1200)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='On-demand reference sections for Agent Skill Package v2';
 
 ALTER TABLE `agent_skills`
   ADD CONSTRAINT `fk_agent_skills_current_version`
@@ -2702,15 +2724,26 @@ ON DUPLICATE KEY UPDATE
   `status` = 'active';
 
 INSERT INTO `platform_ai_capability_versions`
-  (`capability_id`, `version`, `status`, `snapshot_json`, `snapshot_hash`, `change_note`, `published_at`)
+  (`capability_id`, `version`, `status`, `snapshot_json`, `snapshot_hash`, `change_note`, `published_at`, `retired_at`)
 SELECT
   capability.id,
   1,
-  'published',
+  CASE
+    WHEN capability.audience = 'tenant_hr'
+     AND capability.capability_key IN ('ai.chat', 'ai.agent_run')
+      THEN 'retired'
+    ELSE 'published'
+  END,
   snapshot.snapshot_json,
   SHA2(CAST(snapshot.snapshot_json AS CHAR), 256),
   '默认企业配置提升为平台全局基线',
-  NOW(3)
+  NOW(3),
+  CASE
+    WHEN capability.audience = 'tenant_hr'
+     AND capability.capability_key IN ('ai.chat', 'ai.agent_run')
+      THEN NOW(3)
+    ELSE NULL
+  END
 FROM `platform_ai_capabilities` capability
 JOIN LATERAL (
   SELECT JSON_OBJECT(
