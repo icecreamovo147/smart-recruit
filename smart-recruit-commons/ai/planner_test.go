@@ -116,8 +116,8 @@ func TestRecruitingPlannerRequiredIntentCoverage(t *testing.T) {
 			if got, _ := plan.OutputSchema["name"].(string); got != tt.outputName {
 				t.Fatalf("output schema name = %q, want %q", got, tt.outputName)
 			}
-			if plan.SelectedSkills == nil || plan.SelectedMemories == nil {
-				t.Fatal("selected skill and memory placeholders must be present as empty arrays")
+			if plan.SelectedMemories == nil {
+				t.Fatal("selected memory placeholder must be present as an empty array")
 			}
 			if tt.intent != IntentUnknown && tt.intent != IntentGreeting && len(plan.DisplaySteps) == 0 {
 				t.Fatal("display steps must be present for executable intents")

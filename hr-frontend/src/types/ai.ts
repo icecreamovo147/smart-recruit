@@ -208,7 +208,6 @@ export interface AgentRunRecruitingPlan {
   intent?: string
   required_tools?: string[]
   required_data?: string[]
-  selected_skills?: string[]
   selected_memories?: string[]
   output_schema?: Record<string, unknown>
   confirmation_requirement?: AgentRunConfirmationRequirement

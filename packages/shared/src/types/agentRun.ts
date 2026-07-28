@@ -243,7 +243,7 @@ export interface CreateAgentRunRequest {
   action_payload_json?: string
   application_id?: number
   model_id?: number
-  skill_capability_keys?: string[]
+  capability_keys?: string[]
   agent_skill_version_ids?: number[]
 }
 

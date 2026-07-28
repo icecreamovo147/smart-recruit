@@ -42,8 +42,8 @@ const props = defineProps<{
   contextPreviewing: boolean
   dataSource: string
   currentSession: Session | null
-  skillCapabilities: CapabilityInfo[]
-  selectedSkillKeys: string[]
+  capabilities: CapabilityInfo[]
+  selectedCapabilityKeys: string[]
   agentSkills: AvailableAgentSkill[]
   selectedAgentSkillVersionIds: number[]
   disabled?: boolean
@@ -52,7 +52,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:input', value: string): void
   (e: 'update:selectedModelId', value: number | null): void
-  (e: 'update:selectedSkillKeys', value: string[]): void
+  (e: 'update:selectedCapabilityKeys', value: string[]): void
   (e: 'update:selectedAgentSkillVersionIds', value: number[]): void
   (e: 'submit'): void
   (e: 'stop'): void
@@ -81,14 +81,14 @@ const slashQuery = computed(() => {
   return props.input.slice(activeSlashIndex.value + 1).trim().toLowerCase()
 })
 
-const skillMenuVisible = computed(() =>
+const selectionMenuVisible = computed(() =>
   !props.disabled && !props.streaming && activeSlashIndex.value >= 0,
 )
 
-const filteredSkillCapabilities = computed(() => {
+const filteredCapabilities = computed(() => {
   const query = slashQuery.value
-  if (!query) return props.skillCapabilities
-  return props.skillCapabilities.filter((cap) => {
+  if (!query) return props.capabilities
+  return props.capabilities.filter((cap) => {
     const haystack = [
       cap.display_name,
       cap.name,
@@ -117,9 +117,9 @@ const filteredAgentSkills = computed(() => {
   })
 })
 
-const selectedSkillCapabilities = computed(() =>
-  props.selectedSkillKeys
-    .map((key) => props.skillCapabilities.find((cap) => cap.key === key))
+const selectedCapabilities = computed(() =>
+  props.selectedCapabilityKeys
+    .map((key) => props.capabilities.find((cap) => cap.key === key))
     .filter((cap): cap is CapabilityInfo => Boolean(cap)),
 )
 
@@ -131,7 +131,7 @@ const selectedAgentSkills = computed(() =>
     .filter((skill): skill is AvailableAgentSkill => Boolean(skill)),
 )
 
-const skillLabel = (cap: CapabilityInfo) => cap.display_name || cap.name || cap.key
+const capabilityLabel = (cap: CapabilityInfo) => cap.display_name || cap.name || cap.key
 const agentSkillLabel = (skill: AvailableAgentSkill) => skill.display_name || skill.name
 const agentSkillVersionId = (skill: AvailableAgentSkill): number =>
   Number(skill.current_version?.version_id) || 0
@@ -158,10 +158,10 @@ const clearSlashToken = () => {
   emit('update:input', nextInput)
 }
 
-const selectSkill = (cap: CapabilityInfo) => {
+const selectCapability = (cap: CapabilityInfo) => {
   if (props.disabled) return
-  if (!props.selectedSkillKeys.includes(cap.key)) {
-    emit('update:selectedSkillKeys', [...props.selectedSkillKeys, cap.key])
+  if (!props.selectedCapabilityKeys.includes(cap.key)) {
+    emit('update:selectedCapabilityKeys', [...props.selectedCapabilityKeys, cap.key])
   }
   clearSlashToken()
 }
@@ -189,9 +189,9 @@ const selectAgentSkill = (skill: AvailableAgentSkill) => {
   clearSlashToken()
 }
 
-const removeSkill = (key: string) => {
+const removeCapability = (key: string) => {
   if (props.disabled) return
-  emit('update:selectedSkillKeys', props.selectedSkillKeys.filter((item) => item !== key))
+  emit('update:selectedCapabilityKeys', props.selectedCapabilityKeys.filter((item) => item !== key))
 }
 
 const removeAgentSkill = (versionId: number) => {
@@ -257,22 +257,22 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
 <template>
   <div class="chat-composer" :class="{ 'chat-composer--disabled': disabled }">
     <Transition name="chat-composer-skill-menu">
-      <div v-if="skillMenuVisible" class="chat-composer__skill-menu">
-        <template v-if="skillCapabilities.length > 0">
+      <div v-if="selectionMenuVisible" class="chat-composer__skill-menu">
+        <template v-if="capabilities.length > 0">
           <button
-            v-for="skill in filteredSkillCapabilities"
-            :key="skill.key"
+            v-for="capability in filteredCapabilities"
+            :key="capability.key"
             type="button"
             class="chat-composer__skill-option"
-            :class="{ 'chat-composer__skill-option--selected': selectedSkillKeys.includes(skill.key) }"
-            @click="selectSkill(skill)"
+            :class="{ 'chat-composer__skill-option--selected': selectedCapabilityKeys.includes(capability.key) }"
+            @click="selectCapability(capability)"
           >
-            <span class="chat-composer__skill-name">{{ skillLabel(skill) }}</span>
-            <span class="chat-composer__skill-meta">{{ skill.runtime_type || 'skill' }}</span>
+            <span class="chat-composer__skill-name">{{ capabilityLabel(capability) }}</span>
+            <span class="chat-composer__skill-meta">{{ capability.runtime_type || 'data capability' }}</span>
           </button>
         </template>
-        <div v-if="skillCapabilities.length > 0 && filteredSkillCapabilities.length === 0" class="chat-composer__skill-empty">
-          暂无匹配 Tool Skill
+        <div v-if="capabilities.length > 0 && filteredCapabilities.length === 0" class="chat-composer__skill-empty">
+          暂无匹配的数据能力或工具
         </div>
         <button
           v-for="skill in filteredAgentSkills"
@@ -291,18 +291,18 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
       </div>
     </Transition>
     <div
-      v-if="selectedSkillCapabilities.length > 0 || selectedAgentSkills.length > 0"
+      v-if="selectedCapabilities.length > 0 || selectedAgentSkills.length > 0"
       class="chat-composer__selected-skills"
     >
       <button
-        v-for="skill in selectedSkillCapabilities"
-        :key="skill.key"
+        v-for="capability in selectedCapabilities"
+        :key="capability.key"
         type="button"
         class="chat-composer__skill-badge"
         :disabled="disabled"
-        @click="removeSkill(skill.key)"
+        @click="removeCapability(capability.key)"
       >
-        <span>/{{ skillLabel(skill) }}</span>
+        <span>/{{ capabilityLabel(capability) }}</span>
         <el-icon class="chat-composer__skill-close"><Close /></el-icon>
       </button>
       <button

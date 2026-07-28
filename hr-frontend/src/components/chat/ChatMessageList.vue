@@ -78,7 +78,7 @@ const messageSkillBadges = (message: MessageItem): string[] =>
     .map(skillBadgeText)
     .filter(Boolean)
 
-const selectedSkillIds = ref<Record<number, number[]>>({})
+const selectedAgentSkillVersionIds = ref<Record<number, number[]>>({})
 
 const skillSelectionLabel = (candidate: AgentSkillSelectionPayload['candidates'][number]): string =>
   candidate.display_name || candidate.name || `Skill #${candidate.skill_id}`
@@ -116,13 +116,13 @@ const defaultSelectionIds = (selection: AgentSkillSelectionPayload): number[] =>
       .map((candidate) => candidate.version_id)
 
 const selectionIds = (index: number, selection: AgentSkillSelectionPayload): number[] =>
-  selectedSkillIds.value[index] ?? defaultSelectionIds(selection)
+  selectedAgentSkillVersionIds.value[index] ?? defaultSelectionIds(selection)
 
 const toggleSkillSelection = (index: number, selection: AgentSkillSelectionPayload, id: number) => {
   if (props.interactionDisabled) return
   const current = selectionIds(index, selection)
   const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
-  selectedSkillIds.value = { ...selectedSkillIds.value, [index]: next }
+  selectedAgentSkillVersionIds.value = { ...selectedAgentSkillVersionIds.value, [index]: next }
 }
 
 const confirmSkillSelection = (index: number, selection: AgentSkillSelectionPayload) => {

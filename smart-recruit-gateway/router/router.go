@@ -359,7 +359,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.PUT("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.UpdateSession)
 	staffGroup.DELETE("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.DeleteSession)
 	staffGroup.GET("/ai/models", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), llmConfigHandler.ListAvailableModels)
-	staffGroup.GET("/ai/skill-capabilities", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ListSkillCapabilities)
+	staffGroup.GET("/ai/capabilities", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ListCapabilities)
 	staffGroup.GET("/agent-skills/available", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), agentSkillHandler.ListAvailable)
 	staffGroup.POST("/ai/application-analysis-sessions", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.CreateApplicationAnalysisSession)
 	staffGroup.POST("/ai/chat", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.Chat)
@@ -524,7 +524,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	platformAIGroup.GET("/mcp-servers/:id/logs", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIDiagnosticsRead), mcpHandler.ListMCPToolLogs)
 	platformAIGroup.POST("/mcp-servers/:id/call-tool", mcpTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformAIDiagnosticsExec), mcpHandler.CallMCPTool)
 
-	// Agent SKILL.md management — requires AI business permission
+	// Agent Skill Package v2 management — requires AI business permission
 	platformAIGroup.GET("/agent-skills", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIConfigRead), agentSkillHandler.List)
 	platformAIGroup.GET("/agent-skills/semantic-debug", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIDiagnosticsRead), agentSkillHandler.DebugSemanticRetrieval)
 	platformAIGroup.GET("/memories", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIDiagnosticsRead), memoryHandler.PlatformList)

@@ -8379,7 +8379,7 @@ type ChatRequest struct {
 	ApplicationId        int64                  `protobuf:"varint,3,opt,name=application_id,json=applicationId,proto3" json:"application_id,omitempty"`
 	SessionId            int64                  `protobuf:"varint,4,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	ModelId              int64                  `protobuf:"varint,5,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`                                                    // Optional: user-selected model override
-	SkillCapabilityKeys  []string               `protobuf:"bytes,6,rep,name=skill_capability_keys,json=skillCapabilityKeys,proto3" json:"skill_capability_keys,omitempty"`               // Optional: per-message SKILL capabilities selected by the user
+	CapabilityKeys       []string               `protobuf:"bytes,6,rep,name=capability_keys,json=capabilityKeys,proto3" json:"capability_keys,omitempty"`                                // Optional: per-message data/Tool capabilities selected by the user
 	AgentSkillVersionIds []int64                `protobuf:"varint,10,rep,packed,name=agent_skill_version_ids,json=agentSkillVersionIds,proto3" json:"agent_skill_version_ids,omitempty"` // Exact Package v2 versions selected by the user
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
@@ -8450,9 +8450,9 @@ func (x *ChatRequest) GetModelId() int64 {
 	return 0
 }
 
-func (x *ChatRequest) GetSkillCapabilityKeys() []string {
+func (x *ChatRequest) GetCapabilityKeys() []string {
 	if x != nil {
-		return x.SkillCapabilityKeys
+		return x.CapabilityKeys
 	}
 	return nil
 }
@@ -12368,7 +12368,7 @@ type CreateAgentRunRequest struct {
 	ActionPayloadJson    string                 `protobuf:"bytes,6,opt,name=action_payload_json,json=actionPayloadJson,proto3" json:"action_payload_json,omitempty"` // Optional structured action payload
 	ApplicationId        int64                  `protobuf:"varint,7,opt,name=application_id,json=applicationId,proto3" json:"application_id,omitempty"`
 	ModelId              int64                  `protobuf:"varint,8,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`
-	SkillCapabilityKeys  []string               `protobuf:"bytes,9,rep,name=skill_capability_keys,json=skillCapabilityKeys,proto3" json:"skill_capability_keys,omitempty"`
+	CapabilityKeys       []string               `protobuf:"bytes,9,rep,name=capability_keys,json=capabilityKeys,proto3" json:"capability_keys,omitempty"`
 	AgentSkillVersionIds []int64                `protobuf:"varint,13,rep,packed,name=agent_skill_version_ids,json=agentSkillVersionIds,proto3" json:"agent_skill_version_ids,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
@@ -12460,9 +12460,9 @@ func (x *CreateAgentRunRequest) GetModelId() int64 {
 	return 0
 }
 
-func (x *CreateAgentRunRequest) GetSkillCapabilityKeys() []string {
+func (x *CreateAgentRunRequest) GetCapabilityKeys() []string {
 	if x != nil {
-		return x.SkillCapabilityKeys
+		return x.CapabilityKeys
 	}
 	return nil
 }
@@ -40575,7 +40575,7 @@ type PreviewChatContextRequest struct {
 	HrId                 int64                  `protobuf:"varint,1,opt,name=hr_id,json=hrId,proto3" json:"hr_id,omitempty"`
 	SessionId            int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	ModelId              int64                  `protobuf:"varint,3,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"` // Requested model; 0 follows the current default model.
-	SkillCapabilityKeys  []string               `protobuf:"bytes,4,rep,name=skill_capability_keys,json=skillCapabilityKeys,proto3" json:"skill_capability_keys,omitempty"`
+	CapabilityKeys       []string               `protobuf:"bytes,4,rep,name=capability_keys,json=capabilityKeys,proto3" json:"capability_keys,omitempty"`
 	AgentSkillVersionIds []int64                `protobuf:"varint,6,rep,packed,name=agent_skill_version_ids,json=agentSkillVersionIds,proto3" json:"agent_skill_version_ids,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
@@ -40632,9 +40632,9 @@ func (x *PreviewChatContextRequest) GetModelId() int64 {
 	return 0
 }
 
-func (x *PreviewChatContextRequest) GetSkillCapabilityKeys() []string {
+func (x *PreviewChatContextRequest) GetCapabilityKeys() []string {
 	if x != nil {
-		return x.SkillCapabilityKeys
+		return x.CapabilityKeys
 	}
 	return nil
 }
@@ -44917,15 +44917,15 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x18\n" +
 	"\achanged\x18\x03 \x01(\bR\achanged\x12&\n" +
 	"\x0ffrom_status_key\x18\x04 \x01(\tR\rfromStatusKey\x12,\n" +
-	"\x12current_status_key\x18\x05 \x01(\tR\x10currentStatusKey\"\xe2\x02\n" +
+	"\x12current_status_key\x18\x05 \x01(\tR\x10currentStatusKey\"\xd7\x02\n" +
 	"\vChatRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12%\n" +
 	"\x0eapplication_id\x18\x03 \x01(\x03R\rapplicationId\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x04 \x01(\x03R\tsessionId\x12\x19\n" +
-	"\bmodel_id\x18\x05 \x01(\x03R\amodelId\x122\n" +
-	"\x15skill_capability_keys\x18\x06 \x03(\tR\x13skillCapabilityKeys\x125\n" +
+	"\bmodel_id\x18\x05 \x01(\x03R\amodelId\x12'\n" +
+	"\x0fcapability_keys\x18\x06 \x03(\tR\x0ecapabilityKeys\x125\n" +
 	"\x17agent_skill_version_ids\x18\n" +
 	" \x03(\x03R\x14agentSkillVersionIdsJ\x04\b\a\x10\n" +
 	"R\x0fagent_skill_idsR\x1fagent_skill_selection_confirmedR agent_skill_selection_message_id\"\xb8\x03\n" +
@@ -45360,7 +45360,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"error_type\x18\v \x01(\tR\terrorType\x12#\n" +
 	"\rerror_message\x18\f \x01(\tR\ferrorMessage\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\r \x01(\tR\tcreatedAt\"\xe9\x03\n" +
+	"created_at\x18\r \x01(\tR\tcreatedAt\"\xde\x03\n" +
 	"\x15CreateAgentRunRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12\x1d\n" +
 	"\n" +
@@ -45371,8 +45371,8 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"actionType\x12.\n" +
 	"\x13action_payload_json\x18\x06 \x01(\tR\x11actionPayloadJson\x12%\n" +
 	"\x0eapplication_id\x18\a \x01(\x03R\rapplicationId\x12\x19\n" +
-	"\bmodel_id\x18\b \x01(\x03R\amodelId\x122\n" +
-	"\x15skill_capability_keys\x18\t \x03(\tR\x13skillCapabilityKeys\x125\n" +
+	"\bmodel_id\x18\b \x01(\x03R\amodelId\x12'\n" +
+	"\x0fcapability_keys\x18\t \x03(\tR\x0ecapabilityKeys\x125\n" +
 	"\x17agent_skill_version_ids\x18\r \x03(\x03R\x14agentSkillVersionIdsJ\x04\b\n" +
 	"\x10\rR\x0fagent_skill_idsR\x1fagent_skill_selection_confirmedR agent_skill_selection_message_id\"\x9c\x01\n" +
 	"\x16CreateAgentRunResponse\x12\x12\n" +
@@ -48079,13 +48079,13 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12#\n" +
 	"\rsuccess_count\x18\x03 \x01(\x05R\fsuccessCount\x12!\n" +
 	"\ffailed_count\x18\x04 \x01(\x05R\vfailedCount\x12#\n" +
-	"\rskipped_count\x18\x05 \x01(\x05R\fskippedCount\"\xec\x01\n" +
+	"\rskipped_count\x18\x05 \x01(\x05R\fskippedCount\"\xe1\x01\n" +
 	"\x19PreviewChatContextRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\x03R\tsessionId\x12\x19\n" +
-	"\bmodel_id\x18\x03 \x01(\x03R\amodelId\x122\n" +
-	"\x15skill_capability_keys\x18\x04 \x03(\tR\x13skillCapabilityKeys\x125\n" +
+	"\bmodel_id\x18\x03 \x01(\x03R\amodelId\x12'\n" +
+	"\x0fcapability_keys\x18\x04 \x03(\tR\x0ecapabilityKeys\x125\n" +
 	"\x17agent_skill_version_ids\x18\x06 \x03(\x03R\x14agentSkillVersionIdsJ\x04\b\x05\x10\x06R\x0fagent_skill_ids\"\xb2\x01\n" +
 	"\x1aPreviewChatContextResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +

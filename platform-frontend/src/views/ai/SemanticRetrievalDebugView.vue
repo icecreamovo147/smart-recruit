@@ -508,7 +508,7 @@ const submitCorrectionMemory = async () => {
             <div class="console-card__head">
               <div>
                 <h3 class="console-card__title">Agent Skill 召回</h3>
-                <p class="console-card__desc">展示匹配到的数据库版 SKILL.md、分类、分数和触发原因。</p>
+                <p class="console-card__desc">展示匹配到的 Agent Skill Package 版本、分类、分数和触发原因。</p>
               </div>
               <el-tag size="small" type="info">{{ skillRows.length }} 条</el-tag>
             </div>

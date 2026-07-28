@@ -1258,7 +1258,7 @@ func TestHRChatRuntimeCapabilityBindingsRestrictApplicationTool(t *testing.T) {
 			}
 			service := newNativeAIService(store, provider, apps, nil, nil)
 
-			resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "summarize application", ApplicationId: 99, SkillCapabilityKeys: tt.selected})
+			resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "summarize application", ApplicationId: 99, CapabilityKeys: tt.selected})
 			if err != nil {
 				t.Fatalf("Chat returned error: %v", err)
 			}
@@ -3313,7 +3313,7 @@ func TestHRRuntimeSelectedMCPToolsRequiresExplicitSelection(t *testing.T) {
 	if calls := hrRuntimeSelectedMCPTools(&pb.ChatRequest{}, governance); len(calls) != 0 {
 		t.Fatalf("empty selection calls = %#v, want none", calls)
 	}
-	calls := hrRuntimeSelectedMCPTools(&pb.ChatRequest{SkillCapabilityKeys: []string{"7:search"}}, governance)
+	calls := hrRuntimeSelectedMCPTools(&pb.ChatRequest{CapabilityKeys: []string{"7:search"}}, governance)
 	if len(calls) != 1 || calls[0].serverID != 7 || calls[0].toolName != "search" {
 		t.Fatalf("selected calls = %#v", calls)
 	}

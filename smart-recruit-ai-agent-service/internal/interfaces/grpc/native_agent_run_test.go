@@ -27,6 +27,25 @@ func TestCreateAgentRunRejectsBlankMessageBeforeDispatch(t *testing.T) {
 	}
 }
 
+func TestAgentRunDurablePayloadUsesCapabilityKeys(t *testing.T) {
+	payload := agentRunPayloadFromCreateRequest(&pb.CreateAgentRunRequest{
+		Message:        "screen candidates",
+		CapabilityKeys: []string{"candidate.match"},
+	})
+	planJSON := agentRunPlanJSON(payload)
+	if !strings.Contains(planJSON, `"capability_keys":["candidate.match"]`) {
+		t.Fatalf("PlanJSON = %s, want capability_keys", planJSON)
+	}
+	if strings.Contains(planJSON, "skill_capability_keys") {
+		t.Fatalf("PlanJSON contains retired skill capability alias: %s", planJSON)
+	}
+
+	roundTrip := agentRunPayloadFromRow(AgentRunRow{PlanJSON: planJSON})
+	if len(roundTrip.CapabilityKeys) != 1 || roundTrip.CapabilityKeys[0] != "candidate.match" {
+		t.Fatalf("round-trip capability keys = %#v", roundTrip.CapabilityKeys)
+	}
+}
+
 func TestApplicationAnalysisRunReusesSeededUserMessage(t *testing.T) {
 	store := newAgentRunTestStore()
 	service := &nativeAIService{store: store}

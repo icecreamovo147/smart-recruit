@@ -78,7 +78,7 @@ export const buildApplicationAnalysisRunRequest = (input: {
   applicationId: number
   clientRequestId: string
   modelId?: number
-  skillCapabilityKeys?: string[]
+  capabilityKeys?: string[]
   agentSkillVersionIds?: number[]
 }): CreateAgentRunRequest => ({
   session_id: input.sessionId,
@@ -87,7 +87,7 @@ export const buildApplicationAnalysisRunRequest = (input: {
   application_id: input.applicationId,
   client_request_id: input.clientRequestId,
   ...(input.modelId != null ? { model_id: input.modelId } : {}),
-  ...(input.skillCapabilityKeys?.length ? { skill_capability_keys: [...input.skillCapabilityKeys] } : {}),
+  ...(input.capabilityKeys?.length ? { capability_keys: [...input.capabilityKeys] } : {}),
   ...(input.agentSkillVersionIds?.length
     ? { agent_skill_version_ids: [...input.agentSkillVersionIds] }
     : {}),
@@ -102,7 +102,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { WarningFilled } from '@element-plus/icons-vue'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
-import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, listSkillCapabilities, previewSessionContext, updateSession } from '@/api/ai'
+import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, listCapabilities, previewSessionContext, updateSession } from '@/api/ai'
 import { listAvailableAgentSkills } from '@/api/agentSkill'
 import { updateApplicationStatus } from '@/api/application'
 import { listAvailableModels } from '@/api/llm'
@@ -267,8 +267,8 @@ const dataSource = ref('招聘业务数据库')
 const tracePanelVisible = ref(false)
 const agentSkills = ref<AvailableAgentSkill[]>([])
 const selectedAgentSkillVersionIds = ref<number[]>([])
-const skillCapabilities = ref<CapabilityInfo[]>([])
-const selectedSkillKeys = ref<string[]>([])
+const capabilities = ref<CapabilityInfo[]>([])
+const selectedCapabilityKeys = ref<string[]>([])
 const contextUsage = ref<ContextUsageInfo | null>(null)
 const lastModelFallbackSignature = ref('')
 const contextPreviewing = ref(false)
@@ -1184,7 +1184,7 @@ const createAnalysisSessionFromRoute = async () => {
       applicationId: session.application_id || applicationId,
       clientRequestId: createClientRequestId(),
       ...(selectedModelId.value != null ? { modelId: selectedModelId.value } : {}),
-      ...(selectedSkillKeys.value.length > 0 ? { skillCapabilityKeys: selectedSkillKeys.value } : {}),
+      ...(selectedCapabilityKeys.value.length > 0 ? { capabilityKeys: selectedCapabilityKeys.value } : {}),
       ...(selectedAgentSkillVersionIds.value.length > 0
         ? { agentSkillVersionIds: selectedAgentSkillVersionIds.value }
         : {}),
@@ -1683,8 +1683,8 @@ const submit = async (textOverride?: string) => {
   const assistantIndex = messages.value.length
   try {
     messages.value.push({ role: 'assistant', content: '', pending: true, waitingText: session.application_id ? '分析中' : '响应中' })
-    const skillKeysForMessage = [...selectedSkillKeys.value]
-    selectedSkillKeys.value = []
+    const capabilityKeysForMessage = [...selectedCapabilityKeys.value]
+    selectedCapabilityKeys.value = []
     const result = await executeCreateChatRun(
       agentRun,
       {
@@ -1695,7 +1695,7 @@ const submit = async (textOverride?: string) => {
         ...(agentSkillVersionIdsForMessage.length > 0
           ? { agent_skill_version_ids: agentSkillVersionIdsForMessage }
           : {}),
-        ...(skillKeysForMessage.length > 0 ? { skill_capability_keys: skillKeysForMessage } : {}),
+        ...(capabilityKeysForMessage.length > 0 ? { capability_keys: capabilityKeysForMessage } : {}),
         ...(session.application_id ? { application_id: session.application_id } : {}),
       },
       makeChatUiBinder(assistantIndex),
@@ -1709,7 +1709,7 @@ const submit = async (textOverride?: string) => {
     }
     if (result.outcome === 'failed') {
       selectedAgentSkillVersionIds.value = agentSkillVersionIdsForMessage
-      selectedSkillKeys.value = skillKeysForMessage
+      selectedCapabilityKeys.value = capabilityKeysForMessage
       markAssistantError(assistantIndex, result.error || new Error(t('ai.stream_failed')), result.state.errorType)
       ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
@@ -1840,8 +1840,8 @@ onMounted(async () => {
     agentSkills.value = agentSkillData.list || []
   } catch { /* non-fatal: agent skill selector will be empty */ }
   try {
-    const capabilityData = await listSkillCapabilities()
-    skillCapabilities.value = capabilityData.list || []
+    const capabilityData = await listCapabilities()
+    capabilities.value = capabilityData.list || []
   } catch { /* non-fatal: capability slash menu will be empty; backend uses agent-bound tools by default */ }
   await refreshSessions()
   if (await createAnalysisSessionFromRoute()) return
@@ -1909,7 +1909,7 @@ const requestContextPreview = (notifyOnError = true) => {
   const version = contextPreviewVersion
   const sessionId = session.id
   const requestedModelId = selectedModelId.value ?? 0
-  const skillCapabilityKeys = [...selectedSkillKeys.value]
+  const capabilityKeys = [...selectedCapabilityKeys.value]
   const agentSkillVersionIds = [...selectedAgentSkillVersionIds.value]
   contextPreviewing.value = true
   contextPreviewTimer = setTimeout(async () => {
@@ -1919,7 +1919,7 @@ const requestContextPreview = (notifyOnError = true) => {
     try {
       const result = await previewSessionContext(sessionId, {
         model_id: requestedModelId,
-        ...(skillCapabilityKeys.length > 0 ? { skill_capability_keys: skillCapabilityKeys } : {}),
+        ...(capabilityKeys.length > 0 ? { capability_keys: capabilityKeys } : {}),
         ...(agentSkillVersionIds.length > 0
           ? { agent_skill_version_ids: agentSkillVersionIds }
           : {}),
@@ -1961,8 +1961,8 @@ const handleSelectedModelUpdate = (value: number | null) => {
   requestContextPreview()
 }
 
-const handleSelectedSkillKeysUpdate = (value: string[]) => {
-  selectedSkillKeys.value = value
+const handleSelectedCapabilityKeysUpdate = (value: string[]) => {
+  selectedCapabilityKeys.value = value
   requestContextPreview(false)
 }
 
@@ -2119,14 +2119,14 @@ onBeforeUnmount(() => {
             :context-previewing="contextPreviewing"
             :data-source="dataSource"
             :current-session="currentSession"
-            :skill-capabilities="skillCapabilities"
-            :selected-skill-keys="selectedSkillKeys"
+            :capabilities="capabilities"
+            :selected-capability-keys="selectedCapabilityKeys"
             :agent-skills="agentSkills"
             :selected-agent-skill-version-ids="selectedAgentSkillVersionIds"
             :disabled="quotaExhausted || billingAccessLoading || awaitingRunConfirmation"
             @update:input="(val: string) => input = val"
             @update:selected-model-id="handleSelectedModelUpdate"
-            @update:selected-skill-keys="handleSelectedSkillKeysUpdate"
+            @update:selected-capability-keys="handleSelectedCapabilityKeysUpdate"
             @update:selected-agent-skill-version-ids="handleSelectedAgentSkillVersionIdsUpdate"
             @submit="submit"
             @stop="stopStreaming"

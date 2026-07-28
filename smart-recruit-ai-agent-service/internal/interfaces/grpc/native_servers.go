@@ -536,7 +536,7 @@ type agentRunDurablePayload struct {
 	AuthClientApp                 string                     `json:"auth_client_app,omitempty"`
 	EffectiveAgentID              int64                      `json:"effective_agent_id,omitempty"`
 	EffectiveAgentPinned          bool                       `json:"effective_agent_pinned,omitempty"`
-	SkillCapabilityKeys           []string                   `json:"skill_capability_keys,omitempty"`
+	CapabilityKeys                []string                   `json:"capability_keys,omitempty"`
 	AgentSkillVersionIDs          []int64                    `json:"agent_skill_version_ids,omitempty"`
 	ConfirmationPayloadJSON       string                     `json:"confirmation_payload_json,omitempty"`
 	ConfirmationClientRequestID   string                     `json:"confirmation_client_request_id,omitempty"`
@@ -3200,7 +3200,7 @@ func hrRuntimeSelectedMCPTools(req *pb.ChatRequest, governance hrRuntimeGovernan
 	if governance.Agent == nil {
 		return nil
 	}
-	selected := normalizedStringSet(req.GetSkillCapabilityKeys())
+	selected := normalizedStringSet(req.GetCapabilityKeys())
 	if len(selected) == 0 {
 		return nil
 	}
@@ -3319,7 +3319,7 @@ func hrRuntimeAllowsApplicationSnapshot(req *pb.ChatRequest, governance hrRuntim
 	if governance.Agent != nil && !hrRuntimeToolSetAllowsApplicationContext(governance.ToolNames) {
 		return false
 	}
-	selected := normalizedStringSet(req.GetSkillCapabilityKeys())
+	selected := normalizedStringSet(req.GetCapabilityKeys())
 	if len(selected) > 0 && !selected[hrCandidateSearchCapability] {
 		return false
 	}
@@ -3426,11 +3426,11 @@ func renderHRProviderPrompt(req *pb.ChatRequest, history []ChatMessageRow, curre
 			b.WriteString("\n")
 		}
 	}
-	if len(req.GetAgentSkillVersionIds()) > 0 || len(req.GetSkillCapabilityKeys()) > 0 {
+	if len(req.GetAgentSkillVersionIds()) > 0 || len(req.GetCapabilityKeys()) > 0 {
 		b.WriteString("\nRuntime selection:\n")
 		b.WriteString(marshalJSONString(map[string]any{
 			"agent_skill_version_ids": req.GetAgentSkillVersionIds(),
-			"skill_capability_keys":   req.GetSkillCapabilityKeys(),
+			"capability_keys":         req.GetCapabilityKeys(),
 		}))
 		b.WriteString("\n")
 	}
@@ -4123,7 +4123,7 @@ func (s *nativeAIService) PreviewChatContext(ctx context.Context, req *pb.Previe
 		SessionId:            session.ID,
 		ApplicationId:        session.ApplicationID,
 		ModelId:              req.GetModelId(),
-		SkillCapabilityKeys:  append([]string(nil), req.GetSkillCapabilityKeys()...),
+		CapabilityKeys:       append([]string(nil), req.GetCapabilityKeys()...),
 		AgentSkillVersionIds: append([]int64(nil), req.GetAgentSkillVersionIds()...),
 	}
 	governance, err := s.loadHRRuntimeGovernance(withoutAgentSkillMetrics(ctx), chatReq)
@@ -4976,7 +4976,7 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 		Message:              req.GetMessage(),
 		ApplicationId:        req.GetApplicationId(),
 		ModelId:              req.GetModelId(),
-		SkillCapabilityKeys:  append([]string(nil), req.GetSkillCapabilityKeys()...),
+		CapabilityKeys:       append([]string(nil), req.GetCapabilityKeys()...),
 		AgentSkillVersionIds: append([]int64(nil), req.GetAgentSkillVersionIds()...),
 	})
 	if err != nil {
@@ -5765,7 +5765,7 @@ func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow, 
 		Message:              payload.Message,
 		ApplicationId:        payload.ApplicationID,
 		ModelId:              payload.ModelID,
-		SkillCapabilityKeys:  payload.SkillCapabilityKeys,
+		CapabilityKeys:       payload.CapabilityKeys,
 		AgentSkillVersionIds: payload.AgentSkillVersionIDs,
 	}, s.agentRunChatEmitterForExecution(current), hrChatRuntimeOptions{
 		reuseExistingUserMessage: shouldReuseAgentRunUserMessage(run, payload),
@@ -6589,7 +6589,7 @@ func agentRunPayloadFromCreateRequest(req *pb.CreateAgentRunRequest) agentRunDur
 		ActionPayloadJSON:    req.GetActionPayloadJson(),
 		ApplicationID:        req.GetApplicationId(),
 		ModelID:              req.GetModelId(),
-		SkillCapabilityKeys:  append([]string(nil), req.GetSkillCapabilityKeys()...),
+		CapabilityKeys:       append([]string(nil), req.GetCapabilityKeys()...),
 		AgentSkillVersionIDs: append([]int64(nil), req.GetAgentSkillVersionIds()...),
 	}
 }
@@ -6612,8 +6612,8 @@ func agentRunRuntimePlanJSON(payload agentRunDurablePayload, req *pb.ChatRequest
 		if payload.ModelID == 0 {
 			payload.ModelID = req.GetModelId()
 		}
-		if len(payload.SkillCapabilityKeys) == 0 {
-			payload.SkillCapabilityKeys = append([]string(nil), req.GetSkillCapabilityKeys()...)
+		if len(payload.CapabilityKeys) == 0 {
+			payload.CapabilityKeys = append([]string(nil), req.GetCapabilityKeys()...)
 		}
 		if len(payload.AgentSkillVersionIDs) == 0 {
 			payload.AgentSkillVersionIDs = append([]int64(nil), req.GetAgentSkillVersionIds()...)

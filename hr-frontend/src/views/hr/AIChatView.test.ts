@@ -175,12 +175,12 @@ describe('AIChatView application analysis message', () => {
       applicationId: 22,
       clientRequestId: 'route-request',
       modelId: 33,
-      skillCapabilityKeys: ['candidate.match'],
+      capabilityKeys: ['candidate.match'],
     })
     expect(payload.message).toBe('后端返回的匹配评估指令')
     expect(payload.action_type).toBe('analyze_application')
     expect(payload.application_id).toBe(22)
-    expect(payload.skill_capability_keys).toEqual(['candidate.match'])
+    expect(payload.capability_keys).toEqual(['candidate.match'])
   })
 
   it('in-chat analysis submits the planner-recognizable fallback for legacy empty messages', () => {

@@ -16,7 +16,7 @@ export interface ChatRequestPayload {
   application_id?: number
   session_id?: number
   model_id?: number
-  skill_capability_keys?: string[]
+  capability_keys?: string[]
   agent_skill_version_ids?: number[]
 }
 
@@ -63,7 +63,7 @@ export const getSessionMessages = (sessionId: number, params: { page: number; pa
 
 export const previewSessionContext = (
   sessionId: number,
-  data: { model_id: number; skill_capability_keys?: string[]; agent_skill_version_ids?: number[] },
+  data: { model_id: number; capability_keys?: string[]; agent_skill_version_ids?: number[] },
   signal?: AbortSignal,
 ): Promise<{ selected_model_id: number; context_usage: ContextUsageInfo }> =>
   request.put(`/api/v1/hr/ai/sessions/${sessionId}/context-model`, data, { signal })
@@ -87,9 +87,9 @@ export const getAgentRuns = (sessionId: number): Promise<{
   list: AgentRunItem[]
 }> => request.get(`/api/v1/hr/ai/sessions/${sessionId}/agent-runs`)
 
-export const listSkillCapabilities = (): Promise<{
+export const listCapabilities = (): Promise<{
   list: CapabilityInfo[]
-}> => request.get('/api/v1/hr/ai/skill-capabilities')
+}> => request.get('/api/v1/hr/ai/capabilities')
 
 export const friendlyStreamMsg = (code: number, msg: string): string => {
   const guardMessage = contextGuardMessage(contextGuardCodeFrom(msg))

@@ -684,15 +684,33 @@ func TestEffectiveAgentSkillBudgetHonorsStricterSnapshotPolicy(t *testing.T) {
 	}
 }
 
-func TestChatRequestDescriptorContainsNoLegacyAgentSkillFields(t *testing.T) {
-	fields := (&pb.ChatRequest{}).ProtoReflect().Descriptor().Fields()
-	for _, name := range []string{"agent_skill_ids", "agent_skill_selection_confirmed", "agent_skill_selection_message_id"} {
-		if fields.ByName(protoreflectName(name)) != nil {
-			t.Fatalf("legacy field %q still exists", name)
-		}
+func TestRuntimeRequestDescriptorsExposeOnlyV2SkillAndCapabilityFields(t *testing.T) {
+	messages := []struct {
+		name   string
+		fields protoreflect.FieldDescriptors
+	}{
+		{name: "ChatRequest", fields: (&pb.ChatRequest{}).ProtoReflect().Descriptor().Fields()},
+		{name: "CreateAgentRunRequest", fields: (&pb.CreateAgentRunRequest{}).ProtoReflect().Descriptor().Fields()},
+		{name: "PreviewChatContextRequest", fields: (&pb.PreviewChatContextRequest{}).ProtoReflect().Descriptor().Fields()},
 	}
-	if fields.ByName(protoreflectName("agent_skill_version_ids")) == nil {
-		t.Fatal("exact agent_skill_version_ids field is missing")
+	for _, message := range messages {
+		t.Run(message.name, func(t *testing.T) {
+			for _, name := range []string{
+				"agent_skill_ids",
+				"agent_skill_selection_confirmed",
+				"agent_skill_selection_message_id",
+				"skill_capability_keys",
+			} {
+				if message.fields.ByName(protoreflectName(name)) != nil {
+					t.Fatalf("legacy field %q still exists", name)
+				}
+			}
+			for _, name := range []string{"agent_skill_version_ids", "capability_keys"} {
+				if message.fields.ByName(protoreflectName(name)) == nil {
+					t.Fatalf("v2 field %q is missing", name)
+				}
+			}
+		})
 	}
 }
 

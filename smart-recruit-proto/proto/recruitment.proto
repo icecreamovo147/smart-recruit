@@ -1126,7 +1126,7 @@ message ChatRequest {
   int64 application_id = 3;
   int64 session_id = 4;
   int64 model_id = 5;               // Optional: user-selected model override
-  repeated string skill_capability_keys = 6; // Optional: per-message SKILL capabilities selected by the user
+  repeated string capability_keys = 6; // Optional: per-message data/Tool capabilities selected by the user
   reserved 7 to 9;
   reserved "agent_skill_ids", "agent_skill_selection_confirmed", "agent_skill_selection_message_id";
   repeated int64 agent_skill_version_ids = 10; // Exact Package v2 versions selected by the user
@@ -1596,7 +1596,7 @@ message CreateAgentRunRequest {
   string action_payload_json = 6;    // Optional structured action payload
   int64 application_id = 7;
   int64 model_id = 8;
-  repeated string skill_capability_keys = 9;
+  repeated string capability_keys = 9;
   reserved 10 to 12;
   reserved "agent_skill_ids", "agent_skill_selection_confirmed", "agent_skill_selection_message_id";
   repeated int64 agent_skill_version_ids = 13;
@@ -4871,7 +4871,7 @@ message PreviewChatContextRequest {
   int64 hr_id = 1;
   int64 session_id = 2;
   int64 model_id = 3; // Requested model; 0 follows the current default model.
-  repeated string skill_capability_keys = 4;
+  repeated string capability_keys = 4;
   reserved 5;
   reserved "agent_skill_ids";
   repeated int64 agent_skill_version_ids = 6;

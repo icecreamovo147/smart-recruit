@@ -118,7 +118,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		ApplicationID        base.FlexInt64 `json:"application_id"`
 		SessionID            base.FlexInt64 `json:"session_id"`
 		ModelID              base.FlexInt64 `json:"model_id"`
-		SkillCapabilityKeys  []string       `json:"skill_capability_keys"`
+		CapabilityKeys       []string       `json:"capability_keys"`
 		AgentSkillVersionIDs []int64        `json:"agent_skill_version_ids"`
 	}
 	if err := bindStrictJSON(c, &req); err != nil || strings.TrimSpace(req.Message) == "" {
@@ -135,7 +135,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		ApplicationId:        int64(req.ApplicationID),
 		SessionId:            int64(req.SessionID),
 		ModelId:              int64(req.ModelID),
-		SkillCapabilityKeys:  req.SkillCapabilityKeys,
+		CapabilityKeys:       req.CapabilityKeys,
 		AgentSkillVersionIds: req.AgentSkillVersionIDs,
 	})
 	if err != nil {
@@ -167,7 +167,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		ApplicationID        base.FlexInt64 `json:"application_id"`
 		SessionID            base.FlexInt64 `json:"session_id"`
 		ModelID              base.FlexInt64 `json:"model_id"`
-		SkillCapabilityKeys  []string       `json:"skill_capability_keys"`
+		CapabilityKeys       []string       `json:"capability_keys"`
 		AgentSkillVersionIDs []int64        `json:"agent_skill_version_ids"`
 	}
 	if err := bindStrictJSON(c, &req); err != nil || strings.TrimSpace(req.Message) == "" {
@@ -185,7 +185,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		ApplicationId:        int64(req.ApplicationID),
 		SessionId:            int64(req.SessionID),
 		ModelId:              int64(req.ModelID),
-		SkillCapabilityKeys:  req.SkillCapabilityKeys,
+		CapabilityKeys:       req.CapabilityKeys,
 		AgentSkillVersionIds: req.AgentSkillVersionIDs,
 	})
 	if err != nil {
@@ -316,7 +316,7 @@ func agentSkillSelectionPayload(selection *pb.AgentSkillSelection) *agentSkillSe
 	}
 }
 
-func (h *AIHandler) ListSkillCapabilities(c *gin.Context) {
+func (h *AIHandler) ListCapabilities(c *gin.Context) {
 	resp, err := h.clients.AgentConfig.ListCapabilities(c.Request.Context(), &pb.ListCapabilitiesRequest{
 		AgentType: "hr_recruiting_agent",
 	})
@@ -324,11 +324,11 @@ func (h *AIHandler) ListSkillCapabilities(c *gin.Context) {
 		base.Internal(c, err)
 		return
 	}
-	list := availableSkillCapabilities(resp.List)
+	list := availableCapabilities(resp.List)
 	base.From(c, resp.Code, resp.Msg, gin.H{"list": list})
 }
 
-func availableSkillCapabilities(items []*pb.CapabilityInfo) []*pb.CapabilityInfo {
+func availableCapabilities(items []*pb.CapabilityInfo) []*pb.CapabilityInfo {
 	list := make([]*pb.CapabilityInfo, 0, len(items))
 	for _, item := range items {
 		if item != nil && item.GetIsAvailable() {
@@ -397,7 +397,7 @@ func (h *AIHandler) PreviewChatContext(c *gin.Context) {
 	}
 	var req struct {
 		ModelID              base.FlexInt64 `json:"model_id"`
-		SkillCapabilityKeys  []string       `json:"skill_capability_keys"`
+		CapabilityKeys       []string       `json:"capability_keys"`
 		AgentSkillVersionIDs []int64        `json:"agent_skill_version_ids"`
 	}
 	if err := bindStrictJSON(c, &req); err != nil {
@@ -412,7 +412,7 @@ func (h *AIHandler) PreviewChatContext(c *gin.Context) {
 		HrId:                 middleware.UserID(c),
 		SessionId:            sessionID,
 		ModelId:              int64(req.ModelID),
-		SkillCapabilityKeys:  req.SkillCapabilityKeys,
+		CapabilityKeys:       req.CapabilityKeys,
 		AgentSkillVersionIds: req.AgentSkillVersionIDs,
 	})
 	if err != nil {
@@ -562,7 +562,7 @@ func (h *AIHandler) CreateAgentRun(c *gin.Context) {
 		ActionPayloadJSON    string         `json:"action_payload_json"`
 		ApplicationID        base.FlexInt64 `json:"application_id"`
 		ModelID              base.FlexInt64 `json:"model_id"`
-		SkillCapabilityKeys  []string       `json:"skill_capability_keys"`
+		CapabilityKeys       []string       `json:"capability_keys"`
 		AgentSkillVersionIDs []int64        `json:"agent_skill_version_ids"`
 	}
 	if err := bindStrictJSON(c, &req); err != nil {
@@ -591,7 +591,7 @@ func (h *AIHandler) CreateAgentRun(c *gin.Context) {
 		ActionPayloadJson:    req.ActionPayloadJSON,
 		ApplicationId:        int64(req.ApplicationID),
 		ModelId:              int64(req.ModelID),
-		SkillCapabilityKeys:  req.SkillCapabilityKeys,
+		CapabilityKeys:       req.CapabilityKeys,
 		AgentSkillVersionIds: req.AgentSkillVersionIDs,
 	})
 	if err != nil {

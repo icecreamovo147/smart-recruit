@@ -271,7 +271,7 @@ func (s *nativeAIService) selectHRRuntimeAgentSkillPackages(
 		}
 	}
 
-	availableCapabilities := hrRuntimeAvailableSkillCapabilities(capabilityKeys, req.GetSkillCapabilityKeys())
+	availableCapabilities := hrRuntimeAvailableCapabilities(capabilityKeys, req.GetCapabilityKeys())
 	maxSkills := effectiveAgentSkillMaxCount(model.SkillRuntimePolicy)
 	var ranked []hrRankedAgentSkillVersion
 	if len(manualVersionIDs) > 0 {
@@ -839,7 +839,7 @@ func effectiveAgentSkillMaxCount(policy CapabilitySkillRuntimePolicy) int {
 	return maxSkills
 }
 
-func hrRuntimeAvailableSkillCapabilities(agentCapabilities, selectedCapabilities []string) map[string]bool {
+func hrRuntimeAvailableCapabilities(agentCapabilities, selectedCapabilities []string) map[string]bool {
 	available := make(map[string]bool, len(agentCapabilities)*2)
 	for _, raw := range agentCapabilities {
 		value := strings.TrimSpace(raw)

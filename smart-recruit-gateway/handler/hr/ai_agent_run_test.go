@@ -24,6 +24,7 @@ import (
 
 // mockAIServiceClient implements pb.AIServiceClient for durable-run handler tests.
 type mockAIServiceClient struct {
+	chatFn      func(context.Context, *pb.ChatRequest, ...grpc.CallOption) (*pb.ChatResponse, error)
 	createFn    func(context.Context, *pb.CreateAgentRunRequest, ...grpc.CallOption) (*pb.CreateAgentRunResponse, error)
 	getFn       func(context.Context, *pb.GetAgentRunRequest, ...grpc.CallOption) (*pb.GetAgentRunResponse, error)
 	activeFn    func(context.Context, *pb.GetActiveAgentRunRequest, ...grpc.CallOption) (*pb.GetActiveAgentRunResponse, error)
@@ -35,7 +36,10 @@ type mockAIServiceClient struct {
 	cancelCalled atomic.Bool
 }
 
-func (m *mockAIServiceClient) Chat(context.Context, *pb.ChatRequest, ...grpc.CallOption) (*pb.ChatResponse, error) {
+func (m *mockAIServiceClient) Chat(ctx context.Context, req *pb.ChatRequest, opts ...grpc.CallOption) (*pb.ChatResponse, error) {
+	if m.chatFn != nil {
+		return m.chatFn(ctx, req, opts...)
+	}
 	return &pb.ChatResponse{Code: 0, Msg: "ok"}, nil
 }
 func (m *mockAIServiceClient) ChatStream(context.Context, *pb.ChatRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[pb.ChatStreamResponse], error) {
@@ -231,6 +235,8 @@ func newAgentRunTestRouter(mock *mockAIServiceClient, userID int64) *gin.Engine 
 	if userID > 0 {
 		r.Use(withAuthUser(userID))
 	}
+	r.POST("/api/v1/hr/ai/chat", handler.Chat)
+	r.POST("/api/v1/hr/ai/chat/stream", handler.ChatStream)
 	r.POST("/api/v1/hr/ai/runs", handler.CreateAgentRun)
 	r.GET("/api/v1/hr/ai/runs/:run_id", handler.GetAgentRun)
 	r.GET("/api/v1/hr/ai/sessions/:session_id/active-run", handler.GetActiveAgentRun)
@@ -239,6 +245,48 @@ func newAgentRunTestRouter(mock *mockAIServiceClient, userID int64) *gin.Engine 
 	r.POST("/api/v1/hr/ai/runs/:run_id/confirm", handler.ConfirmAgentRun)
 	r.PUT("/api/v1/hr/ai/sessions/:session_id/context-model", handler.PreviewChatContext)
 	return r
+}
+
+func TestChatForwardsCapabilityKeys(t *testing.T) {
+	var captured *pb.ChatRequest
+	mock := &mockAIServiceClient{chatFn: func(_ context.Context, req *pb.ChatRequest, _ ...grpc.CallOption) (*pb.ChatResponse, error) {
+		captured = req
+		return &pb.ChatResponse{Code: 0, Msg: "ok"}, nil
+	}}
+	r := newAgentRunTestRouter(mock, 42)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/hr/ai/chat", strings.NewReader(`{"message":"hello","capability_keys":["candidate.match"]}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK || captured == nil || len(captured.GetCapabilityKeys()) != 1 ||
+		captured.GetCapabilityKeys()[0] != "candidate.match" {
+		t.Fatalf("status=%d captured=%#v body=%s", w.Code, captured, w.Body.String())
+	}
+}
+
+func TestRuntimeHTTPRequestsRejectLegacySkillCapabilityField(t *testing.T) {
+	r := newAgentRunTestRouter(&mockAIServiceClient{}, 42)
+	tests := []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{method: http.MethodPost, path: "/api/v1/hr/ai/chat", body: `{"message":"hello","skill_capability_keys":["search"]}`},
+		{method: http.MethodPost, path: "/api/v1/hr/ai/chat/stream", body: `{"message":"hello","skill_capability_keys":["search"]}`},
+		{method: http.MethodPost, path: "/api/v1/hr/ai/runs", body: `{"session_id":7,"message":"hello","skill_capability_keys":["search"]}`},
+		{method: http.MethodPut, path: "/api/v1/hr/ai/sessions/7/context-model", body: `{"model_id":8,"skill_capability_keys":["search"]}`},
+	}
+	for _, test := range tests {
+		t.Run(test.method+" "+test.path, func(t *testing.T) {
+			req := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if !strings.Contains(w.Body.String(), `"code":400`) {
+				t.Fatalf("expected legacy capability field rejection, got %s", w.Body.String())
+			}
+		})
+	}
 }
 
 func TestPreviewChatContextForwardsSelectionAndMapsUsage(t *testing.T) {
@@ -251,7 +299,7 @@ func TestPreviewChatContextForwardsSelectionAndMapsUsage(t *testing.T) {
 		}, nil
 	}}
 	r := newAgentRunTestRouter(mock, 42)
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/hr/ai/sessions/7/context-model", strings.NewReader(`{"model_id":8,"skill_capability_keys":["search"],"agent_skill_version_ids":[1011]}`))
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/hr/ai/sessions/7/context-model", strings.NewReader(`{"model_id":8,"capability_keys":["search"],"agent_skill_version_ids":[1011]}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -260,6 +308,7 @@ func TestPreviewChatContextForwardsSelectionAndMapsUsage(t *testing.T) {
 		t.Fatalf("status=%d captured=%#v body=%s", w.Code, captured, w.Body.String())
 	}
 	if captured.GetHrId() != 42 || captured.GetSessionId() != 7 || captured.GetModelId() != 8 ||
+		len(captured.GetCapabilityKeys()) != 1 || captured.GetCapabilityKeys()[0] != "search" ||
 		len(captured.GetAgentSkillVersionIds()) != 1 || captured.GetAgentSkillVersionIds()[0] != 1011 {
 		t.Fatalf("captured request = %#v", captured)
 	}

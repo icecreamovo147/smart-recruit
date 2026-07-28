@@ -77,7 +77,7 @@ func TestNativeMCPRuntimeConnectionDiscoveryPolicyAuditAndHRTool(t *testing.T) {
 	if len(store.mcpLogs) != 1 || len(store.toolTraces) != 0 {
 		t.Fatalf("empty selection executed MCP: logs=%d traces=%d", len(store.mcpLogs), len(store.toolTraces))
 	}
-	chatResp, err := deps.AI.Chat(context.Background(), &pb.ChatRequest{HrId: 88, Message: "find Alice", SkillCapabilityKeys: []string{"7:search"}})
+	chatResp, err := deps.AI.Chat(context.Background(), &pb.ChatRequest{HrId: 88, Message: "find Alice", CapabilityKeys: []string{"7:search"}})
 	if err == nil || chatResp != nil || !strings.Contains(err.Error(), "mcp tool confirmation is required") {
 		t.Fatalf("chat response=%#v err=%v, want independent MCP confirmation", chatResp, err)
 	}

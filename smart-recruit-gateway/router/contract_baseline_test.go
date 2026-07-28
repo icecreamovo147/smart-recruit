@@ -69,6 +69,7 @@ func TestCoreHTTPRouteGroupsRemainRegistered(t *testing.T) {
 		"GET /api/v1/hr/dashboard/summary",
 		"POST /api/v1/hr/ai/chat",
 		"POST /api/v1/hr/ai/runs",
+		"GET /api/v1/hr/ai/capabilities",
 		"GET /api/v1/hr/analytics/dashboard",
 		"GET /api/v1/hr/admin/roles",
 		"GET /api/v1/hr/admin/permissions",
@@ -108,6 +109,7 @@ func TestCoreHTTPRouteGroupsRemainRegistered(t *testing.T) {
 		"GET /api/v1/hr/capabilities",
 		"GET /api/v1/hr/capabilities/:id",
 		"POST /api/v1/hr/capabilities/from-template",
+		"GET /api/v1/hr/ai/skill-capabilities",
 	}
 	for _, route := range removedLegacySkillRoutes {
 		if registered[route] {

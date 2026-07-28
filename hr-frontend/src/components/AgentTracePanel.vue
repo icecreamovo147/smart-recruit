@@ -753,14 +753,11 @@ const capabilityItems = (run: AgentRunItem): string[] => {
     .filter((item) => item.length > 0)
 }
 
-const selectedSkillIds = (run: AgentRunItem): number[] =>
+const selectedAgentSkillVersionIds = (run: AgentRunItem): number[] =>
   normalizeNumberList(runPlan(run)?.selected_agent_skill_version_ids)
 
 const selectedMemoryIds = (run: AgentRunItem): number[] =>
   normalizeNumberList(runPlan(run)?.selected_memory_ids)
-
-const selectedSkillNames = (plan: AgentRunRecruitingPlan | null): string[] =>
-  normalizeStringList(plan?.selected_skills)
 
 const selectedMemoryNames = (plan: AgentRunRecruitingPlan | null): string[] =>
   normalizeStringList(plan?.selected_memories)
@@ -827,8 +824,8 @@ const selectedSelectionItems = (ids: number[], names: string[], keyPrefix: strin
   return [...byId.values(), ...looseItems]
 }
 
-const selectedSkillItems = (run: AgentRunItem, plan: AgentRunRecruitingPlan | null): SelectionChipItem[] =>
-  selectedSelectionItems(selectedSkillIds(run), selectedSkillNames(plan), 'skill')
+const selectedAgentSkillVersionItems = (run: AgentRunItem): SelectionChipItem[] =>
+  selectedSelectionItems(selectedAgentSkillVersionIds(run), [], 'agent-skill-version')
 
 const selectedMemoryItems = (run: AgentRunItem, plan: AgentRunRecruitingPlan | null): SelectionChipItem[] =>
   selectedSelectionItems(selectedMemoryIds(run), selectedMemoryNames(plan), 'memory')
@@ -857,7 +854,7 @@ const decisionEntries = (run: AgentRunItem): Array<{ key: string; value: string;
 
 const hasStructuredRunPlan = (run: AgentRunItem): boolean => {
   const plan = recruitingPlan(run)
-  return !!plan || selectedSkillIds(run).length > 0 || selectedMemoryIds(run).length > 0 || decisionEntries(run).length > 0
+  return !!plan || selectedAgentSkillVersionIds(run).length > 0 || selectedMemoryIds(run).length > 0 || decisionEntries(run).length > 0
 }
 
 const statusTagType = (status: string): 'success' | 'warning' | 'danger' | 'info' | 'primary' => {
@@ -1098,14 +1095,14 @@ onBeforeUnmount(() => {
               </div>
 
               <div
-                v-if="selectedSkillItems(run, recruitingPlan(run)).length || selectedMemoryItems(run, recruitingPlan(run)).length"
+                v-if="selectedAgentSkillVersionItems(run).length || selectedMemoryItems(run, recruitingPlan(run)).length"
                 class="selection-grid"
               >
                 <div class="selection-box">
-                  <span class="selection-box__label">Skill</span>
+                  <span class="selection-box__label">Agent Skill 版本</span>
                   <div class="chip-list">
                     <el-tag
-                      v-for="skill in selectedSkillItems(run, recruitingPlan(run))"
+                      v-for="skill in selectedAgentSkillVersionItems(run)"
                       :key="skill.key"
                       class="selection-chip"
                       size="small"
@@ -1116,7 +1113,7 @@ onBeforeUnmount(() => {
                       <span class="selection-chip__text">{{ skill.label }}</span>
                       <span v-if="skill.meta" class="selection-chip__meta">{{ skill.meta }}</span>
                     </el-tag>
-                    <span v-if="!selectedSkillItems(run, recruitingPlan(run)).length" class="muted">未选择</span>
+                    <span v-if="!selectedAgentSkillVersionItems(run).length" class="muted">未选择</span>
                   </div>
                 </div>
                 <div class="selection-box">
