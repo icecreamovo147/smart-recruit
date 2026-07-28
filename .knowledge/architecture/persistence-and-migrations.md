@@ -23,6 +23,9 @@ source_refs:
   - smart-recruit-commons/migration/runner_test.go
   - smart-recruit-commons/migration/mysql_consistency_test.go
   - smart-recruit-commons/migrations/000089_schema_baseline.sql
+  - smart-recruit-commons/migrations/000090_agent_skill_package_v2.sql
+  - smart-recruit-commons/migrations/000090_agent_skill_package_v2.down.sql
+  - smart-recruit-commons/migration/agent_skill_package_v2_migration_test.go
   - smart-recruit-commons/migrations/baseline-lock.json
   - smart-recruit-commons/migrations/README.md
   - smart-recruit-commons/migrations/archive/pre-baseline-000089/000051_standardize_event_outbox.sql
@@ -49,7 +52,7 @@ source_refs:
   - smart-recruit-recruitment-service/internal/infrastructure/persistence/native_adapters.go
   - smart-recruit-analytics-service/internal/infrastructure/projection/gorm_store.go
   - smart-recruit-recruitment-service/internal/domain/repository/recruitment.go
-last_verified: 2026-07-23
+last_verified: 2026-07-28
 review_after: 2026-10-21
 ---
 
@@ -64,11 +67,14 @@ Migration `000089` is the immutable active baseline. Historical migrations
 and audit evidence but are not part of fresh-database execution. Existing
 databases adopt `000089` only through `--adopt-baseline 89`, which verifies a
 clean contiguous history and compares the complete live structure against a
-temporary baseline database before writing one migration-history row. Future
-schema changes begin at `000090` and update `db.sql` without rewriting the
-baseline or archive.
+temporary baseline database before writing one migration-history row.
+Post-baseline schema changes update `db.sql` without rewriting the baseline or
+archive. `000090` is occupied by the Agent Skill Package v2 cutover, so the next
+schema migration must use `000091`.
 
 The pre-launch platform AI cutover is migration `000070`; it promotes only the default tenant's technical AI configuration after a fail-closed conflict check. Migration `000071` adds fixed capability-release/model trace columns to structured resume-parse and candidate-match evidence. Both must remain reversible independently and match the cold-start schema.
+
+Migration `000090` is the pre-launch destructive Agent Skill Package v2 cutover. It retires and unpublishes only the current tenant-HR `ai.chat`/`ai.agent_run` releases that could reference test Skill versions, invalidates old Skill/version/section embeddings, clears old chat Skill IDs, and recreates `agent_skills`, immutable `agent_skill_versions`, and `agent_skill_version_sections`. Test-only v1 data is intentionally not converted. Historical release rows remain audit evidence, while new runnable releases must point to newly compiled exact Package versions. `db.sql`, ownership, up/down SQL, and the focused migration contract test must remain aligned.
 
 Migration `000078` repairs HR Agent-backed capability releases whose initial immutable snapshot omitted the Agent-bound Prompt. It appends corrected published versions, advances capability and entitlement pointers, preserves the original release rows for audit, and keeps `db.sql` cold-start data aligned without rewriting the historical `000070` migration.
 
@@ -84,4 +90,4 @@ GORM table records that are needed by a bounded service should stay private to t
 
 ## Verification
 
-Verified against the v89 immutable baseline, archived migrations `000001`–`000088`, baseline adoption tests, `db.sql`, and Recruitment ownership entries on 2026-07-23.
+Verified against the v89 immutable baseline, archived migrations `000001`–`000088`, baseline adoption tests, the `000090` Package v2 up/down pair and contract test, `db.sql`, and table ownership entries on 2026-07-28.

@@ -20,11 +20,13 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/domain/model/capability.go
   - smart-recruit-ai-agent-service/internal/domain/policy/capability.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_skill_confirmation.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/mcp_skill_services.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/mcp_skill_store.go
   - smart-recruit-ai-agent-service/internal/infrastructure/mcp/doc.go
   - smart-recruit-gateway/handler/hr/mcp.go
   - smart-recruit-gateway/router/router.go
+  - smart-recruit-proto/proto/recruitment.proto
   - hr-frontend/src/components/chat/ChatMessageList.vue
   - hr-frontend/src/components/hr/ai/agentRunChatFlow.ts
   - hr-frontend/src/views/hr/AIChatView.vue
@@ -40,7 +42,11 @@ MCP governance covers platform-global server configuration, tool policy evaluati
 
 Native MCP governance persists server CRUD, tool policy CRUD/list, and tool log list responses through the AI Agent database tables. Server env vars, MCP args, runtime config, log result payloads, policy details, and error strings must stay redacted or truncated on read paths.
 
-When a safe MCP runner is bound, live connection tests, discovery, and policy-governed calls are supported. HR chat invokes an Agent-bound MCP tool only when its exact capability key is explicitly selected in `skill_capability_keys`; an empty selection invokes none. The runtime still evaluates enablement, deny/rate-limit/confirmation policy, transport allowlists/private-network constraints, redaction, and audit logging before returning success. `agent_skill_selection_confirmed` never grants MCP authority. A confirmation-required durable Run pauses in `waiting_confirmation` and stores a random, ten-minute confirmation request bound to the exact capability key and canonical argument hash. Resume accepts only an explicit `mcp_tool` payload matching that request; changed capability/arguments, expired requests, generic Skill confirmations, and replay against a different call fail closed. Direct non-durable chat returns explicit confirmation-required failure instead of bypassing the policy. Without a bound runner or when policy blocks the call, the operation is explicit non-success.
+When a safe MCP runner is bound, live connection tests, discovery, and policy-governed calls are supported. HR chat invokes an Agent-bound MCP Tool only when its exact key is explicitly selected in `capability_keys`; an empty selection invokes none. The retired `skill_capability_keys` JSON field and `/api/v1/hr/ai/skill-capabilities` route are rejected. The active discovery route is `GET /api/v1/hr/ai/capabilities`, and its data/Tool capability list is distinct from Agent Skill Package selection.
+
+The runtime still evaluates enablement, deny/rate-limit/confirmation policy, transport allowlists/private-network constraints, redaction, and audit logging before returning success. A confirmation-required durable Run pauses in `waiting_confirmation` and stores a random, ten-minute MCP request bound to the exact capability key and canonical argument hash. Resume accepts only the opaque MCP confirmation payload matching that request; changed capability/arguments, expiry, or replay against a different call fail closed. Direct non-durable chat returns explicit confirmation-required failure instead of bypassing the policy. Without a bound runner or when policy blocks the call, the operation is explicit non-success.
+
+Agent Skill confirmation is a different protocol. The Proto contract uses separate Agent-Skill-specific ID, decision, exact version IDs, message identity, and expiry fields. High/critical Package approval cannot satisfy MCP policy; an MCP opaque payload cannot approve a Package. Legacy boolean `agent_skill_selection_confirmed` is reserved/rejected and grants neither authority.
 
 The HR confirmation surface is two-way: approval resumes the exact Run, while
 rejection calls the Run cancel endpoint and reaches the canceled terminal state
@@ -52,4 +58,4 @@ submitting an invalid approval.
 
 ## Verification
 
-Verified against the platform ownership migration and routes plus cumulative MCP runtime integration, explicit/empty selection, independent bound confirmation, client approval/rejection/expiry handling, policy failure, audit, and HR Agent runtime tests on 2026-07-28.
+Verified against current Proto and gateway routes, cumulative MCP runtime integration, explicit/empty `capability_keys`, separate bound MCP and Agent Skill confirmation state machines, client approval/rejection/expiry handling, policy failure, audit, and HR Agent runtime tests on 2026-07-28.

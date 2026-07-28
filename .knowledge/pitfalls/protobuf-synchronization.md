@@ -29,7 +29,9 @@ source_refs:
   - .github/workflows/ci.yml
   - smart-recruit-proto/proto_contract_test.go
   - smart-recruit-gateway/rpc/client.go
-last_verified: 2026-07-19
+  - smart-recruit-gateway/router/contract_baseline_test.go
+  - scripts/check-agent-skill-v2-cutover.mjs
+last_verified: 2026-07-28
 review_after: 2026-10-14
 ---
 
@@ -41,6 +43,8 @@ Protobuf generation is reproducible only with the repository-pinned toolchain in
 
 For internal owner contracts that are not part of frontend/gateway behavior, prefer a separate internal gRPC service over appending methods to a public-facing service interface. This avoids forcing unrelated `pb.<Service>Client` fakes to implement internal-only methods while keeping protobuf changes additive.
 
+Agent Skill Package v2 intentionally is not backward compatible. Retired Skill ID/boolean confirmation, `skill_capability_keys`, and `skill_md`/`flow_json` package fields keep their Proto tags/names reserved so they cannot be reused accidentally. Active requests use exact `agent_skill_version_ids` plus data/Tool `capability_keys`, and Agent Skill confirmation is separate from opaque MCP confirmation. Pinned generation is necessary but not sufficient: run the gateway removed-route/legacy-JSON tests and `scripts/check-agent-skill-v2-cutover.mjs` to prove no application alias reintroduces the retired contract.
+
 ## Verification
 
-Verified against the pinned tool version source, cross-platform bootstrap, fail-fast generator, generated headers, sync checker, and Proto Lint workflow on 2026-07-19.
+Verified against the pinned tool version source, Package v2 active/reserved fields, cross-platform bootstrap, fail-fast generator, generated headers, sync checker, Proto contract tests, gateway removed-route tests, cutover scanner, and Proto Lint workflow on 2026-07-28.
