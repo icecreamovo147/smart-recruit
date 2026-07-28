@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"gorm.io/driver/mysql"
@@ -23,6 +24,8 @@ import (
 	"smart-recruit-commons/oss"
 	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/config"
+	"smart-recruit-platform-go/i18n"
+	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/mysqltime"
 	"smart-recruit-platform-go/nacos"
 	logicobservability "smart-recruit-platform-go/observability"
@@ -38,6 +41,10 @@ import (
 const nacosServiceName = "recruitment"
 
 func main() {
+	if err := i18n.ConfigureFromEnv(); err != nil {
+		logger.L().Error("log.service.config_failed", zap.String("cause", err.Error()))
+		os.Exit(2)
+	}
 	businessclock.Configure()
 	check := flag.Bool("check", false, "validate Recruitment service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start Recruitment gRPC runtime")
@@ -45,20 +52,20 @@ func main() {
 	flag.Parse()
 	if *check {
 		if err := checkRuntime(); err != nil {
-			fmt.Fprintf(os.Stderr, "recruitment-service check failed: %v\n", err)
+			logger.L().Error("log.service.check_failed", zap.String("service", "recruitment-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
-		fmt.Fprintln(os.Stdout, "recruitment-service runtime check passed")
+		logger.L().Info("log.service.check_passed", zap.String("service", "recruitment-service"))
 		return
 	}
 	if *serve {
 		if err := serveRecruitment(*addr); err != nil {
-			fmt.Fprintf(os.Stderr, "recruitment-service failed: %v\n", err)
+			logger.L().Error("log.service.serve_failed", zap.String("service", "recruitment-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
 		return
 	}
-	fmt.Fprintln(os.Stderr, "recruitment-service requires --check or --serve")
+	logger.L().Error("log.service.arguments_required", zap.String("service", "recruitment-service"))
 	os.Exit(2)
 }
 
@@ -212,7 +219,10 @@ func serveRecruitment(addr string) error {
 	}
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, redisClient, nil))
 	go stopOnSignal(grpcServer)
-	fmt.Fprintf(os.Stdout, "recruitment grpc server listening addr=%s service=%s\n", listener.Addr().String(), instance.ServiceName)
+	logger.L().Info("log.service.listening",
+		zap.String("service", instance.ServiceName),
+		zap.String("addr", listener.Addr().String()),
+	)
 	if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 		return err
 	}

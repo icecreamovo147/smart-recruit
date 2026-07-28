@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
@@ -92,9 +93,9 @@ const handleDateChange = (val: [string, string] | null) => {
 const copyText = async (text: string) => {
   try {
     await navigator.clipboard.writeText(text)
-    ElMessage.success('已复制')
+    ElMessage.success(t('common.success'))
   } catch {
-    ElMessage.error('复制失败')
+    ElMessage.error(t('frontend.operation_failed'))
   }
 }
 

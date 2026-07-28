@@ -28,6 +28,7 @@ import (
 	analyticsruntime "smart-recruit-analytics-service/internal/runtime"
 	"smart-recruit-platform-go/businessclock"
 	platformconfig "smart-recruit-platform-go/config"
+	"smart-recruit-platform-go/i18n"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/mysqltime"
 	"smart-recruit-platform-go/nacos"
@@ -42,6 +43,10 @@ import (
 const nacosServiceName = "analytics"
 
 func main() {
+	if err := i18n.ConfigureFromEnv(); err != nil {
+		logger.L().Error("log.service.config_failed", zap.String("cause", err.Error()))
+		os.Exit(2)
+	}
 	businessclock.Configure()
 	check := flag.Bool("check", false, "validate Analytics service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start Analytics gRPC runtime")
@@ -50,20 +55,20 @@ func main() {
 
 	if *check {
 		if err := checkRuntime(); err != nil {
-			fmt.Fprintf(os.Stderr, "analytics-service check failed: %v\n", err)
+			logger.L().Error("log.service.check_failed", zap.String("service", "analytics-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
-		fmt.Fprintln(os.Stdout, "analytics-service runtime check passed")
+		logger.L().Info("log.service.check_passed", zap.String("service", "analytics-service"))
 		return
 	}
 	if *serve {
 		if err := serveAnalytics(*addr); err != nil {
-			fmt.Fprintf(os.Stderr, "analytics-service failed: %v\n", err)
+			logger.L().Error("log.service.serve_failed", zap.String("service", "analytics-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
 		return
 	}
-	fmt.Fprintln(os.Stderr, "analytics-service requires --check or --serve")
+	logger.L().Error("log.service.arguments_required", zap.String("service", "analytics-service"))
 	os.Exit(2)
 }
 
@@ -206,7 +211,7 @@ func serveAnalytics(addr string) error {
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, redisClient, nil))
 	go stopOnSignal(grpcServer)
 
-	log.Info("analytics grpc server listening",
+	log.Info("log.service.listening",
 		zap.String("addr", listener.Addr().String()),
 		zap.String("nacos_service", instance.ServiceName),
 		zap.String("env", bootstrap.ServiceEnv),

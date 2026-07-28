@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { reactive, ref, onMounted } from 'vue'
 import { useRouter, useRoute, RouterLink } from 'vue-router'
 import { Moon, Sunny } from '@element-plus/icons-vue'
@@ -32,7 +33,7 @@ const validatePasswordComplexity = (_rule: any, value: string, callback: any) =>
   if (/\d/.test(value)) categories++
   if (/[!@#$%^&*]/.test(value)) categories++
   if (categories >= 3) { callback(); return }
-  callback(new Error('密码需包含大小写字母、数字或特殊字符中的至少三类'))
+  callback(new Error(t('common.invalid_request')))
 }
 
 const rules = {
@@ -81,13 +82,13 @@ const submit = async () => {
     return
   }
   if (inviteValid.value !== true) {
-    ElMessage.warning('请先验证邀请码')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   loading.value = true
   try {
     await register({ ...form, invite_code: inviteCode.value.trim() })
-    ElMessage.success('注册成功，请登录')
+    ElMessage.success(t('common.success'))
     router.push('/login')
   } finally {
     loading.value = false

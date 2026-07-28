@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { reactive, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -32,10 +33,10 @@ const submit = async () => {
     if (auth.accountType !== 'candidate') {
       await request.post('/api/v1/auth/logout').catch(() => {})
       auth.logout()
-      ElMessage.error('请使用候选人账号登录')
+      ElMessage.error(t('frontend.operation_failed'))
       return
     }
-    ElMessage.success('登录成功')
+    ElMessage.success(t('common.success'))
     router.push('/jobs')
   } finally {
     loading.value = false

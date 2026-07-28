@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { reactive, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -33,7 +34,7 @@ const submit = async () => {
   loading.value = true
   try {
     await register(form)
-    ElMessage.success('注册成功，请登录')
+    ElMessage.success(t('common.success'))
     router.push('/login')
   } finally {
     loading.value = false

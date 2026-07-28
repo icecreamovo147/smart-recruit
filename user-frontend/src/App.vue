@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown, Moon, Sunny, UserFilled } from '@element-plus/icons-vue'
@@ -42,11 +43,11 @@ const logout = async () => {
     // Clear httpOnly cookie server-side first; only clean local state on success.
     await request.post('/api/v1/auth/logout')
   } catch {
-    ElMessage.error('退出登录失败，请稍后重试')
+    ElMessage.error(t('frontend.operation_failed'))
     return
   }
   auth.logout()
-  ElMessage.success('已退出登录')
+  ElMessage.success(t('common.success'))
   router.push('/jobs')
 }
 
@@ -78,7 +79,7 @@ watch(
 const handleEmailSaved = async (email: string) => {
   try {
     await updateEmail(email)
-    ElMessage.success('邮箱设置成功')
+    ElMessage.success(t('common.success'))
     showEmailSetup.value = false
     await auth.restoreSession()
   } catch {

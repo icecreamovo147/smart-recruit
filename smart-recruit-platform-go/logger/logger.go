@@ -13,7 +13,7 @@ import (
 var global *zap.Logger
 
 func init() {
-	global, _ = zap.NewProduction()
+	global = New("info")
 }
 
 // Init configures the global logger with dual (console + file) output via zap tee cores.
@@ -56,7 +56,7 @@ func Init(cfg LogConfig) error {
 		))
 	}
 
-	core := zapcore.NewTee(cores...)
+	core := localizeCore(zapcore.NewTee(cores...))
 	global = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
 	return nil
 }
@@ -115,7 +115,7 @@ func New(level string) *zap.Logger {
 	default:
 		cfg.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
 	}
-	l, _ := cfg.Build()
+	l, _ := cfg.Build(zap.WrapCore(localizeCore))
 	return l
 }
 
@@ -124,7 +124,7 @@ func NewConsole() *zap.Logger {
 	cfg := zap.NewDevelopmentConfig()
 	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05")
-	l, _ := cfg.Build()
+	l, _ := cfg.Build(zap.WrapCore(localizeCore))
 	return l
 }
 

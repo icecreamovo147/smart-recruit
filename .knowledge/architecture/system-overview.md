@@ -46,6 +46,8 @@ source_refs:
   - smart-recruit-proto/proto/recruitment.proto
   - smart-recruit-proto/recruitment/pb/recruitment.pb.go
   - smart-recruit-platform-go/servicebinary/convention.go
+  - smart-recruit-platform-go/i18n/i18n.go
+  - packages/shared/src/i18n/index.ts
   - smart-recruit-commons/internal/platform/events/envelope.go
   - docker/docker-compose.yml
   - deploy/k8s/README-service-binaries.md
@@ -54,7 +56,7 @@ source_refs:
   - dev-log-viewer/README.md
   - dev-log-viewer/cmd/dev-log-viewer/main.go
   - dev-log-viewer/internal/server/server.go
-last_verified: 2026-07-23
+last_verified: 2026-07-27
 review_after: 2026-10-21
 ---
 
@@ -72,6 +74,16 @@ Backend responsibilities are split across Identity, Recruitment, Interview, Offe
 
 Frontend apps keep app-specific behavior under their own roots and import deliberate cross-app components, types, utilities, and brand assets from `packages/shared/src/` through `@shared/*`. Deployment assets are split by purpose: `docker/` contains the local/full-stack Compose setup and frontend images, `deploy/k8s/` contains Kubernetes manifests, and `smart-recruit-deploy/` contains microservice images, composition, observability, Nacos seed configuration, and table ownership.
 
+Backend logs and system-facing response messages share one deployment locale
+through `APP_LOCALE`. Canonical catalogs and rendering live in
+`smart-recruit-platform-go/i18n`; generated frontend catalogs and runtime
+initialization live in `packages/shared/src/i18n`. Gateway exposes the active
+locale through a public runtime-config endpoint, so the three product frontends
+and Element Plus follow a backend locale switch after refresh without rebuilding
+frontend images.
+
 ## Verification
 
-Verified against `pnpm-workspace.yaml`, the homepage package and Pages workflow, `start-dev.sh` frontend/service targets and ports, `interviewer-frontend/README.md`, `smart-recruit-billing-service/cmd/billing-service/main.go`, Gateway billing client wiring, and microservice Compose on 2026-07-23.
+Verified against `pnpm-workspace.yaml`, `start-dev.sh`, the platform i18n
+package, shared frontend i18n runtime, Gateway runtime-config route, deployment
+locale declarations, and microservice Compose on 2026-07-27.

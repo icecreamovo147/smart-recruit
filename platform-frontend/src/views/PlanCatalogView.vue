@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listAIRateCards, listBillingProducts, listBillingRefunds, listPlans, publishPlanVersion, reviewBillingRefund, saveAIRateCard, saveBillingPrice, savePlanVersion, type AIRateCardAdmin, type BillingProductAdmin, type BillingRefundAdmin } from '@/api/control'
@@ -134,7 +135,7 @@ const switchSection = (value: string | number) => {
 const openRateEditor = async (rate?: AIRateCardAdmin) => {
   await loadRateTargets()
   if (rate && !isEnabledRateTarget(rateProviders.value, rateModels.value, rate.provider_key, rate.model_key)) {
-    ElMessage.error('该费率卡对应的供应商或模型已停用，请先在 LLM 配置中启用后再创建新版本')
+    ElMessage.error(t('frontend.operation_failed'))
     return
   }
   editingRateTarget.value = Boolean(rate)
@@ -153,11 +154,11 @@ const changeRateProvider = () => {
 
 const submitRate = async () => {
   if (!isEnabledRateTarget(rateProviders.value, rateModels.value, rateForm.provider_key, rateForm.model_key)) {
-    ElMessage.error('请选择当前已启用且相互匹配的供应商和模型')
+    ElMessage.error(t('frontend.operation_failed'))
     return
   }
   if (rateForm.credit_yuan <= 0 || (rateForm.input_yuan <= 0 && rateForm.output_yuan <= 0)) {
-    ElMessage.error('请填写有效的供应商成本和额度换算价格')
+    ElMessage.error(t('frontend.operation_failed'))
     return
   }
   await saveAIRateCard({
@@ -168,7 +169,7 @@ const submitRate = async () => {
     credit_micros: Math.round(rateForm.credit_yuan * 1_000_000),
   })
   rateVisible.value = false
-  ElMessage.success('费率卡已保存并发布')
+  ElMessage.success(t('common.success'))
   await load()
 }
 
@@ -187,7 +188,7 @@ const submitPrice = async () => {
   if (!selectedBillingProduct.value || priceForm.amount_yuan <= 0 || priceForm.included_credits <= 0) return
   await saveBillingPrice({ product_id: selectedBillingProduct.value.id, price_version_id: priceForm.price_version_id || undefined, billing_term: priceForm.billing_term, amount_fen: Math.round(priceForm.amount_yuan * 100), included_credits: priceForm.included_credits })
   priceVisible.value = false
-  ElMessage.success('价格与额度已保存并发布')
+  ElMessage.success(t('common.success'))
   await load()
 }
 
@@ -244,10 +245,10 @@ const displayValue = (item: PlatformEntitlement) => item.value_type === 'boolean
   : Number(item.value_json).toLocaleString()
 
 const submitDraft = async () => {
-  if (!selectedPlan.value || !form.change_note.trim()) { ElMessage.warning('请填写版本变更说明'); return }
+  if (!selectedPlan.value || !form.change_note.trim()) { ElMessage.warning(t('common.invalid_request')); return }
   await savePlanVersion(selectedPlan.value.id, { version_id: form.version_id || undefined, change_note: form.change_note.trim(), entitlements: entitlements() })
   editorVisible.value = false
-  ElMessage.success('套餐版本草稿已保存')
+  ElMessage.success(t('common.success'))
   await load()
 }
 
@@ -260,10 +261,10 @@ const openPublish = (plan: PlatformPlan, version: PlatformPlanVersion) => {
 }
 
 const submitPublish = async () => {
-  if (!selectedPlan.value || !selectedVersion.value || !publishForm.reason.trim()) { ElMessage.warning('请填写发布原因'); return }
+  if (!selectedPlan.value || !selectedVersion.value || !publishForm.reason.trim()) { ElMessage.warning(t('common.invalid_request')); return }
   await publishPlanVersion(selectedPlan.value.id, selectedVersion.value.id, { effective_at: toShanghaiRFC3339(publishForm.effective_at), reason: publishForm.reason.trim() })
   publishVisible.value = false
-  ElMessage.success('套餐版本已发布')
+  ElMessage.success(t('common.success'))
   await load()
 }
 

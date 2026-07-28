@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createOffer } from '@/api/offer'
@@ -41,7 +42,7 @@ const resetForm = () => {
 
 const handleSubmit = async () => {
   if (!form.title) {
-    ElMessage.warning('请输入Offer职位名称')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   loading.value = true
@@ -60,7 +61,7 @@ const handleSubmit = async () => {
     if (form.terms_json) data.terms_json = form.terms_json
 
     await createOffer(data as any)
-    ElMessage.success('Offer创建成功')
+    ElMessage.success(t('common.success'))
     resetForm()
     emit('success')
     emit('update:visible', false)

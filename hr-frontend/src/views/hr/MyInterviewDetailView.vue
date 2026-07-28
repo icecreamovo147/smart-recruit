@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ArrowLeft, Link, Location, Phone, VideoCamera } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -71,7 +72,7 @@ const load = async () => {
 const handleSubmit = async () => {
   if (!interview.value || submitting.value) return
   if (!form.comments.trim()) {
-    ElMessage.warning('请填写面试评价')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   submitting.value = true
@@ -83,7 +84,7 @@ const handleSubmit = async () => {
       dimension_scores_json: JSON.stringify(form.dimensions),
       comments: form.comments.trim(),
     })
-    ElMessage.success('面试反馈已提交')
+    ElMessage.success(t('common.success'))
     await load()
   } finally {
     submitting.value = false

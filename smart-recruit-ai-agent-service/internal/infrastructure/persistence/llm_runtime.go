@@ -307,11 +307,11 @@ func (s *NativeStore) LoadActiveRecruitingPrompt(ctx context.Context, agentType,
 func (s *NativeStore) validateLlmRuntimeConnection(ctx context.Context, modelID, providerID int64) (*pb.TestProviderConnectionResponse, error) {
 	cfg, err := s.selectLLMRuntimeConfig(ctx, modelID, providerID)
 	if err != nil {
-		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "llm runtime validation failed", Success: false, Detail: err.Error()}, nil
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "common.operation_failed", Success: false, Detail: err.Error()}, nil
 	}
 	client, err := s.newRuntimeClient(ctx, cfg)
 	if err != nil {
-		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "llm runtime validation failed", Success: false, Detail: err.Error()}, nil
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "common.operation_failed", Success: false, Detail: err.Error()}, nil
 	}
 	testCtx := ctx
 	if cfg.TimeoutSeconds <= 0 && s.runtimeLLM.Timeout <= 0 {
@@ -325,12 +325,12 @@ func (s *NativeStore) validateLlmRuntimeConnection(ctx context.Context, modelID,
 	}
 	reply, err := client.GenerateRecruitingReply(testCtx, prompt, commonsai.RecruitingStats{}, nil)
 	if err != nil {
-		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "llm connection failed", Success: false, Detail: err.Error()}, nil
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "common.operation_failed", Success: false, Detail: err.Error()}, nil
 	}
 	if strings.TrimSpace(reply) == "" {
-		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "llm returned empty response", Success: false, Detail: "empty response from model"}, nil
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "common.operation_failed", Success: false, Detail: "empty response from model"}, nil
 	}
-	return &pb.TestProviderConnectionResponse{Code: configOK, Msg: "success", Success: true, Detail: fmt.Sprintf("validated with model %s", cfg.Model)}, nil
+	return &pb.TestProviderConnectionResponse{Code: configOK, Msg: "common.success", Success: true, Detail: fmt.Sprintf("validated with model %s", cfg.Model)}, nil
 }
 
 func (s *NativeStore) newRuntimeClient(ctx context.Context, cfg selectedLLMConfig) (*commonsai.Client, error) {

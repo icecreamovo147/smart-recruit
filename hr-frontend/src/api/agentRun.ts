@@ -18,6 +18,7 @@ import { ElMessage } from 'element-plus'
 import request from './request'
 import { silentRefresh } from './authRefresh'
 import { contextGuardCodeFrom, contextGuardMessage } from '@/utils/contextUsage'
+import { t } from '@shared/i18n'
 
 const RUNS_BASE = '/api/v1/hr/ai/runs'
 
@@ -64,11 +65,11 @@ const parseSSEBlock = (block: string): { id?: string; data: string } => {
 export const friendlyAgentRunStreamMsg = (code: number, msg: string): string => {
   const guardMessage = contextGuardMessage(contextGuardCodeFrom(msg))
   if (guardMessage) return guardMessage
-  if (code === 40201) return msg || 'AI 套餐额度不足，请购买套餐或加量包后重试'
-  if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
-  if (code === 42902) return msg || 'AI 请求太频繁，请稍后再试'
-  if (code === 429) return msg || '请求过于频繁，请稍后再试'
-  return msg || 'AI 服务响应错误'
+  if (code === 40201) return msg || t('ai.insufficient_credits')
+  if (code === 42901) return msg || t('ai.daily_quota_exceeded')
+  if (code === 42902) return msg || t('ai.too_many_requests')
+  if (code === 429) return msg || t('common.too_many_requests')
+  return msg || t('ai.unavailable')
 }
 
 export const normalizeAgentRunEvent = (event: AgentRunEvent): AgentRunEvent => {
@@ -124,7 +125,7 @@ export const subscribeAgentRunEvents = async (
   options: { signal?: AbortSignal; lastEventId?: string | number } = {},
 ): Promise<void> => {
   if (!Number.isFinite(runId) || runId <= 0) {
-    throw new Error('runId must be a positive number')
+    throw new Error(t('validation.invalid_id'))
   }
   const seq = Number.isFinite(afterSeq) && afterSeq > 0 ? Math.floor(afterSeq) : 0
   const query = seq > 0 ? `?after_seq=${encodeURIComponent(String(seq))}` : ''
@@ -156,18 +157,18 @@ export const subscribeAgentRunEvents = async (
         await silentRefresh('hr')
         response = await fetchStream()
       } catch {
-        handlers.onError?.({ code: 401, message: '登录状态已失效，请重新登录' })
+        handlers.onError?.({ code: 401, message: t('common.unauthenticated') })
         clearLocalAuthCache()
         useAuthStore().$reset()
         router.push('/login')
-        ElMessage.error('登录状态已失效，请重新登录')
+        ElMessage.error(t('common.unauthenticated'))
         handlers.onDone?.()
         return
       }
     }
 
     if (!response.ok) {
-      let message = '订阅 Agent 运行事件失败，请稍后重试'
+      let message = t('frontend.subscribe_failed')
       let code = response.status
       try {
         const errorText = await response.text()
@@ -196,10 +197,10 @@ export const subscribeAgentRunEvents = async (
         const json = JSON.parse(text) as { code?: number; msg?: string }
         handlers.onError?.({
           code: json.code || 500,
-          message: json.msg || '响应数据格式异常',
+          message: json.msg || t('ai.invalid_response'),
         })
       } catch {
-        handlers.onError?.({ code: 500, message: '响应数据格式异常' })
+        handlers.onError?.({ code: 500, message: t('ai.invalid_response') })
       }
       handlers.onDone?.()
       return
@@ -207,7 +208,7 @@ export const subscribeAgentRunEvents = async (
 
     const reader = response.body?.getReader()
     if (!reader) {
-      handlers.onError?.({ code: 500, message: '流式响应不可用' })
+      handlers.onError?.({ code: 500, message: t('ai.stream_unavailable') })
       handlers.onDone?.()
       return
     }
@@ -224,7 +225,7 @@ export const subscribeAgentRunEvents = async (
         if (payload.code && payload.code !== 0) {
           handlers.onError?.({
             code: payload.code,
-            message: payload.msg || 'AI 服务响应错误',
+            message: payload.msg || t('ai.unavailable'),
             event: payload,
           })
           if (payload.done) {
@@ -278,10 +279,10 @@ export const subscribeAgentRunEvents = async (
       return
     }
     if (error instanceof Error) {
-      handlers.onError?.({ message: error.message || '订阅失败' })
+      handlers.onError?.({ message: error.message || t('frontend.subscribe_failed') })
       throw error
     }
-    handlers.onError?.({ message: '订阅失败' })
-    throw new BusinessError(500, '订阅失败')
+    handlers.onError?.({ message: t('frontend.subscribe_failed') })
+    throw new BusinessError(500, t('frontend.subscribe_failed'))
   }
 }

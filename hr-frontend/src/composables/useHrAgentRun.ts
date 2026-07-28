@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n'
 import { onUnmounted, ref, shallowRef, watch, type Ref, type ShallowRef } from 'vue'
 import {
   cancelAgentRun,
@@ -193,7 +194,7 @@ export function useHrAgentRun(options: UseHrAgentRunOptions = {}): UseHrAgentRun
     subscribeOptions: { isReconnect?: boolean } = {},
   ): Promise<void> => {
     if (!Number.isFinite(runId) || runId <= 0) {
-      throw new Error('runId must be a positive number')
+      throw new Error(t('validation.invalid_id'))
     }
 
     disposed = false
@@ -363,7 +364,7 @@ export function useHrAgentRun(options: UseHrAgentRunOptions = {}): UseHrAgentRun
   const cancel = async (payload: CancelAgentRunRequest = {}): Promise<HrAgentRunState> => {
     const runId = state.value.runId
     if (!runId) {
-      throw new Error('No active run to cancel')
+      throw new Error(t('common.invalid_request'))
     }
     // Explicit cancel command — distinct from subscription abort.
     const response = await cancelAgentRun(runId, payload)
@@ -383,7 +384,7 @@ export function useHrAgentRun(options: UseHrAgentRunOptions = {}): UseHrAgentRun
   const confirm = async (payload: ConfirmAgentRunRequest = {}): Promise<HrAgentRunState> => {
     const runId = state.value.runId
     if (!runId) {
-      throw new Error('No active run to confirm')
+      throw new Error(t('common.invalid_request'))
     }
     const response = await confirmAgentRun(runId, payload)
     const next = hydrateFromSnapshot(response.run)

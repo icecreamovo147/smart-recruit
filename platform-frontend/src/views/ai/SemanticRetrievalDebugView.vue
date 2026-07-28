@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, reactive, ref, watch } from 'vue'
 import { EditPen, Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -188,11 +189,11 @@ const ownerReady = computed(() => Boolean(form.owner_id && form.owner_id > 0))
 const runDebug = async () => {
   const query = form.query.trim()
   if (!query) {
-    ElMessage.warning('请输入查询内容')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (!ownerReady.value) {
-    ElMessage.warning('请填写 Owner ID')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   loading.value = true
@@ -213,7 +214,7 @@ const runDebug = async () => {
   } catch (error) {
     console.error(error)
     requestDurationMs.value = Math.round(performance.now() - startedAt)
-    ElMessage.error('语义召回调试失败')
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     loading.value = false
   }
@@ -235,7 +236,7 @@ const reset = () => {
 
 const loadCorrectionMemories = async () => {
   if (!ownerReady.value) {
-    ElMessage.warning('请填写 Owner ID')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   correctionLoading.value = true
@@ -250,7 +251,7 @@ const loadCorrectionMemories = async () => {
     correctionTotal.value = res.total || 0
   } catch (error) {
     console.error(error)
-    ElMessage.error('加载 Memory 列表失败')
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     correctionLoading.value = false
   }
@@ -258,7 +259,7 @@ const loadCorrectionMemories = async () => {
 
 const openCorrectionDrawer = async () => {
   if (!ownerReady.value) {
-    ElMessage.warning('请填写 Owner ID')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   correctionDrawerVisible.value = true
@@ -281,22 +282,22 @@ const revokeCorrectionMemory = async (row: MemoryInfo) => {
       owner_id: form.owner_id,
       revoke_reason: 'platform_correction',
     })
-    ElMessage.success('Memory 已撤销')
+    ElMessage.success(t('common.success'))
     await loadCorrectionMemories()
   } catch (error) {
     console.error(error)
-    ElMessage.error('撤销 Memory 失败')
+    ElMessage.error(t('frontend.operation_failed'))
   }
 }
 
 const submitCorrectionMemory = async () => {
   const content = correctionForm.content.trim()
   if (!content) {
-    ElMessage.warning('请输入 Memory 内容')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (!ownerReady.value) {
-    ElMessage.warning('请填写 Owner ID')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   correctionSaving.value = true
@@ -311,13 +312,13 @@ const submitCorrectionMemory = async () => {
       source: 'platform_correction',
       confirm_high_pii: correctionForm.confirm_high_pii,
     })
-    ElMessage.success('Memory 已创建')
+    ElMessage.success(t('common.success'))
     correctionForm.content = ''
     correctionForm.confirm_high_pii = false
     await loadCorrectionMemories()
   } catch (error) {
     console.error(error)
-    ElMessage.error('创建 Memory 失败')
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     correctionSaving.value = false
   }

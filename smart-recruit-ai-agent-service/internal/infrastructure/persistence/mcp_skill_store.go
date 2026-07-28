@@ -85,11 +85,11 @@ func (agentSkillVersionRecord) TableName() string { return "agent_skill_versions
 func (s *NativeStore) CreateMCPServer(ctx context.Context, req *pb.CreateMCPServerRequest) (*pb.MCPServerResponse, error) {
 	transport := strings.ToLower(strings.TrimSpace(req.GetTransport()))
 	if err := validateMCPConfig(transport, req.GetCommandOrUrl(), int(req.GetTimeoutSeconds())); err != nil {
-		return &pb.MCPServerResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+		return &pb.MCPServerResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	row := mcpServerRecord{Name: strings.TrimSpace(req.GetName()), Description: nullStringFrom(req.GetDescription(), true), Transport: transport, CommandOrURL: strings.TrimSpace(req.GetCommandOrUrl()), Args: nullStringFrom(req.GetArgs(), true), EnvVars: nullStringFrom(req.GetEnvVars(), true), TimeoutSeconds: defaultInt32(req.GetTimeoutSeconds(), 30), IsEnabled: false, Status: "disconnected"}
 	if row.Name == "" {
-		return &pb.MCPServerResponse{Code: governanceBadRequest, Msg: "server name is required"}, nil
+		return &pb.MCPServerResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (s *NativeStore) CreateMCPServer(ctx context.Context, req *pb.CreateMCPServ
 
 func (s *NativeStore) UpdateMCPServer(ctx context.Context, req *pb.UpdateMCPServerRequest) (*pb.MCPServerResponse, error) {
 	if err := s.assertMCPServerNotReleased(ctx, req.GetId()); err != nil {
-		return &pb.MCPServerResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+		return &pb.MCPServerResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	updates := map[string]any{}
 	putString(updates, "name", req.GetName())
@@ -120,9 +120,9 @@ func (s *NativeStore) UpdateMCPServer(ctx context.Context, req *pb.UpdateMCPServ
 	}
 	if err := s.validateMCPServerUpdate(ctx, req.GetId(), updates); err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.MCPServerResponse{Code: governanceNotFound, Msg: "mcp server not found"}, nil
+			return &pb.MCPServerResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
 		}
-		return &pb.MCPServerResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+		return &pb.MCPServerResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if len(updates) > 0 {
 		result := s.db.WithContext(ctx).Model(&mcpServerRecord{}).Where("id = ?", req.GetId()).Updates(updates)
@@ -130,7 +130,7 @@ func (s *NativeStore) UpdateMCPServer(ctx context.Context, req *pb.UpdateMCPServ
 			return nil, result.Error
 		}
 		if result.RowsAffected == 0 {
-			return &pb.MCPServerResponse{Code: governanceNotFound, Msg: "mcp server not found"}, nil
+			return &pb.MCPServerResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
 		}
 	}
 	return s.getMCPServerResponse(ctx, req.GetId())
@@ -138,7 +138,7 @@ func (s *NativeStore) UpdateMCPServer(ctx context.Context, req *pb.UpdateMCPServ
 
 func (s *NativeStore) DeleteMCPServer(ctx context.Context, req *pb.DeleteMCPServerRequest) (*pb.CommonResponse, error) {
 	if err := s.assertMCPServerNotReleased(ctx, req.GetId()); err != nil {
-		return &pb.CommonResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+		return &pb.CommonResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	return rowsCommon(s.db.WithContext(ctx).Delete(&mcpServerRecord{}, req.GetId()), "success", "mcp server not found")
 }
@@ -161,12 +161,12 @@ func (s *NativeStore) ListMCPToolPolicies(ctx context.Context, req *pb.ListMCPTo
 	for _, row := range rows {
 		items = append(items, mcpPolicyToPB(row))
 	}
-	return &pb.ListMCPToolPoliciesResponse{Code: governanceOK, Msg: "success", Total: total, List: items}, nil
+	return &pb.ListMCPToolPoliciesResponse{Code: governanceOK, Msg: "common.success", Total: total, List: items}, nil
 }
 
 func (s *NativeStore) CreateMCPToolPolicy(ctx context.Context, req *pb.CreateMCPToolPolicyRequest) (*pb.MCPToolPolicyResponse, error) {
 	if req.GetServerId() <= 0 || strings.TrimSpace(req.GetToolName()) == "" {
-		return &pb.MCPToolPolicyResponse{Code: governanceBadRequest, Msg: "server_id and tool_name are required"}, nil
+		return &pb.MCPToolPolicyResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	row := mcpToolPolicyRecord{ServerID: req.GetServerId(), ToolName: strings.TrimSpace(req.GetToolName()), Effect: defaultString(strings.TrimSpace(req.GetEffect()), model.MCPPolicyDecisionAllow), RiskLevel: defaultString(strings.TrimSpace(req.GetRiskLevel()), "medium"), RequireConfirmation: req.GetRequireConfirmation(), AllowedRolesJSON: nullStringFrom(req.GetAllowedRolesJson(), true), AllowedScopesJSON: nullStringFrom(req.GetAllowedScopesJson(), true), RequiredArgsJSON: nullStringFrom(req.GetRequiredArgsJson(), true), DeniedArgsJSON: nullStringFrom(req.GetDeniedArgsJson(), true), ArgRulesJSON: nullStringFrom(req.GetArgRulesJson(), true), RedactFieldsJSON: nullStringFrom(req.GetRedactFieldsJson(), true), RateLimitWindowSeconds: int(req.GetRateLimitWindowSeconds()), RateLimitMaxCalls: int(req.GetRateLimitMaxCalls()), IsEnabled: true, CreatedByHRID: nullInt64From(req.GetOperatorHrId()), UpdatedByHRID: nullInt64From(req.GetOperatorHrId())}
 	if req.GetIsEnabledSet() {
@@ -180,7 +180,7 @@ func (s *NativeStore) CreateMCPToolPolicy(ctx context.Context, req *pb.CreateMCP
 
 func (s *NativeStore) UpdateMCPToolPolicy(ctx context.Context, req *pb.UpdateMCPToolPolicyRequest) (*pb.MCPToolPolicyResponse, error) {
 	if err := s.assertNotReleasedConfiguration(ctx, "mcp_policy", req.GetId()); err != nil {
-		return &pb.MCPToolPolicyResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+		return &pb.MCPToolPolicyResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	updates := map[string]any{"updated_by_hr_id": nullInt64From(req.GetOperatorHrId())}
 	if req.GetServerId() > 0 {
@@ -212,14 +212,14 @@ func (s *NativeStore) UpdateMCPToolPolicy(ctx context.Context, req *pb.UpdateMCP
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return &pb.MCPToolPolicyResponse{Code: governanceNotFound, Msg: "mcp tool policy not found"}, nil
+		return &pb.MCPToolPolicyResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
 	}
 	return s.getMCPPolicyResponse(ctx, req.GetId())
 }
 
 func (s *NativeStore) DeleteMCPToolPolicy(ctx context.Context, req *pb.DeleteMCPToolPolicyRequest) (*pb.CommonResponse, error) {
 	if err := s.assertNotReleasedConfiguration(ctx, "mcp_policy", req.GetId()); err != nil {
-		return &pb.CommonResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+		return &pb.CommonResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	return rowsCommon(s.db.WithContext(ctx).Delete(&mcpToolPolicyRecord{}, req.GetId()), "success", "mcp tool policy not found")
 }
@@ -242,11 +242,11 @@ func (s *NativeStore) ListMCPToolLogs(ctx context.Context, req *pb.ListMCPToolLo
 	for _, row := range rows {
 		items = append(items, mcpLogToPB(row))
 	}
-	return &pb.ListMCPToolLogsResponse{Code: governanceOK, Msg: "success", Total: total, List: items}, nil
+	return &pb.ListMCPToolLogsResponse{Code: governanceOK, Msg: "common.success", Total: total, List: items}, nil
 }
 
 func (s *NativeStore) TestMCPConnection(ctx context.Context, req *pb.TestMCPConnectionRequest) (*pb.TestMCPConnectionResponse, error) {
-	resp := &pb.TestMCPConnectionResponse{Code: governanceUnsupported, Msg: "mcp runtime validation is not configured", Success: false, Detail: "native MCP governance store can validate persisted configuration but has no MCP client runner bound"}
+	resp := &pb.TestMCPConnectionResponse{Code: governanceUnsupported, Msg: "common.operation_failed", Success: false, Detail: "native MCP governance store can validate persisted configuration but has no MCP client runner bound"}
 	if req.GetServerId() > 0 {
 		_ = s.db.WithContext(ctx).Model(&mcpServerRecord{}).Where("id = ?", req.GetServerId()).Updates(map[string]any{"status": "disconnected", "last_error": resp.Detail}).Error
 	}
@@ -254,11 +254,11 @@ func (s *NativeStore) TestMCPConnection(ctx context.Context, req *pb.TestMCPConn
 }
 
 func (s *NativeStore) ListMCPTools(context.Context, *pb.ListMCPToolsRequest) (*pb.ListMCPToolsResponse, error) {
-	return &pb.ListMCPToolsResponse{Code: governanceUnsupported, Msg: "mcp tool discovery is not configured in native runtime"}, nil
+	return &pb.ListMCPToolsResponse{Code: governanceUnsupported, Msg: "common.operation_failed"}, nil
 }
 
 func (s *NativeStore) CallMCPTool(context.Context, *pb.CallMCPToolRequest) (*pb.CallMCPToolResponse, error) {
-	return &pb.CallMCPToolResponse{Code: governanceUnsupported, Msg: "mcp tool execution is not configured in native runtime", ErrorMsg: "mcp client runner is not bound"}, nil
+	return &pb.CallMCPToolResponse{Code: governanceUnsupported, Msg: "common.operation_failed", ErrorMsg: "mcp client runner is not bound"}, nil
 }
 
 func (s *NativeStore) GetMCPRuntimeServer(ctx context.Context, serverID int64) (mcpinfra.ServerConfig, bool, error) {
@@ -350,7 +350,7 @@ func (s *NativeStore) GetAgentSkill(ctx context.Context, req *pb.GetAgentSkillRe
 
 func (s *NativeStore) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
 	if strings.TrimSpace(req.GetName()) == "" || strings.TrimSpace(req.GetDisplayName()) == "" {
-		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: "name and display_name are required"}, nil
+		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	row := agentSkillRecord{Name: strings.TrimSpace(req.GetName()), DisplayName: strings.TrimSpace(req.GetDisplayName()), Description: nullStringFrom(req.GetDescription(), true), IsEnabled: true, IsManualInvocable: true, TriggerKeywords: jsonListNull(req.GetTriggerKeywords()), AgentType: defaultString(strings.TrimSpace(req.GetAgentType()), "hr_recruiting_agent"), Category: defaultString(strings.TrimSpace(req.GetCategory()), "general"), Scenario: strings.TrimSpace(req.GetScenario()), Priority: int(req.GetPriority()), RiskLevel: defaultString(strings.TrimSpace(req.GetRiskLevel()), "medium"), RequiredCapabilities: jsonListNull(req.GetRequiredCapabilities()), OutputSchema: nullStringFrom(req.GetOutputSchema(), true), EvaluationCriteria: jsonListNull(req.GetEvaluationCriteria()), SemanticTags: jsonListNull(req.GetSemanticTags())}
 	if req.GetIsEnabledSet() {
@@ -382,7 +382,7 @@ func (s *NativeStore) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentS
 
 func (s *NativeStore) UpdateAgentSkill(ctx context.Context, req *pb.UpdateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
 	if err := s.assertAgentSkillNotReleased(ctx, req.GetId()); err != nil {
-		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	updates := map[string]any{"updated_by": nullInt64From(req.GetActorUserId())}
 	if req.GetDisplayNameSet() {
@@ -432,7 +432,7 @@ func (s *NativeStore) UpdateAgentSkill(ctx context.Context, req *pb.UpdateAgentS
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "agent skill not found"}, nil
+		return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
 	}
 	return s.getAgentSkillResponse(ctx, req.GetId())
 }
@@ -451,7 +451,7 @@ func (s *NativeStore) CreateAgentSkillVersion(ctx context.Context, req *pb.Creat
 	if err != nil {
 		return nil, err
 	}
-	return &pb.AgentSkillVersionResponse{Code: governanceOK, Msg: "success", Version: agentSkillVersionToPB(version)}, nil
+	return &pb.AgentSkillVersionResponse{Code: governanceOK, Msg: "common.success", Version: agentSkillVersionToPB(version)}, nil
 }
 
 func (s *NativeStore) ListAgentSkillVersions(ctx context.Context, req *pb.ListAgentSkillVersionsRequest) (*pb.ListAgentSkillVersionsResponse, error) {
@@ -463,7 +463,7 @@ func (s *NativeStore) ListAgentSkillVersions(ctx context.Context, req *pb.ListAg
 	for _, row := range rows {
 		items = append(items, agentSkillVersionToPB(row))
 	}
-	return &pb.ListAgentSkillVersionsResponse{Code: governanceOK, Msg: "success", List: items}, nil
+	return &pb.ListAgentSkillVersionsResponse{Code: governanceOK, Msg: "common.success", List: items}, nil
 }
 
 func (s *NativeStore) ActivateAgentSkillVersion(ctx context.Context, req *pb.ActivateAgentSkillVersionRequest) (*pb.AgentSkillResponse, error) {
@@ -472,21 +472,21 @@ func (s *NativeStore) ActivateAgentSkillVersion(ctx context.Context, req *pb.Act
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "agent skill not found"}, nil
+		return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
 	}
 	return s.getAgentSkillResponse(ctx, req.GetSkillId())
 }
 
 func (s *NativeStore) UpdateAgentSkillStatus(ctx context.Context, req *pb.UpdateAgentSkillStatusRequest) (*pb.AgentSkillResponse, error) {
 	if err := s.assertAgentSkillNotReleased(ctx, req.GetId()); err != nil {
-		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	result := s.db.WithContext(ctx).Model(&agentSkillRecord{}).Where("id = ?", req.GetId()).Updates(map[string]any{"is_enabled": req.GetIsEnabled(), "updated_by": nullInt64From(req.GetActorUserId())})
 	if result.Error != nil {
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "agent skill not found"}, nil
+		return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
 	}
 	return s.getAgentSkillResponse(ctx, req.GetId())
 }
@@ -494,44 +494,44 @@ func (s *NativeStore) UpdateAgentSkillStatus(ctx context.Context, req *pb.Update
 func (s *NativeStore) PreviewAgentSkill(_ context.Context, req *pb.PreviewAgentSkillRequest) (*pb.PreviewAgentSkillResponse, error) {
 	body := renderAgentSkillMarkdown(req.GetName(), req.GetDescription(), req.GetFlowJson())
 	frontmatter := fmt.Sprintf(`{"name":%q,"description":%q}`, strings.TrimSpace(req.GetName()), strings.TrimSpace(req.GetDescription()))
-	return &pb.PreviewAgentSkillResponse{Code: governanceOK, Msg: "success", SkillMd: body, FrontmatterJson: frontmatter, BodyMarkdown: body}, nil
+	return &pb.PreviewAgentSkillResponse{Code: governanceOK, Msg: "common.success", SkillMd: body, FrontmatterJson: frontmatter, BodyMarkdown: body}, nil
 }
 
 func (s *NativeStore) DebugSemanticRetrieval(context.Context, *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
-	return &pb.DebugSemanticRetrievalResponse{Code: governanceUnsupported, Msg: "semantic retrieval debug is not configured in native runtime", EmbeddingAvailable: false, FallbackReason: "embedding query runner is not bound"}, nil
+	return &pb.DebugSemanticRetrievalResponse{Code: governanceUnsupported, Msg: "common.operation_failed", EmbeddingAvailable: false, FallbackReason: "embedding query runner is not bound"}, nil
 }
 
 func (s *NativeStore) getMCPServerResponse(ctx context.Context, id int64) (*pb.MCPServerResponse, error) {
 	var row mcpServerRecord
 	if err := s.db.WithContext(ctx).First(&row, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.MCPServerResponse{Code: governanceNotFound, Msg: "mcp server not found"}, nil
+			return &pb.MCPServerResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
-	return &pb.MCPServerResponse{Code: governanceOK, Msg: "success", Server: mcpServerToPB(row)}, nil
+	return &pb.MCPServerResponse{Code: governanceOK, Msg: "common.success", Server: mcpServerToPB(row)}, nil
 }
 
 func (s *NativeStore) getMCPPolicyResponse(ctx context.Context, id int64) (*pb.MCPToolPolicyResponse, error) {
 	var row mcpToolPolicyRecord
 	if err := s.db.WithContext(ctx).First(&row, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.MCPToolPolicyResponse{Code: governanceNotFound, Msg: "mcp tool policy not found"}, nil
+			return &pb.MCPToolPolicyResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
-	return &pb.MCPToolPolicyResponse{Code: governanceOK, Msg: "success", Policy: mcpPolicyToPB(row)}, nil
+	return &pb.MCPToolPolicyResponse{Code: governanceOK, Msg: "common.success", Policy: mcpPolicyToPB(row)}, nil
 }
 
 func (s *NativeStore) getAgentSkillResponse(ctx context.Context, id int64) (*pb.AgentSkillResponse, error) {
 	var row agentSkillRecord
 	if err := s.db.WithContext(ctx).First(&row, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "agent skill not found"}, nil
+			return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
-	return &pb.AgentSkillResponse{Code: governanceOK, Msg: "success", Skill: agentSkillToPB(row)}, nil
+	return &pb.AgentSkillResponse{Code: governanceOK, Msg: "common.success", Skill: agentSkillToPB(row)}, nil
 }
 
 func (s *NativeStore) validateMCPServerUpdate(ctx context.Context, id int64, updates map[string]any) error {

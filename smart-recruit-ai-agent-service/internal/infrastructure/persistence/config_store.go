@@ -152,33 +152,33 @@ func (aiEmbeddingRecord) TableName() string { return "ai_embeddings" }
 func (s *NativeStore) CreateLlmProvider(ctx context.Context, req *pb.CreateProviderRequest) (*pb.ProviderResponse, error) {
 	profile, err := commonsai.ResolveProviderProfile(req.GetProviderType(), req.GetProtocolType(), req.GetAuthType())
 	if err != nil {
-		return &pb.ProviderResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		return &pb.ProviderResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if strings.TrimSpace(req.GetName()) == "" || strings.TrimSpace(req.GetBaseUrl()) == "" {
-		return &pb.ProviderResponse{Code: configBadRequest, Msg: "provider name and base_url are required"}, nil
+		return &pb.ProviderResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if err := validateStringMapJSON(req.GetExtraHeadersJson()); err != nil {
-		return &pb.ProviderResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		return &pb.ProviderResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	encrypted := ""
 	if profile.AuthType != commonsai.AuthNone || strings.TrimSpace(req.GetApiKey()) != "" {
 		encrypted, err = s.encryptAPIKey(req.GetApiKey())
 		if err != nil {
-			return &pb.ProviderResponse{Code: configBadRequest, Msg: err.Error()}, nil
+			return &pb.ProviderResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 		}
 	}
 	row := llmProviderRecord{Name: strings.TrimSpace(req.GetName()), BaseURL: strings.TrimSpace(req.GetBaseUrl()), APIKeyEncrypted: encrypted, ProviderType: profile.ProviderType, ProtocolType: profile.ProtocolType, AuthType: profile.AuthType, APIVersion: nullableSQLString(req.GetApiVersion()), DiscoveryURL: nullableSQLString(req.GetDiscoveryUrl()), ExtraHeaders: nullableJSONText(req.GetExtraHeadersJson()), IsEnabled: true}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		return nil, err
 	}
-	return &pb.ProviderResponse{Code: configOK, Msg: "success", Provider: s.llmProviderToPB(row)}, nil
+	return &pb.ProviderResponse{Code: configOK, Msg: "common.success", Provider: s.llmProviderToPB(row)}, nil
 }
 
 func (s *NativeStore) UpdateLlmProvider(ctx context.Context, req *pb.UpdateProviderRequest) (*pb.ProviderResponse, error) {
 	var current llmProviderRecord
 	if err := s.db.WithContext(ctx).First(&current, req.GetId()).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.ProviderResponse{Code: configNotFound, Msg: "provider not found"}, nil
+			return &pb.ProviderResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func (s *NativeStore) UpdateLlmProvider(ctx context.Context, req *pb.UpdateProvi
 	if strings.TrimSpace(req.GetApiKey()) != "" {
 		encrypted, err := s.encryptAPIKey(req.GetApiKey())
 		if err != nil {
-			return &pb.ProviderResponse{Code: configBadRequest, Msg: err.Error()}, nil
+			return &pb.ProviderResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		updates["api_key_encrypted"] = encrypted
 	}
@@ -208,7 +208,7 @@ func (s *NativeStore) UpdateLlmProvider(ctx context.Context, req *pb.UpdateProvi
 		}
 		profile, err := commonsai.ResolveProviderProfile(providerType, protocolType, authType)
 		if err != nil {
-			return &pb.ProviderResponse{Code: configBadRequest, Msg: err.Error()}, nil
+			return &pb.ProviderResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		updates["provider_type"] = profile.ProviderType
 		updates["protocol_type"] = profile.ProtocolType
@@ -216,7 +216,7 @@ func (s *NativeStore) UpdateLlmProvider(ctx context.Context, req *pb.UpdateProvi
 		effectiveAuthType = profile.AuthType
 	}
 	if effectiveAuthType != "" && effectiveAuthType != commonsai.AuthNone && strings.TrimSpace(current.APIKeyEncrypted) == "" && strings.TrimSpace(req.GetApiKey()) == "" {
-		return &pb.ProviderResponse{Code: configBadRequest, Msg: "api_key is required for the selected authentication type"}, nil
+		return &pb.ProviderResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if req.GetApiVersionSet() {
 		updates["api_version"] = nullableUpdateValue(req.GetApiVersion())
@@ -226,7 +226,7 @@ func (s *NativeStore) UpdateLlmProvider(ctx context.Context, req *pb.UpdateProvi
 	}
 	if req.GetExtraHeadersSet() {
 		if err := validateStringMapJSON(req.GetExtraHeadersJson()); err != nil {
-			return &pb.ProviderResponse{Code: configBadRequest, Msg: err.Error()}, nil
+			return &pb.ProviderResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		updates["extra_headers"] = nullableJSONText(req.GetExtraHeadersJson())
 	}
@@ -251,67 +251,67 @@ func (s *NativeStore) TestLlmProviderConnection(ctx context.Context, req *pb.Tes
 	var row llmProviderRecord
 	err := s.db.WithContext(ctx).First(&row, req.GetProviderId()).Error
 	if err == gorm.ErrRecordNotFound {
-		return &pb.TestProviderConnectionResponse{Code: configNotFound, Msg: "provider not found", Success: false}, nil
+		return &pb.TestProviderConnectionResponse{Code: configNotFound, Msg: "common.not_found", Success: false}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
 	if !row.IsEnabled {
-		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider disabled", Success: false, Detail: "provider is disabled"}, nil
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "common.operation_failed", Success: false, Detail: "provider is disabled"}, nil
 	}
 	if strings.TrimSpace(row.BaseURL) == "" || (row.AuthType != commonsai.AuthNone && strings.TrimSpace(row.APIKeyEncrypted) == "") {
-		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider configuration incomplete", Success: false, Detail: "base_url and api_key are required"}, nil
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "common.operation_failed", Success: false, Detail: "base_url and api_key are required"}, nil
 	}
 	return s.validateLlmRuntimeConnection(ctx, 0, row.ID)
 }
 
 func (s *NativeStore) TestLlmModelConnection(ctx context.Context, req *pb.TestModelConnectionRequest) (*pb.TestProviderConnectionResponse, error) {
 	if req.GetModelId() <= 0 {
-		return &pb.TestProviderConnectionResponse{Code: configBadRequest, Msg: "model_id is required", Success: false, Detail: "model_id is required"}, nil
+		return &pb.TestProviderConnectionResponse{Code: configBadRequest, Msg: "common.invalid_request", Success: false, Detail: "model_id is required"}, nil
 	}
 	var model llmModelRecord
 	err := s.db.WithContext(ctx).First(&model, req.GetModelId()).Error
 	if err == gorm.ErrRecordNotFound {
-		return &pb.TestProviderConnectionResponse{Code: configNotFound, Msg: "model not found", Success: false, Detail: "model not found"}, nil
+		return &pb.TestProviderConnectionResponse{Code: configNotFound, Msg: "common.not_found", Success: false, Detail: "model not found"}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
 	if !model.IsEnabled {
-		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "model disabled", Success: false, Detail: "model is disabled"}, nil
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "common.operation_failed", Success: false, Detail: "model is disabled"}, nil
 	}
 	var provider llmProviderRecord
 	if err := s.db.WithContext(ctx).First(&provider, model.ProviderID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.TestProviderConnectionResponse{Code: configNotFound, Msg: "provider not found", Success: false, Detail: "provider not found"}, nil
+			return &pb.TestProviderConnectionResponse{Code: configNotFound, Msg: "common.not_found", Success: false, Detail: "provider not found"}, nil
 		}
 		return nil, err
 	}
 	if !provider.IsEnabled {
-		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider disabled", Success: false, Detail: "provider is disabled"}, nil
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "common.operation_failed", Success: false, Detail: "provider is disabled"}, nil
 	}
 	if strings.TrimSpace(provider.BaseURL) == "" || (provider.AuthType != commonsai.AuthNone && strings.TrimSpace(provider.APIKeyEncrypted) == "") {
-		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider configuration incomplete", Success: false, Detail: "base_url and api_key are required"}, nil
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "common.operation_failed", Success: false, Detail: "base_url and api_key are required"}, nil
 	}
 	return s.validateLlmRuntimeConnection(ctx, model.ID, 0)
 }
 
 func (s *NativeStore) CreateLlmModel(ctx context.Context, req *pb.CreateModelRequest) (*pb.ModelResponse, error) {
 	if req.GetProviderId() <= 0 || strings.TrimSpace(req.GetModelName()) == "" {
-		return &pb.ModelResponse{Code: configBadRequest, Msg: "provider_id and model_name are required"}, nil
+		return &pb.ModelResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if err := validateJSON(req.GetCapabilitiesJson(), "capabilities_json"); err != nil {
-		return &pb.ModelResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		return &pb.ModelResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if err := validateJSONObject(req.GetMetadataSourcesJson(), "metadata_sources_json"); err != nil {
-		return &pb.ModelResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		return &pb.ModelResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	var duplicateCount int64
 	if err := s.db.WithContext(ctx).Model(&llmModelRecord{}).Where("provider_id = ? AND model_name = ?", req.GetProviderId(), strings.TrimSpace(req.GetModelName())).Count(&duplicateCount).Error; err != nil {
 		return nil, err
 	}
 	if duplicateCount > 0 {
-		return &pb.ModelResponse{Code: configBadRequest, Msg: "model already exists for this provider"}, nil
+		return &pb.ModelResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	temperatureEnabled := true
 	if req.GetTemperatureEnabledSet() {
@@ -354,7 +354,7 @@ func (s *NativeStore) UpdateLlmModel(ctx context.Context, req *pb.UpdateModelReq
 	var current llmModelRecord
 	if err := s.db.WithContext(ctx).First(&current, req.GetId()).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.ModelResponse{Code: configNotFound, Msg: "model not found"}, nil
+			return &pb.ModelResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
@@ -364,7 +364,7 @@ func (s *NativeStore) UpdateLlmModel(ctx context.Context, req *pb.UpdateModelReq
 			return nil, err
 		}
 		if count > 0 {
-			return &pb.ModelResponse{Code: configBadRequest, Msg: "model already exists for this provider"}, nil
+			return &pb.ModelResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 		}
 	}
 	updates := map[string]any{}
@@ -393,14 +393,14 @@ func (s *NativeStore) UpdateLlmModel(ctx context.Context, req *pb.UpdateModelReq
 	}
 	if req.GetCapabilitiesJsonSet() {
 		if err := validateJSON(req.GetCapabilitiesJson(), "capabilities_json"); err != nil {
-			return &pb.ModelResponse{Code: configBadRequest, Msg: err.Error()}, nil
+			return &pb.ModelResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		updates["capabilities"] = nullableJSONText(req.GetCapabilitiesJson())
 	}
 	putString(updates, "metadata_source", req.GetMetadataSource())
 	if req.GetMetadataSourcesJsonSet() {
 		if err := validateJSONObject(req.GetMetadataSourcesJson(), "metadata_sources_json"); err != nil {
-			return &pb.ModelResponse{Code: configBadRequest, Msg: err.Error()}, nil
+			return &pb.ModelResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		updates["metadata_sources"] = nullableJSONText(req.GetMetadataSourcesJson())
 	}
@@ -444,7 +444,7 @@ func (s *NativeStore) UpdateLlmModel(ctx context.Context, req *pb.UpdateModelReq
 		return nil
 	})
 	if err == gorm.ErrRecordNotFound {
-		return &pb.ModelResponse{Code: configNotFound, Msg: "model not found"}, nil
+		return &pb.ModelResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -458,7 +458,7 @@ func (s *NativeStore) DeleteLlmModel(ctx context.Context, req *pb.DeleteModelReq
 
 func (s *NativeStore) CreatePromptTemplate(ctx context.Context, req *pb.CreatePromptTemplateRequest) (*pb.PromptTemplateResponse, error) {
 	if strings.TrimSpace(req.GetName()) == "" || strings.TrimSpace(req.GetContent()) == "" || strings.TrimSpace(req.GetAgentType()) == "" {
-		return &pb.PromptTemplateResponse{Code: configBadRequest, Msg: "name, content, and agent_type are required"}, nil
+		return &pb.PromptTemplateResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	role := defaultString(strings.TrimSpace(req.GetPromptRole()), "system")
 	row := promptTemplateRecord{Name: strings.TrimSpace(req.GetName()), Content: req.GetContent(), Variables: nullStringFrom(req.GetVariablesJson(), true), Version: 1, IsActive: true, AgentType: strings.TrimSpace(req.GetAgentType()), PromptRole: role, CreatedBy: nullInt64From(req.GetCreatedBy()), UpdatedBy: nullInt64From(req.GetCreatedBy())}
@@ -471,17 +471,17 @@ func (s *NativeStore) CreatePromptTemplate(ctx context.Context, req *pb.CreatePr
 	if err != nil {
 		return nil, err
 	}
-	return &pb.PromptTemplateResponse{Code: configOK, Msg: "success", Template: promptTemplateToPB(row)}, nil
+	return &pb.PromptTemplateResponse{Code: configOK, Msg: "common.success", Template: promptTemplateToPB(row)}, nil
 }
 
 func (s *NativeStore) UpdatePromptTemplate(ctx context.Context, req *pb.UpdatePromptTemplateRequest) (*pb.PromptTemplateResponse, error) {
 	if err := s.assertNotReleasedConfiguration(ctx, "prompt", req.GetId()); err != nil {
-		return &pb.PromptTemplateResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		return &pb.PromptTemplateResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	var row promptTemplateRecord
 	if err := s.db.WithContext(ctx).First(&row, req.GetId()).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.PromptTemplateResponse{Code: configNotFound, Msg: "prompt template not found"}, nil
+			return &pb.PromptTemplateResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
@@ -504,7 +504,7 @@ func (s *NativeStore) UpdatePromptTemplate(ctx context.Context, req *pb.UpdatePr
 			if !hasOther {
 				return &pb.PromptTemplateResponse{
 					Code: configBadRequest,
-					Msg:  "当前绑定类型下没有其他启用中的提示词，不能禁用最后一条",
+					Msg:  "common.invalid_request",
 				}, nil
 			}
 		}
@@ -562,7 +562,7 @@ func promptAgentTypeScope(agentType string) []string {
 
 func (s *NativeStore) DeletePromptTemplate(ctx context.Context, req *pb.DeletePromptTemplateRequest) (*pb.CommonResponse, error) {
 	if err := s.assertNotReleasedConfiguration(ctx, "prompt", req.GetId()); err != nil {
-		return &pb.CommonResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		return &pb.CommonResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	return rowsCommon(s.db.WithContext(ctx).Delete(&promptTemplateRecord{}, req.GetId()), "success", "prompt template not found")
 }
@@ -582,14 +582,14 @@ func (s *NativeStore) GetPromptVersionHistory(ctx context.Context, req *pb.GetPr
 	for _, row := range rows {
 		items = append(items, &pb.PromptVersionInfo{Id: row.ID, TemplateId: row.TemplateID, Version: int32(row.Version), Content: row.Content, ChangedBy: nullInt64(row.ChangedBy), ChangeNote: nullString(row.ChangeNote), CreatedAt: formatTime(row.CreatedAt)})
 	}
-	return &pb.GetPromptVersionHistoryResponse{Code: configOK, Msg: "success", Total: total, List: items}, nil
+	return &pb.GetPromptVersionHistoryResponse{Code: configOK, Msg: "common.success", Total: total, List: items}, nil
 }
 
 func (s *NativeStore) RollbackPromptVersion(ctx context.Context, req *pb.RollbackPromptVersionRequest) (*pb.PromptTemplateResponse, error) {
 	var version promptVersionRecord
 	err := s.db.WithContext(ctx).Where("template_id = ? AND version = ?", req.GetTemplateId(), req.GetVersion()).First(&version).Error
 	if err == gorm.ErrRecordNotFound {
-		return &pb.PromptTemplateResponse{Code: configNotFound, Msg: "prompt version not found"}, nil
+		return &pb.PromptTemplateResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -602,7 +602,7 @@ func (s *NativeStore) RenderPrompt(ctx context.Context, req *pb.RenderPromptRequ
 	var row promptTemplateRecord
 	if err := s.db.WithContext(ctx).First(&row, req.GetTemplateId()).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.RenderPromptResponse{Code: configNotFound, Msg: "prompt template not found"}, nil
+			return &pb.RenderPromptResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
@@ -610,7 +610,7 @@ func (s *NativeStore) RenderPrompt(ctx context.Context, req *pb.RenderPromptRequ
 	for key, value := range req.GetVariables() {
 		rendered = strings.ReplaceAll(rendered, "{{"+key+"}}", value)
 	}
-	return &pb.RenderPromptResponse{Code: configOK, Msg: "success", RenderedContent: rendered}, nil
+	return &pb.RenderPromptResponse{Code: configOK, Msg: "common.success", RenderedContent: rendered}, nil
 }
 
 func (s *NativeStore) GetActivePromptByAgentType(ctx context.Context, req *pb.GetActivePromptByAgentTypeRequest) (*pb.GetActivePromptByAgentTypeResponse, error) {
@@ -621,16 +621,16 @@ func (s *NativeStore) GetActivePromptByAgentType(ctx context.Context, req *pb.Ge
 	}
 	if err := query.Order("updated_at DESC, id DESC").First(&row).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.GetActivePromptByAgentTypeResponse{Code: configNotFound, Msg: "active prompt not found"}, nil
+			return &pb.GetActivePromptByAgentTypeResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
-	return &pb.GetActivePromptByAgentTypeResponse{Code: configOK, Msg: "success", Template: promptTemplateToPB(row)}, nil
+	return &pb.GetActivePromptByAgentTypeResponse{Code: configOK, Msg: "common.success", Template: promptTemplateToPB(row)}, nil
 }
 
 func (s *NativeStore) CreateAgent(ctx context.Context, req *pb.CreateAgentRequest) (*pb.AgentConfigResponse, error) {
 	if strings.TrimSpace(req.GetName()) == "" || strings.TrimSpace(req.GetDisplayName()) == "" || strings.TrimSpace(req.GetAgentType()) == "" {
-		return &pb.AgentConfigResponse{Code: configBadRequest, Msg: "name, display_name, and agent_type are required"}, nil
+		return &pb.AgentConfigResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if req.GetPromptTemplateId() > 0 {
 		message, err := validateAgentPromptBinding(s.db.WithContext(ctx), req.GetPromptTemplateId(), req.GetAgentType())
@@ -638,7 +638,7 @@ func (s *NativeStore) CreateAgent(ctx context.Context, req *pb.CreateAgentReques
 			return nil, err
 		}
 		if message != "" {
-			return &pb.AgentConfigResponse{Code: configBadRequest, Msg: message}, nil
+			return &pb.AgentConfigResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 		}
 	}
 	row := agentConfigRecord{Name: strings.TrimSpace(req.GetName()), DisplayName: strings.TrimSpace(req.GetDisplayName()), Description: nullStringFrom(req.GetDescription(), true), AgentType: strings.TrimSpace(req.GetAgentType()), PromptTemplateID: nullInt64From(req.GetPromptTemplateId()), Instruction: nullStringFrom(req.GetInstruction(), true), MaxIterations: defaultInt32(req.GetMaxIterations(), 5), IsDefault: req.GetIsDefault(), IsEnabled: true}
@@ -664,7 +664,7 @@ func (s *NativeStore) CreateAgent(ctx context.Context, req *pb.CreateAgentReques
 
 func (s *NativeStore) UpdateAgent(ctx context.Context, req *pb.UpdateAgentRequest) (*pb.AgentConfigResponse, error) {
 	if err := s.assertNotReleasedConfiguration(ctx, "agent", req.GetId()); err != nil {
-		return &pb.AgentConfigResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		return &pb.AgentConfigResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	updates := map[string]any{}
 	putString(updates, "name", req.GetName())
@@ -689,7 +689,7 @@ func (s *NativeStore) UpdateAgent(ctx context.Context, req *pb.UpdateAgentReques
 	var existing agentConfigRecord
 	if err := s.db.WithContext(ctx).First(&existing, req.GetId()).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.AgentConfigResponse{Code: configNotFound, Msg: "agent not found"}, nil
+			return &pb.AgentConfigResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
@@ -699,7 +699,7 @@ func (s *NativeStore) UpdateAgent(ctx context.Context, req *pb.UpdateAgentReques
 			return nil, err
 		}
 		if message != "" {
-			return &pb.AgentConfigResponse{Code: configBadRequest, Msg: message}, nil
+			return &pb.AgentConfigResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 		}
 	}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -752,7 +752,7 @@ func agentPromptTypesCompatible(agentType, promptAgentType string) bool {
 
 func (s *NativeStore) DeleteAgent(ctx context.Context, req *pb.DeleteAgentRequest) (*pb.CommonResponse, error) {
 	if err := s.assertNotReleasedConfiguration(ctx, "agent", req.GetId()); err != nil {
-		return &pb.CommonResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		return &pb.CommonResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	return rowsCommon(s.db.WithContext(ctx).Delete(&agentConfigRecord{}, req.GetId()), "success", "agent not found")
 }
@@ -762,7 +762,7 @@ func (s *NativeStore) GetAgentConfig(ctx context.Context, req *pb.GetAgentConfig
 	query := s.agentConfigSelect(ctx).Where("a.agent_type = ? AND a.is_enabled = ?", req.GetAgentType(), true).Order("a.is_default DESC, a.id ASC")
 	if err := query.First(&row).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.GetAgentConfigResponse{Code: configNotFound, Msg: "agent config not found"}, nil
+			return &pb.GetAgentConfigResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
@@ -770,7 +770,7 @@ func (s *NativeStore) GetAgentConfig(ctx context.Context, req *pb.GetAgentConfig
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetAgentConfigResponse{Code: configOK, Msg: "success", Agent: agent}, nil
+	return &pb.GetAgentConfigResponse{Code: configOK, Msg: "common.success", Agent: agent}, nil
 }
 
 // defaultCandidateAssistantToolNames is the DEV-parity builtin tool surface for candidate_assistant.
@@ -812,17 +812,17 @@ func (s *NativeStore) EnsureDefaultCandidateAssistant(ctx context.Context) error
 
 func (s *NativeStore) CreateEmbeddingProvider(ctx context.Context, req *pb.CreateEmbeddingProviderRequest) (*pb.EmbeddingProviderResponse, error) {
 	if strings.TrimSpace(req.GetName()) == "" || strings.TrimSpace(req.GetProviderType()) == "" || strings.TrimSpace(req.GetEndpoint()) == "" {
-		return &pb.EmbeddingProviderResponse{Code: configBadRequest, Msg: "name, provider_type, and endpoint are required"}, nil
+		return &pb.EmbeddingProviderResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	encrypted, err := s.encryptAPIKey(req.GetApiKey())
 	if err != nil {
-		return &pb.EmbeddingProviderResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		return &pb.EmbeddingProviderResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	row := embeddingProviderRecord{Name: strings.TrimSpace(req.GetName()), ProviderType: strings.TrimSpace(req.GetProviderType()), Endpoint: strings.TrimSpace(req.GetEndpoint()), APIKeyEncrypted: encrypted, ExtraHeaders: nullableJSONText(req.GetExtraHeadersJson()), IsEnabled: true}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		return nil, err
 	}
-	return &pb.EmbeddingProviderResponse{Code: configOK, Msg: "success", Provider: s.embeddingProviderToPB(row)}, nil
+	return &pb.EmbeddingProviderResponse{Code: configOK, Msg: "common.success", Provider: s.embeddingProviderToPB(row)}, nil
 }
 
 func (s *NativeStore) UpdateEmbeddingProvider(ctx context.Context, req *pb.UpdateEmbeddingProviderRequest) (*pb.EmbeddingProviderResponse, error) {
@@ -833,7 +833,7 @@ func (s *NativeStore) UpdateEmbeddingProvider(ctx context.Context, req *pb.Updat
 	if strings.TrimSpace(req.GetApiKey()) != "" {
 		encrypted, err := s.encryptAPIKey(req.GetApiKey())
 		if err != nil {
-			return &pb.EmbeddingProviderResponse{Code: configBadRequest, Msg: err.Error()}, nil
+			return &pb.EmbeddingProviderResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		updates["api_key_encrypted"] = encrypted
 	}
@@ -851,7 +851,7 @@ func (s *NativeStore) UpdateEmbeddingProvider(ctx context.Context, req *pb.Updat
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return &pb.EmbeddingProviderResponse{Code: configNotFound, Msg: "embedding provider not found"}, nil
+		return &pb.EmbeddingProviderResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 	}
 	return s.getEmbeddingProviderResponse(ctx, req.GetId())
 }
@@ -862,7 +862,7 @@ func (s *NativeStore) DeleteEmbeddingProvider(ctx context.Context, req *pb.Delet
 
 func (s *NativeStore) CreateEmbeddingModel(ctx context.Context, req *pb.CreateEmbeddingModelRequest) (*pb.EmbeddingModelResponse, error) {
 	if req.GetProviderId() <= 0 || strings.TrimSpace(req.GetModelName()) == "" {
-		return &pb.EmbeddingModelResponse{Code: configBadRequest, Msg: "provider_id and model_name are required"}, nil
+		return &pb.EmbeddingModelResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	row := embeddingModelRecord{ProviderID: req.GetProviderId(), ModelName: strings.TrimSpace(req.GetModelName()), DisplayName: strings.TrimSpace(req.GetDisplayName()), EmbeddingDim: int(req.GetEmbeddingDim()), InputTokenLimit: int(req.GetInputTokenLimit()), BatchSize: defaultInt32(req.GetBatchSize(), 1), TimeoutSeconds: defaultInt32(req.GetTimeoutSeconds(), 30), MaxRetries: defaultInt32(req.GetMaxRetries(), 2), IsEnabled: true, IsDefault: req.GetIsDefault(), LastTestStatus: "untested"}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -923,7 +923,7 @@ func (s *NativeStore) UpdateEmbeddingModel(ctx context.Context, req *pb.UpdateEm
 		return nil
 	})
 	if err == gorm.ErrRecordNotFound {
-		return &pb.EmbeddingModelResponse{Code: configNotFound, Msg: "embedding model not found"}, nil
+		return &pb.EmbeddingModelResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -943,16 +943,16 @@ func (s *NativeStore) SetDefaultEmbeddingModel(ctx context.Context, req *pb.SetD
 		return tx.Model(&embeddingModelRecord{}).Where("id <> ? AND is_default = ?", req.GetId(), true).Update("is_default", false).Error
 	})
 	if err == gorm.ErrRecordNotFound {
-		return &pb.CommonResponse{Code: configNotFound, Msg: "embedding model not found"}, nil
+		return &pb.CommonResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &pb.CommonResponse{Code: configOK, Msg: "success"}, nil
+	return &pb.CommonResponse{Code: configOK, Msg: "common.success"}, nil
 }
 
 func (s *NativeStore) TestEmbeddingModel(ctx context.Context, req *pb.TestEmbeddingModelRequest) (*pb.TestEmbeddingModelResponse, error) {
-	resp := &pb.TestEmbeddingModelResponse{Code: configUnsupported, Msg: "embedding runtime validation is not configured", Success: false, Detail: "native configuration store has no embedding client bound for live model tests"}
+	resp := &pb.TestEmbeddingModelResponse{Code: configUnsupported, Msg: "common.operation_failed", Success: false, Detail: "native configuration store has no embedding client bound for live model tests"}
 	if req.GetModelId() > 0 {
 		now := time.Now()
 		_ = s.db.WithContext(ctx).Model(&embeddingModelRecord{}).Where("id = ?", req.GetModelId()).Updates(map[string]any{"last_test_status": "unsupported", "last_test_error": resp.Detail, "last_test_at": now}).Error
@@ -961,7 +961,7 @@ func (s *NativeStore) TestEmbeddingModel(ctx context.Context, req *pb.TestEmbedd
 }
 
 func (s *NativeStore) BackfillEmbeddings(context.Context, *pb.BackfillEmbeddingsRequest) (*pb.BackfillEmbeddingsResponse, error) {
-	return &pb.BackfillEmbeddingsResponse{Code: configUnsupported, Msg: "embedding backfill worker is not configured in native configuration service"}, nil
+	return &pb.BackfillEmbeddingsResponse{Code: configUnsupported, Msg: "common.operation_failed"}, nil
 }
 
 func (s *NativeStore) ResolveEmbeddingConfig(ctx context.Context, providerID, modelID int64) (embeddinginfra.EmbeddingConfig, bool, error) {
@@ -1270,40 +1270,40 @@ func (s *NativeStore) getLlmProviderResponse(ctx context.Context, id int64) (*pb
 	var row llmProviderRecord
 	if err := s.db.WithContext(ctx).First(&row, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.ProviderResponse{Code: configNotFound, Msg: "provider not found"}, nil
+			return &pb.ProviderResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
-	return &pb.ProviderResponse{Code: configOK, Msg: "success", Provider: s.llmProviderToPB(row)}, nil
+	return &pb.ProviderResponse{Code: configOK, Msg: "common.success", Provider: s.llmProviderToPB(row)}, nil
 }
 
 func (s *NativeStore) getLlmModelResponse(ctx context.Context, id int64) (*pb.ModelResponse, error) {
 	var row llmModelListRow
 	if err := s.llmModelSelect(ctx).Where("m.id = ?", id).First(&row).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.ModelResponse{Code: configNotFound, Msg: "model not found"}, nil
+			return &pb.ModelResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
-	return &pb.ModelResponse{Code: configOK, Msg: "success", Model: llmModelToPB(row)}, nil
+	return &pb.ModelResponse{Code: configOK, Msg: "common.success", Model: llmModelToPB(row)}, nil
 }
 
 func (s *NativeStore) getPromptTemplateResponse(ctx context.Context, id int64) (*pb.PromptTemplateResponse, error) {
 	var row promptTemplateRecord
 	if err := s.db.WithContext(ctx).First(&row, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.PromptTemplateResponse{Code: configNotFound, Msg: "prompt template not found"}, nil
+			return &pb.PromptTemplateResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
-	return &pb.PromptTemplateResponse{Code: configOK, Msg: "success", Template: promptTemplateToPB(row)}, nil
+	return &pb.PromptTemplateResponse{Code: configOK, Msg: "common.success", Template: promptTemplateToPB(row)}, nil
 }
 
 func (s *NativeStore) getAgentResponse(ctx context.Context, id int64) (*pb.AgentConfigResponse, error) {
 	var row agentConfigListRow
 	if err := s.agentConfigSelect(ctx).Where("a.id = ?", id).First(&row).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.AgentConfigResponse{Code: configNotFound, Msg: "agent not found"}, nil
+			return &pb.AgentConfigResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
@@ -1311,29 +1311,29 @@ func (s *NativeStore) getAgentResponse(ctx context.Context, id int64) (*pb.Agent
 	if err != nil {
 		return nil, err
 	}
-	return &pb.AgentConfigResponse{Code: configOK, Msg: "success", Agent: agent}, nil
+	return &pb.AgentConfigResponse{Code: configOK, Msg: "common.success", Agent: agent}, nil
 }
 
 func (s *NativeStore) getEmbeddingProviderResponse(ctx context.Context, id int64) (*pb.EmbeddingProviderResponse, error) {
 	var row embeddingProviderRecord
 	if err := s.db.WithContext(ctx).First(&row, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.EmbeddingProviderResponse{Code: configNotFound, Msg: "embedding provider not found"}, nil
+			return &pb.EmbeddingProviderResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
-	return &pb.EmbeddingProviderResponse{Code: configOK, Msg: "success", Provider: s.embeddingProviderToPB(row)}, nil
+	return &pb.EmbeddingProviderResponse{Code: configOK, Msg: "common.success", Provider: s.embeddingProviderToPB(row)}, nil
 }
 
 func (s *NativeStore) getEmbeddingModelResponse(ctx context.Context, id int64) (*pb.EmbeddingModelResponse, error) {
 	var row embeddingModelListRow
 	if err := s.embeddingModelSelect(ctx).Where("m.id = ?", id).First(&row).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &pb.EmbeddingModelResponse{Code: configNotFound, Msg: "embedding model not found"}, nil
+			return &pb.EmbeddingModelResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 		}
 		return nil, err
 	}
-	return &pb.EmbeddingModelResponse{Code: configOK, Msg: "success", Model: embeddingModelToPB(row)}, nil
+	return &pb.EmbeddingModelResponse{Code: configOK, Msg: "common.success", Model: embeddingModelToPB(row)}, nil
 }
 
 func (s *NativeStore) llmModelSelect(ctx context.Context) *gorm.DB {
@@ -1441,9 +1441,9 @@ func rowsCommon(result *gorm.DB, okMsg, missingMsg string) (*pb.CommonResponse, 
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return &pb.CommonResponse{Code: configNotFound, Msg: missingMsg}, nil
+		return &pb.CommonResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 	}
-	return &pb.CommonResponse{Code: configOK, Msg: okMsg}, nil
+	return &pb.CommonResponse{Code: configOK, Msg: "common.success"}, nil
 }
 
 func putString(updates map[string]any, key, value string) {

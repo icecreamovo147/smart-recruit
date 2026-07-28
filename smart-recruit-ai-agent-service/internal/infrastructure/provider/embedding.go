@@ -201,14 +201,14 @@ func NewEmbeddingService(store EmbeddingStore, runner EmbeddingRunner) *Embeddin
 
 func (s *EmbeddingService) TestModel(ctx context.Context, req *pb.TestEmbeddingModelRequest) (*pb.TestEmbeddingModelResponse, error) {
 	if s == nil || s.store == nil || s.runner == nil {
-		return &pb.TestEmbeddingModelResponse{Code: 501, Msg: "embedding runtime validation is not configured", Success: false, Detail: "embedding store or runner is not bound"}, nil
+		return &pb.TestEmbeddingModelResponse{Code: 501, Msg: "common.operation_failed", Success: false, Detail: "embedding store or runner is not bound"}, nil
 	}
 	cfg, ok, err := s.store.ResolveEmbeddingConfig(ctx, req.GetProviderId(), req.GetModelId())
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		return &pb.TestEmbeddingModelResponse{Code: 404, Msg: "embedding model not found", Success: false, Detail: "no enabled provider/model matched request"}, nil
+		return &pb.TestEmbeddingModelResponse{Code: 404, Msg: "common.operation_failed", Success: false, Detail: "no enabled provider/model matched request"}, nil
 	}
 	text := strings.TrimSpace(req.GetTestText())
 	if text == "" {
@@ -218,14 +218,14 @@ func (s *EmbeddingService) TestModel(ctx context.Context, req *pb.TestEmbeddingM
 	now := time.Now()
 	if err != nil {
 		_ = s.store.UpdateEmbeddingTestStatus(ctx, cfg.ModelID, "failed", err.Error(), now)
-		return &pb.TestEmbeddingModelResponse{Code: 500, Msg: "embedding model test failed", Success: false, Detail: err.Error()}, nil
+		return &pb.TestEmbeddingModelResponse{Code: 500, Msg: "common.operation_failed", Success: false, Detail: err.Error()}, nil
 	}
 	dim := 0
 	if len(result.Vectors) > 0 {
 		dim = len(result.Vectors[0])
 	}
 	_ = s.store.UpdateEmbeddingTestStatus(ctx, cfg.ModelID, "success", "", now)
-	return &pb.TestEmbeddingModelResponse{Code: 0, Msg: "success", Success: true, Dimension: int32(dim), LatencyMs: result.Latency.Milliseconds(), RequestId: result.RequestID, Detail: fmt.Sprintf("provider=%s model=%s", cfg.ProviderName, cfg.ModelName)}, nil
+	return &pb.TestEmbeddingModelResponse{Code: 0, Msg: "common.success", Success: true, Dimension: int32(dim), LatencyMs: result.Latency.Milliseconds(), RequestId: result.RequestID, Detail: fmt.Sprintf("provider=%s model=%s", cfg.ProviderName, cfg.ModelName)}, nil
 }
 
 func (s *EmbeddingService) Backfill(ctx context.Context, req *pb.BackfillEmbeddingsRequest) (*pb.BackfillEmbeddingsResponse, error) {
@@ -234,17 +234,17 @@ func (s *EmbeddingService) Backfill(ctx context.Context, req *pb.BackfillEmbeddi
 		objectType = "agent_skill"
 	}
 	if objectType != "agent_skill" && objectType != "ai_memory" {
-		return &pb.BackfillEmbeddingsResponse{Code: 400, Msg: "only agent_skill and ai_memory embedding backfill are supported in native runtime"}, nil
+		return &pb.BackfillEmbeddingsResponse{Code: 400, Msg: "common.operation_failed"}, nil
 	}
 	if s == nil || s.store == nil || s.runner == nil {
-		return &pb.BackfillEmbeddingsResponse{Code: 501, Msg: "embedding backfill runtime is not configured"}, nil
+		return &pb.BackfillEmbeddingsResponse{Code: 501, Msg: "common.operation_failed"}, nil
 	}
 	cfg, ok, err := s.store.ResolveEmbeddingConfig(ctx, 0, req.GetModelId())
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		return &pb.BackfillEmbeddingsResponse{Code: 501, Msg: "embedding provider/model is not configured"}, nil
+		return &pb.BackfillEmbeddingsResponse{Code: 501, Msg: "common.operation_failed"}, nil
 	}
 	limit := int(req.GetLimit())
 	if limit <= 0 || limit > 200 {
@@ -272,7 +272,7 @@ func (s *EmbeddingService) Backfill(ctx context.Context, req *pb.BackfillEmbeddi
 			}
 			success++
 		}
-		return &pb.BackfillEmbeddingsResponse{Code: 0, Msg: "success", SuccessCount: success, FailedCount: failed, SkippedCount: skipped}, nil
+		return &pb.BackfillEmbeddingsResponse{Code: 0, Msg: "common.success", SuccessCount: success, FailedCount: failed, SkippedCount: skipped}, nil
 	}
 	docs, err := s.store.ListAgentSkillEmbeddingDocuments(ctx, req.GetObjectId(), limit)
 	if err != nil {
@@ -295,7 +295,7 @@ func (s *EmbeddingService) Backfill(ctx context.Context, req *pb.BackfillEmbeddi
 		}
 		success++
 	}
-	return &pb.BackfillEmbeddingsResponse{Code: 0, Msg: "success", SuccessCount: success, FailedCount: failed, SkippedCount: skipped}, nil
+	return &pb.BackfillEmbeddingsResponse{Code: 0, Msg: "common.success", SuccessCount: success, FailedCount: failed, SkippedCount: skipped}, nil
 }
 
 func (s *EmbeddingService) UpsertAgentSkill(ctx context.Context, id int64) error {
@@ -417,7 +417,7 @@ func (s *EmbeddingService) SemanticMemoryScores(ctx context.Context, owner domai
 
 func (s *EmbeddingService) SearchMemories(ctx context.Context, req *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
 	if s == nil || s.store == nil || s.runner == nil {
-		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "semantic retrieval debug is not configured", EmbeddingAvailable: false, FallbackReason: "embedding runner is not bound"}, nil
+		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "common.operation_failed", EmbeddingAvailable: false, FallbackReason: "embedding runner is not bound"}, nil
 	}
 	ownerRole := domainmemory.OwnerRole(req.GetOwnerRole())
 	ownerID := req.GetOwnerId()
@@ -453,14 +453,14 @@ func (s *EmbeddingService) SearchMemories(ctx context.Context, req *pb.DebugSema
 	}
 	fallbackReason := ""
 	if !ok {
-		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "embedding provider/model is not configured", EmbeddingAvailable: false, FallbackReason: "embedding provider/model is not configured"}, nil
+		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "common.operation_failed", EmbeddingAvailable: false, FallbackReason: "embedding provider/model is not configured"}, nil
 	}
 	if len(items) == 0 {
 		fallbackReason = "no ready ai_memory embeddings matched current owner/model"
 	}
 	return &pb.DebugSemanticRetrievalResponse{
 		Code:                 0,
-		Msg:                  "success",
+		Msg:                  "common.success",
 		EmbeddingAvailable:   true,
 		FallbackReason:       fallbackReason,
 		Memories:             items,
@@ -573,20 +573,20 @@ func (s *EmbeddingService) SemanticScores(ctx context.Context, query string, lim
 
 func (s *EmbeddingService) SearchAgentSkills(ctx context.Context, query string, limit int) (*pb.DebugSemanticRetrievalResponse, error) {
 	if s == nil || s.store == nil || s.runner == nil {
-		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "semantic retrieval debug is not configured", EmbeddingAvailable: false, FallbackReason: "embedding runner is not bound"}, nil
+		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "common.operation_failed", EmbeddingAvailable: false, FallbackReason: "embedding runner is not bound"}, nil
 	}
 	cfg, ok, err := s.store.ResolveEmbeddingConfig(ctx, 0, 0)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "embedding provider/model is not configured", EmbeddingAvailable: false, FallbackReason: "embedding provider/model is not configured"}, nil
+		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "common.operation_failed", EmbeddingAvailable: false, FallbackReason: "embedding provider/model is not configured"}, nil
 	}
 	limit = normalizeLimit(limit)
 	start := time.Now()
 	embed, err := s.runner.Embed(ctx, EmbedRequest{Config: cfg, Texts: []string{query}})
 	if err != nil {
-		return &pb.DebugSemanticRetrievalResponse{Code: 0, Msg: "success", EmbeddingAvailable: false, FallbackReason: err.Error(), EmbeddingProvider: cfg.ProviderName, EmbeddingModel: cfg.ModelName, EmbeddingDim: int32(cfg.Dimension), QueryEmbeddingLatencyMs: time.Since(start).Milliseconds()}, nil
+		return &pb.DebugSemanticRetrievalResponse{Code: 0, Msg: "common.success", EmbeddingAvailable: false, FallbackReason: err.Error(), EmbeddingProvider: cfg.ProviderName, EmbeddingModel: cfg.ModelName, EmbeddingDim: int32(cfg.Dimension), QueryEmbeddingLatencyMs: time.Since(start).Milliseconds()}, nil
 	}
 	queryVector := embed.Vectors[0]
 	rows, err := s.store.ListAIEmbeddings(ctx, "agent_skill", cfg.ModelName, 500)
@@ -624,7 +624,7 @@ func (s *EmbeddingService) SearchAgentSkills(ctx context.Context, query string, 
 	}
 	return &pb.DebugSemanticRetrievalResponse{
 		Code:                    0,
-		Msg:                     "success",
+		Msg:                     "common.success",
 		EmbeddingAvailable:      true,
 		FallbackReason:          fallbackReason,
 		Skills:                  items,

@@ -42,7 +42,7 @@ func memoryOwnerFromRequest(ctx context.Context, tenantID int64, ownerRole int32
 
 func (s *nativeAIService) ListMemories(ctx context.Context, req *pb.ListMemoriesRequest) (*pb.ListMemoriesResponse, error) {
 	if s.memoryService == nil || !s.memoryService.Enabled() {
-		return &pb.ListMemoriesResponse{Code: 0, Msg: "success", Total: 0}, nil
+		return &pb.ListMemoriesResponse{Code: 0, Msg: "common.success", Total: 0}, nil
 	}
 	owner, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), req.GetOwnerRole(), req.GetOwnerId())
 	if err != nil {
@@ -65,12 +65,12 @@ func (s *nativeAIService) ListMemories(ctx context.Context, req *pb.ListMemories
 	for _, item := range items {
 		out = append(out, memoryInfoFromDomain(item))
 	}
-	return &pb.ListMemoriesResponse{Code: 0, Msg: "success", Total: total, List: out}, nil
+	return &pb.ListMemoriesResponse{Code: 0, Msg: "common.success", Total: total, List: out}, nil
 }
 
 func (s *nativeAIService) GetMemory(ctx context.Context, req *pb.GetMemoryRequest) (*pb.MemoryResponse, error) {
 	if s.memoryService == nil || !s.memoryService.Enabled() {
-		return &pb.MemoryResponse{Code: 404, Msg: "not found"}, nil
+		return &pb.MemoryResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 	owner, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), req.GetOwnerRole(), req.GetOwnerId())
 	if err != nil {
@@ -81,14 +81,14 @@ func (s *nativeAIService) GetMemory(ctx context.Context, req *pb.GetMemoryReques
 		return nil, err
 	}
 	if !found {
-		return &pb.MemoryResponse{Code: 404, Msg: "not found"}, nil
+		return &pb.MemoryResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
-	return &pb.MemoryResponse{Code: 0, Msg: "success", Memory: memoryInfoFromDomain(item)}, nil
+	return &pb.MemoryResponse{Code: 0, Msg: "common.success", Memory: memoryInfoFromDomain(item)}, nil
 }
 
 func (s *nativeAIService) CreateMemory(ctx context.Context, req *pb.CreateMemoryRequest) (*pb.MemoryResponse, error) {
 	if s.memoryService == nil || !s.memoryService.Enabled() {
-		return &pb.MemoryResponse{Code: 503, Msg: "memory service disabled"}, nil
+		return &pb.MemoryResponse{Code: 503, Msg: "common.operation_failed"}, nil
 	}
 	owner, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), req.GetOwnerRole(), req.GetOwnerId())
 	if err != nil {
@@ -108,14 +108,14 @@ func (s *nativeAIService) CreateMemory(ctx context.Context, req *pb.CreateMemory
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if saved.ID == 0 {
-		return &pb.MemoryResponse{Code: 202, Msg: "accepted without persist"}, nil
+		return &pb.MemoryResponse{Code: 202, Msg: "common.operation_failed"}, nil
 	}
-	return &pb.MemoryResponse{Code: 0, Msg: "success", Memory: memoryInfoFromDomain(saved)}, nil
+	return &pb.MemoryResponse{Code: 0, Msg: "common.success", Memory: memoryInfoFromDomain(saved)}, nil
 }
 
 func (s *nativeAIService) UpdateMemory(ctx context.Context, req *pb.UpdateMemoryRequest) (*pb.MemoryResponse, error) {
 	if s.memoryService == nil || !s.memoryService.Enabled() {
-		return &pb.MemoryResponse{Code: 503, Msg: "memory service disabled"}, nil
+		return &pb.MemoryResponse{Code: 503, Msg: "common.operation_failed"}, nil
 	}
 	owner, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), req.GetOwnerRole(), req.GetOwnerId())
 	if err != nil {
@@ -126,7 +126,7 @@ func (s *nativeAIService) UpdateMemory(ctx context.Context, req *pb.UpdateMemory
 		return nil, err
 	}
 	if !found {
-		return &pb.MemoryResponse{Code: 404, Msg: "not found"}, nil
+		return &pb.MemoryResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 	if req.GetContentSet() {
 		existing.Content = req.GetContent()
@@ -154,12 +154,12 @@ func (s *nativeAIService) UpdateMemory(ctx context.Context, req *pb.UpdateMemory
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MemoryResponse{Code: 0, Msg: "success", Memory: memoryInfoFromDomain(updated)}, nil
+	return &pb.MemoryResponse{Code: 0, Msg: "common.success", Memory: memoryInfoFromDomain(updated)}, nil
 }
 
 func (s *nativeAIService) RevokeMemory(ctx context.Context, req *pb.RevokeMemoryRequest) (*pb.MemoryResponse, error) {
 	if s.memoryService == nil || !s.memoryService.Enabled() {
-		return &pb.MemoryResponse{Code: 503, Msg: "memory service disabled"}, nil
+		return &pb.MemoryResponse{Code: 503, Msg: "common.operation_failed"}, nil
 	}
 	owner, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), req.GetOwnerRole(), req.GetOwnerId())
 	if err != nil {
@@ -173,14 +173,14 @@ func (s *nativeAIService) RevokeMemory(ctx context.Context, req *pb.RevokeMemory
 		return nil, err
 	}
 	if !found {
-		return &pb.MemoryResponse{Code: 0, Msg: "success"}, nil
+		return &pb.MemoryResponse{Code: 0, Msg: "common.success"}, nil
 	}
-	return &pb.MemoryResponse{Code: 0, Msg: "success", Memory: memoryInfoFromDomain(item)}, nil
+	return &pb.MemoryResponse{Code: 0, Msg: "common.success", Memory: memoryInfoFromDomain(item)}, nil
 }
 
 func (s *nativeAIService) RecallMemories(ctx context.Context, req *pb.RecallMemoriesRequest) (*pb.RecallMemoriesResponse, error) {
 	if s.memoryService == nil || !s.memoryService.Enabled() {
-		return &pb.RecallMemoriesResponse{Code: 0, Msg: "success"}, nil
+		return &pb.RecallMemoriesResponse{Code: 0, Msg: "common.success"}, nil
 	}
 	owner, err := memoryOwnerFromRequest(ctx, req.GetTenantId(), req.GetOwnerRole(), req.GetOwnerId())
 	if err != nil {
@@ -209,7 +209,7 @@ func (s *nativeAIService) RecallMemories(ctx context.Context, req *pb.RecallMemo
 			Reason: item.Reason,
 		})
 	}
-	return &pb.RecallMemoriesResponse{Code: 0, Msg: "success", Items: items}, nil
+	return &pb.RecallMemoriesResponse{Code: 0, Msg: "common.success", Items: items}, nil
 }
 
 func memoryInfoFromDomain(memory domainmemory.Memory) *pb.MemoryInfo {

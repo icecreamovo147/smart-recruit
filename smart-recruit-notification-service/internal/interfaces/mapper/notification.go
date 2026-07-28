@@ -43,10 +43,10 @@ func MarkAllReadRequest(req *pb.MarkAllNotificationsReadRequest) command.MarkAll
 }
 
 func ListResponse(result query.ListResult) *pb.ListNotificationsResponse {
-	code, msg := codeMessage(result.Code, result.Message)
+	code, _ := codeMessage(result.Code, result.Message)
 	return &pb.ListNotificationsResponse{
 		Code:       code,
-		Msg:        msg,
+		Msg:        "common.operation_failed",
 		Total:      result.Total,
 		List:       Notifications(result.List),
 		NextCursor: result.NextCursor,
@@ -55,13 +55,13 @@ func ListResponse(result query.ListResult) *pb.ListNotificationsResponse {
 }
 
 func UnreadResponse(result query.UnreadCountResult) *pb.UnreadNotificationCountResponse {
-	return &pb.UnreadNotificationCountResponse{Code: query.CodeOK, Msg: successMessage, Unread: result.Unread}
+	return &pb.UnreadNotificationCountResponse{Code: query.CodeOK, Msg: "common.success", Unread: result.Unread}
 }
 
 func SummaryResponse(result query.SummaryResult) *pb.NotificationSummaryResponse {
 	return &pb.NotificationSummaryResponse{
 		Code:                 query.CodeOK,
-		Msg:                  successMessage,
+		Msg:                  "common.success",
 		Unread:               result.Unread,
 		LatestNotificationId: result.LatestNotificationID,
 		LatestCreatedAt:      result.LatestCreatedAt,
@@ -69,8 +69,8 @@ func SummaryResponse(result query.SummaryResult) *pb.NotificationSummaryResponse
 }
 
 func CommonResponse(result query.CommandResult) *pb.CommonResponse {
-	code, msg := codeMessage(result.Code, result.Message)
-	return &pb.CommonResponse{Code: code, Msg: msg}
+	code, _ := codeMessage(result.Code, result.Message)
+	return &pb.CommonResponse{Code: code, Msg: "common.operation_failed"}
 }
 
 func Notifications(rows []model.Notification) []*pb.Notification {

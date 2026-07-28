@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ArrowDown, MoreFilled, Plus, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -73,7 +74,7 @@ const load = async () => {
       deptTreeRef.value?.setCurrentKey?.(selectedDeptId.value)
     }
   } catch {
-    ElMessage.error('加载部门数据失败')
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     loading.value = false
   }
@@ -162,7 +163,7 @@ const openEdit = (row: DepartmentNode) => {
 
 const save = async () => {
   if (!form.name.trim()) {
-    ElMessage.warning('请输入部门名称')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   try {
@@ -172,14 +173,14 @@ const save = async () => {
         name: form.name,
         sort_order: form.sort_order,
       })
-      ElMessage.success('部门已更新')
+      ElMessage.success(t('common.success'))
     } else {
       await createDepartment({
         parent_id: form.parent_id,
         name: form.name,
         sort_order: form.sort_order,
       })
-      ElMessage.success('部门已创建')
+      ElMessage.success(t('common.success'))
     }
     dialogVisible.value = false
     load()
@@ -216,7 +217,7 @@ const remove = async (row: DepartmentNode) => {
     return
   }
   await deleteDepartment(row.id)
-  ElMessage.success('部门已删除')
+  ElMessage.success(t('common.success'))
   load()
 }
 
@@ -257,7 +258,7 @@ const openLocConfig = async (row: DepartmentNode) => {
     locForm.inherit_locations = row.parent_id === 0 ? 0 : cfg.inherit_locations
     locForm.location_ids = (cfg.direct_location_ids || []).map(toNum)
   } catch {
-    ElMessage.error('加载地点配置失败')
+    ElMessage.error(t('frontend.operation_failed'))
     return
   }
   locDialogVisible.value = true
@@ -271,7 +272,7 @@ const saveLocConfig = async () => {
       inherit_locations: locForm.inherit_locations,
       location_ids: locForm.inherit_locations === 1 ? [] : locForm.location_ids,
     })
-    ElMessage.success('地点配置已保存')
+    ElMessage.success(t('common.success'))
     locDialogVisible.value = false
     load()
   } catch {
@@ -377,18 +378,28 @@ onMounted(load)
             </el-table-column>
             <el-table-column label="操作" width="200" fixed="right" align="center">
               <template #default="{ row }">
-                <el-button v-if="row.depth < 2" size="small" @click="openCreate(row)">添加子部门</el-button>
-                <el-button size="small" @click="openEdit(row)">编辑</el-button>
-                <el-dropdown trigger="click" popper-class="dropdown-menu-center" @command="(cmd: string) => handleRowCommand(cmd, row)">
-                  <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="loc-config">地点配置</el-dropdown-item>
-                      <el-dropdown-item command="toggle-status">{{ row.is_active === 1 ? '停用' : '启用' }}</el-dropdown-item>
-                      <el-dropdown-item command="delete" divided style="color: var(--el-color-danger)">删除</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
+                <div
+                  class="department-row-actions"
+                  :class="{ 'department-row-actions--with-child-action': row.depth < 2 }"
+                >
+                  <el-button v-if="row.depth < 2" size="small" @click="openCreate(row)">添加子部门</el-button>
+                  <el-button size="small" @click="openEdit(row)">编辑</el-button>
+                  <el-dropdown
+                    class="department-row-actions__more"
+                    trigger="click"
+                    popper-class="dropdown-menu-center"
+                    @command="(cmd: string) => handleRowCommand(cmd, row)"
+                  >
+                    <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="loc-config">地点配置</el-dropdown-item>
+                        <el-dropdown-item command="toggle-status">{{ row.is_active === 1 ? '停用' : '启用' }}</el-dropdown-item>
+                        <el-dropdown-item command="delete" divided style="color: var(--el-color-danger)">删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
               </template>
             </el-table-column>
           </el-table>
@@ -528,6 +539,22 @@ onMounted(load)
 
 .department-table-actions {
   flex-shrink: 0;
+}
+
+.department-row-actions {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: center;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.department-row-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.department-row-actions--with-child-action .department-row-actions__more {
+  grid-column: 1;
 }
 
 :deep(.console-table .el-table__header th) {

@@ -28,18 +28,31 @@ source_refs:
   - smart-recruit-gateway/handler/hr/ai.go
   - smart-recruit-gateway/cmd/gateway/main.go
   - smart-recruit-platform-go/businessclock/clock.go
+  - smart-recruit-platform-go/i18n/i18n.go
+  - smart-recruit-platform-go/i18n/catalogs/zh-CN.json
+  - smart-recruit-platform-go/i18n/catalogs/en-US.json
   - smart-recruit-proto/proto/recruitment.proto
   - smart-recruit-proto/recruitment/pb/recruitment.pb.go
   - hr-frontend/src/api/ai.ts
   - hr-frontend/src/types/ai.ts
   - hr-frontend/src/utils/hrAgentRunReducer.ts
-last_verified: 2026-07-23
+last_verified: 2026-07-27
 review_after: 2026-10-21
 ---
 
 # API Contracts and Gateway Architecture
 
 The gateway exposes `/api/v1`, applies timeout/body/rate/quota/risk/auth middleware, and calls generated gRPC clients. `smart-recruit-gateway/rpc/client.go` defaults route modes to independent service targets and forwards internal auth, request, and trace metadata.
+
+Runtime system messages use the deployment-wide `APP_LOCALE` (`zh-CN` by
+default, or `en-US`). The Gateway is the only HTTP localization boundary:
+responses retain `code/msg/data/request_id`, add a stable `message_key`, and
+render `msg` from the canonical platform catalog. The unauthenticated
+`GET /api/v1/public/runtime-config` endpoint exposes only the active `locale` so
+the three product frontends can initialize their shared catalog and Element Plus
+locale without a rebuild. gRPC `msg` values and SSE system messages are keys;
+user content and model output are not translated. Raw upstream failures stay in
+structured server-side `cause` fields and must never be forwarded as `msg`.
 
 AI daily and burst quota accounting distinguishes admission from an attempted HTTP request. Candidate streaming handlers mark the quota consumed only after the AI service emits its first runtime event; capability, configuration, and billing failures before that event refund the provisional daily count and do not contribute to the burst risk block. Once runtime admission occurs, later provider/stream failures remain counted because upstream work may already have happened.
 
@@ -60,4 +73,6 @@ The platform business timezone is fixed at `Asia/Shanghai`. RFC3339 response str
 
 ## Verification
 
-Verified against `recruitment.proto` ChatResponse/AgentRunEvent fields, Gateway HR AI handlers, HR API/types/reducer consumers, and focused suggested-question / process-snapshot tests on 2026-07-23.
+Verified against `recruitment.proto` ChatResponse/AgentRunEvent fields, Gateway
+response and runtime-config handlers, canonical i18n catalogs, Gateway HR AI
+handlers, and frontend runtime initialization on 2026-07-27.

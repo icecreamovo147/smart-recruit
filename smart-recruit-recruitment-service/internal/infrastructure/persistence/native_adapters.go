@@ -240,25 +240,25 @@ type jobLocationRecord struct {
 func (jobLocationRecord) TableName() string { return "job_locations" }
 
 type candidateProfileRecord struct {
-	ID                 int64 `gorm:"primaryKey"`
-	UserID             int64
-	RealName           string
-	Phone              string
-	Education          string
-	School             string
-	WorkExperience     string
-	Skills             string
-	City               string
-	YearsOfExperience  float64
-	JobStatus          string
-	ExpectedPosition   string
-	ExpectedSalaryMin  int32
-	ExpectedSalaryMax  int32
-	AvailableFrom      *time.Time
-	Summary            string
-	IsComplete         int32
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	ID                int64 `gorm:"primaryKey"`
+	UserID            int64
+	RealName          string
+	Phone             string
+	Education         string
+	School            string
+	WorkExperience    string
+	Skills            string
+	City              string
+	YearsOfExperience float64
+	JobStatus         string
+	ExpectedPosition  string
+	ExpectedSalaryMin int32
+	ExpectedSalaryMax int32
+	AvailableFrom     *time.Time
+	Summary           string
+	IsComplete        int32
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 func (candidateProfileRecord) TableName() string { return "candidate_profiles" }
@@ -496,11 +496,11 @@ func (eventOutboxRecord) TableName() string { return "event_outbox" }
 
 func (a *jobAdapter) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*pb.CreateJobResponse, error) {
 	if req.HrId == 0 || strings.TrimSpace(req.Title) == "" {
-		return &pb.CreateJobResponse{Code: errs.ErrBadRequest, Msg: "岗位名称不能为空"}, nil
+		return &pb.CreateJobResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if _, err := a.quota.Check(ctx, metadata.GetAuthTenantID(ctx), "jobs.published.max", 1); err != nil {
 		if errors.Is(err, commonsquota.ErrLimitExceeded) {
-			return &pb.CreateJobResponse{Code: errs.ErrForbidden, Msg: "已达到当前套餐的在线岗位上限"}, nil
+			return &pb.CreateJobResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 		}
 		return nil, err
 	}
@@ -518,14 +518,14 @@ func (a *jobAdapter) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*
 		}
 	}
 	if department == "" {
-		return &pb.CreateJobResponse{Code: errs.ErrBadRequest, Msg: "请选择部门"}, nil
+		return &pb.CreateJobResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if location == "" {
-		return &pb.CreateJobResponse{Code: errs.ErrBadRequest, Msg: "请选择地点"}, nil
+		return &pb.CreateJobResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if req.DepartmentId > 0 && req.LocationId > 0 {
 		if err := a.validateDepartmentLocation(ctx, req.DepartmentId, req.LocationId); err != nil {
-			return &pb.CreateJobResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+			return &pb.CreateJobResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
 	}
 	job := &jobRecord{
@@ -543,7 +543,7 @@ func (a *jobAdapter) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*
 	if err := a.db.WithContext(ctx).Create(job).Error; err != nil {
 		return nil, err
 	}
-	return &pb.CreateJobResponse{Code: errs.OK, Msg: "success", JobId: job.ID}, nil
+	return &pb.CreateJobResponse{Code: errs.OK, Msg: "common.success", JobId: job.ID}, nil
 }
 
 func (a *jobAdapter) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*pb.CommonResponse, error) {
@@ -571,14 +571,14 @@ func (a *jobAdapter) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*
 		putTrimmed(fields, "location", req.Location)
 	}
 	if len(fields) == 0 {
-		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "没有可更新字段"}, nil
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	scope, err := a.checkRecruitmentJobScope(ctx, req.HrId, req.JobId)
 	if err != nil {
 		return nil, err
 	}
 	if !scope.allowed() {
-		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作该岗位"}, nil
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	query := a.db.WithContext(ctx).Model(&jobRecord{}).Where("id = ?", req.JobId)
 	query = applyRecruitmentScopeToJobMutationQuery(query, scope)
@@ -587,9 +587,9 @@ func (a *jobAdapter) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作该岗位"}, nil
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
-	return &pb.CommonResponse{Code: errs.OK, Msg: "success"}, nil
+	return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 }
 
 func (a *jobAdapter) OfflineJob(ctx context.Context, req *pb.OfflineJobRequest) (*pb.CommonResponse, error) {
@@ -606,23 +606,23 @@ func (a *jobAdapter) setJobStatus(ctx context.Context, hrID, jobID int64, status
 		return nil, err
 	}
 	if !scope.allowed() {
-		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作该岗位"}, nil
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	if status == 1 && a.quota != nil {
 		var job jobRecord
 		query := applyRecruitmentScopeToJobsQuery(a.db.WithContext(ctx).Model(&jobRecord{}).Where("id = ?", jobID), scope)
 		if err := query.First(&job).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作该岗位"}, nil
+				return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 			}
 			return nil, err
 		}
 		if job.Status == 1 {
-			return &pb.CommonResponse{Code: errs.OK, Msg: msg}, nil
+			return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 		}
 		if _, err := a.quota.Check(ctx, job.TenantID, "jobs.published.max", 1); err != nil {
 			if errors.Is(err, commonsquota.ErrLimitExceeded) {
-				return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "已达到当前套餐的在线岗位上限"}, nil
+				return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 			}
 			return nil, err
 		}
@@ -634,9 +634,9 @@ func (a *jobAdapter) setJobStatus(ctx context.Context, hrID, jobID int64, status
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作该岗位"}, nil
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
-	return &pb.CommonResponse{Code: errs.OK, Msg: msg}, nil
+	return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 }
 
 func (a *jobAdapter) ListHRJobs(ctx context.Context, req *pb.ListHRJobsRequest) (*pb.ListJobsResponse, error) {
@@ -645,7 +645,7 @@ func (a *jobAdapter) ListHRJobs(ctx context.Context, req *pb.ListHRJobsRequest) 
 		return nil, err
 	}
 	if !scope.allowed() {
-		return &pb.ListJobsResponse{Code: errs.ErrForbidden, Msg: "无数据范围权限"}, nil
+		return &pb.ListJobsResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	query := a.db.WithContext(ctx).Model(&jobRecord{})
 	query = applyRecruitmentScopeToJobsQuery(query, scope)
@@ -672,7 +672,7 @@ func (a *jobAdapter) GetJobDetail(ctx context.Context, req *pb.GetJobDetailReque
 	var job jobRecord
 	err := a.db.WithContext(ctx).Where("id = ? AND status = ?", req.JobId, 1).First(&job).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return &pb.GetJobDetailResponse{Code: errs.ErrBadRequest, Msg: "岗位不存在或已下架"}, nil
+		return &pb.GetJobDetailResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -681,7 +681,7 @@ func (a *jobAdapter) GetJobDetail(ctx context.Context, req *pb.GetJobDetailReque
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetJobDetailResponse{Code: errs.OK, Msg: "success", Job: item}, nil
+	return &pb.GetJobDetailResponse{Code: errs.OK, Msg: "common.success", Job: item}, nil
 }
 
 func (a *jobAdapter) listJobs(query *gorm.DB, pageNum, size int32) (*pb.ListJobsResponse, error) {
@@ -701,7 +701,7 @@ func (a *jobAdapter) listJobs(query *gorm.DB, pageNum, size int32) (*pb.ListJobs
 		}
 		list = append(list, item)
 	}
-	return &pb.ListJobsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+	return &pb.ListJobsResponse{Code: errs.OK, Msg: "common.success", Total: total, List: list}, nil
 }
 
 func (a *jobAdapter) jobToPB(ctx context.Context, job jobRecord) (*pb.Job, error) {
@@ -730,7 +730,7 @@ func (a *candidateAdapter) GetProfile(ctx context.Context, req *pb.GetProfileReq
 	var profile candidateProfileRecord
 	err := a.db.WithContext(ctx).Where("user_id = ?", req.UserId).First(&profile).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return &pb.GetProfileResponse{Code: errs.OK, Msg: "success", Profile: &pb.CandidateProfile{}}, nil
+		return &pb.GetProfileResponse{Code: errs.OK, Msg: "common.success", Profile: &pb.CandidateProfile{}}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -742,7 +742,7 @@ func (a *candidateAdapter) GetProfile(ctx context.Context, req *pb.GetProfileReq
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetProfileResponse{Code: errs.OK, Msg: "success", Profile: profileBundleToPB(bundle)}, nil
+	return &pb.GetProfileResponse{Code: errs.OK, Msg: "common.success", Profile: profileBundleToPB(bundle)}, nil
 }
 
 func (a *candidateAdapter) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error) {
@@ -754,7 +754,7 @@ func (a *candidateAdapter) UpdateProfile(ctx context.Context, req *pb.UpdateProf
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetProfileResponse{Code: errs.OK, Msg: "保存成功", Profile: profileBundleToPB(saved)}, nil
+	return &pb.GetProfileResponse{Code: errs.OK, Msg: "common.success", Profile: profileBundleToPB(saved)}, nil
 }
 
 func (a *candidateAdapter) FillProfileFromResume(ctx context.Context, req *pb.FillProfileFromResumeRequest) (*pb.FillProfileFromResumeResponse, error) {
@@ -764,38 +764,29 @@ func (a *candidateAdapter) FillProfileFromResume(ctx context.Context, req *pb.Fi
 	}
 	switch reason {
 	case profilepkg.RefreshReasonNoResume:
-		return &pb.FillProfileFromResumeResponse{Code: errs.ErrBadRequest, Msg: "请先上传简历"}, nil
+		return &pb.FillProfileFromResumeResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	case profilepkg.RefreshReasonNoParsedText:
 		return &pb.FillProfileFromResumeResponse{
-			Code: errs.ErrBadRequest, Msg: "简历文本尚未提取完成，请稍后重试", ResumeId: resumeID, RefreshReason: reason,
+			Code: errs.ErrBadRequest, Msg: "common.invalid_request", ResumeId: resumeID, RefreshReason: reason,
 		}, nil
 	}
 	if needsRefresh {
-		msg := "简历尚未解析，请稍后重试"
-		switch reason {
-		case profilepkg.RefreshReasonHeuristic:
-			msg = "当前画像为启发式结果，需要重新解析"
-		case profilepkg.RefreshReasonInputChanged:
-			msg = "简历文本已更新，需要重新解析"
-		case profilepkg.RefreshReasonForced:
-			msg = "已请求重新解析简历"
-		}
 		return &pb.FillProfileFromResumeResponse{
-			Code: 40402, Msg: msg, NeedsRefresh: true, RefreshReason: reason, ResumeId: resumeID,
+			Code: 40402, Msg: "common.operation_failed", NeedsRefresh: true, RefreshReason: reason, ResumeId: resumeID,
 		}, nil
 	}
 	draft, err := a.buildFillDraftFromResumeProfile(ctx, req.UserId, req.GetOverwriteExisting())
 	if errors.Is(err, errNoResume) {
-		return &pb.FillProfileFromResumeResponse{Code: errs.ErrBadRequest, Msg: "请先上传简历"}, nil
+		return &pb.FillProfileFromResumeResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if errors.Is(err, errNoParsedText) {
 		return &pb.FillProfileFromResumeResponse{
-			Code: errs.ErrBadRequest, Msg: "简历文本尚未提取完成，请稍后重试", ResumeId: resumeID, RefreshReason: profilepkg.RefreshReasonNoParsedText,
+			Code: errs.ErrBadRequest, Msg: "common.invalid_request", ResumeId: resumeID, RefreshReason: profilepkg.RefreshReasonNoParsedText,
 		}, nil
 	}
 	if errors.Is(err, errNoResumeProfile) {
 		return &pb.FillProfileFromResumeResponse{
-			Code: 40402, Msg: "简历尚未解析，请稍后重试", NeedsRefresh: true, RefreshReason: profilepkg.RefreshReasonMissing, ResumeId: resumeID,
+			Code: 40402, Msg: "common.operation_failed", NeedsRefresh: true, RefreshReason: profilepkg.RefreshReasonMissing, ResumeId: resumeID,
 		}, nil
 	}
 	if err != nil {
@@ -803,7 +794,7 @@ func (a *candidateAdapter) FillProfileFromResume(ctx context.Context, req *pb.Fi
 	}
 	draft.RefreshReason = profilepkg.RefreshReasonReused
 	draft.Refreshed = false
-	return &pb.FillProfileFromResumeResponse{Code: errs.OK, Msg: "success", Draft: draft, RefreshReason: profilepkg.RefreshReasonReused, ResumeId: resumeID}, nil
+	return &pb.FillProfileFromResumeResponse{Code: errs.OK, Msg: "common.success", Draft: draft, RefreshReason: profilepkg.RefreshReasonReused, ResumeId: resumeID}, nil
 }
 
 func (a *candidateAdapter) ApplyProfileFill(ctx context.Context, req *pb.ApplyProfileFillRequest) (*pb.GetProfileResponse, error) {
@@ -819,17 +810,17 @@ func (a *candidateAdapter) ApplyProfileFill(ctx context.Context, req *pb.ApplyPr
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetProfileResponse{Code: errs.OK, Msg: "保存成功", Profile: profileBundleToPB(saved)}, nil
+	return &pb.GetProfileResponse{Code: errs.OK, Msg: "common.success", Profile: profileBundleToPB(saved)}, nil
 }
 
 func (a *candidateAdapter) GetResume(ctx context.Context, req *pb.GetResumeRequest) (*pb.GetResumeResponse, error) {
-	if code, msg, ok := validateCandidateActor(ctx, req.UserId); !ok {
-		return &pb.GetResumeResponse{Code: code, Msg: msg}, nil
+	if code, _, ok := validateCandidateActor(ctx, req.UserId); !ok {
+		return &pb.GetResumeResponse{Code: code, Msg: "common.operation_failed"}, nil
 	}
 	var resume resumeRecord
 	err := a.db.WithContext(ctx).Where("user_id = ? AND is_valid = ?", req.UserId, 1).Order("uploaded_at DESC, id DESC").First(&resume).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return &pb.GetResumeResponse{Code: errs.OK, Msg: "success"}, nil
+		return &pb.GetResumeResponse{Code: errs.OK, Msg: "common.success"}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -838,18 +829,18 @@ func (a *candidateAdapter) GetResume(ctx context.Context, req *pb.GetResumeReque
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetResumeResponse{Code: errs.OK, Msg: "success", Resume: &pb.CandidateResume{
+	return &pb.GetResumeResponse{Code: errs.OK, Msg: "common.success", Resume: &pb.CandidateResume{
 		ResumeId: resume.ID, FileName: resume.FileName, FileType: resume.FileType, FileSize: resume.FileSize,
 		UploadedAt: formatTime(resume.UploadedAt), ResumeUrl: url,
 	}}, nil
 }
 
 func (a *candidateAdapter) PresignResumeUpload(ctx context.Context, req *pb.PresignResumeUploadRequest) (*pb.PresignResumeUploadResponse, error) {
-	if code, msg, ok := validateCandidateActor(ctx, req.UserId); !ok {
-		return &pb.PresignResumeUploadResponse{Code: code, Msg: msg}, nil
+	if code, _, ok := validateCandidateActor(ctx, req.UserId); !ok {
+		return &pb.PresignResumeUploadResponse{Code: code, Msg: "common.operation_failed"}, nil
 	}
 	if !allowedResumeFile(req.FileName, req.FileType) {
-		return &pb.PresignResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "仅支持 PDF、DOCX 格式"}, nil
+		return &pb.PresignResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	uploadID, err := oss.GenerateUploadID()
 	if err != nil {
@@ -867,35 +858,35 @@ func (a *candidateAdapter) PresignResumeUpload(ctx context.Context, req *pb.Pres
 		return nil, err
 	}
 	_ = a.writeUsageLog(ctx, usageLogRecord{UserID: req.UserId, Role: 1, ServiceType: "oss_presign", Endpoint: "/candidate/resume/presign", Provider: a.storage.ProviderName(), ObjectKey: ossKey, ObjectSize: oss.MaxResumeSizeBytes, Status: "ok"})
-	return &pb.PresignResumeUploadResponse{Code: errs.OK, Msg: "success", UploadUrl: uploadURL, OssKey: ossKey, ExpireAt: formatTime(expireAt), UploadId: uploadID}, nil
+	return &pb.PresignResumeUploadResponse{Code: errs.OK, Msg: "common.success", UploadUrl: uploadURL, OssKey: ossKey, ExpireAt: formatTime(expireAt), UploadId: uploadID}, nil
 }
 
 func (a *candidateAdapter) ConfirmResumeUpload(ctx context.Context, req *pb.ConfirmResumeUploadRequest) (*pb.ConfirmResumeUploadResponse, error) {
-	if code, msg, ok := validateCandidateActor(ctx, req.UserId); !ok {
-		return &pb.ConfirmResumeUploadResponse{Code: code, Msg: msg}, nil
+	if code, _, ok := validateCandidateActor(ctx, req.UserId); !ok {
+		return &pb.ConfirmResumeUploadResponse{Code: code, Msg: "common.operation_failed"}, nil
 	}
 	if !allowedResumeFile(req.FileName, req.FileType) {
-		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "仅支持 PDF、DOCX 格式"}, nil
+		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if req.UploadId == "" {
-		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: domainpolicy.ErrResumeUploadIDRequired.Error()}, nil
+		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	session, err := a.storage.GetAndDeletePresignSession(ctx, req.UploadId)
 	if err != nil {
-		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: domainpolicy.ErrResumeSessionInvalid.Error()}, nil
+		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if err := domainpolicy.ValidateStrictResumeSession(req.UserId, req.UploadId, req.OssKey, req.FileType, req.FileSize, ossPresignSessionToDomain(session)); err != nil {
-		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if err := a.storage.VerifyObject(ctx, req.OssKey); err != nil {
-		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "未在 OSS 中找到已上传的简历文件"}, nil
+		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if err := a.storage.VerifyObjectSize(ctx, req.OssKey, oss.MaxResumeSizeBytes); err != nil {
-		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "简历文件大小超过限制（最大 20MB）"}, nil
+		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	permanentKey := fmt.Sprintf("resumes/%d/%d_%s", req.UserId, a.now().Unix(), sanitizeFileName(req.FileName))
 	if err := a.storage.CopyObject(ctx, req.OssKey, permanentKey); err != nil {
-		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrInternal, Msg: "简历保存失败，请重新上传"}, nil
+		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	_ = a.storage.DeleteObject(ctx, req.OssKey)
 	resume := &resumeRecord{UserID: req.UserId, OSSKey: permanentKey, FileName: req.FileName, FileType: strings.ToLower(req.FileType), FileSize: req.FileSize, IsValid: 1, UploadedAt: a.now()}
@@ -911,7 +902,7 @@ func (a *candidateAdapter) ConfirmResumeUpload(ctx context.Context, req *pb.Conf
 		return nil, err
 	}
 	_ = a.writeUsageLog(ctx, usageLogRecord{UserID: req.UserId, Role: 1, ServiceType: "oss_confirm", Endpoint: "/candidate/resume/confirm", Provider: a.storage.ProviderName(), ObjectKey: req.OssKey, ObjectSize: req.FileSize, Status: "ok"})
-	return &pb.ConfirmResumeUploadResponse{Code: errs.OK, Msg: "success", ResumeId: resume.ID, FillSuggested: true}, nil
+	return &pb.ConfirmResumeUploadResponse{Code: errs.OK, Msg: "common.success", ResumeId: resume.ID, FillSuggested: true}, nil
 }
 
 func validateCandidateActor(ctx context.Context, userID int64) (int32, string, bool) {
@@ -942,19 +933,19 @@ func ossPresignSessionToDomain(session *oss.PresignSession) *domainmodel.Presign
 func (a *applicationAdapter) ApplyJob(ctx context.Context, req *pb.ApplyJobRequest) (*pb.CommonResponse, error) {
 	var profile candidateProfileRecord
 	if err := a.db.WithContext(ctx).Where("user_id = ?", req.UserId).First(&profile).Error; err != nil || profile.IsComplete != 1 {
-		return &pb.CommonResponse{Code: errs.ErrProfileIncomplete, Msg: "请先完善个人资料后再投递"}, nil
+		return &pb.CommonResponse{Code: errs.ErrProfileIncomplete, Msg: "common.operation_failed"}, nil
 	}
 	var resume resumeRecord
 	if err := a.db.WithContext(ctx).Where("user_id = ? AND is_valid = ?", req.UserId, 1).Order("uploaded_at DESC, id DESC").First(&resume).Error; err != nil {
-		return &pb.CommonResponse{Code: errs.ErrResumeNotFound, Msg: "请先上传简历后再投递"}, nil
+		return &pb.CommonResponse{Code: errs.ErrResumeNotFound, Msg: "common.not_found"}, nil
 	}
 	var job jobRecord
 	if err := a.db.WithContext(ctx).Where("id = ? AND status = ?", req.JobId, 1).First(&job).Error; err != nil {
-		return &pb.CommonResponse{Code: errs.ErrJobNotAvailable, Msg: "该岗位已下架或不存在，无法投递"}, nil
+		return &pb.CommonResponse{Code: errs.ErrJobNotAvailable, Msg: "common.operation_failed"}, nil
 	}
 	if _, err := a.quota.Check(ctx, job.TenantID, "applications.monthly.max", 1); err != nil {
 		if errors.Is(err, commonsquota.ErrLimitExceeded) {
-			return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该企业已达到当前套餐的月投递上限"}, nil
+			return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 		}
 		return nil, err
 	}
@@ -965,7 +956,7 @@ func (a *applicationAdapter) ApplyJob(ctx context.Context, req *pb.ApplyJobReque
 	if resumeAlreadyCounted == 0 {
 		if _, err := a.quota.Check(ctx, job.TenantID, "resumes.storage.max", 1); err != nil {
 			if errors.Is(err, commonsquota.ErrLimitExceeded) {
-				return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该企业已达到当前套餐的简历存储上限"}, nil
+				return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 			}
 			return nil, err
 		}
@@ -983,12 +974,12 @@ func (a *applicationAdapter) ApplyJob(ctx context.Context, req *pb.ApplyJobReque
 		return a.writeOutboxTx(tx, "application.email_requested", "application", uint64(app.ID), "email.send", notificationPayload(job.HrID, "staff", "new_application", "新的岗位投递", content, fmt.Sprintf("/hr/jobs/%d/applications", job.ID), "application", app.ID, job.Title, ""))
 	})
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
-		return &pb.CommonResponse{Code: errs.ErrDuplicateApply, Msg: "您已投递过该岗位，当前流程结束前不能重复投递"}, nil
+		return &pb.CommonResponse{Code: errs.ErrDuplicateApply, Msg: "common.operation_failed"}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &pb.CommonResponse{Code: errs.OK, Msg: "投递成功"}, nil
+	return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 }
 
 func (a *applicationAdapter) ListMyApplications(ctx context.Context, req *pb.ListMyApplicationsRequest) (*pb.ListMyApplicationsResponse, error) {
@@ -1005,7 +996,7 @@ func (a *applicationAdapter) ListMyApplications(ctx context.Context, req *pb.Lis
 	for _, row := range rows {
 		list = append(list, &pb.MyApplication{ApplicationId: row.ApplicationID, JobId: row.JobID, JobTitle: row.JobTitle, Status: row.Status, StatusKey: row.StatusKey, AppliedAt: formatTime(row.AppliedAt), RoundNo: row.RoundNo, IsCurrent: row.IsCurrent})
 	}
-	return &pb.ListMyApplicationsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+	return &pb.ListMyApplicationsResponse{Code: errs.OK, Msg: "common.success", Total: total, List: list}, nil
 }
 
 func (a *applicationAdapter) ListJobApplications(ctx context.Context, req *pb.ListJobApplicationsRequest) (*pb.ListJobApplicationsResponse, error) {
@@ -1014,7 +1005,7 @@ func (a *applicationAdapter) ListJobApplications(ctx context.Context, req *pb.Li
 		return nil, err
 	}
 	if !scope.allowed() {
-		return &pb.ListJobApplicationsResponse{Code: errs.ErrForbidden, Msg: "无权限查看该岗位"}, nil
+		return &pb.ListJobApplicationsResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	var rows []applicationDetailRow
 	query := a.applicationDetails().Where("a.job_id = ?", req.JobId)
@@ -1037,13 +1028,13 @@ func (a *applicationAdapter) ListJobApplications(ctx context.Context, req *pb.Li
 			RoundNo: row.RoundNo, IsCurrent: row.IsCurrent, FileName: row.FileName, FileType: row.FileType,
 		})
 	}
-	return &pb.ListJobApplicationsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+	return &pb.ListJobApplicationsResponse{Code: errs.OK, Msg: "common.success", Total: total, List: list}, nil
 }
 
 func (a *applicationAdapter) UpdateApplicationStatus(ctx context.Context, req *pb.UpdateApplicationStatusRequest) (*pb.CommonResponse, error) {
 	actorAccountType, err := normalizePublicActorAccountType("")
 	if err != nil {
-		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	_, resp, err := a.applyApplicationStatusChange(ctx, applicationStatusChangeCommand{
 		actorUserID:        req.HrId,
@@ -1075,18 +1066,18 @@ type applicationStatusChangeResult struct {
 func (a *applicationAdapter) applyApplicationStatusChange(ctx context.Context, cmd applicationStatusChangeCommand) (applicationStatusChangeResult, *pb.CommonResponse, error) {
 	targetKey, err := domainpolicy.TargetStatusKey(cmd.targetStatusKey, cmd.legacyTargetStatus)
 	if err != nil {
-		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	actorAccountType, err := normalizeActorAccountType(cmd.actorAccountType)
 	if err != nil {
-		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	detail, err := a.getApplicationDetail(ctx, cmd.applicationID)
 	if err != nil {
 		return applicationStatusChangeResult{}, nil, err
 	}
 	if detail == nil {
-		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该投递记录不存在或无权限访问"}, nil
+		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	var staffScope recruitmentScope
 	enforceStaffScope := actorAccountType == "staff" && !cmd.trustedOwnerCall
@@ -1096,7 +1087,7 @@ func (a *applicationAdapter) applyApplicationStatusChange(ctx context.Context, c
 			return applicationStatusChangeResult{}, nil, err
 		}
 		if !staffScope.allowed() {
-			return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作投递状态"}, nil
+			return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 		}
 	}
 	domainDetail := domainmodel.ApplicationDetail{
@@ -1174,26 +1165,26 @@ func (a *applicationAdapter) applyApplicationStatusChange(ctx context.Context, c
 		return a.writeOutboxTx(tx, "application.email_requested", "application", uint64(cmd.applicationID), "email.send", payload)
 	})
 	if errors.Is(err, service.ErrApplicationConflict) {
-		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrConflict, Msg: service.ErrApplicationConflict.Error()}, nil
+		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrConflict, Msg: "common.operation_failed"}, nil
 	}
 	if err != nil {
 		return applicationStatusChangeResult{}, nil, err
 	}
 	if rowsAffected == 0 {
-		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrConflict, Msg: service.ErrApplicationConflict.Error()}, nil
+		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrConflict, Msg: "common.operation_failed"}, nil
 	}
-	return applicationStatusChangeResult{FromStatusKey: currentKey, CurrentStatusKey: targetKey}, &pb.CommonResponse{Code: errs.OK, Msg: "投递状态已更新"}, nil
+	return applicationStatusChangeResult{FromStatusKey: currentKey, CurrentStatusKey: targetKey}, &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 }
 
 func statusChangeValidationResponse(err error) *pb.CommonResponse {
 	var transitionErr *domainpolicy.TransitionError
 	switch {
 	case errors.As(err, &transitionErr), errors.Is(err, domainpolicy.ErrReasonRequired):
-		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: err.Error()}
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}
 	case errors.Is(err, domainpolicy.ErrApplicationNotCurrent):
-		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: err.Error()}
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}
 	default:
-		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: err.Error()}
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}
 	}
 }
 
@@ -1236,14 +1227,14 @@ func (a *applicationAdapter) ListApplicationStatusTransitions(ctx context.Contex
 		return nil, err
 	}
 	if detail == nil {
-		return &pb.ListApplicationStatusTransitionsResponse{Code: errs.ErrForbidden, Msg: "该投递记录不存在"}, nil
+		return &pb.ListApplicationStatusTransitionsResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	scope, err := a.checkRecruitmentJobScope(ctx, req.HrId, detail.JobID)
 	if err != nil {
 		return nil, err
 	}
 	if !scope.allowed() {
-		return &pb.ListApplicationStatusTransitionsResponse{Code: errs.ErrForbidden, Msg: "无权限查看投递状态变更记录"}, nil
+		return &pb.ListApplicationStatusTransitionsResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	var rows []applicationTransitionRecord
 	if err := a.db.WithContext(ctx).Where("application_id = ?", req.ApplicationId).Order("created_at ASC, id ASC").Find(&rows).Error; err != nil {
@@ -1253,7 +1244,7 @@ func (a *applicationAdapter) ListApplicationStatusTransitions(ctx context.Contex
 	for _, row := range rows {
 		list = append(list, &pb.ApplicationStatusTransition{Id: int64(row.ID), ApplicationId: row.ApplicationID, FromStatus: row.FromStatus, ToStatus: row.ToStatus, ActorUserId: row.ActorUserID, ActorAccountType: row.ActorAccountType, Reason: row.Reason, CreatedAt: row.CreatedAt.Format("2006-01-02 15:04:05")})
 	}
-	return &pb.ListApplicationStatusTransitionsResponse{Code: errs.OK, Msg: "success", List: list}, nil
+	return &pb.ListApplicationStatusTransitionsResponse{Code: errs.OK, Msg: "common.success", List: list}, nil
 }
 
 func (a *applicationOwnerAdapter) GetApplicationSnapshot(ctx context.Context, req *pb.GetApplicationSnapshotRequest) (*pb.GetApplicationSnapshotResponse, error) {
@@ -1262,7 +1253,7 @@ func (a *applicationOwnerAdapter) GetApplicationSnapshot(ctx context.Context, re
 		return nil, err
 	}
 	if detail == nil {
-		return &pb.GetApplicationSnapshotResponse{Code: errs.ErrBadRequest, Msg: "application not found"}, nil
+		return &pb.GetApplicationSnapshotResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	var job jobRecord
 	if err := a.db.WithContext(ctx).Where("id = ?", detail.JobID).First(&job).Error; err != nil {
@@ -1273,14 +1264,14 @@ func (a *applicationOwnerAdapter) GetApplicationSnapshot(ctx context.Context, re
 		return nil, err
 	}
 	if !ok {
-		return &pb.GetApplicationSnapshotResponse{Code: errs.ErrForbidden, Msg: "无权限访问该投递"}, nil
+		return &pb.GetApplicationSnapshotResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	statusKey := detail.StatusKey
 	if statusKey == "" {
 		statusKey = domainmodel.LegacyStatusToKey[detail.Status]
 	}
 	return &pb.GetApplicationSnapshotResponse{
-		Code: errs.OK, Msg: "success", ApplicationId: detail.ApplicationID, CandidateUserId: detail.UserID, JobId: detail.JobID, JobTitle: detail.JobTitle,
+		Code: errs.OK, Msg: "common.success", ApplicationId: detail.ApplicationID, CandidateUserId: detail.UserID, JobId: detail.JobID, JobTitle: detail.JobTitle,
 		CandidateName: detail.RealName, ResumeId: detail.ResumeID, LegacyStatus: detail.Status, StatusKey: statusKey, RoundNo: detail.RoundNo,
 		IsCurrent: detail.IsCurrent == 1, JobHrId: job.HrID, DepartmentId: ptrValue(job.DepartmentID), LocationId: ptrValue(job.LocationID),
 	}, nil
@@ -1289,19 +1280,19 @@ func (a *applicationOwnerAdapter) GetApplicationSnapshot(ctx context.Context, re
 func (a *applicationOwnerAdapter) ApplyApplicationLifecycleTransition(ctx context.Context, req *pb.ApplyApplicationLifecycleTransitionRequest) (*pb.ApplyApplicationLifecycleTransitionResponse, error) {
 	actorAccountType, err := normalizeOwnerActorAccountType(req.ActorAccountType)
 	if err != nil {
-		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if req.ExpectedStatusKey != "" {
 		if err := domainpolicy.ValidateStatusKey(req.ExpectedStatusKey); err != nil {
-			return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+			return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
 	}
 	snapshot, err := a.GetApplicationSnapshot(ctx, &pb.GetApplicationSnapshotRequest{ApplicationId: req.ApplicationId})
 	if err != nil || snapshot.Code != errs.OK {
-		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: snapshot.GetCode(), Msg: snapshot.GetMsg()}, err
+		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: snapshot.GetCode(), Msg: "common.operation_failed"}, err
 	}
 	if req.ExpectedStatusKey != "" && snapshot.StatusKey != req.ExpectedStatusKey {
-		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrConflict, Msg: "投递状态已变化，请刷新后重试"}, nil
+		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrConflict, Msg: "common.operation_failed"}, nil
 	}
 	result, resp, err := a.applyApplicationStatusChange(ctx, applicationStatusChangeCommand{
 		actorUserID:        req.ActorUserId,
@@ -1317,9 +1308,9 @@ func (a *applicationOwnerAdapter) ApplyApplicationLifecycleTransition(ctx contex
 		return nil, err
 	}
 	if resp.Code != errs.OK {
-		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: resp.Code, Msg: resp.Msg}, nil
+		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: resp.Code, Msg: "common.operation_failed"}, nil
 	}
-	return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.OK, Msg: "success", Changed: true, FromStatusKey: result.FromStatusKey, CurrentStatusKey: result.CurrentStatusKey}, nil
+	return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.OK, Msg: "common.success", Changed: true, FromStatusKey: result.FromStatusKey, CurrentStatusKey: result.CurrentStatusKey}, nil
 }
 
 func isTrustedLifecycleOwner(ctx context.Context) bool {
@@ -1363,7 +1354,7 @@ func (a *jobTaxonomyAdapter) ListJobOptions(ctx context.Context, _ *pb.ListJobOp
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListJobOptionsResponse{Code: errs.OK, Msg: "success", DepartmentTree: departmentTree(departments), Locations: locationsToPB(locations), DepartmentLocationMap: maps}, nil
+	return &pb.ListJobOptionsResponse{Code: errs.OK, Msg: "common.success", DepartmentTree: departmentTree(departments), Locations: locationsToPB(locations), DepartmentLocationMap: maps}, nil
 }
 
 func (a *jobTaxonomyAdapter) ListDepartmentLocations(ctx context.Context, req *pb.ListDepartmentLocationsRequest) (*pb.ListDepartmentLocationsResponse, error) {
@@ -1371,7 +1362,7 @@ func (a *jobTaxonomyAdapter) ListDepartmentLocations(ctx context.Context, req *p
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListDepartmentLocationsResponse{Code: errs.OK, Msg: "success", DepartmentId: req.DepartmentId, Locations: locationsToPB(locations)}, nil
+	return &pb.ListDepartmentLocationsResponse{Code: errs.OK, Msg: "common.success", DepartmentId: req.DepartmentId, Locations: locationsToPB(locations)}, nil
 }
 
 func (a *taxonomyAdminAdapter) ListDepartments(ctx context.Context, _ *pb.ListDepartmentsRequest) (*pb.ListDepartmentsResponse, error) {
@@ -1379,13 +1370,13 @@ func (a *taxonomyAdminAdapter) ListDepartments(ctx context.Context, _ *pb.ListDe
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListDepartmentsResponse{Code: errs.OK, Msg: "success", List: departmentTree(departments)}, nil
+	return &pb.ListDepartmentsResponse{Code: errs.OK, Msg: "common.success", List: departmentTree(departments)}, nil
 }
 
 func (a *taxonomyAdminAdapter) CreateDepartment(ctx context.Context, req *pb.CreateDepartmentRequest) (*pb.DepartmentResponse, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		return &pb.DepartmentResponse{Code: errs.ErrBadRequest, Msg: "部门名称不能为空"}, nil
+		return &pb.DepartmentResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	dep := &departmentRecord{ParentID: req.ParentId, Name: name, SortOrder: int(req.SortOrder), IsActive: 1, InheritLocations: 1, CreatedBy: positivePtr(req.AdminId)}
 	if err := a.fillDepartmentPath(ctx, dep); err != nil {
@@ -1394,14 +1385,14 @@ func (a *taxonomyAdminAdapter) CreateDepartment(ctx context.Context, req *pb.Cre
 	if err := a.db.WithContext(ctx).Create(dep).Error; err != nil {
 		return nil, err
 	}
-	return &pb.DepartmentResponse{Code: errs.OK, Msg: "success", Department: departmentToPB(*dep)}, nil
+	return &pb.DepartmentResponse{Code: errs.OK, Msg: "common.success", Department: departmentToPB(*dep)}, nil
 }
 
 func (a *taxonomyAdminAdapter) UpdateDepartment(ctx context.Context, req *pb.UpdateDepartmentRequest) (*pb.DepartmentResponse, error) {
 	var dep departmentRecord
 	err := a.db.WithContext(ctx).Where("id = ? AND deleted_at IS NULL", req.Id).First(&dep).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return &pb.DepartmentResponse{Code: errs.ErrBadRequest, Msg: "部门不存在"}, nil
+		return &pb.DepartmentResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -1418,7 +1409,7 @@ func (a *taxonomyAdminAdapter) UpdateDepartment(ctx context.Context, req *pb.Upd
 	if err := a.db.WithContext(ctx).Save(&dep).Error; err != nil {
 		return nil, err
 	}
-	return &pb.DepartmentResponse{Code: errs.OK, Msg: "success", Department: departmentToPB(dep)}, nil
+	return &pb.DepartmentResponse{Code: errs.OK, Msg: "common.success", Department: departmentToPB(dep)}, nil
 }
 
 func (a *taxonomyAdminAdapter) UpdateDepartmentStatus(ctx context.Context, req *pb.UpdateDepartmentStatusRequest) (*pb.CommonResponse, error) {
@@ -1437,19 +1428,19 @@ func (a *taxonomyAdminAdapter) ListJobLocations(ctx context.Context, _ *pb.ListJ
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListJobLocationsResponse{Code: errs.OK, Msg: "success", List: locationsToPB(locations)}, nil
+	return &pb.ListJobLocationsResponse{Code: errs.OK, Msg: "common.success", List: locationsToPB(locations)}, nil
 }
 
 func (a *taxonomyAdminAdapter) CreateJobLocation(ctx context.Context, req *pb.CreateJobLocationRequest) (*pb.JobLocationResponse, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		return &pb.JobLocationResponse{Code: errs.ErrBadRequest, Msg: "地点名称不能为空"}, nil
+		return &pb.JobLocationResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	loc := &jobLocationRecord{Name: name, Code: stringPtr(strings.TrimSpace(req.Code)), SortOrder: int(req.SortOrder), IsActive: 1, CreatedBy: positivePtr(req.AdminId)}
 	if err := a.db.WithContext(ctx).Create(loc).Error; err != nil {
 		return nil, err
 	}
-	return &pb.JobLocationResponse{Code: errs.OK, Msg: "success", Location: locationToPB(*loc)}, nil
+	return &pb.JobLocationResponse{Code: errs.OK, Msg: "common.success", Location: locationToPB(*loc)}, nil
 }
 
 func (a *taxonomyAdminAdapter) UpdateJobLocation(ctx context.Context, req *pb.UpdateJobLocationRequest) (*pb.JobLocationResponse, error) {
@@ -1462,13 +1453,13 @@ func (a *taxonomyAdminAdapter) UpdateJobLocation(ctx context.Context, req *pb.Up
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return &pb.JobLocationResponse{Code: errs.ErrBadRequest, Msg: "地点不存在"}, nil
+		return &pb.JobLocationResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	loc, err := a.lookupLocation(ctx, req.Id)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.JobLocationResponse{Code: errs.OK, Msg: "success", Location: locationToPB(*loc)}, nil
+	return &pb.JobLocationResponse{Code: errs.OK, Msg: "common.success", Location: locationToPB(*loc)}, nil
 }
 
 func (a *taxonomyAdminAdapter) UpdateJobLocationStatus(ctx context.Context, req *pb.UpdateJobLocationStatusRequest) (*pb.CommonResponse, error) {
@@ -1488,7 +1479,7 @@ func (a *taxonomyAdminAdapter) GetDepartmentLocationConfig(ctx context.Context, 
 		return nil, err
 	}
 	if dep == nil {
-		return &pb.DepartmentLocationConfigResponse{Code: errs.ErrBadRequest, Msg: "部门不存在"}, nil
+		return &pb.DepartmentLocationConfigResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	direct, err := a.directLocationIDs(ctx, req.DepartmentId)
 	if err != nil {
@@ -1506,7 +1497,7 @@ func (a *taxonomyAdminAdapter) GetDepartmentLocationConfig(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	return &pb.DepartmentLocationConfigResponse{Code: errs.OK, Msg: "success", DepartmentId: req.DepartmentId, InheritLocations: dep.InheritLocations, DirectLocationIds: direct, EffectiveLocationIds: effective, Locations: locationsToPB(locations), AvailableLocationIds: available}, nil
+	return &pb.DepartmentLocationConfigResponse{Code: errs.OK, Msg: "common.success", DepartmentId: req.DepartmentId, InheritLocations: dep.InheritLocations, DirectLocationIds: direct, EffectiveLocationIds: effective, Locations: locationsToPB(locations), AvailableLocationIds: available}, nil
 }
 
 func (a *taxonomyAdminAdapter) UpdateDepartmentLocationConfig(ctx context.Context, req *pb.UpdateDepartmentLocationConfigRequest) (*pb.DepartmentLocationConfigResponse, error) {
@@ -1540,13 +1531,13 @@ func (a *taxonomyAdminAdapter) ListDepartmentsLocationMap(ctx context.Context, _
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListDepartmentsLocationMapResponse{Code: errs.OK, Msg: "success", Items: items}, nil
+	return &pb.ListDepartmentsLocationMapResponse{Code: errs.OK, Msg: "common.success", Items: items}, nil
 }
 
 func (a *adminAdapter) CreateInviteCode(ctx context.Context, req *pb.CreateInviteCodeRequest) (*pb.CreateInviteCodeResponse, error) {
 	expiresAt, err := parseOptionalTime(req.ExpiresAt)
 	if err != nil {
-		return &pb.CreateInviteCodeResponse{Code: errs.ErrBadRequest, Msg: "过期时间格式不正确"}, nil
+		return &pb.CreateInviteCodeResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	const maxAttempts = 8
 	for attempt := 0; attempt < maxAttempts; attempt++ {
@@ -1561,7 +1552,7 @@ func (a *adminAdapter) CreateInviteCode(ctx context.Context, req *pb.CreateInvit
 			}
 			return nil, err
 		}
-		return &pb.CreateInviteCodeResponse{Code: errs.OK, Msg: "success", InviteCode: inviteCodeToPB(*row)}, nil
+		return &pb.CreateInviteCodeResponse{Code: errs.OK, Msg: "common.success", InviteCode: inviteCodeToPB(*row)}, nil
 	}
 	return nil, fmt.Errorf("failed to generate unique invite code after %d attempts", maxAttempts)
 }
@@ -1583,13 +1574,13 @@ func (a *adminAdapter) ListInviteCodes(ctx context.Context, req *pb.ListInviteCo
 	for _, row := range rows {
 		list = append(list, inviteCodeToPB(row))
 	}
-	return &pb.ListInviteCodesResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+	return &pb.ListInviteCodesResponse{Code: errs.OK, Msg: "common.success", Total: total, List: list}, nil
 }
 
 func (a *adminAdapter) ExtendInviteCode(ctx context.Context, req *pb.ExtendInviteCodeRequest) (*pb.CommonResponse, error) {
 	expiresAt, err := parseOptionalTime(req.NewExpiresAt)
 	if err != nil {
-		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "过期时间格式不正确"}, nil
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	result := a.db.WithContext(ctx).Model(&inviteCodeRecord{}).Where("id = ?", req.Id).Update("expires_at", expiresAt)
 	return rowsCommon(result, "success", "邀请码不存在")
@@ -1609,13 +1600,13 @@ func (a *adminAdapter) ValidateInviteCode(ctx context.Context, req *pb.ValidateI
 	var row inviteCodeRecord
 	err := a.db.WithContext(ctx).Where("code = ? AND is_active = ?", strings.TrimSpace(req.InviteCode), 1).First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return &pb.ValidateInviteCodeResponse{Code: errs.OK, Msg: "success", Valid: false}, nil
+		return &pb.ValidateInviteCodeResponse{Code: errs.OK, Msg: "common.success", Valid: false}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
 	valid := row.ExpiresAt == nil || row.ExpiresAt.After(a.now())
-	return &pb.ValidateInviteCodeResponse{Code: errs.OK, Msg: "success", Valid: valid}, nil
+	return &pb.ValidateInviteCodeResponse{Code: errs.OK, Msg: "common.success", Valid: valid}, nil
 }
 
 func (a *adminAdapter) QueryUsageLogs(ctx context.Context, req *pb.QueryUsageLogsRequest) (*pb.QueryUsageLogsResponse, error) {
@@ -1647,7 +1638,7 @@ func (a *adminAdapter) QueryUsageLogs(ctx context.Context, req *pb.QueryUsageLog
 	for _, row := range rows {
 		list = append(list, usageLogToPB(row))
 	}
-	return &pb.QueryUsageLogsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+	return &pb.QueryUsageLogsResponse{Code: errs.OK, Msg: "common.success", Total: total, List: list}, nil
 }
 
 func (a *usageStatsAdapter) GetUsageStats(ctx context.Context, req *pb.GetUsageStatsRequest) (*pb.GetUsageStatsResponse, error) {
@@ -1728,7 +1719,7 @@ func (a *usageStatsAdapter) GetUsageStats(ctx context.Context, req *pb.GetUsageS
 			FailedCount:   row.FailedCount,
 		})
 	}
-	return &pb.GetUsageStatsResponse{Code: errs.OK, Msg: "success", List: list, Summary: summary}, nil
+	return &pb.GetUsageStatsResponse{Code: errs.OK, Msg: "common.success", List: list, Summary: summary}, nil
 }
 
 func (a *usageStatsAdapter) GetUsageTrend(ctx context.Context, req *pb.GetUsageTrendRequest) (*pb.GetUsageTrendResponse, error) {
@@ -1760,7 +1751,7 @@ func (a *usageStatsAdapter) GetUsageTrend(ctx context.Context, req *pb.GetUsageT
 	for _, row := range rows {
 		list = append(list, &pb.UsageTrendPoint{Date: row.Date, TotalTokens: row.TotalTokens, CallCount: row.CallCount, AvgCostMs: row.AvgCostMs, EstimatedCost: supplierMicrosToCurrency(costByDate[row.Date])})
 	}
-	return &pb.GetUsageTrendResponse{Code: errs.OK, Msg: "success", List: list}, nil
+	return &pb.GetUsageTrendResponse{Code: errs.OK, Msg: "common.success", List: list}, nil
 }
 
 const collaborationForbiddenMsg = "无权限访问该候选人协同数据"
@@ -1775,7 +1766,7 @@ func (a *collaborationAdapter) GetCandidateWorkspace(ctx context.Context, req *p
 		return nil, err
 	}
 	if !allowed {
-		return &pb.GetCandidateWorkspaceResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+		return &pb.GetCandidateWorkspaceResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	workspace := &pb.CandidateWorkspace{}
 	var profile candidateProfileRecord
@@ -1888,7 +1879,7 @@ func (a *collaborationAdapter) GetCandidateWorkspace(ctx context.Context, req *p
 		return nil, err
 	}
 	updateLatestActivityPtr(&workspace.LatestActivityAt, latestCollaborationActivity)
-	return &pb.GetCandidateWorkspaceResponse{Code: errs.OK, Msg: "success", Workspace: workspace}, nil
+	return &pb.GetCandidateWorkspaceResponse{Code: errs.OK, Msg: "common.success", Workspace: workspace}, nil
 }
 
 func (a *collaborationAdapter) CreateNote(ctx context.Context, req *pb.CreateNoteRequest) (*pb.CreateNoteResponse, error) {
@@ -1897,17 +1888,17 @@ func (a *collaborationAdapter) CreateNote(ctx context.Context, req *pb.CreateNot
 		return nil, err
 	}
 	if !allowed {
-		return &pb.CreateNoteResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+		return &pb.CreateNoteResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	content := strings.TrimSpace(req.Content)
 	if content == "" {
-		return &pb.CreateNoteResponse{Code: errs.ErrBadRequest, Msg: "备注内容不能为空"}, nil
+		return &pb.CreateNoteResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	row := &candidateNoteRecord{CandidateUserID: req.CandidateUserId, ApplicationID: positiveUintPtr(req.ApplicationId), AuthorUserID: uint64(req.StaffUserId), Content: content, Visibility: "internal", CreatedAt: a.now(), UpdatedAt: a.now()}
 	if err := a.db.WithContext(ctx).Create(row).Error; err != nil {
 		return nil, err
 	}
-	return &pb.CreateNoteResponse{Code: errs.OK, Msg: "success", Note: noteToPB(*row)}, nil
+	return &pb.CreateNoteResponse{Code: errs.OK, Msg: "common.success", Note: noteToPB(*row)}, nil
 }
 
 func (a *collaborationAdapter) ListNotes(ctx context.Context, req *pb.ListNotesRequest) (*pb.ListNotesResponse, error) {
@@ -1916,7 +1907,7 @@ func (a *collaborationAdapter) ListNotes(ctx context.Context, req *pb.ListNotesR
 		return nil, err
 	}
 	if !allowed {
-		return &pb.ListNotesResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+		return &pb.ListNotesResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	query := a.db.WithContext(ctx).Where("candidate_user_id = ?", req.CandidateUserId)
 	if req.ApplicationId > 0 {
@@ -1930,7 +1921,7 @@ func (a *collaborationAdapter) ListNotes(ctx context.Context, req *pb.ListNotesR
 	for _, row := range rows {
 		list = append(list, noteToPB(row))
 	}
-	return &pb.ListNotesResponse{Code: errs.OK, Msg: "success", List: list}, nil
+	return &pb.ListNotesResponse{Code: errs.OK, Msg: "common.success", List: list}, nil
 }
 
 func (a *collaborationAdapter) CreateTag(ctx context.Context, req *pb.CreateTagRequest) (*pb.CreateTagResponse, error) {
@@ -1939,11 +1930,11 @@ func (a *collaborationAdapter) CreateTag(ctx context.Context, req *pb.CreateTagR
 		return nil, err
 	}
 	if !allowed {
-		return &pb.CreateTagResponse{Code: errs.ErrForbidden, Msg: "无权限管理候选人标签"}, nil
+		return &pb.CreateTagResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		return &pb.CreateTagResponse{Code: errs.ErrBadRequest, Msg: "标签名称不能为空"}, nil
+		return &pb.CreateTagResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	color := strings.TrimSpace(req.Color)
 	if color == "" {
@@ -1953,7 +1944,7 @@ func (a *collaborationAdapter) CreateTag(ctx context.Context, req *pb.CreateTagR
 	if err := a.db.WithContext(ctx).Create(row).Error; err != nil {
 		return nil, err
 	}
-	return &pb.CreateTagResponse{Code: errs.OK, Msg: "success", Tag: tagToPB(*row)}, nil
+	return &pb.CreateTagResponse{Code: errs.OK, Msg: "common.success", Tag: tagToPB(*row)}, nil
 }
 
 func (a *collaborationAdapter) ListTags(ctx context.Context, req *pb.ListTagsRequest) (*pb.ListTagsResponse, error) {
@@ -1962,7 +1953,7 @@ func (a *collaborationAdapter) ListTags(ctx context.Context, req *pb.ListTagsReq
 		return nil, err
 	}
 	if !allowed {
-		return &pb.ListTagsResponse{Code: errs.ErrForbidden, Msg: "无权限管理候选人标签"}, nil
+		return &pb.ListTagsResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	var rows []candidateTagRecord
 	if err := a.db.WithContext(ctx).Order("created_at DESC, id DESC").Find(&rows).Error; err != nil {
@@ -1972,7 +1963,7 @@ func (a *collaborationAdapter) ListTags(ctx context.Context, req *pb.ListTagsReq
 	for _, row := range rows {
 		list = append(list, tagToPB(row))
 	}
-	return &pb.ListTagsResponse{Code: errs.OK, Msg: "success", List: list}, nil
+	return &pb.ListTagsResponse{Code: errs.OK, Msg: "common.success", List: list}, nil
 }
 
 func (a *collaborationAdapter) AssignTag(ctx context.Context, req *pb.AssignTagRequest) (*pb.CommonResponse, error) {
@@ -1981,14 +1972,14 @@ func (a *collaborationAdapter) AssignTag(ctx context.Context, req *pb.AssignTagR
 		return nil, err
 	}
 	if !allowed {
-		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	row := &candidateTagAssignmentRecord{TagID: req.TagId, CandidateUserID: req.CandidateUserId, CreatedBy: positiveUintPtr(uint64(req.StaffUserId)), CreatedAt: a.now()}
 	err = a.db.WithContext(ctx).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "tag_id"}, {Name: "candidate_user_id"}}, DoNothing: true}).Create(row).Error
 	if err != nil {
 		return nil, err
 	}
-	return &pb.CommonResponse{Code: errs.OK, Msg: "success"}, nil
+	return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 }
 
 func (a *collaborationAdapter) UnassignTag(ctx context.Context, req *pb.UnassignTagRequest) (*pb.CommonResponse, error) {
@@ -1997,7 +1988,7 @@ func (a *collaborationAdapter) UnassignTag(ctx context.Context, req *pb.Unassign
 		return nil, err
 	}
 	if !allowed {
-		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	result := a.db.WithContext(ctx).Where("tag_id = ? AND candidate_user_id = ?", req.TagId, req.CandidateUserId).Delete(&candidateTagAssignmentRecord{})
 	return rowsCommon(result, "success", "标签未分配")
@@ -2009,13 +2000,13 @@ func (a *collaborationAdapter) ListCandidateTags(ctx context.Context, req *pb.Li
 		return nil, err
 	}
 	if !allowed {
-		return &pb.ListCandidateTagsResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+		return &pb.ListCandidateTagsResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	tags, err := a.candidateTags(ctx, req.CandidateUserId)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListCandidateTagsResponse{Code: errs.OK, Msg: "success", List: tags}, nil
+	return &pb.ListCandidateTagsResponse{Code: errs.OK, Msg: "common.success", List: tags}, nil
 }
 
 func (a *collaborationAdapter) CreateFollowUpTask(ctx context.Context, req *pb.CreateFollowUpTaskRequest) (*pb.CreateFollowUpTaskResponse, error) {
@@ -2024,33 +2015,33 @@ func (a *collaborationAdapter) CreateFollowUpTask(ctx context.Context, req *pb.C
 		return nil, err
 	}
 	if !allowed {
-		return &pb.CreateFollowUpTaskResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+		return &pb.CreateFollowUpTaskResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
-		return &pb.CreateFollowUpTaskResponse{Code: errs.ErrBadRequest, Msg: "任务标题不能为空"}, nil
+		return &pb.CreateFollowUpTaskResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	dueAt, err := parseOptionalTime(req.DueAt)
 	if err != nil {
-		return &pb.CreateFollowUpTaskResponse{Code: errs.ErrBadRequest, Msg: "截止时间格式不正确"}, nil
+		return &pb.CreateFollowUpTaskResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	row := &followUpTaskRecord{CandidateUserID: req.CandidateUserId, ApplicationID: positiveUintPtr(req.ApplicationId), AssigneeUserID: req.AssigneeUserId, CreatedBy: uint64(req.StaffUserId), Title: title, Description: req.Description, DueAt: dueAt, Status: "pending", CreatedAt: a.now(), UpdatedAt: a.now()}
 	if err := a.db.WithContext(ctx).Create(row).Error; err != nil {
 		return nil, err
 	}
-	return &pb.CreateFollowUpTaskResponse{Code: errs.OK, Msg: "success", Task: followUpToPB(*row)}, nil
+	return &pb.CreateFollowUpTaskResponse{Code: errs.OK, Msg: "common.success", Task: followUpToPB(*row)}, nil
 }
 
 func (a *collaborationAdapter) ListFollowUpTasks(ctx context.Context, req *pb.ListFollowUpTasksRequest) (*pb.ListFollowUpTasksResponse, error) {
 	if req.CandidateUserId == 0 {
-		return &pb.ListFollowUpTasksResponse{Code: errs.ErrForbidden, Msg: "必须指定候选人范围"}, nil
+		return &pb.ListFollowUpTasksResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	allowed, err := a.requireCandidateCollaborationAccess(ctx, req.StaffUserId, req.CandidateUserId, domainmodel.PermissionApplicationRead, domainmodel.PermissionCollaborationTaskManage)
 	if err != nil {
 		return nil, err
 	}
 	if !allowed {
-		return &pb.ListFollowUpTasksResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+		return &pb.ListFollowUpTasksResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	query := a.db.WithContext(ctx).Model(&followUpTaskRecord{})
 	if req.CandidateUserId > 0 {
@@ -2070,13 +2061,13 @@ func (a *collaborationAdapter) ListFollowUpTasks(ctx context.Context, req *pb.Li
 	for _, row := range rows {
 		list = append(list, followUpToPB(row))
 	}
-	return &pb.ListFollowUpTasksResponse{Code: errs.OK, Msg: "success", List: list}, nil
+	return &pb.ListFollowUpTasksResponse{Code: errs.OK, Msg: "common.success", List: list}, nil
 }
 
 func (a *collaborationAdapter) CompleteFollowUpTask(ctx context.Context, req *pb.CompleteFollowUpTaskRequest) (*pb.CommonResponse, error) {
 	var row followUpTaskRecord
 	if err := a.db.WithContext(ctx).Where("id = ?", req.TaskId).First(&row).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "任务不存在"}, nil
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	} else if err != nil {
 		return nil, err
 	}
@@ -2085,7 +2076,7 @@ func (a *collaborationAdapter) CompleteFollowUpTask(ctx context.Context, req *pb
 		return nil, err
 	}
 	if !allowed {
-		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	now := a.now()
 	result := a.db.WithContext(ctx).Model(&followUpTaskRecord{}).Where("id = ? AND candidate_user_id = ?", req.TaskId, row.CandidateUserID).Updates(map[string]any{"status": "completed", "completed_at": now, "updated_at": now})
@@ -2096,7 +2087,7 @@ func (a *collaborationAdapter) GetFollowUpTask(ctx context.Context, req *pb.GetF
 	var row followUpTaskRecord
 	err := a.db.WithContext(ctx).Where("id = ?", req.TaskId).First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return &pb.GetFollowUpTaskResponse{Code: errs.ErrBadRequest, Msg: "任务不存在"}, nil
+		return &pb.GetFollowUpTaskResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -2106,9 +2097,9 @@ func (a *collaborationAdapter) GetFollowUpTask(ctx context.Context, req *pb.GetF
 		return nil, err
 	}
 	if !allowed {
-		return &pb.GetFollowUpTaskResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+		return &pb.GetFollowUpTaskResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
-	return &pb.GetFollowUpTaskResponse{Code: errs.OK, Msg: "success", Task: followUpToPB(row)}, nil
+	return &pb.GetFollowUpTaskResponse{Code: errs.OK, Msg: "common.success", Task: followUpToPB(row)}, nil
 }
 
 func (a *collaborationAdapter) ListTimelineEvents(ctx context.Context, req *pb.ListTimelineEventsRequest) (*pb.ListTimelineEventsResponse, error) {
@@ -2117,7 +2108,7 @@ func (a *collaborationAdapter) ListTimelineEvents(ctx context.Context, req *pb.L
 		return nil, err
 	}
 	if !allowed {
-		return &pb.ListTimelineEventsResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+		return &pb.ListTimelineEventsResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	events := []*pb.TimelineEventInfo{}
 	var notes []candidateNoteRecord
@@ -2172,7 +2163,7 @@ func (a *collaborationAdapter) ListTimelineEvents(ctx context.Context, req *pb.L
 		})
 	}
 	sortTimelineEvents(events)
-	return &pb.ListTimelineEventsResponse{Code: errs.OK, Msg: "success", Events: events}, nil
+	return &pb.ListTimelineEventsResponse{Code: errs.OK, Msg: "common.success", Events: events}, nil
 }
 
 func (a *collaborationAdapter) candidateWorkspaceInterviews(ctx context.Context, candidateUserID int64) ([]candidateWorkspaceInterviewRow, error) {
@@ -2700,9 +2691,9 @@ func rowsCommon(result *gorm.DB, okMsg, missingMsg string) (*pb.CommonResponse, 
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: missingMsg}, nil
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
-	return &pb.CommonResponse{Code: errs.OK, Msg: okMsg}, nil
+	return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 }
 
 func positivePtr(v int64) *int64 {

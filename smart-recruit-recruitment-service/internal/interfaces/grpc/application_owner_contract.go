@@ -36,7 +36,7 @@ func (a *ApplicationOwnerContractAdapter) GetApplicationSnapshot(ctx context.Con
 	}
 	return &pb.GetApplicationSnapshotResponse{
 		Code:            errs.OK,
-		Msg:             "success",
+		Msg:             "common.success",
 		ApplicationId:   snapshot.ApplicationID,
 		CandidateUserId: snapshot.CandidateUserID,
 		JobId:           snapshot.JobID,
@@ -69,7 +69,7 @@ func (a *ApplicationOwnerContractAdapter) ApplyApplicationLifecycleTransition(ct
 	}
 	return &pb.ApplyApplicationLifecycleTransitionResponse{
 		Code:             errs.OK,
-		Msg:              "success",
+		Msg:              "common.success",
 		Changed:          result.Changed,
 		FromStatusKey:    result.FromStatusKey,
 		CurrentStatusKey: result.CurrentStatusKey,
@@ -79,20 +79,20 @@ func (a *ApplicationOwnerContractAdapter) ApplyApplicationLifecycleTransition(ct
 func applicationSnapshotError(err error) *pb.GetApplicationSnapshotResponse {
 	switch {
 	case errors.Is(err, appservice.ErrJobForbidden):
-		return &pb.GetApplicationSnapshotResponse{Code: errs.ErrForbidden, Msg: err.Error()}
+		return &pb.GetApplicationSnapshotResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}
 	default:
-		return &pb.GetApplicationSnapshotResponse{Code: errs.ErrInternal, Msg: err.Error()}
+		return &pb.GetApplicationSnapshotResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}
 	}
 }
 
 func applicationTransitionError(err error) *pb.ApplyApplicationLifecycleTransitionResponse {
 	switch {
 	case errors.Is(err, appservice.ErrApplicationConflict), errors.As(err, new(*policy.TransitionError)):
-		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrConflict, Msg: err.Error()}
+		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrConflict, Msg: "common.operation_failed"}
 	case errors.Is(err, appservice.ErrJobForbidden):
-		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrForbidden, Msg: err.Error()}
+		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}
 	default:
-		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrInternal, Msg: err.Error()}
+		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}
 	}
 }
 

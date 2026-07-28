@@ -678,6 +678,7 @@ fi
 
 export CONFIG_PATH="${CONFIG_PATH:-${ROOT}/smart-recruit-commons/config/config.yaml}"
 export TZ="${TZ:-Asia/Shanghai}"
+export APP_LOCALE="${APP_LOCALE:-zh-CN}"
 export MYSQL_DSN="${MYSQL_DSN:-root:Aa123456@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai&time_zone=%27%2B08%3A00%27}"
 export REDIS_ADDR="${REDIS_ADDR:-127.0.0.1:6379}"
 export RABBITMQ_URL="${RABBITMQ_URL:-amqp://guest:guest@127.0.0.1:5672/}"

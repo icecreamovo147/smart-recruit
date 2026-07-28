@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Edit, Plus } from '@element-plus/icons-vue'
@@ -81,7 +82,7 @@ const rules = computed(() => ({
     required: true,
     validator: (_: unknown, __: unknown, callback: (error?: Error) => void) => {
       if (!isRegionComplete(form.city)) {
-        callback(new Error('请选择省、市、区'))
+        callback(new Error(t('validation.required_fields')))
         return
       }
       callback()
@@ -93,7 +94,7 @@ const rules = computed(() => ({
   summary: [{ required: true, message: '请填写个人简介', trigger: 'blur' }],
   skills: [{
     validator: (_: unknown, __: unknown, callback: (error?: Error) => void) => {
-      if (form.skills.length === 0) callback(new Error('请至少添加一项技能'))
+      if (form.skills.length === 0) callback(new Error(t('validation.required_fields')))
       else callback()
     },
     trigger: 'change',
@@ -183,7 +184,7 @@ const clearCityValidate = () => {
 const save = async () => {
   if (!formRef.value) return
   if (form.educations.length === 0) {
-    ElMessage.warning('请至少添加一条教育经历')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   try {
@@ -194,7 +195,7 @@ const save = async () => {
   saving.value = true
   try {
     await updateProfile(buildPayload())
-    ElMessage.success('保存成功')
+    ElMessage.success(t('common.success'))
     await load()
   } finally {
     saving.value = false
@@ -218,7 +219,7 @@ const openFillPreview = async (forceRefresh = false) => {
     })
     applyFillResponse(draftWrap)
     if (!fillDraft.value) {
-      ElMessage.warning('暂无可填充内容，请先上传并解析简历')
+      ElMessage.warning(t('common.invalid_request'))
       return
     }
     fillDialogVisible.value = true
@@ -236,7 +237,7 @@ const reparseFillPreview = async () => {
     })
     applyFillResponse(draftWrap)
     if (!fillDraft.value) {
-      ElMessage.warning('暂无可填充内容，请先上传并解析简历')
+      ElMessage.warning(t('common.invalid_request'))
       fillDialogVisible.value = false
     }
   } finally {
@@ -254,7 +255,7 @@ const confirmFillApply = async () => {
     })
     mapProfileToForm(merged)
     fillDialogVisible.value = false
-    ElMessage.success('已根据简历更新个人资料')
+    ElMessage.success(t('common.success'))
   } finally {
     fillLoading.value = false
   }
@@ -269,7 +270,7 @@ const saveEmail = async () => {
   savingEmail.value = true
   try {
     await updateEmail(emailInput.value.trim())
-    ElMessage.success('邮箱更新成功')
+    ElMessage.success(t('common.success'))
     editingEmail.value = false
     await auth.restoreSession()
   } finally {

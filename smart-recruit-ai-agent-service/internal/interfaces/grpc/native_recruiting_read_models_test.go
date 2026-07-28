@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -151,8 +150,8 @@ func TestParseResumeProfileReadThroughPath(t *testing.T) {
 		if resp.GetCode() == errs.OK || resp.GetProfile() != nil {
 			t.Fatalf("response = %+v, want non-success without profile", resp)
 		}
-		if !strings.Contains(resp.GetMsg(), "current resume profile not found") || !strings.Contains(resp.GetMsg(), "parser") {
-			t.Fatalf("msg = %q, want not found/parser unavailable", resp.GetMsg())
+		if resp.GetMsg() != "ai.resume_profile_unavailable" {
+			t.Fatalf("msg = %q, want stable resume-profile unavailable key", resp.GetMsg())
 		}
 		if len(store.resumeSnapshots) != 0 || len(store.currentProfileByResumeID) != 0 {
 			t.Fatalf("store fabricated profile data: current=%+v snapshots=%+v", store.currentProfileByResumeID, store.resumeSnapshots)
@@ -358,8 +357,8 @@ func TestEvaluateCandidateMatchReadThroughPath(t *testing.T) {
 		if resp.GetCode() == errs.OK || resp.GetEvaluation() != nil {
 			t.Fatalf("response = %+v, want non-success without evaluation", resp)
 		}
-		if !strings.Contains(resp.GetMsg(), "candidate match evaluation not found") || !strings.Contains(resp.GetMsg(), "matcher") {
-			t.Fatalf("msg = %q, want not found/matcher unavailable", resp.GetMsg())
+		if resp.GetMsg() != "ai.candidate_match_unavailable" {
+			t.Fatalf("msg = %q, want stable candidate-match unavailable key", resp.GetMsg())
 		}
 		if len(store.latestMatchByApp) != 0 || len(store.matchByAppAgentRun) != 0 {
 			t.Fatalf("store fabricated evaluation data: latest=%+v agent=%+v", store.latestMatchByApp, store.matchByAppAgentRun)
