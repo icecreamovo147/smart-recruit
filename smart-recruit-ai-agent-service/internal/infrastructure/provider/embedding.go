@@ -15,11 +15,19 @@ import (
 	"strings"
 	"time"
 
+	domainagentskill "smart-recruit-ai-agent-service/internal/domain/agentskill"
 	domainmemory "smart-recruit-ai-agent-service/internal/domain/memory"
 	"smart-recruit-proto/recruitment/pb"
 )
 
-const defaultEmbeddingTestText = "Smart Recruit embedding runtime validation"
+const (
+	defaultEmbeddingTestText       = "Smart Recruit embedding runtime validation"
+	maxCatalogCoreSummaryRunes     = 1200
+	agentSkillVersionObjectType    = "agent_skill_version"
+	agentSkillSectionObjectType    = "agent_skill_section"
+	agentSkillVersionScopeType     = "agent_skill_version"
+	maxAgentSkillEmbeddingPoolSize = 500
+)
 
 type EmbeddingConfig struct {
 	ProviderID     int64
@@ -132,31 +140,74 @@ func (r *HTTPEmbeddingRunner) Embed(ctx context.Context, req EmbedRequest) (Embe
 type EmbeddingStore interface {
 	ResolveEmbeddingConfig(ctx context.Context, providerID, modelID int64) (EmbeddingConfig, bool, error)
 	UpdateEmbeddingTestStatus(ctx context.Context, modelID int64, status, lastError string, testedAt time.Time) error
-	ListAgentSkillEmbeddingDocuments(ctx context.Context, objectID int64, limit int) ([]AgentSkillEmbeddingDocument, error)
+	ListAgentSkillVersionEmbeddingDocuments(ctx context.Context, versionID int64, limit int) ([]AgentSkillVersionEmbeddingDocument, error)
+	ListAgentSkillSectionEmbeddingDocuments(ctx context.Context, sectionID int64, versionIDs []int64, limit int) ([]AgentSkillSectionEmbeddingDocument, error)
 	ListMemoryEmbeddingDocuments(ctx context.Context, objectID int64, limit int) ([]MemoryEmbeddingDocument, error)
 	UpsertAIEmbedding(ctx context.Context, row AIEmbeddingRecord) error
 	InvalidateAIEmbedding(ctx context.Context, objectType string, objectID int64) error
 	ListAIEmbeddings(ctx context.Context, objectType, modelName string, limit int) ([]AIEmbeddingRecord, error)
+	ListAIEmbeddingsByScopeIDs(ctx context.Context, objectType, modelName, scopeType string, scopeIDs []int64, limit int) ([]AIEmbeddingRecord, error)
 	ListAIEmbeddingsForOwner(ctx context.Context, objectType, modelName string, tenantID *uint64, ownerRole int32, ownerID uint64, limit int) ([]AIEmbeddingRecord, error)
 }
 
-type AgentSkillEmbeddingDocument struct {
-	ID                   int64
-	Name                 string
-	DisplayName          string
-	Description          string
-	AgentType            string
-	Category             string
-	Scenario             string
-	Priority             int
-	RiskLevel            string
-	TriggerKeywords      []string
-	RequiredCapabilities []string
-	EvaluationCriteria   []string
-	SemanticTags         []string
-	OutputSchema         string
-	BodyMarkdown         string
-	Enabled              bool
+type AgentSkillVersionEmbeddingDocument struct {
+	ID            int64
+	SkillID       int64
+	Version       string
+	CompiledHash  string
+	Manifest      domainagentskill.Manifest
+	CoreMarkdown  string
+	RegistryName  string
+	RegistryLabel string
+	Enabled       bool
+}
+
+type AgentSkillSectionEmbeddingDocument struct {
+	ID              int64
+	SkillID         int64
+	VersionID       int64
+	Version         string
+	CompiledHash    string
+	SectionKey      string
+	Title           string
+	Description     string
+	ContentMarkdown string
+	TriggerTerms    []string
+	SemanticTags    []string
+	PlannerIntents  []string
+	Priority        int
+}
+
+type RankedAgentSkillVersion struct {
+	Document AgentSkillVersionEmbeddingDocument
+	Ranking  domainagentskill.RankedDocument
+}
+
+type RankedAgentSkillSection struct {
+	Document AgentSkillSectionEmbeddingDocument
+	Ranking  domainagentskill.RankedDocument
+}
+
+type AgentSkillVersionSearchResult struct {
+	Items                   []RankedAgentSkillVersion
+	EmbeddingAvailable      bool
+	FallbackReason          string
+	EmbeddingProvider       string
+	EmbeddingModel          string
+	EmbeddingDim            int
+	CandidateCount          int
+	QueryEmbeddingLatencyMs int64
+}
+
+type AgentSkillSectionSearchResult struct {
+	Items                   []RankedAgentSkillSection
+	EmbeddingAvailable      bool
+	FallbackReason          string
+	EmbeddingProvider       string
+	EmbeddingModel          string
+	EmbeddingDim            int
+	CandidateCount          int
+	QueryEmbeddingLatencyMs int64
 }
 
 type MemoryEmbeddingDocument struct {
@@ -231,9 +282,9 @@ func (s *EmbeddingService) TestModel(ctx context.Context, req *pb.TestEmbeddingM
 func (s *EmbeddingService) Backfill(ctx context.Context, req *pb.BackfillEmbeddingsRequest) (*pb.BackfillEmbeddingsResponse, error) {
 	objectType := strings.TrimSpace(req.GetObjectType())
 	if objectType == "" {
-		objectType = "agent_skill"
+		objectType = agentSkillVersionObjectType
 	}
-	if objectType != "agent_skill" && objectType != "ai_memory" {
+	if objectType != agentSkillVersionObjectType && objectType != agentSkillSectionObjectType && objectType != "ai_memory" {
 		return &pb.BackfillEmbeddingsResponse{Code: 400, Msg: "common.operation_failed"}, nil
 	}
 	if s == nil || s.store == nil || s.runner == nil {
@@ -274,79 +325,133 @@ func (s *EmbeddingService) Backfill(ctx context.Context, req *pb.BackfillEmbeddi
 		}
 		return &pb.BackfillEmbeddingsResponse{Code: 0, Msg: "common.success", SuccessCount: success, FailedCount: failed, SkippedCount: skipped}, nil
 	}
-	docs, err := s.store.ListAgentSkillEmbeddingDocuments(ctx, req.GetObjectId(), limit)
-	if err != nil {
-		return nil, err
-	}
 	var success, failed, skipped int32
-	for _, doc := range docs {
-		text := AgentSkillEmbeddingText(doc)
-		if strings.TrimSpace(text) == "" {
-			skipped++
-			continue
+	switch objectType {
+	case agentSkillVersionObjectType:
+		docs, err := s.store.ListAgentSkillVersionEmbeddingDocuments(ctx, req.GetObjectId(), limit)
+		if err != nil {
+			return nil, err
 		}
-		if req.GetDryRun() {
-			skipped++
-			continue
+		for _, doc := range docs {
+			text := AgentSkillVersionEmbeddingText(doc)
+			if strings.TrimSpace(text) == "" || req.GetDryRun() {
+				skipped++
+				continue
+			}
+			if err := s.UpsertAgentSkillVersionDocument(ctx, cfg, doc, text); err != nil {
+				failed++
+				continue
+			}
+			success++
 		}
-		if err := s.UpsertAgentSkillDocument(ctx, cfg, doc, text); err != nil {
-			failed++
-			continue
+	case agentSkillSectionObjectType:
+		docs, err := s.store.ListAgentSkillSectionEmbeddingDocuments(ctx, req.GetObjectId(), nil, limit)
+		if err != nil {
+			return nil, err
 		}
-		success++
+		for _, doc := range docs {
+			text := AgentSkillSectionEmbeddingText(doc)
+			if strings.TrimSpace(text) == "" || req.GetDryRun() {
+				skipped++
+				continue
+			}
+			if err := s.UpsertAgentSkillSectionDocument(ctx, cfg, doc, text); err != nil {
+				failed++
+				continue
+			}
+			success++
+		}
 	}
 	return &pb.BackfillEmbeddingsResponse{Code: 0, Msg: "common.success", SuccessCount: success, FailedCount: failed, SkippedCount: skipped}, nil
 }
 
-func (s *EmbeddingService) UpsertAgentSkill(ctx context.Context, id int64) error {
-	if s == nil || s.store == nil || s.runner == nil || id <= 0 {
+func (s *EmbeddingService) UpsertAgentSkillVersion(ctx context.Context, versionID int64) error {
+	if s == nil || s.store == nil || s.runner == nil || versionID <= 0 {
 		return nil
 	}
 	cfg, ok, err := s.store.ResolveEmbeddingConfig(ctx, 0, 0)
 	if err != nil || !ok {
 		return err
 	}
-	docs, err := s.store.ListAgentSkillEmbeddingDocuments(ctx, id, 1)
+	docs, err := s.store.ListAgentSkillVersionEmbeddingDocuments(ctx, versionID, 1)
 	if err != nil || len(docs) == 0 {
 		return err
 	}
-	return s.UpsertAgentSkillDocument(ctx, cfg, docs[0], AgentSkillEmbeddingText(docs[0]))
+	if err := s.UpsertAgentSkillVersionDocument(ctx, cfg, docs[0], AgentSkillVersionEmbeddingText(docs[0])); err != nil {
+		return err
+	}
+	sections, err := s.store.ListAgentSkillSectionEmbeddingDocuments(ctx, 0, []int64{versionID}, maxAgentSkillEmbeddingPoolSize)
+	if err != nil {
+		return err
+	}
+	for _, section := range sections {
+		if err := s.UpsertAgentSkillSectionDocument(ctx, cfg, section, AgentSkillSectionEmbeddingText(section)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (s *EmbeddingService) UpsertAgentSkillDocument(ctx context.Context, cfg EmbeddingConfig, doc AgentSkillEmbeddingDocument, text string) error {
-	result, err := s.runner.Embed(ctx, EmbedRequest{Config: cfg, Texts: []string{text}})
+func (s *EmbeddingService) UpsertAgentSkillVersionDocument(ctx context.Context, cfg EmbeddingConfig, doc AgentSkillVersionEmbeddingDocument, text string) error {
+	return s.upsertAgentSkillEmbedding(ctx, cfg, agentSkillVersionObjectType, doc.ID, doc.ID, text, agentSkillVersionMetadata(doc))
+}
+
+func (s *EmbeddingService) UpsertAgentSkillSectionDocument(ctx context.Context, cfg EmbeddingConfig, doc AgentSkillSectionEmbeddingDocument, text string) error {
+	return s.upsertAgentSkillEmbedding(ctx, cfg, agentSkillSectionObjectType, doc.ID, doc.VersionID, text, agentSkillSectionMetadata(doc))
+}
+
+func (s *EmbeddingService) upsertAgentSkillEmbedding(ctx context.Context, cfg EmbeddingConfig, objectType string, objectID, versionID int64, text string, metadata map[string]any) error {
+	result, providerErr := s.runner.Embed(ctx, EmbedRequest{Config: cfg, Texts: []string{text}})
 	status := "ready"
 	lastError := ""
 	vector := []float64(nil)
-	if err != nil {
+	if providerErr != nil {
 		status = "failed"
-		lastError = err.Error()
+		lastError = providerErr.Error()
 	} else if len(result.Vectors) > 0 {
 		vector = result.Vectors[0]
 	}
-	if err := s.store.InvalidateAIEmbedding(ctx, "agent_skill", doc.ID); err != nil {
+	if err := s.store.InvalidateAIEmbedding(ctx, objectType, objectID); err != nil {
 		return err
 	}
-	return s.store.UpsertAIEmbedding(ctx, AIEmbeddingRecord{
-		ObjectType:     "agent_skill",
-		ObjectID:       doc.ID,
-		ScopeType:      "agent_skill",
-		ScopeID:        doc.ID,
+	if err := s.store.UpsertAIEmbedding(ctx, AIEmbeddingRecord{
+		ObjectType:     objectType,
+		ObjectID:       objectID,
+		ScopeType:      agentSkillVersionScopeType,
+		ScopeID:        versionID,
 		TextHash:       hashText(text),
 		EmbeddingModel: cfg.ModelName,
 		EmbeddingDim:   len(vector),
 		Vector:         vector,
-		Metadata:       agentSkillMetadata(doc),
+		Metadata:       metadata,
 		Status:         status,
 		LastError:      lastError,
-	})
+	}); err != nil {
+		return err
+	}
+	if providerErr != nil {
+		return fmt.Errorf("generate %s embedding for object %d: %w", objectType, objectID, providerErr)
+	}
+	return nil
 }
 
-func (s *EmbeddingService) InvalidateAgentSkill(ctx context.Context, id int64) error {
-	if s == nil || s.store == nil || id <= 0 {
+func (s *EmbeddingService) InvalidateAgentSkillVersion(ctx context.Context, versionID int64) error {
+	if s == nil || s.store == nil || versionID <= 0 {
 		return nil
 	}
-	return s.store.InvalidateAIEmbedding(ctx, "agent_skill", id)
+	if err := s.store.InvalidateAIEmbedding(ctx, agentSkillVersionObjectType, versionID); err != nil {
+		return err
+	}
+	sections, err := s.store.ListAgentSkillSectionEmbeddingDocuments(ctx, 0, []int64{versionID}, maxAgentSkillEmbeddingPoolSize)
+	if err != nil {
+		return err
+	}
+	for _, section := range sections {
+		if err := s.store.InvalidateAIEmbedding(ctx, agentSkillSectionObjectType, section.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *EmbeddingService) UpsertMemoryEmbedding(ctx context.Context, memory domainmemory.Memory) error {
@@ -505,6 +610,7 @@ func (s *EmbeddingService) searchMemoryItems(ctx context.Context, owner domainme
 		return nil, err
 	}
 	queryVector := embed.Vectors[0]
+	cfg.Dimension = len(queryVector)
 	rows, err := s.store.ListAIEmbeddingsForOwner(ctx, "ai_memory", cfg.ModelName, owner.TenantID, int32(owner.Role), owner.ID, 500)
 	if err != nil {
 		return nil, err
@@ -554,148 +660,186 @@ func (s *EmbeddingService) searchMemoryItems(ctx context.Context, owner domainme
 	return items, nil
 }
 
-func (s *EmbeddingService) SemanticScores(ctx context.Context, query string, limit int) (map[uint64]float64, string) {
-	result, err := s.SearchAgentSkills(ctx, query, limit)
-	if err != nil {
-		return nil, err.Error()
-	}
-	scores := make(map[uint64]float64, len(result.Skills))
-	for _, item := range result.Skills {
-		if item != nil && item.GetId() > 0 {
-			scores[uint64(item.GetId())] = item.GetFinalRankScore()
-		}
-	}
-	return scores, result.GetFallbackReason()
-}
-
 func (s *EmbeddingService) SearchAgentSkills(ctx context.Context, query string, limit int) (*pb.DebugSemanticRetrievalResponse, error) {
 	if s == nil || s.store == nil {
-		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "common.operation_failed", EmbeddingAvailable: false, FallbackReason: "embedding store is not bound"}, nil
+		return &pb.DebugSemanticRetrievalResponse{
+			Code:               501,
+			Msg:                "common.operation_failed",
+			EmbeddingAvailable: false,
+			FallbackReason:     "embedding store is not bound",
+		}, nil
+	}
+	result, err := s.SearchAgentSkillVersions(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]*pb.SemanticSkillDebugItem, 0, len(result.Items))
+	for i, ranked := range result.Items {
+		item := semanticSkillItem(ranked)
+		item.PoolRank = int32(i + 1)
+		items = append(items, item)
+	}
+	return &pb.DebugSemanticRetrievalResponse{
+		Code:                    0,
+		Msg:                     "common.success",
+		EmbeddingAvailable:      result.EmbeddingAvailable,
+		FallbackReason:          result.FallbackReason,
+		Skills:                  items,
+		Memories:                []*pb.SemanticMemoryDebugItem{},
+		SkillPoolConfidence:     confidenceLabel(items),
+		MemoryPoolConfidence:    "none",
+		EmbeddingProvider:       result.EmbeddingProvider,
+		EmbeddingModel:          result.EmbeddingModel,
+		EmbeddingDim:            int32(result.EmbeddingDim),
+		CandidateCount:          int32(result.CandidateCount),
+		QueryEmbeddingLatencyMs: result.QueryEmbeddingLatencyMs,
+	}, nil
+}
+
+func (s *EmbeddingService) SearchAgentSkillVersions(ctx context.Context, query string, limit int) (*AgentSkillVersionSearchResult, error) {
+	if s == nil || s.store == nil {
+		return &AgentSkillVersionSearchResult{FallbackReason: "embedding store is not bound"}, nil
 	}
 	limit = normalizeLimit(limit)
+	docs, err := s.store.ListAgentSkillVersionEmbeddingDocuments(ctx, 0, maxAgentSkillEmbeddingPoolSize)
+	if err != nil {
+		return nil, err
+	}
 	if s.runner == nil {
-		return s.searchAgentSkillsFallback(ctx, query, limit, "embedding runner is not bound", EmbeddingConfig{}, 0)
+		return rankAgentSkillVersions(query, docs, nil, limit, "embedding runner is not bound", EmbeddingConfig{}, 0), nil
 	}
 	cfg, ok, err := s.store.ResolveEmbeddingConfig(ctx, 0, 0)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		return s.searchAgentSkillsFallback(ctx, query, limit, "embedding provider/model is not configured", EmbeddingConfig{}, 0)
+		return rankAgentSkillVersions(query, docs, nil, limit, "embedding provider/model is not configured", EmbeddingConfig{}, 0), nil
 	}
 	start := time.Now()
 	embed, err := s.runner.Embed(ctx, EmbedRequest{Config: cfg, Texts: []string{query}})
 	if err != nil {
-		return s.searchAgentSkillsFallback(ctx, query, limit, err.Error(), cfg, time.Since(start).Milliseconds())
+		return rankAgentSkillVersions(query, docs, nil, limit, err.Error(), cfg, time.Since(start).Milliseconds()), nil
 	}
 	if len(embed.Vectors) == 0 || len(embed.Vectors[0]) == 0 {
-		return s.searchAgentSkillsFallback(ctx, query, limit, "embedding provider returned an empty vector", cfg, time.Since(start).Milliseconds())
+		return rankAgentSkillVersions(query, docs, nil, limit, "embedding provider returned an empty vector", cfg, time.Since(start).Milliseconds()), nil
 	}
 	queryVector := embed.Vectors[0]
-	rows, err := s.store.ListAIEmbeddings(ctx, "agent_skill", cfg.ModelName, 500)
+	rows, err := s.store.ListAIEmbeddings(ctx, agentSkillVersionObjectType, cfg.ModelName, maxAgentSkillEmbeddingPoolSize)
 	if err != nil {
 		return nil, err
 	}
-	items := make([]*pb.SemanticSkillDebugItem, 0, len(rows))
-	lowerQuery := strings.ToLower(query)
-	for _, row := range rows {
-		if row.Status != "ready" || len(row.Vector) == 0 {
-			continue
-		}
-		vectorScore := cosine(queryVector, row.Vector)
-		lexicalScore := lexicalScore(lowerQuery, row.Metadata)
-		metadataScore := metadataScore(lowerQuery, row.Metadata)
-		boost := priorityBoost(row.Metadata)
-		final := vectorScore*0.7 + lexicalScore*0.15 + metadataScore*0.1 + boost
-		items = append(items, semanticSkillItem(row, vectorScore, lexicalScore, metadataScore, boost, final))
-	}
-	sort.SliceStable(items, func(i, j int) bool {
-		if items[i].FinalRankScore == items[j].FinalRankScore {
-			return items[i].Id < items[j].Id
-		}
-		return items[i].FinalRankScore > items[j].FinalRankScore
-	})
-	if len(items) > limit {
-		items = items[:limit]
-	}
-	for i, item := range items {
-		item.PoolRank = int32(i + 1)
-	}
-	fallbackReason := ""
-	if len(items) == 0 {
-		return s.searchAgentSkillsFallback(ctx, query, limit, "no ready agent_skill embeddings matched current model", cfg, embed.Latency.Milliseconds())
-	}
-	return &pb.DebugSemanticRetrievalResponse{
-		Code:                    0,
-		Msg:                     "common.success",
-		EmbeddingAvailable:      true,
-		FallbackReason:          fallbackReason,
-		Skills:                  items,
-		Memories:                []*pb.SemanticMemoryDebugItem{},
-		SkillPoolConfidence:     confidenceLabel(items),
-		MemoryPoolConfidence:    "none",
-		EmbeddingProvider:       cfg.ProviderName,
-		EmbeddingModel:          cfg.ModelName,
-		EmbeddingDim:            int32(len(queryVector)),
-		CandidateCount:          int32(len(rows)),
-		QueryEmbeddingLatencyMs: embed.Latency.Milliseconds(),
-	}, nil
-}
-
-func (s *EmbeddingService) searchAgentSkillsFallback(ctx context.Context, query string, limit int, reason string, cfg EmbeddingConfig, latencyMs int64) (*pb.DebugSemanticRetrievalResponse, error) {
-	docs, err := s.store.ListAgentSkillEmbeddingDocuments(ctx, 0, 500)
-	if err != nil {
-		return nil, err
-	}
-	lowerQuery := strings.ToLower(strings.TrimSpace(query))
-	items := make([]*pb.SemanticSkillDebugItem, 0, len(docs))
+	vectors := make(map[int64]float64, len(rows))
+	docHashes := make(map[int64]string, len(docs))
 	for _, doc := range docs {
-		meta := agentSkillMetadata(doc)
-		lexical := lexicalScore(lowerQuery, meta)
-		metadata := metadataScore(lowerQuery, meta)
-		if lexical <= 0 && metadata <= 0 {
+		docHashes[doc.ID] = hashText(AgentSkillVersionEmbeddingText(doc))
+	}
+	for _, row := range rows {
+		expectedHash, exists := docHashes[row.ObjectID]
+		if !exists ||
+			row.ObjectType != agentSkillVersionObjectType ||
+			row.ScopeType != agentSkillVersionScopeType ||
+			row.ScopeID != row.ObjectID ||
+			row.Status != "ready" ||
+			len(row.Vector) == 0 ||
+			row.TextHash != expectedHash {
 			continue
 		}
-		boost := priorityBoost(meta)
-		final := lexical*0.65 + metadata*0.25 + boost
-		row := AIEmbeddingRecord{ObjectID: doc.ID, Metadata: meta}
-		item := semanticSkillItem(row, 0, lexical, metadata, boost, final)
-		item.Reason = "lexical and metadata fallback"
-		item.RelevanceScore = lexical*0.7 + metadata*0.3
-		item.RelevanceMode = "lexical_metadata"
-		items = append(items, item)
+		vectors[row.ObjectID] = cosine(queryVector, row.Vector)
 	}
-	sort.SliceStable(items, func(i, j int) bool {
-		if items[i].FinalRankScore == items[j].FinalRankScore {
-			return items[i].Id < items[j].Id
-		}
-		return items[i].FinalRankScore > items[j].FinalRankScore
-	})
-	if len(items) > limit {
-		items = items[:limit]
+	if len(vectors) == 0 {
+		return rankAgentSkillVersions(query, docs, nil, limit, "no ready agent_skill_version embeddings matched current model and text hash", cfg, embed.Latency.Milliseconds()), nil
 	}
-	for i, item := range items {
-		item.PoolRank = int32(i + 1)
-	}
-	return &pb.DebugSemanticRetrievalResponse{
-		Code:                    0,
-		Msg:                     "common.success",
-		EmbeddingAvailable:      false,
-		FallbackReason:          strings.TrimSpace(reason),
-		Skills:                  items,
-		Memories:                []*pb.SemanticMemoryDebugItem{},
-		SkillPoolConfidence:     confidenceLabel(items),
-		MemoryPoolConfidence:    "none",
-		EmbeddingProvider:       cfg.ProviderName,
-		EmbeddingModel:          cfg.ModelName,
-		EmbeddingDim:            int32(cfg.Dimension),
-		CandidateCount:          int32(len(docs)),
-		QueryEmbeddingLatencyMs: latencyMs,
-	}, nil
+	return rankAgentSkillVersions(query, docs, vectors, limit, "", cfg, embed.Latency.Milliseconds()), nil
 }
 
-func AgentSkillEmbeddingText(doc AgentSkillEmbeddingDocument) string {
-	parts := []string{doc.Name, doc.DisplayName, doc.Description, doc.Category, doc.Scenario, doc.RiskLevel, strings.Join(doc.TriggerKeywords, " "), strings.Join(doc.SemanticTags, " "), strings.Join(doc.EvaluationCriteria, " "), doc.OutputSchema, doc.BodyMarkdown}
+func (s *EmbeddingService) SearchAgentSkillSections(ctx context.Context, query string, versionIDs []int64, limit int) (*AgentSkillSectionSearchResult, error) {
+	if s == nil || s.store == nil {
+		return &AgentSkillSectionSearchResult{FallbackReason: "embedding store is not bound"}, nil
+	}
+	versionIDs = positiveUniqueIDs(versionIDs)
+	if len(versionIDs) == 0 {
+		return &AgentSkillSectionSearchResult{FallbackReason: "selected agent skill version scope is required"}, nil
+	}
+	limit = normalizeLimit(limit)
+	docs, err := s.store.ListAgentSkillSectionEmbeddingDocuments(ctx, 0, versionIDs, maxAgentSkillEmbeddingPoolSize)
+	if err != nil {
+		return nil, err
+	}
+	cfg, ok, err := s.store.ResolveEmbeddingConfig(ctx, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	if s.runner == nil {
+		return rankAgentSkillSections(query, docs, nil, limit, "embedding runner is not bound", EmbeddingConfig{}, 0), nil
+	}
+	if !ok {
+		return rankAgentSkillSections(query, docs, nil, limit, "embedding provider/model is not configured", EmbeddingConfig{}, 0), nil
+	}
+	start := time.Now()
+	embed, err := s.runner.Embed(ctx, EmbedRequest{Config: cfg, Texts: []string{query}})
+	if err != nil {
+		return rankAgentSkillSections(query, docs, nil, limit, err.Error(), cfg, time.Since(start).Milliseconds()), nil
+	}
+	if len(embed.Vectors) == 0 || len(embed.Vectors[0]) == 0 {
+		return rankAgentSkillSections(query, docs, nil, limit, "embedding provider returned an empty vector", cfg, time.Since(start).Milliseconds()), nil
+	}
+	cfg.Dimension = len(embed.Vectors[0])
+	rows, err := s.store.ListAIEmbeddingsByScopeIDs(ctx, agentSkillSectionObjectType, cfg.ModelName, agentSkillVersionScopeType, versionIDs, maxAgentSkillEmbeddingPoolSize)
+	if err != nil {
+		return nil, err
+	}
+	docByID := make(map[int64]AgentSkillSectionEmbeddingDocument, len(docs))
+	for _, doc := range docs {
+		docByID[doc.ID] = doc
+	}
+	vectors := make(map[int64]float64, len(rows))
+	for _, row := range rows {
+		doc, exists := docByID[row.ObjectID]
+		if !exists ||
+			row.ObjectType != agentSkillSectionObjectType ||
+			row.ScopeType != agentSkillVersionScopeType ||
+			row.ScopeID != doc.VersionID ||
+			row.Status != "ready" ||
+			len(row.Vector) == 0 ||
+			row.TextHash != hashText(AgentSkillSectionEmbeddingText(doc)) {
+			continue
+		}
+		vectors[row.ObjectID] = cosine(embed.Vectors[0], row.Vector)
+	}
+	if len(vectors) == 0 {
+		return rankAgentSkillSections(query, docs, nil, limit, "no ready agent_skill_section embeddings matched selected versions, current model, and text hash", cfg, embed.Latency.Milliseconds()), nil
+	}
+	return rankAgentSkillSections(query, docs, vectors, limit, "", cfg, embed.Latency.Milliseconds()), nil
+}
+
+func AgentSkillVersionEmbeddingText(doc AgentSkillVersionEmbeddingDocument) string {
+	manifest := doc.Manifest
+	parts := []string{
+		manifest.SkillName,
+		manifest.DisplayName,
+		manifest.Description,
+		manifest.AgentType,
+		manifest.Category,
+		manifest.Scenario,
+		string(manifest.RiskLevel),
+		strings.Join(manifest.TriggerKeywords, " "),
+		strings.Join(manifest.SemanticTags, " "),
+		strings.Join(manifest.RequiredCapabilities, " "),
+		boundedCoreSummary(doc.CoreMarkdown),
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n"))
+}
+
+func AgentSkillSectionEmbeddingText(doc AgentSkillSectionEmbeddingDocument) string {
+	parts := []string{
+		doc.SectionKey,
+		doc.Title,
+		doc.Description,
+		strings.Join(doc.TriggerTerms, " "),
+		strings.Join(doc.SemanticTags, " "),
+		strings.Join(doc.PlannerIntents, " "),
+		doc.ContentMarkdown,
+	}
 	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
@@ -899,43 +1043,232 @@ func hashText(value string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func agentSkillMetadata(doc AgentSkillEmbeddingDocument) map[string]any {
+func agentSkillVersionMetadata(doc AgentSkillVersionEmbeddingDocument) map[string]any {
+	manifest := doc.Manifest
 	return map[string]any{
-		"id":                    doc.ID,
-		"name":                  doc.Name,
-		"display_name":          doc.DisplayName,
-		"description":           doc.Description,
-		"agent_type":            doc.AgentType,
-		"category":              doc.Category,
-		"scenario":              doc.Scenario,
-		"priority":              doc.Priority,
-		"risk_level":            doc.RiskLevel,
-		"trigger_keywords":      doc.TriggerKeywords,
-		"required_capabilities": doc.RequiredCapabilities,
-		"evaluation_criteria":   doc.EvaluationCriteria,
-		"semantic_tags":         doc.SemanticTags,
+		"skill_id":              doc.SkillID,
+		"version_id":            doc.ID,
+		"version":               doc.Version,
+		"compiled_hash":         doc.CompiledHash,
+		"name":                  manifest.SkillName,
+		"display_name":          manifest.DisplayName,
+		"description":           manifest.Description,
+		"agent_type":            manifest.AgentType,
+		"category":              manifest.Category,
+		"scenario":              manifest.Scenario,
+		"priority":              manifest.Priority,
+		"risk_level":            string(manifest.RiskLevel),
+		"composition_role":      string(manifest.Composition.Role),
+		"trigger_keywords":      manifest.TriggerKeywords,
+		"required_capabilities": manifest.RequiredCapabilities,
+		"semantic_tags":         manifest.SemanticTags,
 	}
 }
 
-func semanticSkillItem(row AIEmbeddingRecord, vectorScore, lexical, metadata, boost, final float64) *pb.SemanticSkillDebugItem {
-	meta := row.Metadata
+func agentSkillSectionMetadata(doc AgentSkillSectionEmbeddingDocument) map[string]any {
+	return map[string]any{
+		"skill_id":        doc.SkillID,
+		"version_id":      doc.VersionID,
+		"version":         doc.Version,
+		"compiled_hash":   doc.CompiledHash,
+		"section_id":      doc.ID,
+		"section_key":     doc.SectionKey,
+		"title":           doc.Title,
+		"description":     doc.Description,
+		"priority":        doc.Priority,
+		"trigger_terms":   doc.TriggerTerms,
+		"semantic_tags":   doc.SemanticTags,
+		"planner_intents": doc.PlannerIntents,
+	}
+}
+
+func semanticSkillItem(ranked RankedAgentSkillVersion) *pb.SemanticSkillDebugItem {
+	doc := ranked.Document
+	manifest := doc.Manifest
+	signals := ranked.Ranking.Signals
 	return &pb.SemanticSkillDebugItem{
-		Id:             row.ObjectID,
-		Name:           stringMeta(meta, "name"),
-		DisplayName:    stringMeta(meta, "display_name"),
-		Category:       stringMeta(meta, "category"),
-		Scenario:       stringMeta(meta, "scenario"),
-		Priority:       int32(floatMeta(meta, "priority")),
-		Score:          final,
-		Reason:         "semantic vector ranking",
-		SemanticTags:   stringSliceMeta(meta, "semantic_tags"),
-		VectorScore:    vectorScore,
-		LexicalScore:   lexical,
-		MetadataScore:  metadata,
-		RelevanceScore: vectorScore,
-		BusinessBoost:  boost,
-		FinalRankScore: final,
-		RelevanceMode:  "semantic",
+		Name:            manifest.SkillName,
+		DisplayName:     manifest.DisplayName,
+		Category:        manifest.Category,
+		Scenario:        manifest.Scenario,
+		Priority:        int32(manifest.Priority),
+		Score:           signals.FinalRankScore,
+		Reason:          signals.Reason,
+		SemanticTags:    append([]string(nil), manifest.SemanticTags...),
+		VectorScore:     signals.VectorScore,
+		LexicalScore:    signals.LexicalScore,
+		MetadataScore:   signals.MetadataScore,
+		RelevanceScore:  signals.RelevanceScore,
+		BusinessBoost:   signals.BusinessBoost,
+		FinalRankScore:  signals.FinalRankScore,
+		RelevanceMode:   string(signals.Mode),
+		SkillId:         doc.SkillID,
+		VersionId:       doc.ID,
+		Version:         doc.Version,
+		CompiledHash:    doc.CompiledHash,
+		CompositionRole: protobufCompositionRole(manifest.Composition.Role),
+		Risk:            protobufRiskLevel(manifest.RiskLevel),
+	}
+}
+
+func rankAgentSkillVersions(query string, docs []AgentSkillVersionEmbeddingDocument, vectors map[int64]float64, limit int, fallbackReason string, cfg EmbeddingConfig, latencyMs int64) *AgentSkillVersionSearchResult {
+	candidates := make([]domainagentskill.RankingCandidate, 0, len(docs))
+	documents := make(map[int64]AgentSkillVersionEmbeddingDocument, len(docs))
+	for _, doc := range docs {
+		vector, hasVector := vectors[doc.ID]
+		rankingDocument := agentSkillVersionRankingDocument(doc)
+		rankingDocument.VectorScore = vector
+		candidates = append(candidates, domainagentskill.RankingCandidate{
+			Document:           rankingDocument,
+			EmbeddingAvailable: hasVector,
+		})
+		documents[doc.ID] = doc
+	}
+	ranked := domainagentskill.RankCandidates(query, candidates)
+	if len(ranked) > limit {
+		ranked = ranked[:limit]
+	}
+	items := make([]RankedAgentSkillVersion, 0, len(ranked))
+	for _, item := range ranked {
+		items = append(items, RankedAgentSkillVersion{Document: documents[item.Document.ObjectID], Ranking: item})
+	}
+	embeddingAvailable := len(vectors) > 0
+	if embeddingAvailable {
+		fallbackReason = ""
+	}
+	return &AgentSkillVersionSearchResult{
+		Items:                   items,
+		EmbeddingAvailable:      embeddingAvailable,
+		FallbackReason:          strings.TrimSpace(fallbackReason),
+		EmbeddingProvider:       cfg.ProviderName,
+		EmbeddingModel:          cfg.ModelName,
+		EmbeddingDim:            cfg.Dimension,
+		CandidateCount:          len(docs),
+		QueryEmbeddingLatencyMs: latencyMs,
+	}
+}
+
+func rankAgentSkillSections(query string, docs []AgentSkillSectionEmbeddingDocument, vectors map[int64]float64, limit int, fallbackReason string, cfg EmbeddingConfig, latencyMs int64) *AgentSkillSectionSearchResult {
+	candidates := make([]domainagentskill.RankingCandidate, 0, len(docs))
+	documents := make(map[int64]AgentSkillSectionEmbeddingDocument, len(docs))
+	for _, doc := range docs {
+		vector, hasVector := vectors[doc.ID]
+		rankingDocument := agentSkillSectionRankingDocument(doc)
+		rankingDocument.VectorScore = vector
+		candidates = append(candidates, domainagentskill.RankingCandidate{
+			Document:           rankingDocument,
+			EmbeddingAvailable: hasVector,
+		})
+		documents[doc.ID] = doc
+	}
+	ranked := domainagentskill.RankCandidates(query, candidates)
+	if len(ranked) > limit {
+		ranked = ranked[:limit]
+	}
+	items := make([]RankedAgentSkillSection, 0, len(ranked))
+	for _, item := range ranked {
+		items = append(items, RankedAgentSkillSection{Document: documents[item.Document.ObjectID], Ranking: item})
+	}
+	embeddingAvailable := len(vectors) > 0
+	if embeddingAvailable {
+		fallbackReason = ""
+	}
+	return &AgentSkillSectionSearchResult{
+		Items:                   items,
+		EmbeddingAvailable:      embeddingAvailable,
+		FallbackReason:          strings.TrimSpace(fallbackReason),
+		EmbeddingProvider:       cfg.ProviderName,
+		EmbeddingModel:          cfg.ModelName,
+		EmbeddingDim:            cfg.Dimension,
+		CandidateCount:          len(docs),
+		QueryEmbeddingLatencyMs: latencyMs,
+	}
+}
+
+func agentSkillVersionRankingDocument(doc AgentSkillVersionEmbeddingDocument) domainagentskill.RankingDocument {
+	manifest := doc.Manifest
+	return domainagentskill.RankingDocument{
+		ObjectID:  doc.ID,
+		SkillID:   doc.SkillID,
+		VersionID: doc.ID,
+		LexicalText: []string{
+			manifest.SkillName,
+			manifest.DisplayName,
+			manifest.Description,
+			manifest.Category,
+			manifest.Scenario,
+			boundedCoreSummary(doc.CoreMarkdown),
+		},
+		MetadataTerms: append(
+			append(append([]string(nil), manifest.TriggerKeywords...), manifest.SemanticTags...),
+			manifest.RequiredCapabilities...,
+		),
+		Priority: manifest.Priority,
+	}
+}
+
+func agentSkillSectionRankingDocument(doc AgentSkillSectionEmbeddingDocument) domainagentskill.RankingDocument {
+	return domainagentskill.RankingDocument{
+		ObjectID:    doc.ID,
+		SkillID:     doc.SkillID,
+		VersionID:   doc.VersionID,
+		SectionID:   doc.ID,
+		LexicalText: []string{doc.SectionKey, doc.Title, doc.Description, doc.ContentMarkdown},
+		MetadataTerms: append(
+			append(append([]string(nil), doc.TriggerTerms...), doc.SemanticTags...),
+			doc.PlannerIntents...,
+		),
+		Priority: doc.Priority,
+	}
+}
+
+func boundedCoreSummary(core string) string {
+	normalized := strings.TrimSpace(core)
+	runes := []rune(normalized)
+	if len(runes) <= maxCatalogCoreSummaryRunes {
+		return normalized
+	}
+	return strings.TrimSpace(string(runes[:maxCatalogCoreSummaryRunes]))
+}
+
+func positiveUniqueIDs(values []int64) []int64 {
+	unique := make(map[int64]struct{}, len(values))
+	for _, value := range values {
+		if value > 0 {
+			unique[value] = struct{}{}
+		}
+	}
+	out := make([]int64, 0, len(unique))
+	for value := range unique {
+		out = append(out, value)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
+}
+
+func protobufCompositionRole(role domainagentskill.CompositionRole) pb.AgentSkillCompositionRole {
+	switch role {
+	case domainagentskill.CompositionRolePrimary:
+		return pb.AgentSkillCompositionRole_AGENT_SKILL_COMPOSITION_ROLE_PRIMARY
+	case domainagentskill.CompositionRoleSupporting:
+		return pb.AgentSkillCompositionRole_AGENT_SKILL_COMPOSITION_ROLE_SUPPORTING
+	default:
+		return pb.AgentSkillCompositionRole_AGENT_SKILL_COMPOSITION_ROLE_UNSPECIFIED
+	}
+}
+
+func protobufRiskLevel(risk domainagentskill.RiskLevel) pb.AgentSkillRiskLevel {
+	switch risk {
+	case domainagentskill.RiskLevelLow:
+		return pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_LOW
+	case domainagentskill.RiskLevelMedium:
+		return pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_MEDIUM
+	case domainagentskill.RiskLevelHigh:
+		return pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_HIGH
+	case domainagentskill.RiskLevelCritical:
+		return pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_CRITICAL
+	default:
+		return pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_UNSPECIFIED
 	}
 }
 
@@ -968,47 +1301,6 @@ func cosine(a, b []float64) float64 {
 		return 0
 	}
 	return score
-}
-
-func lexicalScore(query string, meta map[string]any) float64 {
-	if strings.TrimSpace(query) == "" {
-		return 0
-	}
-	haystack := strings.ToLower(strings.Join([]string{stringMeta(meta, "name"), stringMeta(meta, "display_name"), stringMeta(meta, "description")}, " "))
-	if strings.Contains(haystack, query) {
-		return 1
-	}
-	score := 0.0
-	for _, token := range strings.Fields(query) {
-		if strings.Contains(haystack, token) {
-			score += 0.2
-		}
-	}
-	if score > 1 {
-		return 1
-	}
-	return score
-}
-
-func metadataScore(query string, meta map[string]any) float64 {
-	values := append(stringSliceMeta(meta, "semantic_tags"), stringSliceMeta(meta, "trigger_keywords")...)
-	for _, value := range values {
-		if strings.Contains(strings.ToLower(value), query) || strings.Contains(query, strings.ToLower(value)) {
-			return 1
-		}
-	}
-	return 0
-}
-
-func priorityBoost(meta map[string]any) float64 {
-	priority := floatMeta(meta, "priority")
-	if priority <= 0 {
-		return 0
-	}
-	if priority > 100 {
-		priority = 100
-	}
-	return priority / 1000
 }
 
 func confidenceLabel(items []*pb.SemanticSkillDebugItem) string {
