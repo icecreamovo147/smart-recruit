@@ -442,6 +442,196 @@ func TestEmbeddingServiceRejectsMismatchedReadyEmbeddingIdentity(t *testing.T) {
 	}
 }
 
+func TestEmbeddingServiceFallsBackForAgentSkillVectorDimensionMismatch(t *testing.T) {
+	t.Run("version", func(t *testing.T) {
+		store := newFakeEmbeddingStore()
+		doc := store.versionDocs[0]
+		store.catalogRowsOverride = []AIEmbeddingRecord{{
+			ObjectType:     agentSkillVersionObjectType,
+			ObjectID:       doc.ID,
+			ScopeType:      agentSkillVersionScopeType,
+			ScopeID:        doc.ID,
+			TextHash:       hashText(AgentSkillVersionEmbeddingText(doc)),
+			EmbeddingModel: store.cfg.ModelName,
+			Vector:         []float64{1, 0, 0},
+			Status:         "ready",
+		}}
+		result, err := NewEmbeddingService(store, &fakeEmbeddingRunner{
+			vectors: map[string][]float64{"请帮我筛选简历": {1, 0}},
+		}).SearchAgentSkillVersions(context.Background(), "请帮我筛选简历", nil, 5)
+		if err != nil {
+			t.Fatalf("version search returned %v", err)
+		}
+		if result.EmbeddingAvailable ||
+			!strings.Contains(result.FallbackReason, "dimensions did not match the query embedding") ||
+			result.EmbeddingDim != 2 {
+			t.Fatalf("version fallback diagnostics=%+v", result)
+		}
+		if len(result.Items) != 1 ||
+			result.Items[0].Ranking.Signals.Mode != domainagentskill.RelevanceModeLexicalMetadata ||
+			result.Items[0].Ranking.Signals.VectorScore != 0 {
+			t.Fatalf("version mismatch must use lexical metadata scores: %+v", result.Items)
+		}
+	})
+
+	t.Run("section", func(t *testing.T) {
+		store := newFakeEmbeddingStore()
+		doc := store.sectionDocs[0]
+		store.sectionRowsOverride = []AIEmbeddingRecord{{
+			ObjectType:     agentSkillSectionObjectType,
+			ObjectID:       doc.ID,
+			ScopeType:      agentSkillVersionScopeType,
+			ScopeID:        doc.VersionID,
+			TextHash:       hashText(AgentSkillSectionEmbeddingText(doc)),
+			EmbeddingModel: store.cfg.ModelName,
+			Vector:         []float64{1, 0, 0},
+			Status:         "ready",
+		}}
+		result, err := NewEmbeddingService(store, &fakeEmbeddingRunner{
+			vectors: map[string][]float64{"请帮我筛选简历": {1, 0}},
+		}).SearchAgentSkillSections(context.Background(), "请帮我筛选简历", []int64{doc.VersionID}, 5)
+		if err != nil {
+			t.Fatalf("section search returned %v", err)
+		}
+		if result.EmbeddingAvailable ||
+			!strings.Contains(result.FallbackReason, "dimensions did not match the query embedding") ||
+			result.EmbeddingDim != 2 {
+			t.Fatalf("section fallback diagnostics=%+v", result)
+		}
+		if len(result.Items) != 1 ||
+			result.Items[0].Ranking.Signals.Mode != domainagentskill.RelevanceModeLexicalMetadata ||
+			result.Items[0].Ranking.Signals.VectorScore != 0 {
+			t.Fatalf("section mismatch must use lexical metadata scores: %+v", result.Items)
+		}
+	})
+}
+
+func TestScoreCompatibleEmbeddingVectorRequiresNonEmptyEqualDimensions(t *testing.T) {
+	tests := []struct {
+		name   string
+		query  []float64
+		stored []float64
+		valid  bool
+	}{
+		{name: "empty query", stored: []float64{1, 0}},
+		{name: "empty stored", query: []float64{1, 0}},
+		{name: "stored shorter", query: []float64{1, 0}, stored: []float64{1}},
+		{name: "stored longer", query: []float64{1, 0}, stored: []float64{1, 0, 0}},
+		{name: "equal non-empty", query: []float64{1, 0}, stored: []float64{1, 0}, valid: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			score, valid := scoreCompatibleEmbeddingVector(tt.query, tt.stored)
+			if valid != tt.valid {
+				t.Fatalf("valid=%v, want %v (score=%f)", valid, tt.valid, score)
+			}
+			if tt.valid && score <= 0 {
+				t.Fatalf("matching vectors score=%f, want positive", score)
+			}
+			if !tt.valid && score != 0 {
+				t.Fatalf("invalid vectors score=%f, want zero", score)
+			}
+		})
+	}
+}
+
+func TestEmbeddingServiceKeepsValidAgentSkillVectorsWhenAnotherCandidateHasWrongDimension(t *testing.T) {
+	t.Run("version", func(t *testing.T) {
+		store := newFakeEmbeddingStore()
+		rows := make([]AIEmbeddingRecord, 0, len(store.versionDocs))
+		for i, doc := range store.versionDocs {
+			vector := []float64{1, 0}
+			if i == 1 {
+				vector = []float64{0, 1, 0}
+			}
+			rows = append(rows, AIEmbeddingRecord{
+				ObjectType:     agentSkillVersionObjectType,
+				ObjectID:       doc.ID,
+				ScopeType:      agentSkillVersionScopeType,
+				ScopeID:        doc.ID,
+				TextHash:       hashText(AgentSkillVersionEmbeddingText(doc)),
+				EmbeddingModel: store.cfg.ModelName,
+				Vector:         vector,
+				Status:         "ready",
+			})
+		}
+		store.catalogRowsOverride = rows
+		result, err := NewEmbeddingService(store, &fakeEmbeddingRunner{
+			vectors: map[string][]float64{"简历 面试": {1, 0}},
+		}).SearchAgentSkillVersions(context.Background(), "简历 面试", nil, 5)
+		if err != nil {
+			t.Fatalf("version search returned %v", err)
+		}
+		if !result.EmbeddingAvailable ||
+			!strings.Contains(result.FallbackReason, "some agent_skill_version embeddings were ignored") {
+			t.Fatalf("version partial fallback diagnostics=%+v", result)
+		}
+		assertMixedAgentSkillRankingModes(t, result.Items)
+	})
+
+	t.Run("section", func(t *testing.T) {
+		store := newFakeEmbeddingStore()
+		rows := make([]AIEmbeddingRecord, 0, len(store.sectionDocs))
+		for i, doc := range store.sectionDocs {
+			vector := []float64{1, 0}
+			if i == 1 {
+				vector = []float64{0, 1, 0}
+			}
+			rows = append(rows, AIEmbeddingRecord{
+				ObjectType:     agentSkillSectionObjectType,
+				ObjectID:       doc.ID,
+				ScopeType:      agentSkillVersionScopeType,
+				ScopeID:        doc.VersionID,
+				TextHash:       hashText(AgentSkillSectionEmbeddingText(doc)),
+				EmbeddingModel: store.cfg.ModelName,
+				Vector:         vector,
+				Status:         "ready",
+			})
+		}
+		store.sectionRowsOverride = rows
+		result, err := NewEmbeddingService(store, &fakeEmbeddingRunner{
+			vectors: map[string][]float64{"简历 面试": {1, 0}},
+		}).SearchAgentSkillSections(context.Background(), "简历 面试", []int64{101, 102}, 5)
+		if err != nil {
+			t.Fatalf("section search returned %v", err)
+		}
+		if !result.EmbeddingAvailable ||
+			!strings.Contains(result.FallbackReason, "some agent_skill_section embeddings were ignored") {
+			t.Fatalf("section partial fallback diagnostics=%+v", result)
+		}
+		if len(result.Items) != 2 {
+			t.Fatalf("section mixed results=%+v", result.Items)
+		}
+		modes := make(map[int64]domainagentskill.RelevanceMode, len(result.Items))
+		vectors := make(map[int64]float64, len(result.Items))
+		for _, item := range result.Items {
+			modes[item.Document.ID] = item.Ranking.Signals.Mode
+			vectors[item.Document.ID] = item.Ranking.Signals.VectorScore
+		}
+		if modes[1001] != domainagentskill.RelevanceModeHybrid || vectors[1001] <= 0 ||
+			modes[1002] != domainagentskill.RelevanceModeLexicalMetadata || vectors[1002] != 0 {
+			t.Fatalf("section per-candidate modes=%v vector scores=%v", modes, vectors)
+		}
+	})
+}
+
+func assertMixedAgentSkillRankingModes(t *testing.T, items []RankedAgentSkillVersion) {
+	t.Helper()
+	if len(items) != 2 {
+		t.Fatalf("version mixed results=%+v", items)
+	}
+	modes := make(map[int64]domainagentskill.RelevanceMode, len(items))
+	vectors := make(map[int64]float64, len(items))
+	for _, item := range items {
+		modes[item.Document.ID] = item.Ranking.Signals.Mode
+		vectors[item.Document.ID] = item.Ranking.Signals.VectorScore
+	}
+	if modes[101] != domainagentskill.RelevanceModeHybrid || vectors[101] <= 0 ||
+		modes[102] != domainagentskill.RelevanceModeLexicalMetadata || vectors[102] != 0 {
+		t.Fatalf("version per-candidate modes=%v vector scores=%v", modes, vectors)
+	}
+}
+
 func assertAgentSkillVersionLexicalFallback(t *testing.T, result *AgentSkillVersionSearchResult) {
 	t.Helper()
 	if result.EmbeddingAvailable || !strings.Contains(result.FallbackReason, "no ready agent_skill_version embeddings") {

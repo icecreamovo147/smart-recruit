@@ -116,6 +116,136 @@ func TestSelectHRRuntimeAgentSkillPackagesComposesPrimaryThenSupporting(t *testi
 	}
 }
 
+func TestSelectHRRuntimeAgentSkillPackagesComposesOnlyCompatibleScenario(t *testing.T) {
+	primary := runtimeSkillVersionDocument(
+		101,
+		1,
+		domainagentskill.CompositionRolePrimary,
+		domainagentskill.RiskLevelLow,
+		"resume screening primary",
+	)
+	primary.Manifest.Scenario = " Resume Screening "
+	incompatible := runtimeSkillVersionDocument(
+		102,
+		2,
+		domainagentskill.CompositionRoleSupporting,
+		domainagentskill.RiskLevelLow,
+		"resume screening first supporting",
+	)
+	incompatible.Manifest.Scenario = "interview"
+	compatible := runtimeSkillVersionDocument(
+		103,
+		3,
+		domainagentskill.CompositionRoleSupporting,
+		domainagentskill.RiskLevelLow,
+		"resume screening compatible supporting",
+	)
+	compatible.Manifest.Scenario = "resume screening"
+	store := newFakeAIStore()
+	store.agentSkillVersionDocs = []embeddinginfra.AgentSkillVersionEmbeddingDocument{
+		primary,
+		incompatible,
+		compatible,
+	}
+	service := newNativeAIService(store, nil, nil, nil, nil)
+
+	selected, evidence, confirmationRequired, governanceErrors := service.selectHRRuntimeAgentSkillPackages(
+		context.Background(),
+		&pb.ChatRequest{Message: "resume screening"},
+		nil,
+		runtimeSkillModel([]int64{101, 102, 103}, CapabilitySkillRuntimePolicy{}),
+		true,
+	)
+
+	if len(governanceErrors) != 0 || confirmationRequired {
+		t.Fatalf("errors=%#v confirmation=%v", governanceErrors, confirmationRequired)
+	}
+	if len(selected) != 2 || selected[0].VersionID != 101 || selected[1].VersionID != 103 {
+		t.Fatalf("selected=%#v, want compatible Primary and later Supporting", selected)
+	}
+	if len(evidence) != 3 {
+		t.Fatalf("evidence=%#v, want all composition decisions", evidence)
+	}
+	if evidence[0].GetVersionId() != 101 || !evidence[0].GetIncluded() ||
+		evidence[1].GetVersionId() != 102 || evidence[1].GetIncluded() ||
+		evidence[1].GetDecisionReason() != "composition_scenario_mismatch" ||
+		evidence[2].GetVersionId() != 103 || !evidence[2].GetIncluded() {
+		t.Fatalf("evidence=%#v", evidence)
+	}
+}
+
+func TestSelectHRRuntimeAgentSkillPackagesRejectsManualIncompatibleCompositionDeterministically(t *testing.T) {
+	tests := []struct {
+		name       string
+		mutate     func(*embeddinginfra.AgentSkillVersionEmbeddingDocument)
+		wantReason string
+	}{
+		{
+			name: "scenario mismatch",
+			mutate: func(document *embeddinginfra.AgentSkillVersionEmbeddingDocument) {
+				document.Manifest.Scenario = "interview"
+			},
+			wantReason: "composition_scenario_mismatch",
+		},
+		{
+			name: "agent type mismatch",
+			mutate: func(document *embeddinginfra.AgentSkillVersionEmbeddingDocument) {
+				document.Manifest.AgentType = "candidate_assistant"
+			},
+			wantReason: "agent_type_mismatch",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			primary := runtimeSkillVersionDocument(
+				101,
+				1,
+				domainagentskill.CompositionRolePrimary,
+				domainagentskill.RiskLevelLow,
+				"resume primary",
+			)
+			supporting := runtimeSkillVersionDocument(
+				102,
+				2,
+				domainagentskill.CompositionRoleSupporting,
+				domainagentskill.RiskLevelLow,
+				"resume supporting",
+			)
+			tt.mutate(&supporting)
+			store := newFakeAIStore()
+			store.agentSkillVersionDocs = []embeddinginfra.AgentSkillVersionEmbeddingDocument{supporting, primary}
+			service := newNativeAIService(store, nil, nil, nil, nil)
+
+			selected, evidence, confirmationRequired, governanceErrors := service.selectHRRuntimeAgentSkillPackages(
+				context.Background(),
+				&pb.ChatRequest{
+					Message:              "resume",
+					AgentSkillVersionIds: []int64{102, 101},
+				},
+				nil,
+				runtimeSkillModel([]int64{101, 102}, CapabilitySkillRuntimePolicy{}),
+				true,
+			)
+
+			if len(selected) != 0 || confirmationRequired ||
+				len(governanceErrors) != 1 || governanceErrors[0].Code != tt.wantReason ||
+				governanceErrors[0].ResourceID != 102 {
+				t.Fatalf(
+					"selected=%#v evidence=%#v errors=%#v confirmation=%v",
+					selected,
+					evidence,
+					governanceErrors,
+					confirmationRequired,
+				)
+			}
+			if len(evidence) != 1 || evidence[0].GetVersionId() != 102 ||
+				evidence[0].GetIncluded() || evidence[0].GetDecisionReason() != tt.wantReason {
+				t.Fatalf("evidence=%#v", evidence)
+			}
+		})
+	}
+}
+
 func TestSelectHRRuntimeAgentSkillPackagesNeverLoadsSupportingAlone(t *testing.T) {
 	store := newFakeAIStore()
 	store.agentSkillVersionDocs = []embeddinginfra.AgentSkillVersionEmbeddingDocument{

@@ -761,6 +761,7 @@ func (s *EmbeddingService) SearchAgentSkillVersions(ctx context.Context, query s
 		return rankAgentSkillVersions(query, docs, nil, limit, "embedding provider returned an empty vector", cfg, time.Since(start).Milliseconds()), nil
 	}
 	queryVector := embed.Vectors[0]
+	cfg.Dimension = len(queryVector)
 	var rows []AIEmbeddingRecord
 	if len(allowedVersionIDs) > 0 {
 		rows, err = s.store.ListAIEmbeddingsByScopeIDs(
@@ -782,6 +783,7 @@ func (s *EmbeddingService) SearchAgentSkillVersions(ctx context.Context, query s
 	for _, doc := range docs {
 		docHashes[doc.ID] = hashText(AgentSkillVersionEmbeddingText(doc))
 	}
+	invalidVectorCount := 0
 	for _, row := range rows {
 		expectedHash, exists := docHashes[row.ObjectID]
 		if !exists ||
@@ -789,16 +791,35 @@ func (s *EmbeddingService) SearchAgentSkillVersions(ctx context.Context, query s
 			row.ScopeType != agentSkillVersionScopeType ||
 			row.ScopeID != row.ObjectID ||
 			row.Status != "ready" ||
-			len(row.Vector) == 0 ||
 			row.TextHash != expectedHash {
 			continue
 		}
-		vectors[row.ObjectID] = cosine(queryVector, row.Vector)
+		score, compatible := scoreCompatibleEmbeddingVector(queryVector, row.Vector)
+		if !compatible {
+			invalidVectorCount++
+			continue
+		}
+		vectors[row.ObjectID] = score
 	}
 	if len(vectors) == 0 {
+		if invalidVectorCount > 0 {
+			return rankAgentSkillVersions(
+				query,
+				docs,
+				nil,
+				limit,
+				agentSkillVectorIntegrityFallbackReason(agentSkillVersionObjectType, false),
+				cfg,
+				embed.Latency.Milliseconds(),
+			), nil
+		}
 		return rankAgentSkillVersions(query, docs, nil, limit, "no ready agent_skill_version embeddings matched current model and text hash", cfg, embed.Latency.Milliseconds()), nil
 	}
-	return rankAgentSkillVersions(query, docs, vectors, limit, "", cfg, embed.Latency.Milliseconds()), nil
+	fallbackReason := ""
+	if invalidVectorCount > 0 {
+		fallbackReason = agentSkillVectorIntegrityFallbackReason(agentSkillVersionObjectType, true)
+	}
+	return rankAgentSkillVersions(query, docs, vectors, limit, fallbackReason, cfg, embed.Latency.Milliseconds()), nil
 }
 
 func (s *EmbeddingService) SearchAgentSkillSections(ctx context.Context, query string, versionIDs []int64, limit int) (*AgentSkillSectionSearchResult, error) {
@@ -842,6 +863,7 @@ func (s *EmbeddingService) SearchAgentSkillSections(ctx context.Context, query s
 		docByID[doc.ID] = doc
 	}
 	vectors := make(map[int64]float64, len(rows))
+	invalidVectorCount := 0
 	for _, row := range rows {
 		doc, exists := docByID[row.ObjectID]
 		if !exists ||
@@ -849,16 +871,35 @@ func (s *EmbeddingService) SearchAgentSkillSections(ctx context.Context, query s
 			row.ScopeType != agentSkillVersionScopeType ||
 			row.ScopeID != doc.VersionID ||
 			row.Status != "ready" ||
-			len(row.Vector) == 0 ||
 			row.TextHash != hashText(AgentSkillSectionEmbeddingText(doc)) {
 			continue
 		}
-		vectors[row.ObjectID] = cosine(embed.Vectors[0], row.Vector)
+		score, compatible := scoreCompatibleEmbeddingVector(embed.Vectors[0], row.Vector)
+		if !compatible {
+			invalidVectorCount++
+			continue
+		}
+		vectors[row.ObjectID] = score
 	}
 	if len(vectors) == 0 {
+		if invalidVectorCount > 0 {
+			return rankAgentSkillSections(
+				query,
+				docs,
+				nil,
+				limit,
+				agentSkillVectorIntegrityFallbackReason(agentSkillSectionObjectType, false),
+				cfg,
+				embed.Latency.Milliseconds(),
+			), nil
+		}
 		return rankAgentSkillSections(query, docs, nil, limit, "no ready agent_skill_section embeddings matched selected versions, current model, and text hash", cfg, embed.Latency.Milliseconds()), nil
 	}
-	return rankAgentSkillSections(query, docs, vectors, limit, "", cfg, embed.Latency.Milliseconds()), nil
+	fallbackReason := ""
+	if invalidVectorCount > 0 {
+		fallbackReason = agentSkillVectorIntegrityFallbackReason(agentSkillSectionObjectType, true)
+	}
+	return rankAgentSkillSections(query, docs, vectors, limit, fallbackReason, cfg, embed.Latency.Milliseconds()), nil
 }
 
 func AgentSkillVersionEmbeddingText(doc AgentSkillVersionEmbeddingDocument) string {
@@ -1182,9 +1223,6 @@ func rankAgentSkillVersions(query string, docs []AgentSkillVersionEmbeddingDocum
 		items = append(items, RankedAgentSkillVersion{Document: documents[item.Document.ObjectID], Ranking: item})
 	}
 	embeddingAvailable := len(vectors) > 0
-	if embeddingAvailable {
-		fallbackReason = ""
-	}
 	return &AgentSkillVersionSearchResult{
 		Items:                   items,
 		EmbeddingAvailable:      embeddingAvailable,
@@ -1219,9 +1257,6 @@ func rankAgentSkillSections(query string, docs []AgentSkillSectionEmbeddingDocum
 		items = append(items, RankedAgentSkillSection{Document: documents[item.Document.ObjectID], Ranking: item})
 	}
 	embeddingAvailable := len(vectors) > 0
-	if embeddingAvailable {
-		fallbackReason = ""
-	}
 	return &AgentSkillSectionSearchResult{
 		Items:                   items,
 		EmbeddingAvailable:      embeddingAvailable,
@@ -1329,6 +1364,26 @@ func normalizeLimit(limit int) int {
 		return 50
 	}
 	return limit
+}
+
+func scoreCompatibleEmbeddingVector(queryVector, storedVector []float64) (float64, bool) {
+	if len(queryVector) == 0 || len(storedVector) == 0 || len(queryVector) != len(storedVector) {
+		return 0, false
+	}
+	return cosine(queryVector, storedVector), true
+}
+
+func agentSkillVectorIntegrityFallbackReason(objectType string, partial bool) string {
+	if partial {
+		return fmt.Sprintf(
+			"some %s embeddings were ignored because stored vectors were empty or their dimensions did not match the query embedding",
+			objectType,
+		)
+	}
+	return fmt.Sprintf(
+		"%s embeddings were unavailable because stored vectors were empty or their dimensions did not match the query embedding; lexical and metadata fallback used",
+		objectType,
+	)
 }
 
 func cosine(a, b []float64) float64 {

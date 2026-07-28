@@ -518,42 +518,81 @@ func composeHRRuntimeAgentSkills(candidates []hrRankedAgentSkillVersion, maxSkil
 	if maxSkills < 1 {
 		return nil, nil, nil
 	}
-	var primary, supporting *hrRankedAgentSkillVersion
+	ordered := append([]hrRankedAgentSkillVersion(nil), candidates...)
+	if manual {
+		sort.SliceStable(ordered, func(i, j int) bool {
+			leftRole := hrRuntimeCompositionRoleOrder(ordered[i].Document.Manifest.Composition.Role)
+			rightRole := hrRuntimeCompositionRoleOrder(ordered[j].Document.Manifest.Composition.Role)
+			if leftRole != rightRole {
+				return leftRole < rightRole
+			}
+			return ordered[i].Document.ID < ordered[j].Document.ID
+		})
+	}
+
+	var primary *hrRankedAgentSkillVersion
+	supportingCandidates := make([]hrRankedAgentSkillVersion, 0, len(ordered))
 	var evidence []*pb.AgentSkillRuntimeEvidence
-	for i := range candidates {
-		candidate := candidates[i]
+	for i := range ordered {
+		candidate := ordered[i]
 		switch candidate.Document.Manifest.Composition.Role {
 		case domainagentskill.CompositionRolePrimary:
 			if primary == nil {
 				primary = &candidate
 			} else if manual {
+				evidence = append(evidence, hrRuntimeAgentSkillEvidenceFromCandidate(candidate, false, "composition_conflict"))
 				return nil, evidence, []hrRuntimeGovernanceError{{Source: "agent_skill", Code: "composition_conflict", ResourceID: candidate.Document.ID}}
 			} else {
 				evidence = append(evidence, hrRuntimeAgentSkillEvidenceFromCandidate(candidate, false, "primary_limit_exceeded"))
 			}
 		case domainagentskill.CompositionRoleSupporting:
-			if supporting == nil {
-				supporting = &candidate
-			} else if manual {
+			if manual && len(supportingCandidates) > 0 {
+				evidence = append(evidence, hrRuntimeAgentSkillEvidenceFromCandidate(candidate, false, "composition_conflict"))
 				return nil, evidence, []hrRuntimeGovernanceError{{Source: "agent_skill", Code: "composition_conflict", ResourceID: candidate.Document.ID}}
-			} else {
-				evidence = append(evidence, hrRuntimeAgentSkillEvidenceFromCandidate(candidate, false, "supporting_limit_exceeded"))
 			}
+			supportingCandidates = append(supportingCandidates, candidate)
 		default:
 			if manual {
+				evidence = append(evidence, hrRuntimeAgentSkillEvidenceFromCandidate(candidate, false, "composition_role_invalid"))
 				return nil, evidence, []hrRuntimeGovernanceError{{Source: "agent_skill", Code: "composition_role_invalid", ResourceID: candidate.Document.ID}}
 			}
 		}
 	}
 	if primary == nil {
-		if supporting != nil {
-			evidence = append(evidence, hrRuntimeAgentSkillEvidenceFromCandidate(*supporting, false, "supporting_requires_primary"))
-			if manual {
-				return nil, evidence, []hrRuntimeGovernanceError{{Source: "agent_skill", Code: "supporting_requires_primary", ResourceID: supporting.Document.ID}}
-			}
+		for _, supporting := range supportingCandidates {
+			evidence = append(evidence, hrRuntimeAgentSkillEvidenceFromCandidate(supporting, false, "supporting_requires_primary"))
+		}
+		if manual && len(supportingCandidates) > 0 {
+			return nil, evidence, []hrRuntimeGovernanceError{{
+				Source:     "agent_skill",
+				Code:       "supporting_requires_primary",
+				ResourceID: supportingCandidates[0].Document.ID,
+			}}
 		}
 		return nil, evidence, nil
 	}
+
+	var supporting *hrRankedAgentSkillVersion
+	for i := range supportingCandidates {
+		candidate := supportingCandidates[i]
+		if reason := hrRuntimeAgentSkillCompositionMismatchReason(primary.Document.Manifest, candidate.Document.Manifest); reason != "" {
+			evidence = append(evidence, hrRuntimeAgentSkillEvidenceFromCandidate(candidate, false, reason))
+			if manual {
+				return nil, evidence, []hrRuntimeGovernanceError{{
+					Source:     "agent_skill",
+					Code:       reason,
+					ResourceID: candidate.Document.ID,
+				}}
+			}
+			continue
+		}
+		if supporting == nil {
+			supporting = &candidate
+			continue
+		}
+		evidence = append(evidence, hrRuntimeAgentSkillEvidenceFromCandidate(candidate, false, "supporting_limit_exceeded"))
+	}
+
 	selected := []hrRuntimeAgentSkill{hrRuntimeAgentSkillFromCandidate(*primary)}
 	if supporting != nil && maxSkills > 1 {
 		selected = append(selected, hrRuntimeAgentSkillFromCandidate(*supporting))
@@ -561,6 +600,31 @@ func composeHRRuntimeAgentSkills(candidates []hrRankedAgentSkillVersion, maxSkil
 		evidence = append(evidence, hrRuntimeAgentSkillEvidenceFromCandidate(*supporting, false, "skill_limit_exceeded"))
 	}
 	return selected, evidence, nil
+}
+
+func hrRuntimeCompositionRoleOrder(role domainagentskill.CompositionRole) int {
+	switch role {
+	case domainagentskill.CompositionRolePrimary:
+		return 0
+	case domainagentskill.CompositionRoleSupporting:
+		return 1
+	default:
+		return 2
+	}
+}
+
+func hrRuntimeAgentSkillCompositionMismatchReason(primary, supporting domainagentskill.Manifest) string {
+	if normalizeHRRuntimeCompositionValue(primary.AgentType) != normalizeHRRuntimeCompositionValue(supporting.AgentType) {
+		return "composition_agent_type_mismatch"
+	}
+	if normalizeHRRuntimeCompositionValue(primary.Scenario) != normalizeHRRuntimeCompositionValue(supporting.Scenario) {
+		return "composition_scenario_mismatch"
+	}
+	return ""
+}
+
+func normalizeHRRuntimeCompositionValue(value string) string {
+	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(value)), " "))
 }
 
 func hrRuntimeAgentSkillFromCandidate(candidate hrRankedAgentSkillVersion) hrRuntimeAgentSkill {
