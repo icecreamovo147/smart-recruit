@@ -854,63 +854,54 @@ func (s *NativeStore) ListAgentSkills(ctx context.Context, page, pageSize int32,
 		return nil, 0, err
 	}
 	var rows []agentSkillRecord
-	if err := query.Order("priority DESC, id ASC").Offset(offset(page, pageSize)).Limit(int(pageSize)).Find(&rows).Error; err != nil {
+	if err := query.Order("id ASC").Offset(offset(page, pageSize)).Limit(int(pageSize)).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	summaries, err := s.loadAgentSkillCurrentVersionSummaries(ctx, rows)
+	if err != nil {
 		return nil, 0, err
 	}
 	items := make([]*pb.AgentSkillInfo, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, &pb.AgentSkillInfo{
-			Id:                   row.ID,
-			Name:                 row.Name,
-			DisplayName:          row.DisplayName,
-			Description:          nullString(row.Description),
-			CurrentVersionId:     nullInt64(row.CurrentVersionID),
-			IsEnabled:            row.IsEnabled,
-			IsManualInvocable:    row.IsManualInvocable,
-			TriggerKeywords:      jsonStringList(row.TriggerKeywords),
-			CreatedAt:            formatTime(row.CreatedAt),
-			UpdatedAt:            formatTime(row.UpdatedAt),
-			AgentType:            row.AgentType,
-			Category:             row.Category,
-			Scenario:             row.Scenario,
-			Priority:             int32(row.Priority),
-			RiskLevel:            row.RiskLevel,
-			RequiredCapabilities: jsonStringList(row.RequiredCapabilities),
-			OutputSchema:         nullString(row.OutputSchema),
-			EvaluationCriteria:   jsonStringList(row.EvaluationCriteria),
-			SemanticTags:         jsonStringList(row.SemanticTags),
-		})
+		items = append(items, agentSkillToPB(row, summaries[row.ID]))
 	}
 	return items, total, nil
 }
 
 func (s *NativeStore) ListAvailableAgentSkills(ctx context.Context, page, pageSize int32, agentType string) ([]*pb.AgentSkillInfo, int64, error) {
-	query := s.db.WithContext(ctx).Model(&agentSkillRecord{}).
+	var rows []agentSkillRecord
+	if err := s.db.WithContext(ctx).Model(&agentSkillRecord{}).
 		Where("agent_skills.is_enabled = ?", true).
 		Where("agent_skills.is_manual_invocable = ?", true).
 		Where("agent_skills.current_version_id IS NOT NULL").
 		Where("agent_skills.current_version_id > 0").
-		Where("LOWER(TRIM(agent_skills.agent_type)) = LOWER(TRIM(?))", strings.TrimSpace(agentType)).
-		Where(`EXISTS (
-			SELECT 1
-			FROM agent_skill_versions version
-			WHERE version.id = agent_skills.current_version_id
-			  AND version.skill_id = agent_skills.id
-			  AND TRIM(version.skill_md) <> ''
-		)`)
-	var total int64
-	if err := query.Count(&total).Error; err != nil {
+		Order("agent_skills.id ASC").
+		Find(&rows).Error; err != nil {
 		return nil, 0, err
 	}
-	var rows []agentSkillRecord
-	if err := query.Order("agent_skills.priority DESC, agent_skills.id ASC").Offset(offset(page, pageSize)).Limit(int(pageSize)).Find(&rows).Error; err != nil {
+	summaries, err := s.loadAgentSkillCurrentVersionSummaries(ctx, rows)
+	if err != nil {
 		return nil, 0, err
 	}
-	items := make([]*pb.AgentSkillInfo, 0, len(rows))
+	eligible := make([]*pb.AgentSkillInfo, 0, len(rows))
+	agentType = strings.TrimSpace(agentType)
 	for _, row := range rows {
-		items = append(items, agentSkillToPB(row))
+		summary := summaries[row.ID]
+		if summary == nil || !strings.EqualFold(strings.TrimSpace(summary.GetAgentType()), agentType) {
+			continue
+		}
+		eligible = append(eligible, agentSkillToPB(row, summary))
 	}
-	return items, total, nil
+	total := int64(len(eligible))
+	start := offset(page, pageSize)
+	if start >= len(eligible) {
+		return nil, total, nil
+	}
+	end := start + int(pageSize)
+	if end > len(eligible) {
+		end = len(eligible)
+	}
+	return eligible[start:end], total, nil
 }
 
 func (s *NativeStore) ListEmbeddingProviders(ctx context.Context, page, pageSize int32) ([]*pb.EmbeddingProviderInfo, int64, error) {
@@ -2211,25 +2202,17 @@ type mcpServerRecord struct {
 func (mcpServerRecord) TableName() string { return "mcp_servers" }
 
 type agentSkillRecord struct {
-	ID                   int64          `gorm:"primaryKey"`
-	Name                 string         `gorm:"column:name"`
-	DisplayName          string         `gorm:"column:display_name"`
-	Description          sql.NullString `gorm:"column:description"`
-	CurrentVersionID     sql.NullInt64  `gorm:"column:current_version_id"`
-	IsEnabled            bool           `gorm:"column:is_enabled"`
-	IsManualInvocable    bool           `gorm:"column:is_manual_invocable"`
-	TriggerKeywords      sql.NullString `gorm:"column:trigger_keywords"`
-	AgentType            string         `gorm:"column:agent_type"`
-	Category             string         `gorm:"column:category"`
-	Scenario             string         `gorm:"column:scenario"`
-	Priority             int            `gorm:"column:priority"`
-	RiskLevel            string         `gorm:"column:risk_level"`
-	RequiredCapabilities sql.NullString `gorm:"column:required_capabilities"`
-	OutputSchema         sql.NullString `gorm:"column:output_schema"`
-	EvaluationCriteria   sql.NullString `gorm:"column:evaluation_criteria"`
-	SemanticTags         sql.NullString `gorm:"column:semantic_tags"`
-	CreatedAt            time.Time      `gorm:"column:created_at"`
-	UpdatedAt            time.Time      `gorm:"column:updated_at"`
+	ID                int64          `gorm:"primaryKey"`
+	Name              string         `gorm:"column:name"`
+	DisplayName       string         `gorm:"column:display_name"`
+	Description       sql.NullString `gorm:"column:description"`
+	CurrentVersionID  sql.NullInt64  `gorm:"column:current_version_id"`
+	IsEnabled         bool           `gorm:"column:is_enabled"`
+	IsManualInvocable bool           `gorm:"column:is_manual_invocable"`
+	CreatedBy         sql.NullInt64  `gorm:"column:created_by"`
+	UpdatedBy         sql.NullInt64  `gorm:"column:updated_by"`
+	CreatedAt         time.Time      `gorm:"column:created_at"`
+	UpdatedAt         time.Time      `gorm:"column:updated_at"`
 }
 
 func (agentSkillRecord) TableName() string { return "agent_skills" }

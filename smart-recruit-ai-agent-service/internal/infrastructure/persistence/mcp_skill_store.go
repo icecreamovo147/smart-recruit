@@ -11,6 +11,8 @@ import (
 
 	"gorm.io/gorm"
 
+	"smart-recruit-ai-agent-service/internal/application/contextbudget"
+	"smart-recruit-ai-agent-service/internal/domain/agentskill"
 	"smart-recruit-ai-agent-service/internal/domain/model"
 	"smart-recruit-ai-agent-service/internal/domain/policy"
 	mcpinfra "smart-recruit-ai-agent-service/internal/infrastructure/mcp"
@@ -24,6 +26,8 @@ const (
 	governanceUnavailable int32 = 500
 	governanceUnsupported int32 = 501
 )
+
+var errAgentSkillNameMismatch = errors.New("agent skill package name does not match registry name")
 
 type mcpToolPolicyRecord struct {
 	ID                     int64          `gorm:"primaryKey"`
@@ -69,19 +73,40 @@ type mcpToolLogRecord struct {
 func (mcpToolLogRecord) TableName() string { return "mcp_tool_logs" }
 
 type agentSkillVersionRecord struct {
-	ID              int64          `gorm:"primaryKey"`
-	SkillID         int64          `gorm:"column:skill_id"`
-	Version         string         `gorm:"column:version"`
-	FlowJSON        sql.NullString `gorm:"column:flow_json"`
-	SkillMD         string         `gorm:"column:skill_md"`
-	FrontmatterJSON sql.NullString `gorm:"column:frontmatter_json"`
-	BodyMarkdown    sql.NullString `gorm:"column:body_markdown"`
-	ChangeNote      sql.NullString `gorm:"column:change_note"`
-	CreatedBy       sql.NullInt64  `gorm:"column:created_by"`
-	CreatedAt       time.Time      `gorm:"column:created_at"`
+	ID                  int64          `gorm:"primaryKey"`
+	SkillID             int64          `gorm:"column:skill_id"`
+	Version             string         `gorm:"column:version"`
+	ManifestJSON        string         `gorm:"column:manifest_json"`
+	CoreMarkdown        string         `gorm:"column:core_markdown"`
+	CompiledMarkdown    string         `gorm:"column:compiled_markdown"`
+	AuthoringJSON       sql.NullString `gorm:"column:authoring_json"`
+	CompiledHash        string         `gorm:"column:compiled_hash"`
+	CoreEstimatedTokens int            `gorm:"column:core_estimated_tokens"`
+	ChangeNote          sql.NullString `gorm:"column:change_note"`
+	CreatedBy           sql.NullInt64  `gorm:"column:created_by"`
+	CreatedAt           time.Time      `gorm:"column:created_at"`
 }
 
 func (agentSkillVersionRecord) TableName() string { return "agent_skill_versions" }
+
+type agentSkillSectionRecord struct {
+	ID                 int64          `gorm:"primaryKey"`
+	SkillVersionID     int64          `gorm:"column:skill_version_id"`
+	SectionKey         string         `gorm:"column:section_key"`
+	Title              string         `gorm:"column:title"`
+	Description        sql.NullString `gorm:"column:description"`
+	ContentMarkdown    string         `gorm:"column:content_markdown"`
+	TriggerTermsJSON   sql.NullString `gorm:"column:trigger_terms_json"`
+	SemanticTagsJSON   sql.NullString `gorm:"column:semantic_tags_json"`
+	PlannerIntentsJSON sql.NullString `gorm:"column:planner_intents_json"`
+	Priority           int            `gorm:"column:priority"`
+	Ordinal            int            `gorm:"column:ordinal"`
+	EstimatedTokens    int            `gorm:"column:estimated_tokens"`
+	ContentHash        string         `gorm:"column:content_hash"`
+	CreatedAt          time.Time      `gorm:"column:created_at"`
+}
+
+func (agentSkillSectionRecord) TableName() string { return "agent_skill_version_sections" }
 
 func (s *NativeStore) CreateMCPServer(ctx context.Context, req *pb.CreateMCPServerRequest) (*pb.MCPServerResponse, error) {
 	transport := strings.ToLower(strings.TrimSpace(req.GetTransport()))
@@ -350,28 +375,37 @@ func (s *NativeStore) GetAgentSkill(ctx context.Context, req *pb.GetAgentSkillRe
 }
 
 func (s *NativeStore) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
-	if strings.TrimSpace(req.GetName()) == "" || strings.TrimSpace(req.GetDisplayName()) == "" {
-		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
+	compiled, authoringJSON, compileErr := compileAgentSkillPackage(req.GetPackage())
+	if compileErr != nil {
+		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: agentSkillCompileErrorMessage(compileErr)}, nil
 	}
-	row := agentSkillRecord{Name: strings.TrimSpace(req.GetName()), DisplayName: strings.TrimSpace(req.GetDisplayName()), Description: nullStringFrom(req.GetDescription(), true), IsEnabled: true, IsManualInvocable: true, TriggerKeywords: jsonListNull(req.GetTriggerKeywords()), AgentType: defaultString(strings.TrimSpace(req.GetAgentType()), "hr_recruiting_agent"), Category: defaultString(strings.TrimSpace(req.GetCategory()), "general"), Scenario: strings.TrimSpace(req.GetScenario()), Priority: int(req.GetPriority()), RiskLevel: defaultString(strings.TrimSpace(req.GetRiskLevel()), "medium"), RequiredCapabilities: jsonListNull(req.GetRequiredCapabilities()), OutputSchema: nullStringFrom(req.GetOutputSchema(), true), EvaluationCriteria: jsonListNull(req.GetEvaluationCriteria()), SemanticTags: jsonListNull(req.GetSemanticTags())}
+	row := agentSkillRecord{
+		Name:              compiled.Manifest.SkillName,
+		DisplayName:       compiled.Manifest.DisplayName,
+		Description:       nullStringFrom(compiled.Manifest.Description, true),
+		IsEnabled:         true,
+		IsManualInvocable: true,
+		CreatedBy:         nullInt64From(req.GetActorUserId()),
+		UpdatedBy:         nullInt64From(req.GetActorUserId()),
+	}
 	if req.GetIsEnabledSet() {
 		row.IsEnabled = req.GetIsEnabled()
 	}
 	if req.GetIsManualInvocableSet() {
 		row.IsManualInvocable = req.GetIsManualInvocable()
 	}
+	versionName := defaultString(strings.TrimSpace(req.GetVersion()), "v1")
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&row).Error; err != nil {
 			return err
 		}
-		if strings.TrimSpace(req.GetVersion()) != "" || strings.TrimSpace(req.GetSkillMd()) != "" {
-			version := agentSkillVersionRecord{SkillID: row.ID, Version: defaultString(strings.TrimSpace(req.GetVersion()), "v1"), FlowJSON: nullStringFrom(req.GetFlowJson(), true), SkillMD: defaultString(req.GetSkillMd(), renderAgentSkillMarkdown(req.GetName(), req.GetDescription(), req.GetFlowJson())), FrontmatterJSON: nullStringFrom("{}", true), BodyMarkdown: nullStringFrom(req.GetDescription(), true), ChangeNote: nullStringFrom(req.GetChangeNote(), true), CreatedBy: nullInt64From(req.GetActorUserId())}
-			if err := tx.Create(&version).Error; err != nil {
-				return err
-			}
-			if req.GetActivate() {
-				return tx.Model(&agentSkillRecord{}).Where("id = ?", row.ID).Update("current_version_id", version.ID).Error
-			}
+		version, err := persistCompiledAgentSkillVersion(tx, row.ID, versionName, req.GetChangeNote(), req.GetActorUserId(), authoringJSON, compiled)
+		if err != nil {
+			return err
+		}
+		if req.GetActivate() {
+			return tx.Model(&agentSkillRecord{}).Where("id = ?", row.ID).
+				Updates(map[string]any{"current_version_id": version.ID, "updated_by": nullInt64From(req.GetActorUserId())}).Error
 		}
 		return nil
 	})
@@ -382,12 +416,23 @@ func (s *NativeStore) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentS
 }
 
 func (s *NativeStore) UpdateAgentSkill(ctx context.Context, req *pb.UpdateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
-	if err := s.assertAgentSkillNotReleased(ctx, req.GetId()); err != nil {
+	if req.GetId() <= 0 {
 		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
+	}
+	var existing agentSkillRecord
+	if err := s.db.WithContext(ctx).First(&existing, req.GetId()).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
+		}
+		return nil, err
 	}
 	updates := map[string]any{"updated_by": nullInt64From(req.GetActorUserId())}
 	if req.GetDisplayNameSet() {
-		updates["display_name"] = strings.TrimSpace(req.GetDisplayName())
+		displayName := strings.TrimSpace(req.GetDisplayName())
+		if displayName == "" {
+			return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
+		}
+		updates["display_name"] = displayName
 	}
 	if req.GetDescriptionSet() {
 		updates["description"] = nullStringFrom(req.GetDescription(), true)
@@ -398,69 +443,60 @@ func (s *NativeStore) UpdateAgentSkill(ctx context.Context, req *pb.UpdateAgentS
 	if req.GetIsManualInvocableSet() {
 		updates["is_manual_invocable"] = req.GetIsManualInvocable()
 	}
-	if req.GetTriggerKeywordsSet() {
-		updates["trigger_keywords"] = jsonListNull(req.GetTriggerKeywords())
-	}
-	if req.GetAgentTypeSet() {
-		updates["agent_type"] = defaultString(strings.TrimSpace(req.GetAgentType()), "hr_recruiting_agent")
-	}
-	if req.GetCategorySet() {
-		updates["category"] = defaultString(strings.TrimSpace(req.GetCategory()), "general")
-	}
-	if req.GetScenarioSet() {
-		updates["scenario"] = strings.TrimSpace(req.GetScenario())
-	}
-	if req.GetPrioritySet() {
-		updates["priority"] = req.GetPriority()
-	}
-	if req.GetRiskLevelSet() {
-		updates["risk_level"] = defaultString(strings.TrimSpace(req.GetRiskLevel()), "medium")
-	}
-	if req.GetRequiredCapabilitiesSet() {
-		updates["required_capabilities"] = jsonListNull(req.GetRequiredCapabilities())
-	}
-	if req.GetOutputSchemaSet() {
-		updates["output_schema"] = nullStringFrom(req.GetOutputSchema(), true)
-	}
-	if req.GetEvaluationCriteriaSet() {
-		updates["evaluation_criteria"] = jsonListNull(req.GetEvaluationCriteria())
-	}
-	if req.GetSemanticTagsSet() {
-		updates["semantic_tags"] = jsonListNull(req.GetSemanticTags())
-	}
 	result := s.db.WithContext(ctx).Model(&agentSkillRecord{}).Where("id = ?", req.GetId()).Updates(updates)
 	if result.Error != nil {
 		return nil, result.Error
-	}
-	if result.RowsAffected == 0 {
-		return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
 	}
 	return s.getAgentSkillResponse(ctx, req.GetId())
 }
 
 func (s *NativeStore) CreateAgentSkillVersion(ctx context.Context, req *pb.CreateAgentSkillVersionRequest) (*pb.AgentSkillVersionResponse, error) {
-	if req.GetSkillId() <= 0 {
+	versionName := strings.TrimSpace(req.GetVersion())
+	if req.GetSkillId() <= 0 || versionName == "" {
 		return &pb.AgentSkillVersionResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
-	if req.GetActivate() {
-		if err := s.assertAgentSkillNotReleased(ctx, req.GetSkillId()); err != nil {
-			return &pb.AgentSkillVersionResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
-		}
+	compiled, authoringJSON, compileErr := compileAgentSkillPackage(req.GetPackage())
+	if compileErr != nil {
+		return &pb.AgentSkillVersionResponse{Code: governanceBadRequest, Msg: agentSkillCompileErrorMessage(compileErr)}, nil
 	}
-	version := agentSkillVersionRecord{SkillID: req.GetSkillId(), Version: defaultString(strings.TrimSpace(req.GetVersion()), fmt.Sprintf("v%d", time.Now().Unix())), FlowJSON: nullStringFrom(req.GetFlowJson(), true), SkillMD: defaultString(req.GetSkillMd(), renderAgentSkillMarkdown(fmt.Sprintf("skill-%d", req.GetSkillId()), req.GetChangeNote(), req.GetFlowJson())), FrontmatterJSON: nullStringFrom("{}", true), BodyMarkdown: nullStringFrom(req.GetChangeNote(), true), ChangeNote: nullStringFrom(req.GetChangeNote(), true), CreatedBy: nullInt64From(req.GetActorUserId())}
+	var version agentSkillVersionRecord
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&version).Error; err != nil {
+		var registry agentSkillRecord
+		if err := tx.First(&registry, req.GetSkillId()).Error; err != nil {
 			return err
 		}
+		if compiled.Manifest.SkillName != registry.Name {
+			return errAgentSkillNameMismatch
+		}
+		persisted, err := persistCompiledAgentSkillVersion(tx, registry.ID, versionName, req.GetChangeNote(), req.GetActorUserId(), authoringJSON, compiled)
+		if err != nil {
+			return err
+		}
+		version = persisted
 		if req.GetActivate() {
-			return tx.Model(&agentSkillRecord{}).Where("id = ?", req.GetSkillId()).Update("current_version_id", version.ID).Error
+			return tx.Model(&agentSkillRecord{}).Where("id = ?", req.GetSkillId()).
+				Updates(map[string]any{"current_version_id": version.ID, "updated_by": nullInt64From(req.GetActorUserId())}).Error
 		}
 		return nil
 	})
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &pb.AgentSkillVersionResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
+	}
+	if errors.Is(err, errAgentSkillNameMismatch) {
+		return &pb.AgentSkillVersionResponse{Code: governanceBadRequest, Msg: agentskill.CodePackageInvalid}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	return &pb.AgentSkillVersionResponse{Code: governanceOK, Msg: "common.success", Version: agentSkillVersionToPB(version)}, nil
+	sections, err := s.loadAgentSkillVersionSections(ctx, []int64{version.ID})
+	if err != nil {
+		return nil, err
+	}
+	info, err := agentSkillVersionToPB(version, sections[version.ID])
+	if err != nil {
+		return nil, err
+	}
+	return &pb.AgentSkillVersionResponse{Code: governanceOK, Msg: "common.success", Version: info}, nil
 }
 
 func (s *NativeStore) ListAgentSkillVersions(ctx context.Context, req *pb.ListAgentSkillVersionsRequest) (*pb.ListAgentSkillVersionsResponse, error) {
@@ -468,9 +504,21 @@ func (s *NativeStore) ListAgentSkillVersions(ctx context.Context, req *pb.ListAg
 	if err := s.db.WithContext(ctx).Where("skill_id = ?", req.GetSkillId()).Order("created_at DESC, id DESC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
+	versionIDs := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		versionIDs = append(versionIDs, row.ID)
+	}
+	sections, err := s.loadAgentSkillVersionSections(ctx, versionIDs)
+	if err != nil {
+		return nil, err
+	}
 	items := make([]*pb.AgentSkillVersionInfo, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, agentSkillVersionToPB(row))
+		item, err := agentSkillVersionToPB(row, sections[row.ID])
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
 	}
 	return &pb.ListAgentSkillVersionsResponse{Code: governanceOK, Msg: "common.success", List: items}, nil
 }
@@ -479,17 +527,16 @@ func (s *NativeStore) ActivateAgentSkillVersion(ctx context.Context, req *pb.Act
 	if req.GetSkillId() <= 0 || req.GetVersionId() <= 0 {
 		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
-	if err := s.assertAgentSkillNotReleased(ctx, req.GetSkillId()); err != nil {
-		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
-	}
-	var rowsAffected int64
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var registry agentSkillRecord
+		if err := tx.First(&registry, req.GetSkillId()).Error; err != nil {
+			return err
+		}
 		var version agentSkillVersionRecord
 		if err := tx.Where("id = ? AND skill_id = ?", req.GetVersionId(), req.GetSkillId()).First(&version).Error; err != nil {
 			return err
 		}
 		result := tx.Model(&agentSkillRecord{}).Where("id = ?", req.GetSkillId()).Updates(map[string]any{"current_version_id": version.ID, "updated_by": nullInt64From(req.GetActorUserId())})
-		rowsAffected = result.RowsAffected
 		return result.Error
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -498,30 +545,37 @@ func (s *NativeStore) ActivateAgentSkillVersion(ctx context.Context, req *pb.Act
 	if err != nil {
 		return nil, err
 	}
-	if rowsAffected == 0 {
-		return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
-	}
 	return s.getAgentSkillResponse(ctx, req.GetSkillId())
 }
 
 func (s *NativeStore) UpdateAgentSkillStatus(ctx context.Context, req *pb.UpdateAgentSkillStatusRequest) (*pb.AgentSkillResponse, error) {
-	if err := s.assertAgentSkillNotReleased(ctx, req.GetId()); err != nil {
+	if req.GetId() <= 0 {
 		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
+	}
+	var existing agentSkillRecord
+	if err := s.db.WithContext(ctx).First(&existing, req.GetId()).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
+		}
+		return nil, err
 	}
 	result := s.db.WithContext(ctx).Model(&agentSkillRecord{}).Where("id = ?", req.GetId()).Updates(map[string]any{"is_enabled": req.GetIsEnabled(), "updated_by": nullInt64From(req.GetActorUserId())})
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	if result.RowsAffected == 0 {
-		return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
-	}
 	return s.getAgentSkillResponse(ctx, req.GetId())
 }
 
 func (s *NativeStore) PreviewAgentSkill(_ context.Context, req *pb.PreviewAgentSkillRequest) (*pb.PreviewAgentSkillResponse, error) {
-	body := renderAgentSkillMarkdown(req.GetName(), req.GetDescription(), req.GetFlowJson())
-	frontmatter := fmt.Sprintf(`{"name":%q,"description":%q}`, strings.TrimSpace(req.GetName()), strings.TrimSpace(req.GetDescription()))
-	return &pb.PreviewAgentSkillResponse{Code: governanceOK, Msg: "common.success", SkillMd: body, FrontmatterJson: frontmatter, BodyMarkdown: body}, nil
+	compiled, authoringJSON, err := compileAgentSkillPackage(req.GetPackage())
+	if err != nil {
+		return &pb.PreviewAgentSkillResponse{Code: governanceBadRequest, Msg: agentSkillCompileErrorMessage(err)}, nil
+	}
+	return &pb.PreviewAgentSkillResponse{
+		Code:    governanceOK,
+		Msg:     "common.success",
+		Package: compiledAgentSkillPackageToPB(compiled, authoringJSON, nil),
+	}, nil
 }
 
 func (s *NativeStore) DebugSemanticRetrieval(context.Context, *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
@@ -558,7 +612,15 @@ func (s *NativeStore) getAgentSkillResponse(ctx context.Context, id int64) (*pb.
 		}
 		return nil, err
 	}
-	return &pb.AgentSkillResponse{Code: governanceOK, Msg: "common.success", Skill: agentSkillToPB(row)}, nil
+	summaries, err := s.loadAgentSkillCurrentVersionSummaries(ctx, []agentSkillRecord{row})
+	if err != nil {
+		return nil, err
+	}
+	return &pb.AgentSkillResponse{
+		Code:  governanceOK,
+		Msg:   "common.success",
+		Skill: agentSkillToPB(row, summaries[row.ID]),
+	}, nil
 }
 
 func (s *NativeStore) validateMCPServerUpdate(ctx context.Context, id int64, updates map[string]any) error {
@@ -603,12 +665,432 @@ func mcpLogToPB(row mcpToolLogRecord) *pb.MCPToolLogInfo {
 	return &pb.MCPToolLogInfo{Id: row.ID, ServerId: row.ServerID, ToolName: row.ToolName, ArgsJson: redactSensitiveJSON(nullString(row.ArgsJSON)), ResultContent: truncateForLog(redactSensitiveText(nullString(row.ResultContent))), DurationMs: int32(row.DurationMs), ErrorMsg: redactSensitiveText(nullString(row.ErrorMsg)), CalledByHrId: nullInt64(row.CalledByHRID), SessionId: nullInt64(row.SessionID), PolicyId: nullInt64(row.PolicyID), PolicyDecision: row.PolicyDecision, PolicyReason: redactSensitiveText(nullString(row.PolicyReason)), CreatedAt: formatTime(row.CreatedAt)}
 }
 
-func agentSkillToPB(row agentSkillRecord) *pb.AgentSkillInfo {
-	return &pb.AgentSkillInfo{Id: row.ID, Name: row.Name, DisplayName: row.DisplayName, Description: nullString(row.Description), CurrentVersionId: nullInt64(row.CurrentVersionID), IsEnabled: row.IsEnabled, IsManualInvocable: row.IsManualInvocable, TriggerKeywords: jsonStringList(row.TriggerKeywords), CreatedAt: formatTime(row.CreatedAt), UpdatedAt: formatTime(row.UpdatedAt), AgentType: row.AgentType, Category: row.Category, Scenario: row.Scenario, Priority: int32(row.Priority), RiskLevel: row.RiskLevel, RequiredCapabilities: jsonStringList(row.RequiredCapabilities), OutputSchema: nullString(row.OutputSchema), EvaluationCriteria: jsonStringList(row.EvaluationCriteria), SemanticTags: jsonStringList(row.SemanticTags)}
+func agentSkillToPB(row agentSkillRecord, current *pb.AgentSkillVersionSummary) *pb.AgentSkillInfo {
+	return &pb.AgentSkillInfo{
+		Id:                row.ID,
+		Name:              row.Name,
+		DisplayName:       row.DisplayName,
+		Description:       nullString(row.Description),
+		CurrentVersionId:  nullInt64(row.CurrentVersionID),
+		IsEnabled:         row.IsEnabled,
+		IsManualInvocable: row.IsManualInvocable,
+		CreatedAt:         formatTime(row.CreatedAt),
+		UpdatedAt:         formatTime(row.UpdatedAt),
+		CurrentVersion:    current,
+	}
 }
 
-func agentSkillVersionToPB(row agentSkillVersionRecord) *pb.AgentSkillVersionInfo {
-	return &pb.AgentSkillVersionInfo{Id: row.ID, SkillId: row.SkillID, Version: row.Version, FlowJson: nullString(row.FlowJSON), SkillMd: row.SkillMD, FrontmatterJson: nullString(row.FrontmatterJSON), BodyMarkdown: nullString(row.BodyMarkdown), ChangeNote: nullString(row.ChangeNote), CreatedAt: formatTime(row.CreatedAt)}
+func agentSkillVersionToPB(row agentSkillVersionRecord, sections []agentSkillSectionRecord) (*pb.AgentSkillVersionInfo, error) {
+	var manifest agentskill.Manifest
+	if err := json.Unmarshal([]byte(row.ManifestJSON), &manifest); err != nil {
+		return nil, fmt.Errorf("decode agent skill version %d manifest: %w", row.ID, err)
+	}
+	sectionInfos := make([]*pb.AgentSkillSectionInfo, 0, len(sections))
+	for _, section := range sections {
+		sectionInfos = append(sectionInfos, agentSkillSectionToPB(section))
+	}
+	return &pb.AgentSkillVersionInfo{
+		Id:         row.ID,
+		SkillId:    row.SkillID,
+		Version:    row.Version,
+		ChangeNote: nullString(row.ChangeNote),
+		CreatedAt:  formatTime(row.CreatedAt),
+		Package: &pb.AgentSkillPackageInfo{
+			Manifest:               agentSkillManifestToPB(manifest),
+			CoreMarkdown:           row.CoreMarkdown,
+			Sections:               sectionInfos,
+			CompiledMarkdown:       row.CompiledMarkdown,
+			AuthoringJson:          nullString(row.AuthoringJSON),
+			CompiledHash:           row.CompiledHash,
+			CoreEstimatedTokens:    int32(row.CoreEstimatedTokens),
+			PackageEstimatedTokens: int32(contextbudget.EstimateTokensConservative(row.CompiledMarkdown)),
+		},
+	}, nil
+}
+
+func (s *NativeStore) loadAgentSkillCurrentVersionSummaries(ctx context.Context, skills []agentSkillRecord) (map[int64]*pb.AgentSkillVersionSummary, error) {
+	ids := make([]int64, 0, len(skills))
+	for _, skill := range skills {
+		if skill.CurrentVersionID.Valid && skill.CurrentVersionID.Int64 > 0 {
+			ids = append(ids, skill.CurrentVersionID.Int64)
+		}
+	}
+	result := make(map[int64]*pb.AgentSkillVersionSummary, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+	var versions []agentSkillVersionRecord
+	if err := s.db.WithContext(ctx).Where("id IN ?", ids).Find(&versions).Error; err != nil {
+		return nil, err
+	}
+	versionsByID := make(map[int64]agentSkillVersionRecord, len(versions))
+	for _, version := range versions {
+		versionsByID[version.ID] = version
+	}
+	for _, skill := range skills {
+		if !skill.CurrentVersionID.Valid {
+			continue
+		}
+		version, ok := versionsByID[skill.CurrentVersionID.Int64]
+		if !ok || version.SkillID != skill.ID {
+			continue
+		}
+		summary, err := agentSkillVersionSummaryToPB(version)
+		if err != nil {
+			return nil, err
+		}
+		result[skill.ID] = summary
+	}
+	return result, nil
+}
+
+func (s *NativeStore) loadAgentSkillVersionSections(ctx context.Context, versionIDs []int64) (map[int64][]agentSkillSectionRecord, error) {
+	result := make(map[int64][]agentSkillSectionRecord, len(versionIDs))
+	if len(versionIDs) == 0 {
+		return result, nil
+	}
+	var sections []agentSkillSectionRecord
+	if err := s.db.WithContext(ctx).
+		Where("skill_version_id IN ?", versionIDs).
+		Order("skill_version_id ASC, ordinal ASC, section_key ASC, id ASC").
+		Find(&sections).Error; err != nil {
+		return nil, err
+	}
+	for _, section := range sections {
+		result[section.SkillVersionID] = append(result[section.SkillVersionID], section)
+	}
+	return result, nil
+}
+
+func agentSkillVersionSummaryToPB(row agentSkillVersionRecord) (*pb.AgentSkillVersionSummary, error) {
+	var manifest agentskill.Manifest
+	if err := json.Unmarshal([]byte(row.ManifestJSON), &manifest); err != nil {
+		return nil, fmt.Errorf("decode agent skill version %d manifest summary: %w", row.ID, err)
+	}
+	return &pb.AgentSkillVersionSummary{
+		VersionId:              row.ID,
+		Version:                row.Version,
+		CompiledHash:           row.CompiledHash,
+		AgentType:              manifest.AgentType,
+		Category:               manifest.Category,
+		Scenario:               manifest.Scenario,
+		Priority:               int32(manifest.Priority),
+		Risk:                   agentSkillRiskToPB(manifest.RiskLevel),
+		ActivationPolicy:       agentSkillActivationPolicyToPB(manifest.ActivationPolicy),
+		CompositionRole:        agentSkillCompositionRoleToPB(manifest.Composition.Role),
+		CoreEstimatedTokens:    int32(row.CoreEstimatedTokens),
+		PackageEstimatedTokens: int32(contextbudget.EstimateTokensConservative(row.CompiledMarkdown)),
+	}, nil
+}
+
+func compileAgentSkillPackage(input *pb.AgentSkillPackageDraft) (*agentskill.CompiledPackage, string, error) {
+	if input == nil || input.GetManifest() == nil {
+		return nil, "", &agentskill.CompileError{
+			Code:    agentskill.CodePackageInvalid,
+			Field:   "package",
+			Message: "is required",
+		}
+	}
+	authoringJSON := strings.TrimSpace(input.GetAuthoringJson())
+	if authoringJSON != "" && !json.Valid([]byte(authoringJSON)) {
+		return nil, "", &agentskill.CompileError{
+			Code:    agentskill.CodePackageInvalid,
+			Field:   "package.authoring_json",
+			Message: "must be valid JSON",
+		}
+	}
+	draft := agentskill.PackageDraft{
+		Manifest: agentSkillManifestFromPB(input.GetManifest()),
+		Core:     agentskill.Core{ContentMarkdown: input.GetCoreMarkdown()},
+		Sections: make([]agentskill.ReferenceSection, 0, len(input.GetSections())),
+	}
+	for _, section := range input.GetSections() {
+		if section == nil {
+			return nil, "", &agentskill.CompileError{
+				Code:    agentskill.CodeSectionInvalid,
+				Field:   "package.sections",
+				Message: "must not contain null sections",
+			}
+		}
+		draft.Sections = append(draft.Sections, agentskill.ReferenceSection{
+			SectionKey:      section.GetSectionKey(),
+			Title:           section.GetTitle(),
+			Description:     section.GetDescription(),
+			ContentMarkdown: section.GetContentMarkdown(),
+			TriggerTerms:    append([]string(nil), section.GetTriggerTerms()...),
+			SemanticTags:    append([]string(nil), section.GetSemanticTags()...),
+			PlannerIntents:  append([]string(nil), section.GetPlannerIntents()...),
+			Priority:        int(section.GetPriority()),
+			Ordinal:         int(section.GetOrdinal()),
+		})
+	}
+	compiled, err := agentskill.Compile(draft)
+	return compiled, authoringJSON, err
+}
+
+func agentSkillManifestFromPB(input *pb.AgentSkillManifest) agentskill.Manifest {
+	var schema json.RawMessage
+	if contract := input.GetOutputContract(); contract != nil && strings.TrimSpace(contract.GetSchemaJson()) != "" {
+		schema = json.RawMessage(contract.GetSchemaJson())
+	}
+	return agentskill.Manifest{
+		SchemaVersion:        int(input.GetSchemaVersion()),
+		SkillName:            input.GetSkillName(),
+		DisplayName:          input.GetDisplayName(),
+		Description:          input.GetDescription(),
+		AgentType:            input.GetAgentType(),
+		Category:             input.GetCategory(),
+		Scenario:             input.GetScenario(),
+		Priority:             int(input.GetPriority()),
+		RiskLevel:            agentSkillRiskFromPB(input.GetRisk()),
+		ActivationPolicy:     agentSkillActivationPolicyFromPB(input.GetActivationPolicy()),
+		RequiredCapabilities: append([]string(nil), input.GetRequiredCapabilities()...),
+		TriggerKeywords:      append([]string(nil), input.GetTriggerKeywords()...),
+		SemanticTags:         append([]string(nil), input.GetSemanticTags()...),
+		Composition: agentskill.Composition{
+			Role: agentSkillCompositionRoleFromPB(input.GetComposition().GetRole()),
+		},
+		OutputContract: agentskill.OutputContract{
+			Mode:     agentSkillOutputModeFromPB(input.GetOutputContract().GetMode()),
+			SchemaID: input.GetOutputContract().GetSchemaId(),
+			Schema:   schema,
+		},
+		EvaluationCriteria: append([]string(nil), input.GetEvaluationCriteria()...),
+	}
+}
+
+func persistCompiledAgentSkillVersion(
+	tx *gorm.DB,
+	skillID int64,
+	versionName, changeNote string,
+	actorUserID int64,
+	authoringJSON string,
+	compiled *agentskill.CompiledPackage,
+) (agentSkillVersionRecord, error) {
+	version := agentSkillVersionRecord{
+		SkillID:             skillID,
+		Version:             versionName,
+		ManifestJSON:        compiled.ManifestJSON,
+		CoreMarkdown:        compiled.Core.ContentMarkdown,
+		CompiledMarkdown:    compiled.CompiledMarkdown,
+		AuthoringJSON:       nullStringFrom(authoringJSON, false),
+		CompiledHash:        compiled.CompiledHash,
+		CoreEstimatedTokens: compiled.Core.EstimatedTokens,
+		ChangeNote:          nullStringFrom(changeNote, true),
+		CreatedBy:           nullInt64From(actorUserID),
+	}
+	if err := tx.Create(&version).Error; err != nil {
+		return agentSkillVersionRecord{}, err
+	}
+	if len(compiled.Sections) == 0 {
+		return version, nil
+	}
+	sections := make([]agentSkillSectionRecord, 0, len(compiled.Sections))
+	for _, section := range compiled.Sections {
+		sections = append(sections, agentSkillSectionRecord{
+			SkillVersionID:     version.ID,
+			SectionKey:         section.SectionKey,
+			Title:              section.Title,
+			Description:        nullStringFrom(section.Description, true),
+			ContentMarkdown:    section.ContentMarkdown,
+			TriggerTermsJSON:   jsonListNull(section.TriggerTerms),
+			SemanticTagsJSON:   jsonListNull(section.SemanticTags),
+			PlannerIntentsJSON: jsonListNull(section.PlannerIntents),
+			Priority:           section.Priority,
+			Ordinal:            section.Ordinal,
+			EstimatedTokens:    section.EstimatedTokens,
+			ContentHash:        section.ContentHash,
+		})
+	}
+	if err := tx.Create(&sections).Error; err != nil {
+		return agentSkillVersionRecord{}, err
+	}
+	return version, nil
+}
+
+func compiledAgentSkillPackageToPB(compiled *agentskill.CompiledPackage, authoringJSON string, sectionIDs map[string]int64) *pb.AgentSkillPackageInfo {
+	sections := make([]*pb.AgentSkillSectionInfo, 0, len(compiled.Sections))
+	for _, section := range compiled.Sections {
+		sections = append(sections, &pb.AgentSkillSectionInfo{
+			Id:              sectionIDs[section.SectionKey],
+			SectionKey:      section.SectionKey,
+			Title:           section.Title,
+			Description:     section.Description,
+			ContentMarkdown: section.ContentMarkdown,
+			TriggerTerms:    append([]string(nil), section.TriggerTerms...),
+			SemanticTags:    append([]string(nil), section.SemanticTags...),
+			PlannerIntents:  append([]string(nil), section.PlannerIntents...),
+			Priority:        int32(section.Priority),
+			Ordinal:         int32(section.Ordinal),
+			EstimatedTokens: int32(section.EstimatedTokens),
+			ContentHash:     section.ContentHash,
+		})
+	}
+	return &pb.AgentSkillPackageInfo{
+		Manifest:               agentSkillManifestToPB(compiled.Manifest),
+		CoreMarkdown:           compiled.Core.ContentMarkdown,
+		Sections:               sections,
+		CompiledMarkdown:       compiled.CompiledMarkdown,
+		AuthoringJson:          authoringJSON,
+		CompiledHash:           compiled.CompiledHash,
+		CoreEstimatedTokens:    int32(compiled.Core.EstimatedTokens),
+		PackageEstimatedTokens: int32(compiled.EstimatedTokens),
+	}
+}
+
+func agentSkillSectionToPB(section agentSkillSectionRecord) *pb.AgentSkillSectionInfo {
+	return &pb.AgentSkillSectionInfo{
+		Id:              section.ID,
+		SectionKey:      section.SectionKey,
+		Title:           section.Title,
+		Description:     nullString(section.Description),
+		ContentMarkdown: section.ContentMarkdown,
+		TriggerTerms:    jsonStringList(section.TriggerTermsJSON),
+		SemanticTags:    jsonStringList(section.SemanticTagsJSON),
+		PlannerIntents:  jsonStringList(section.PlannerIntentsJSON),
+		Priority:        int32(section.Priority),
+		Ordinal:         int32(section.Ordinal),
+		EstimatedTokens: int32(section.EstimatedTokens),
+		ContentHash:     section.ContentHash,
+	}
+}
+
+func agentSkillManifestToPB(manifest agentskill.Manifest) *pb.AgentSkillManifest {
+	return &pb.AgentSkillManifest{
+		SchemaVersion:        int32(manifest.SchemaVersion),
+		SkillName:            manifest.SkillName,
+		DisplayName:          manifest.DisplayName,
+		Description:          manifest.Description,
+		AgentType:            manifest.AgentType,
+		Category:             manifest.Category,
+		Scenario:             manifest.Scenario,
+		Priority:             int32(manifest.Priority),
+		Risk:                 agentSkillRiskToPB(manifest.RiskLevel),
+		ActivationPolicy:     agentSkillActivationPolicyToPB(manifest.ActivationPolicy),
+		RequiredCapabilities: append([]string(nil), manifest.RequiredCapabilities...),
+		TriggerKeywords:      append([]string(nil), manifest.TriggerKeywords...),
+		SemanticTags:         append([]string(nil), manifest.SemanticTags...),
+		Composition: &pb.AgentSkillComposition{
+			Role: agentSkillCompositionRoleToPB(manifest.Composition.Role),
+		},
+		OutputContract: &pb.AgentSkillOutputContract{
+			Mode:       agentSkillOutputModeToPB(manifest.OutputContract.Mode),
+			SchemaId:   manifest.OutputContract.SchemaID,
+			SchemaJson: string(manifest.OutputContract.Schema),
+		},
+		EvaluationCriteria: append([]string(nil), manifest.EvaluationCriteria...),
+	}
+}
+
+func agentSkillCompileErrorMessage(err error) string {
+	if code := agentskill.ErrorCode(err); code != "" {
+		return code
+	}
+	return "common.invalid_request"
+}
+
+func agentSkillRiskFromPB(value pb.AgentSkillRiskLevel) agentskill.RiskLevel {
+	switch value {
+	case pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_LOW:
+		return agentskill.RiskLevelLow
+	case pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_MEDIUM:
+		return agentskill.RiskLevelMedium
+	case pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_HIGH:
+		return agentskill.RiskLevelHigh
+	case pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_CRITICAL:
+		return agentskill.RiskLevelCritical
+	default:
+		return ""
+	}
+}
+
+func agentSkillRiskToPB(value agentskill.RiskLevel) pb.AgentSkillRiskLevel {
+	switch value {
+	case agentskill.RiskLevelLow:
+		return pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_LOW
+	case agentskill.RiskLevelMedium:
+		return pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_MEDIUM
+	case agentskill.RiskLevelHigh:
+		return pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_HIGH
+	case agentskill.RiskLevelCritical:
+		return pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_CRITICAL
+	default:
+		return pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_UNSPECIFIED
+	}
+}
+
+func agentSkillActivationPolicyFromPB(value pb.AgentSkillActivationPolicy) agentskill.ActivationPolicy {
+	switch value {
+	case pb.AgentSkillActivationPolicy_AGENT_SKILL_ACTIVATION_POLICY_AUTO:
+		return agentskill.ActivationPolicyAuto
+	case pb.AgentSkillActivationPolicy_AGENT_SKILL_ACTIVATION_POLICY_CONFIRM:
+		return agentskill.ActivationPolicyConfirm
+	case pb.AgentSkillActivationPolicy_AGENT_SKILL_ACTIVATION_POLICY_MANUAL_ONLY:
+		return agentskill.ActivationPolicyManualOnly
+	default:
+		return ""
+	}
+}
+
+func agentSkillActivationPolicyToPB(value agentskill.ActivationPolicy) pb.AgentSkillActivationPolicy {
+	switch value {
+	case agentskill.ActivationPolicyAuto:
+		return pb.AgentSkillActivationPolicy_AGENT_SKILL_ACTIVATION_POLICY_AUTO
+	case agentskill.ActivationPolicyConfirm:
+		return pb.AgentSkillActivationPolicy_AGENT_SKILL_ACTIVATION_POLICY_CONFIRM
+	case agentskill.ActivationPolicyManualOnly:
+		return pb.AgentSkillActivationPolicy_AGENT_SKILL_ACTIVATION_POLICY_MANUAL_ONLY
+	default:
+		return pb.AgentSkillActivationPolicy_AGENT_SKILL_ACTIVATION_POLICY_UNSPECIFIED
+	}
+}
+
+func agentSkillCompositionRoleFromPB(value pb.AgentSkillCompositionRole) agentskill.CompositionRole {
+	switch value {
+	case pb.AgentSkillCompositionRole_AGENT_SKILL_COMPOSITION_ROLE_PRIMARY:
+		return agentskill.CompositionRolePrimary
+	case pb.AgentSkillCompositionRole_AGENT_SKILL_COMPOSITION_ROLE_SUPPORTING:
+		return agentskill.CompositionRoleSupporting
+	default:
+		return ""
+	}
+}
+
+func agentSkillCompositionRoleToPB(value agentskill.CompositionRole) pb.AgentSkillCompositionRole {
+	switch value {
+	case agentskill.CompositionRolePrimary:
+		return pb.AgentSkillCompositionRole_AGENT_SKILL_COMPOSITION_ROLE_PRIMARY
+	case agentskill.CompositionRoleSupporting:
+		return pb.AgentSkillCompositionRole_AGENT_SKILL_COMPOSITION_ROLE_SUPPORTING
+	default:
+		return pb.AgentSkillCompositionRole_AGENT_SKILL_COMPOSITION_ROLE_UNSPECIFIED
+	}
+}
+
+func agentSkillOutputModeFromPB(value pb.AgentSkillOutputMode) agentskill.OutputMode {
+	switch value {
+	case pb.AgentSkillOutputMode_AGENT_SKILL_OUTPUT_MODE_NONE:
+		return agentskill.OutputModeNone
+	case pb.AgentSkillOutputMode_AGENT_SKILL_OUTPUT_MODE_ADVISORY:
+		return agentskill.OutputModeAdvisory
+	case pb.AgentSkillOutputMode_AGENT_SKILL_OUTPUT_MODE_STRICT:
+		return agentskill.OutputModeStrict
+	default:
+		return ""
+	}
+}
+
+func agentSkillOutputModeToPB(value agentskill.OutputMode) pb.AgentSkillOutputMode {
+	switch value {
+	case agentskill.OutputModeNone:
+		return pb.AgentSkillOutputMode_AGENT_SKILL_OUTPUT_MODE_NONE
+	case agentskill.OutputModeAdvisory:
+		return pb.AgentSkillOutputMode_AGENT_SKILL_OUTPUT_MODE_ADVISORY
+	case agentskill.OutputModeStrict:
+		return pb.AgentSkillOutputMode_AGENT_SKILL_OUTPUT_MODE_STRICT
+	default:
+		return pb.AgentSkillOutputMode_AGENT_SKILL_OUTPUT_MODE_UNSPECIFIED
+	}
 }
 
 func putMCPJSON(updates map[string]any, key, value string) {
@@ -703,8 +1185,4 @@ func truncateForLog(value string) string {
 		return value
 	}
 	return value[:maxLen] + "...[truncated]"
-}
-
-func renderAgentSkillMarkdown(name, description, flowJSON string) string {
-	return fmt.Sprintf("# %s\n\n%s\n\n```json\n%s\n```\n", strings.TrimSpace(name), strings.TrimSpace(description), strings.TrimSpace(flowJSON))
 }

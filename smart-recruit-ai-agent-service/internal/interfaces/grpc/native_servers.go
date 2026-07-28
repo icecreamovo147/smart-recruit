@@ -8089,7 +8089,14 @@ func (s nativeAgentSkillService) ListAvailableAgentSkills(ctx context.Context, r
 	available := make([]*pb.AgentSkillInfo, 0, len(rows))
 	detailStore, hasDetailStore := s.store.(agentSkillDetailStore)
 	for _, row := range rows {
-		if row == nil || !row.GetIsEnabled() || !row.GetIsManualInvocable() || row.GetCurrentVersionId() <= 0 || !strings.EqualFold(strings.TrimSpace(row.GetAgentType()), hrRecruitingAgentType) || !hasDetailStore {
+		if row == nil {
+			continue
+		}
+		currentSummary := row.GetCurrentVersion()
+		if !row.GetIsEnabled() || !row.GetIsManualInvocable() ||
+			row.GetCurrentVersionId() <= 0 || currentSummary == nil ||
+			!strings.EqualFold(strings.TrimSpace(currentSummary.GetAgentType()), hrRecruitingAgentType) ||
+			!hasDetailStore {
 			continue
 		}
 		versions, versionErr := detailStore.ListAgentSkillVersions(ctx, &pb.ListAgentSkillVersionsRequest{SkillId: row.GetId()})
@@ -8097,7 +8104,9 @@ func (s nativeAgentSkillService) ListAvailableAgentSkills(ctx context.Context, r
 			continue
 		}
 		for _, version := range versions.GetList() {
-			if version != nil && version.GetId() == row.GetCurrentVersionId() && version.GetSkillId() == row.GetId() && strings.TrimSpace(version.GetSkillMd()) != "" {
+			if version != nil && version.GetId() == row.GetCurrentVersionId() &&
+				version.GetSkillId() == row.GetId() && version.GetPackage() != nil &&
+				strings.TrimSpace(version.GetPackage().GetCoreMarkdown()) != "" {
 				available = append(available, row)
 				break
 			}

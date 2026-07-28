@@ -1025,52 +1025,10 @@ func (s *NativeStore) UpdateEmbeddingTestStatus(ctx context.Context, modelID int
 	return s.db.WithContext(ctx).Model(&embeddingModelRecord{}).Where("id = ?", modelID).Updates(updates).Error
 }
 
-func (s *NativeStore) ListAgentSkillEmbeddingDocuments(ctx context.Context, objectID int64, limit int) ([]embeddinginfra.AgentSkillEmbeddingDocument, error) {
-	if limit <= 0 || limit > 200 {
-		limit = 100
-	}
-	type row struct {
-		agentSkillRecord
-		BodyMarkdown sql.NullString `gorm:"column:body_markdown"`
-		SkillMD      sql.NullString `gorm:"column:skill_md"`
-	}
-	query := s.db.WithContext(ctx).Table("agent_skills s").
-		Select("s.*, v.body_markdown, v.skill_md").
-		Joins("INNER JOIN agent_skill_versions v ON v.id = s.current_version_id AND v.skill_id = s.id").
-		Where("s.is_enabled = ? AND s.current_version_id IS NOT NULL AND TRIM(v.skill_md) <> ''", true)
-	if objectID > 0 {
-		query = query.Where("s.id = ?", objectID)
-	}
-	var rows []row
-	if err := query.Order("s.priority DESC, s.id ASC").Limit(limit).Scan(&rows).Error; err != nil {
-		return nil, err
-	}
-	docs := make([]embeddinginfra.AgentSkillEmbeddingDocument, 0, len(rows))
-	for _, item := range rows {
-		body := nullString(item.BodyMarkdown)
-		if strings.TrimSpace(body) == "" {
-			body = nullString(item.SkillMD)
-		}
-		docs = append(docs, embeddinginfra.AgentSkillEmbeddingDocument{
-			ID:                   item.ID,
-			Name:                 item.Name,
-			DisplayName:          item.DisplayName,
-			Description:          nullString(item.Description),
-			AgentType:            item.AgentType,
-			Category:             item.Category,
-			Scenario:             item.Scenario,
-			Priority:             item.Priority,
-			RiskLevel:            item.RiskLevel,
-			TriggerKeywords:      jsonStringList(item.TriggerKeywords),
-			RequiredCapabilities: jsonStringList(item.RequiredCapabilities),
-			EvaluationCriteria:   jsonStringList(item.EvaluationCriteria),
-			SemanticTags:         jsonStringList(item.SemanticTags),
-			OutputSchema:         nullString(item.OutputSchema),
-			BodyMarkdown:         body,
-			Enabled:              item.IsEnabled,
-		})
-	}
-	return docs, nil
+func (s *NativeStore) ListAgentSkillEmbeddingDocuments(context.Context, int64, int) ([]embeddinginfra.AgentSkillEmbeddingDocument, error) {
+	// Package v2 embeddings are version- and section-scoped. Keep the legacy
+	// interface inert until the v2 embedding adapter replaces it.
+	return []embeddinginfra.AgentSkillEmbeddingDocument{}, nil
 }
 
 func (s *NativeStore) ListMemoryEmbeddingDocuments(ctx context.Context, objectID int64, limit int) ([]embeddinginfra.MemoryEmbeddingDocument, error) {
