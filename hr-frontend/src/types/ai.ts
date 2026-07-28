@@ -156,6 +156,8 @@ export interface AgentSkillSelectionPayload {
   candidates: AgentSkillSelectionCandidate[]
   recommended_agent_skill_ids: number[]
   user_message_id?: number
+  confirmation_kind?: 'agent_skill' | 'mcp_tool'
+  confirmation_payload_json?: string
 }
 
 export interface StreamHandlers {

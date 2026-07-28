@@ -39,6 +39,56 @@ export interface DurableChatUiBinder {
 
 export const insufficientCreditsMessage = 'AI 套餐额度不足，请购买套餐或加量包后重试'
 
+export function streamTimeoutMessage(): string {
+  return t('ai.stream_timeout')
+}
+
+export function modelFallbackMessage(effectiveModelName: string): string {
+  return t('ai.model_fallback', { model: effectiveModelName.trim() })
+}
+
+export function hasPendingRunConfirmation(
+  runStatus: string,
+  messages: Array<{
+    agentSkillSelection?: { required?: boolean }
+    skillSelectionRequest?: unknown
+  }>,
+): boolean {
+  return runStatus === 'waiting_confirmation'
+    || messages.some((message) =>
+      Boolean(message.agentSkillSelection?.required && message.skillSelectionRequest),
+    )
+}
+
+export function isMCPConfirmationExpired(
+  confirmationPayloadJSON: string | undefined,
+  nowMs = Date.now(),
+): boolean {
+  if (!confirmationPayloadJSON) return false
+  try {
+    const payload = JSON.parse(confirmationPayloadJSON) as Record<string, unknown>
+    if (payload.type !== 'mcp_tool' || typeof payload.expires_at !== 'string') return false
+    const expiresAt = Date.parse(payload.expires_at)
+    return Number.isFinite(expiresAt) && expiresAt <= nowMs
+  } catch {
+    return false
+  }
+}
+
+export async function cancelPendingAgentRun(
+  runtime: UseHrAgentRunReturn,
+  expectedRunId: number,
+  clientRequestId = createClientRequestId(),
+): Promise<HrAgentRunState> {
+  if (!Number.isFinite(expectedRunId) || expectedRunId <= 0) {
+    throw new Error(t('common.invalid_request'))
+  }
+  if (runtime.state.value.runId !== expectedRunId) {
+    await runtime.hydrateFromRunId(expectedRunId, { autoSubscribe: false })
+  }
+  return runtime.cancel({ client_request_id: clientRequestId })
+}
+
 export function friendlyDurableRunErrorMessage(errorType = '', errorMessage = ''): string {
   const combined = `${errorType} ${errorMessage}`.toLowerCase()
   if (combined.includes('insufficient_credits')) {
@@ -141,6 +191,31 @@ export function toAgentSkillSelectionPayload(
   if (confirmation.raw_json) {
     try {
       const parsed = JSON.parse(confirmation.raw_json) as unknown
+      if (parsed && typeof parsed === 'object') {
+        const mcp = parsed as Record<string, unknown>
+        if (
+          mcp.type === 'mcp_tool' &&
+          typeof mcp.confirmation_id === 'string' &&
+          typeof mcp.capability_key === 'string' &&
+          typeof mcp.arguments_hash === 'string'
+        ) {
+          return {
+            required: true,
+            reason: confirmation.reason || `请确认执行 MCP 能力 ${mcp.capability_key}`,
+            candidates: [],
+            recommended_agent_skill_ids: [],
+            confirmation_kind: 'mcp_tool',
+            confirmation_payload_json: JSON.stringify({
+              type: 'mcp_tool',
+              confirmation_id: mcp.confirmation_id,
+              capability_key: mcp.capability_key,
+              arguments_hash: mcp.arguments_hash,
+              ...(typeof mcp.expires_at === 'string' ? { expires_at: mcp.expires_at } : {}),
+              approved: true,
+            }),
+          }
+        }
+      }
       const mapped = fromNested(parsed)
       if (mapped) return mapped
     } catch {
@@ -337,7 +412,9 @@ export async function executeConfirmChatRun(
       ...payload,
       client_request_id: payload.client_request_id || createClientRequestId(),
       agent_skill_selection_confirmed:
-        payload.agent_skill_selection_confirmed !== false,
+        payload.confirmation_payload_json
+          ? payload.agent_skill_selection_confirmed === true
+          : payload.agent_skill_selection_confirmed !== false,
     }
     const confirmed = await runtime.confirm(request)
     if (opts.isAborted()) {

@@ -188,14 +188,19 @@ func SelectAgentSkills(candidates []model.AgentSkill, req model.AgentSkillSelect
 		if seen[skill.ID] || !skill.Enabled || !agentTypeMatches(skill.AgentType, req.AgentType) || !capabilitiesAvailable(skill.RequiredCapabilities, req.AvailableCapabilities) {
 			continue
 		}
+		lexical := agentSkillLexicalScore(req.Question, skill)
+		semantic, hasSemantic := req.SemanticScores[skill.ID]
+		if (!hasSemantic || semantic <= 0) && lexical <= 0 {
+			continue
+		}
 		score := float64(skill.Priority)
-		if semantic, ok := req.SemanticScores[skill.ID]; ok {
+		reason := "lexical metadata fallback"
+		if hasSemantic && semantic > 0 {
 			score += semantic * 100
+			reason = "semantic selection"
 		}
-		if strings.Contains(strings.ToLower(req.Question), strings.ToLower(skill.Category)) && skill.Category != "" {
-			score += 10
-		}
-		auto = append(auto, model.SelectedAgentSkill{ID: skill.ID, Name: skill.Name, Score: score, Reason: "auto selection", RiskLevel: skill.RiskLevel})
+		score += lexical * 25
+		auto = append(auto, model.SelectedAgentSkill{ID: skill.ID, Name: skill.Name, Score: score, Reason: reason, RiskLevel: skill.RiskLevel})
 	}
 	sort.SliceStable(auto, func(i, j int) bool {
 		if auto[i].Score == auto[j].Score {
@@ -210,6 +215,64 @@ func SelectAgentSkills(candidates []model.AgentSkill, req model.AgentSkillSelect
 		}
 	}
 	return selected
+}
+
+func agentSkillLexicalScore(question string, skill model.AgentSkill) float64 {
+	query := strings.ToLower(strings.TrimSpace(question))
+	if query == "" {
+		return 0
+	}
+	queryTokens := expandedAgentSkillQueryTokens(query)
+	values := []string{skill.Name, skill.DisplayName, skill.Content, skill.Category, skill.Scenario}
+	values = append(values, skill.TriggerKeywords...)
+	values = append(values, skill.SemanticTags...)
+	score := 0.0
+	for _, value := range values {
+		normalized := strings.ToLower(strings.TrimSpace(value))
+		if normalized == "" {
+			continue
+		}
+		if strings.Contains(query, normalized) || strings.Contains(normalized, query) {
+			score += 0.6
+		}
+		normalized = strings.NewReplacer("_", " ", "-", " ", "/", " ").Replace(normalized)
+		for _, token := range strings.Fields(normalized) {
+			if len([]rune(token)) > 1 && queryTokens[token] {
+				score += 0.2
+			}
+		}
+	}
+	if score > 1 {
+		return 1
+	}
+	return score
+}
+
+func expandedAgentSkillQueryTokens(query string) map[string]bool {
+	normalized := strings.NewReplacer("_", " ", "-", " ", "/", " ").Replace(query)
+	result := make(map[string]bool)
+	for _, token := range strings.Fields(normalized) {
+		if len([]rune(token)) > 1 {
+			result[token] = true
+		}
+	}
+	for marker, aliases := range map[string][]string{
+		"候选": {"candidate"},
+		"简历": {"resume"},
+		"面试": {"interview"},
+		"岗位": {"job", "position"},
+		"职位": {"job", "position"},
+		"招聘": {"recruiting"},
+		"筛选": {"screen"},
+		"匹配": {"match"},
+	} {
+		if strings.Contains(query, marker) {
+			for _, alias := range aliases {
+				result[alias] = true
+			}
+		}
+	}
+	return result
 }
 
 func ValidateEmbeddingProvider(provider model.EmbeddingProviderConfig) error {

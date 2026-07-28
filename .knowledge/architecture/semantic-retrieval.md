@@ -29,13 +29,15 @@ source_refs:
   - platform-frontend/src/views/ai/SemanticRetrievalDebugView.vue
   - platform-frontend/src/api/memory.ts
   - smart-recruit-commons/config/config.example.yaml
-last_verified: 2026-07-22
+last_verified: 2026-07-28
 review_after: 2026-10-14
 ---
 
 # Semantic Retrieval for Agent Skills and Memories
 
 Semantic retrieval lives in AI Agent service. Agent Skill and AI Memory recall both combine eligibility filters, lexical/vector signals, metadata scope boosts, business boost gating, and context limits. Embedding failures degrade through explicit lexical+metadata fallback rather than silently returning empty context.
+
+For Agent Skills, `EmbeddingService.SearchAgentSkills` falls back when the runner/config is missing, provider invocation fails, the provider returns an empty vector, or no ready embedding exists for the current model. Fallback candidates are rebuilt from active Skill documents, require positive lexical or metadata relevance, expose `RelevanceMode=lexical_metadata` with zero vector score, and keep the failure reason visible. Runtime auto-selection also has a local relevance gate, so it still works when no embedding service is bound while unrelated high-priority Skills are excluded.
 
 ## Memory pool (live)
 
@@ -53,4 +55,4 @@ Memory ranking reads `RankingConfigFromService(cfg.Ranking)` with defaults: vect
 
 ## Verification
 
-Verified against embedding provider tests, memory ranking/domain tests, native memory runtime wiring, SemanticRetrievalDebugView Memory pool UI, and config defaults on 2026-07-22.
+Verified against embedding provider fallback tests, Agent Skill policy tests, memory ranking/domain tests, native memory runtime wiring, SemanticRetrievalDebugView Memory pool UI, and config defaults on 2026-07-28.

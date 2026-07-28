@@ -139,6 +139,7 @@ type AgentSkill struct {
 	Scenario             string
 	RiskLevel            string
 	SemanticTags         []string
+	TriggerKeywords      []string
 }
 
 type AgentSkillSelectionRequest struct {

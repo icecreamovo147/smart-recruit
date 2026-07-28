@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -438,6 +439,14 @@ func (s *NativeStore) UpdateAgentSkill(ctx context.Context, req *pb.UpdateAgentS
 }
 
 func (s *NativeStore) CreateAgentSkillVersion(ctx context.Context, req *pb.CreateAgentSkillVersionRequest) (*pb.AgentSkillVersionResponse, error) {
+	if req.GetSkillId() <= 0 {
+		return &pb.AgentSkillVersionResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
+	}
+	if req.GetActivate() {
+		if err := s.assertAgentSkillNotReleased(ctx, req.GetSkillId()); err != nil {
+			return &pb.AgentSkillVersionResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
+		}
+	}
 	version := agentSkillVersionRecord{SkillID: req.GetSkillId(), Version: defaultString(strings.TrimSpace(req.GetVersion()), fmt.Sprintf("v%d", time.Now().Unix())), FlowJSON: nullStringFrom(req.GetFlowJson(), true), SkillMD: defaultString(req.GetSkillMd(), renderAgentSkillMarkdown(fmt.Sprintf("skill-%d", req.GetSkillId()), req.GetChangeNote(), req.GetFlowJson())), FrontmatterJSON: nullStringFrom("{}", true), BodyMarkdown: nullStringFrom(req.GetChangeNote(), true), ChangeNote: nullStringFrom(req.GetChangeNote(), true), CreatedBy: nullInt64From(req.GetActorUserId())}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&version).Error; err != nil {
@@ -467,11 +476,29 @@ func (s *NativeStore) ListAgentSkillVersions(ctx context.Context, req *pb.ListAg
 }
 
 func (s *NativeStore) ActivateAgentSkillVersion(ctx context.Context, req *pb.ActivateAgentSkillVersionRequest) (*pb.AgentSkillResponse, error) {
-	result := s.db.WithContext(ctx).Model(&agentSkillRecord{}).Where("id = ?", req.GetSkillId()).Updates(map[string]any{"current_version_id": req.GetVersionId(), "updated_by": nullInt64From(req.GetActorUserId())})
-	if result.Error != nil {
-		return nil, result.Error
+	if req.GetSkillId() <= 0 || req.GetVersionId() <= 0 {
+		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
 	}
-	if result.RowsAffected == 0 {
+	if err := s.assertAgentSkillNotReleased(ctx, req.GetSkillId()); err != nil {
+		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
+	}
+	var rowsAffected int64
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var version agentSkillVersionRecord
+		if err := tx.Where("id = ? AND skill_id = ?", req.GetVersionId(), req.GetSkillId()).First(&version).Error; err != nil {
+			return err
+		}
+		result := tx.Model(&agentSkillRecord{}).Where("id = ?", req.GetSkillId()).Updates(map[string]any{"current_version_id": version.ID, "updated_by": nullInt64From(req.GetActorUserId())})
+		rowsAffected = result.RowsAffected
+		return result.Error
+	})
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: "common.invalid_request"}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if rowsAffected == 0 {
 		return &pb.AgentSkillResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
 	}
 	return s.getAgentSkillResponse(ctx, req.GetSkillId())

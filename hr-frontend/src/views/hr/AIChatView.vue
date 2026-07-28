@@ -92,10 +92,15 @@ import { listAvailableModels } from '@/api/llm'
 import { getBillingAccount } from '@/api/billing'
 import {
   bindRunStateToChatUi,
+  cancelPendingAgentRun,
   createClientRequestId,
   executeConfirmChatRun,
   executeCreateChatRun,
   friendlyDurableRunErrorMessage,
+  hasPendingRunConfirmation,
+  isMCPConfirmationExpired,
+  modelFallbackMessage,
+  streamTimeoutMessage,
   toAgentSkillSelectionPayload,
   type DurableChatUiBinder,
 } from '@/components/hr/ai/agentRunChatFlow'
@@ -158,6 +163,8 @@ interface SkillSelectionRequest {
   modelId: number | null
   messageId?: number
   runId?: number
+  confirmationKind?: 'agent_skill' | 'mcp_tool'
+  confirmationPayloadJson?: string
 }
 
 const route = useRoute()
@@ -271,6 +278,9 @@ const latestSuggestedQuestions = computed(() => {
 })
 
 const quotaExhausted = computed(() => availableCredits.value !== null && availableCredits.value <= 0)
+const awaitingRunConfirmation = computed(() =>
+  hasPendingRunConfirmation(agentRun.state.value.status, messages.value),
+)
 
 const refreshBillingAccess = async () => {
   billingAccessLoading.value = true
@@ -1341,11 +1351,62 @@ const setSkillSelectionMessage = (
       modelId: selectedModelId.value,
       messageId: selection.user_message_id,
       runId: runId || agentRun.state.value.runId || undefined,
+      confirmationKind: selection.confirmation_kind,
+      confirmationPayloadJson: selection.confirmation_payload_json,
     },
   }
   loading.value = false
   streaming.value = false
   scrollBottom()
+}
+
+const cancelMCPConfirmation = async (
+  assistantIndex: number,
+  reason: 'rejected' | 'expired' | 'invalid',
+) => {
+  const current = messages.value[assistantIndex]
+  const request = current?.skillSelectionRequest
+  if (!current || request?.confirmationKind !== 'mcp_tool') return
+  const runId = request.runId || agentRun.state.value.runId
+  if (!runId) {
+    ElMessage.error(t('common.not_found'))
+    return
+  }
+
+  loading.value = true
+  streaming.value = false
+  try {
+    const canceled = await cancelPendingAgentRun(agentRun, runId)
+    if (!canceled.isTerminal || canceled.status !== 'canceled') {
+      throw new Error(t('common.operation_failed'))
+    }
+    agentRun.dispose()
+    messages.value[assistantIndex] = {
+      ...current,
+      content: reason === 'rejected'
+        ? '已拒绝执行 MCP 工具，本次运行已取消。'
+        : 'MCP 执行确认已失效，本次运行已取消。请重新发送请求。',
+      pending: false,
+      failed: false,
+      agentSkillSelection: undefined,
+      skillSelectionRequest: undefined,
+    }
+    if (reason !== 'rejected') {
+      ElMessage.warning(t('common.not_found'))
+    } else {
+      ElMessage.info(t('common.canceled'))
+    }
+    scrollBottom()
+  } catch (error: unknown) {
+    ElMessage.error(error instanceof Error ? error.message : t('common.operation_failed'))
+  } finally {
+    loading.value = false
+    streaming.value = false
+  }
+}
+
+const rejectSkillSelection = async (assistantIndex: number) => {
+  await cancelMCPConfirmation(assistantIndex, 'rejected')
 }
 
 const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: number[]) => {
@@ -1354,6 +1415,35 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
   const request = current?.skillSelectionRequest
   const session = currentSession.value
   if (!request || !session) return
+
+  if (
+    request.confirmationKind === 'mcp_tool'
+    && isMCPConfirmationExpired(request.confirmationPayloadJson)
+  ) {
+    await cancelMCPConfirmation(assistantIndex, 'expired')
+    return
+  }
+
+  if (
+    request.confirmationKind === 'mcp_tool'
+    && request.runId
+    && agentRun.state.value.runId !== request.runId
+  ) {
+    try {
+      await agentRun.hydrateFromRunId(request.runId, { autoSubscribe: false })
+    } catch {
+      ElMessage.error(t('common.not_found'))
+      return
+    }
+  }
+
+  const hasActiveRun =
+    Boolean(request.runId && agentRun.state.value.runId === request.runId) ||
+    Boolean(agentRun.state.value.runId && agentRun.state.value.status === 'waiting_confirmation')
+  if (request.confirmationKind === 'mcp_tool' && !hasActiveRun) {
+    ElMessage.error(t('common.not_found'))
+    return
+  }
 
   applyUserMessageSkillsBefore(assistantIndex, skillIds)
   messages.value[assistantIndex] = {
@@ -1369,18 +1459,17 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
   const token = beginAgentRun()
   try {
     // Prefer resuming the same durable run; fall back to create if run id was lost.
-    const hasActiveRun =
-      Boolean(request.runId && agentRun.state.value.runId === request.runId) ||
-      Boolean(agentRun.state.value.runId && agentRun.state.value.status === 'waiting_confirmation')
-
     const result = hasActiveRun
       ? await executeConfirmChatRun(
         agentRun,
         {
           client_request_id: createClientRequestId(),
           ...(skillIds.length > 0 ? { agent_skill_ids: skillIds } : {}),
-          agent_skill_selection_confirmed: true,
+          agent_skill_selection_confirmed: request.confirmationKind !== 'mcp_tool',
           ...(request.messageId ? { agent_skill_selection_message_id: request.messageId } : {}),
+          ...(request.confirmationPayloadJson
+            ? { confirmation_payload_json: request.confirmationPayloadJson }
+            : {}),
         },
         makeChatUiBinder(assistantIndex),
         { isAborted: () => userAborted.value || !isActiveAgentRun(token) },
@@ -1407,6 +1496,11 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
       return
     }
     if (result.outcome === 'failed') {
+      if (request.confirmationKind === 'mcp_tool') {
+        messages.value[assistantIndex] = current
+        await cancelMCPConfirmation(assistantIndex, 'invalid')
+        return
+      }
       markAssistantError(assistantIndex, result.error || new Error(t('ai.stream_failed')), result.state.errorType)
       ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
@@ -1429,7 +1523,7 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
     markAssistantError(assistantIndex, error instanceof Error ? error : new Error(t('ai.stream_failed')))
     const err = error as { code?: string; message?: string }
     if (err.code === 'ECONNABORTED') {
-      ElMessage.warning(t('common.invalid_request'))
+      ElMessage.warning(streamTimeoutMessage())
     } else {
       ElMessage.error(err.message || 'AI 流式响应失败')
     }
@@ -1440,6 +1534,10 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
 
 const submit = async (textOverride?: string) => {
   if (quotaExhausted.value || billingAccessLoading.value) return
+  if (awaitingRunConfirmation.value) {
+    ElMessage.warning(t('common.invalid_request'))
+    return
+  }
   const text = (textOverride ?? input.value).trim()
   if (!text) return
   if (!currentSession.value) {
@@ -1511,7 +1609,7 @@ const submit = async (textOverride?: string) => {
     selectedAgentSkillIds.value = agentSkillIdsForMessage
     const err = error as { code?: string; message?: string }
     if (err.code === 'ECONNABORTED') {
-      ElMessage.warning(t('common.invalid_request'))
+      ElMessage.warning(streamTimeoutMessage())
     } else {
       ElMessage.error(err.message || 'AI 流式响应失败')
     }
@@ -1597,7 +1695,7 @@ const retry = async (failedIndex: number) => {
     markAssistantError(assistantIndex, error instanceof Error ? error : new Error(t('ai.stream_failed')))
     const err = error as { code?: string; message?: string }
     if (err.code === 'ECONNABORTED') {
-      ElMessage.warning(t('common.invalid_request'))
+      ElMessage.warning(streamTimeoutMessage())
     } else {
       ElMessage.error(err.message || 'AI 流式响应失败')
     }
@@ -1643,7 +1741,12 @@ const handleContextUsage = (payload: StreamPayload) => {
       const signature = `${nextUsage.capability_version_id || 0}:${nextUsage.requested_model_id || 0}:${nextUsage.effective_model_id}`
       if (signature !== lastModelFallbackSignature.value) {
         lastModelFallbackSignature.value = signature
-        ElMessage.warning(t('common.invalid_request'))
+        const effectiveModel = modelList.value.find((model) => model.id === nextUsage.effective_model_id)
+        const effectiveModelName = effectiveModel?.display_name?.trim()
+          || effectiveModel?.model_name?.trim()
+          || nextUsage.model_name?.trim()
+          || `#${nextUsage.effective_model_id}`
+        ElMessage.warning(modelFallbackMessage(effectiveModelName))
       }
     }
     if (sessionId > 0) {
@@ -1854,9 +1957,10 @@ onBeforeUnmount(() => {
             :has-session="!!currentSession"
             :render-markdown="renderMarkdown"
             :waiting-text="waitingText"
-            :interaction-disabled="quotaExhausted || billingAccessLoading"
+            :interaction-disabled="quotaExhausted || billingAccessLoading || loading || streaming"
             @retry="retry"
             @confirm-skill-selection="submitConfirmedSkillSelection"
+            @reject-skill-selection="rejectSkillSelection"
           />
 
           <div v-if="latestSuggestedQuestions.length" class="ai-suggested ai-suggested--composer" aria-label="快速回复">
@@ -1864,7 +1968,7 @@ onBeforeUnmount(() => {
               v-for="question in latestSuggestedQuestions"
               :key="question"
               type="button"
-              :disabled="loading || streaming || contextPreviewing || quotaExhausted || billingAccessLoading"
+              :disabled="loading || streaming || contextPreviewing || quotaExhausted || billingAccessLoading || awaitingRunConfirmation"
               @click="submit(question)"
             >
               {{ question }}
@@ -1893,7 +1997,7 @@ onBeforeUnmount(() => {
             :selected-skill-keys="selectedSkillKeys"
             :agent-skills="agentSkills"
             :selected-agent-skill-ids="selectedAgentSkillIds"
-            :disabled="quotaExhausted || billingAccessLoading"
+            :disabled="quotaExhausted || billingAccessLoading || awaitingRunConfirmation"
             @update:input="(val: string) => input = val"
             @update:selected-model-id="handleSelectedModelUpdate"
             @update:selected-skill-keys="handleSelectedSkillKeysUpdate"

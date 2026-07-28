@@ -1285,6 +1285,87 @@ func TestHRRuntimeAgentSkillUsesOnlyExactCurrentVersion(t *testing.T) {
 	}
 }
 
+func TestHRRuntimeAgentSkillReleaseAllowlistFailsClosedWhenEmpty(t *testing.T) {
+	store := newFakeAIStore()
+	store.agentSkills = []*pb.AgentSkillInfo{{
+		Id: 7201, Name: "published_skill", AgentType: hrRecruitingAgentType,
+		IsEnabled: true, IsManualInvocable: true, CurrentVersionId: 8201,
+	}}
+	store.agentSkillVersions = map[int64][]*pb.AgentSkillVersionInfo{
+		7201: {{Id: 8201, SkillId: 7201, Version: "v1", SkillMd: "published body"}},
+	}
+	service := newNativeAIService(store, nil, nil, nil, nil)
+
+	selected, governanceErrors := service.selectHRRuntimeAgentSkillsForRelease(
+		context.Background(),
+		&pb.ChatRequest{Message: "use skill", AgentSkillIds: []int64{7201}},
+		nil,
+		nil,
+		true,
+	)
+
+	if len(selected) != 0 {
+		t.Fatalf("selected = %#v, want no skill outside an empty release allowlist", selected)
+	}
+	if len(governanceErrors) != 1 || governanceErrors[0].Code != "outside_capability_release" || governanceErrors[0].ResourceID != 7201 {
+		t.Fatalf("governance errors = %#v, want outside_capability_release for skill 7201", governanceErrors)
+	}
+}
+
+func TestHRRuntimeAgentSkillReleaseAllowlistUsesReleasedVersion(t *testing.T) {
+	store := newFakeAIStore()
+	store.agentSkills = []*pb.AgentSkillInfo{{
+		Id: 7201, Name: "published_skill", AgentType: hrRecruitingAgentType,
+		IsEnabled: true, IsManualInvocable: true, CurrentVersionId: 8202,
+	}}
+	store.agentSkillVersions = map[int64][]*pb.AgentSkillVersionInfo{
+		7201: {
+			{Id: 8201, SkillId: 7201, Version: "v1", SkillMd: "released body"},
+			{Id: 8202, SkillId: 7201, Version: "v2", SkillMd: "draft body"},
+		},
+	}
+	service := newNativeAIService(store, nil, nil, nil, nil)
+
+	selected, governanceErrors := service.selectHRRuntimeAgentSkillsForRelease(
+		context.Background(),
+		&pb.ChatRequest{Message: "use skill", AgentSkillIds: []int64{7201}},
+		nil,
+		[]int64{8201},
+		true,
+	)
+
+	if len(governanceErrors) != 0 {
+		t.Fatalf("governance errors = %#v, want none", governanceErrors)
+	}
+	if len(selected) != 1 || selected[0].ID != 7201 || selected[0].VersionID != 8201 {
+		t.Fatalf("selected = %#v, want released version 8201", selected)
+	}
+}
+
+func TestListAvailableAgentSkillsReturnsOnlyExecutableManualHRSkills(t *testing.T) {
+	store := newFakeAIStore()
+	store.agentSkills = []*pb.AgentSkillInfo{
+		{Id: 1, Name: "available", AgentType: hrRecruitingAgentType, IsEnabled: true, IsManualInvocable: true, CurrentVersionId: 11},
+		{Id: 2, Name: "automatic_only", AgentType: hrRecruitingAgentType, IsEnabled: true, IsManualInvocable: false, CurrentVersionId: 12},
+		{Id: 3, Name: "missing_version", AgentType: hrRecruitingAgentType, IsEnabled: true, IsManualInvocable: true, CurrentVersionId: 13},
+		{Id: 4, Name: "candidate_skill", AgentType: candidateAssistantAgentType, IsEnabled: true, IsManualInvocable: true, CurrentVersionId: 14},
+	}
+	store.agentSkillVersions = map[int64][]*pb.AgentSkillVersionInfo{
+		1: {{Id: 11, SkillId: 1, SkillMd: "usable"}},
+		2: {{Id: 12, SkillId: 2, SkillMd: "automatic"}},
+		4: {{Id: 14, SkillId: 4, SkillMd: "candidate"}},
+	}
+	service := nativeAgentSkillService{store: store}
+
+	resp, err := service.ListAvailableAgentSkills(context.Background(), &pb.ListAvailableAgentSkillsRequest{Page: 1, PageSize: 100})
+	if err != nil {
+		t.Fatalf("ListAvailableAgentSkills returned error: %v", err)
+	}
+	if resp.GetCode() != 0 || resp.GetTotal() != 1 || len(resp.GetList()) != 1 || resp.GetList()[0].GetId() != 1 {
+		t.Fatalf("response = %#v, want only executable manual HR skill", resp)
+	}
+}
+
 func TestHRModelToolExecutionEnforcesAgentAllowlist(t *testing.T) {
 	store := newFakeAIStore()
 	store.agentConfigs = []*pb.AgentConfigInfo{{

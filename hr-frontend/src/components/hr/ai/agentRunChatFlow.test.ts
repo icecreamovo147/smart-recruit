@@ -6,12 +6,17 @@ import { createInitialHrAgentRunState, reduceAgentRunEvent } from '@/utils/hrAge
 import { useHrAgentRun } from '@/composables/useHrAgentRun'
 import {
   bindRunStateToChatUi,
+  cancelPendingAgentRun,
   createClientRequestId,
   executeConfirmChatRun,
   executeCreateChatRun,
   friendlyDurableRunErrorMessage,
+  hasPendingRunConfirmation,
   insufficientCreditsMessage,
+  isMCPConfirmationExpired,
+  modelFallbackMessage,
   parseCandidateOptionsFromMeta,
+  streamTimeoutMessage,
   toAgentSkillSelectionPayload,
   type DurableChatUiBinder,
 } from './agentRunChatFlow'
@@ -94,6 +99,11 @@ describe('agentRunChatFlow helpers', () => {
     expect(friendlyDurableRunErrorMessage('insufficient_credits', '')).toBe(insufficientCreditsMessage)
   })
 
+  it('uses dedicated timeout and parameterized model-fallback messages', () => {
+    expect(streamTimeoutMessage()).toBe('AI 服务响应超时，请稍后重试')
+    expect(modelFallbackMessage('GPT-4.1')).toBe('请求的模型不可用，已自动切换至 GPT-4.1')
+  })
+
   it('toAgentSkillSelectionPayload maps nested agent_skill_selection', () => {
     const payload = toAgentSkillSelectionPayload({
       required: true,
@@ -118,6 +128,25 @@ describe('agentRunChatFlow helpers', () => {
     expect(payload?.candidates[0]?.id).toBe(7)
     expect(payload?.recommended_agent_skill_ids).toEqual([7])
     expect(payload?.user_message_id).toBe(42)
+  })
+
+  it('detects expired MCP confirmations from the bound approval payload', () => {
+    const payload = JSON.stringify({
+      type: 'mcp_tool',
+      expires_at: '2026-07-28T12:10:00Z',
+    })
+    expect(isMCPConfirmationExpired(payload, Date.parse('2026-07-28T12:09:59Z'))).toBe(false)
+    expect(isMCPConfirmationExpired(payload, Date.parse('2026-07-28T12:10:00Z'))).toBe(true)
+    expect(isMCPConfirmationExpired('not-json', Date.now())).toBe(false)
+  })
+
+  it('blocks a second run while durable confirmation is pending', () => {
+    expect(hasPendingRunConfirmation('waiting_confirmation', [])).toBe(true)
+    expect(hasPendingRunConfirmation('running', [{
+      agentSkillSelection: { required: true },
+      skillSelectionRequest: { runId: 35 },
+    }])).toBe(true)
+    expect(hasPendingRunConfirmation('succeeded', [])).toBe(false)
   })
 
   it('parseCandidateOptionsFromMeta parses JSON string', () => {
@@ -315,6 +344,129 @@ describe('agentRunChatFlow entry paths (submit + skill confirm)', () => {
     expect(result.state.assistantText).toContain('confirmed reply')
     expect(deltas.join('')).toContain('confirmed reply')
 
+    wrapper.unmount()
+  })
+
+  it('MCP confirm path forwards the bound payload without granting Skill confirmation', async () => {
+    const rawConfirmation = JSON.stringify({
+      type: 'mcp_tool',
+      confirmation_id: 'confirm-1',
+      capability_key: '7:search',
+      arguments_hash: 'args-hash',
+      expires_at: '2026-07-28T12:10:00Z',
+    })
+    const selection = toAgentSkillSelectionPayload({
+      required: true,
+      reason: 'confirmation_required',
+      raw_json: rawConfirmation,
+    })
+    expect(selection).toEqual(expect.objectContaining({
+      confirmation_kind: 'mcp_tool',
+      candidates: [],
+    }))
+    expect(JSON.parse(selection?.confirmation_payload_json || '{}')).toEqual(expect.objectContaining({
+      type: 'mcp_tool',
+      confirmation_id: 'confirm-1',
+      capability_key: '7:search',
+      arguments_hash: 'args-hash',
+      expires_at: '2026-07-28T12:10:00Z',
+      approved: true,
+    }))
+
+    confirmAgentRun.mockResolvedValue({
+      run: snapshot({ run_id: 34, session_id: 4, status: 'running', last_event_seq: 5 }),
+    })
+    subscribeAgentRunEvents.mockImplementation(
+      async (
+        runId: number,
+        _after: number,
+        handlers: { onEvent?: (e: AgentRunEvent) => void; onDone?: () => void },
+      ) => {
+        handlers.onEvent?.({ run_id: runId, seq: 6, event_type: 'run.completed', status: 'succeeded' })
+        handlers.onDone?.()
+      },
+    )
+    const { api, wrapper } = mountRuntime()
+    api.state.value = createInitialHrAgentRunState({
+      runId: 34,
+      sessionId: 4,
+      status: 'waiting_confirmation',
+      lastEventSeq: 5,
+    })
+
+    await executeConfirmChatRun(
+      api,
+      {
+        confirmation_payload_json: selection?.confirmation_payload_json,
+        agent_skill_selection_confirmed: false,
+      },
+      collectBinder().binder,
+      { isAborted: () => false },
+    )
+
+    expect(confirmAgentRun).toHaveBeenCalledWith(
+      34,
+      expect.objectContaining({
+        confirmation_payload_json: selection?.confirmation_payload_json,
+        agent_skill_selection_confirmed: false,
+      }),
+    )
+    wrapper.unmount()
+  })
+
+  it('reject path cancels the exact waiting MCP run and reaches terminal state', async () => {
+    cancelAgentRun.mockResolvedValue({
+      run: snapshot({
+        run_id: 35,
+        session_id: 4,
+        status: 'canceled',
+        last_event_seq: 6,
+      }),
+    })
+    const { api, wrapper } = mountRuntime()
+    api.state.value = createInitialHrAgentRunState({
+      runId: 35,
+      sessionId: 4,
+      status: 'waiting_confirmation',
+      lastEventSeq: 5,
+    })
+
+    const canceled = await cancelPendingAgentRun(api, 35, 'req-reject-mcp')
+
+    expect(cancelAgentRun).toHaveBeenCalledWith(35, {
+      client_request_id: 'req-reject-mcp',
+    })
+    expect(canceled.status).toBe('canceled')
+    expect(canceled.isTerminal).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('reject path restores the expected run before canceling stale local state', async () => {
+    getAgentRun.mockResolvedValue({
+      run: snapshot({
+        run_id: 36,
+        session_id: 4,
+        status: 'waiting_confirmation',
+        last_event_seq: 5,
+      }),
+    })
+    cancelAgentRun.mockResolvedValue({
+      run: snapshot({
+        run_id: 36,
+        session_id: 4,
+        status: 'canceled',
+        last_event_seq: 6,
+      }),
+    })
+    const { api, wrapper } = mountRuntime()
+
+    const canceled = await cancelPendingAgentRun(api, 36, 'req-reject-restored')
+
+    expect(getAgentRun).toHaveBeenCalledWith(36)
+    expect(cancelAgentRun).toHaveBeenCalledWith(36, {
+      client_request_id: 'req-reject-restored',
+    })
+    expect(canceled.status).toBe('canceled')
     wrapper.unmount()
   })
 

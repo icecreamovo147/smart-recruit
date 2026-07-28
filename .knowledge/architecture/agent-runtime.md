@@ -34,9 +34,11 @@ source_refs:
   - smart-recruit-commons/ai/planner.go
   - smart-recruit-proto/proto/recruitment.proto
   - hr-frontend/src/views/hr/AIChatView.vue
+  - hr-frontend/src/components/chat/ChatMessageList.vue
+  - hr-frontend/src/components/hr/ai/agentRunChatFlow.ts
   - hr-frontend/src/api/ai.ts
   - hr-frontend/src/utils/hrAgentRunReducer.ts
-last_verified: 2026-07-23
+last_verified: 2026-07-28
 review_after: 2026-10-21
 ---
 
@@ -60,7 +62,7 @@ HR AI chat resolves builtin Tool schemas from the effective Agent's explicitly e
 
 Live recruiting questions pass through the same deterministic planner before either a model-native Tool Calling provider or a completion-only provider may answer. The planner declares mandatory evidence groups for job inventory, application listing, candidate search/detail, requested analytics metric families, comparison/match, interview preparation, and offer support. Every group must have a matching successful Tool Trace; missing inputs, disabled/unavailable Tools, and failed calls short-circuit to a deterministic clarification or limitation response. Direct factual inventory/metric answers are rendered only from Tool results, including authoritative empty results, so model free text cannot bypass the evidence gate. Status-change action Tools are excluded from automatic schemas and execution until a separate explicit-confirmation transport exists.
 
-Prompt and Agent Skill compilation is fail closed. HR Prompts must be active compatible system templates and render only the four allowlisted stable runtime variables; malformed or unknown expressions omit the Prompt and create governance evidence. Selected Agent Skills contribute instructions only when their exact current version is valid and non-empty, and evidence records the exact version without persisting its body. Tool schemas and the actual model ToolRunner both enforce the active Agent allowlist, so Prompt or Skill text cannot cause an unbound builtin Tool to reach Recruitment services; attempted calls become classified error Traces.
+Prompt and Agent Skill compilation is fail closed. HR Prompts must be active compatible system templates and render only the four allowlisted stable runtime variables; malformed or unknown expressions omit the Prompt and create governance evidence. Selected Agent Skills contribute instructions only when their exact current version is valid and non-empty, and evidence records the exact version without persisting its body. Capability releases are strict Skill-version allowlists, including empty-list-denies-all semantics; non-release direct chat uses current-version governance. Tool schemas and the actual model ToolRunner both enforce the active Agent allowlist, so Prompt or Skill text cannot cause an unbound builtin Tool to reach Recruitment services; attempted calls become classified error Traces.
 
 Durable HR Agent Runs snapshot the effective persisted Agent ID, type, and name when the Run is created. Every successful Run emits a privacy-safe `run.result` whose raw governance evidence contains Prompt ID/version, Agent Skill ID/version, Tool name/status, and selection mode without Prompt/Skill bodies, Tool arguments/results, or recruiting personal data. Model-generated text chunks map to `assistant.delta`; planning, context, fallback, and generating statuses without text remain `process.delta`. When chunks were emitted, completion persists the final answer snapshot without appending a duplicate full-answer delta; non-streaming answers retain one assistant delta so consumers do not lose content. Tool Traces remain linked to their Run and Run Step with matching success/error state.
 
@@ -76,7 +78,17 @@ Agent Run failures that contain `insufficient_credits` map to a stable `error_ty
 
 HR-wide application and candidate aggregation remains inside the AI Agent service and uses existing Recruitment RPCs. It sorts and limits the HR inventory to 100 jobs, fetches with at most four workers and ten 100-row pages per job, then sorts by job ID/application ID and returns at most 5,000 rows. Context cancellation stops the aggregation. Some failed jobs produce successful rows plus `partial`, bounded `failed_job_count`, and non-sensitive warnings; an all-job failure is a non-nil Tool error and contributes no useful facts.
 
-MCP pre-context execution requires an explicit `skill_capability_keys` selection intersected with enabled Agent MCP bindings. An empty selection executes no MCP tool. The MCP runner and policy path enforce configured policy, confirmation, argument redaction, and audit persistence before a selected call can succeed.
+MCP pre-context execution requires an explicit `skill_capability_keys` selection intersected with enabled Agent MCP bindings. An empty selection executes no MCP tool. MCP approval is independent from Agent Skill selection: confirmation-required durable Runs pause, issue a short-lived random request bound to the exact capability and argument hash, and resume only after a matching explicit approval. Direct chat fails closed when it cannot host that durable confirmation exchange. The MCP runner and policy path enforce configured policy, argument redaction, and audit persistence before a selected call can succeed.
+
+The HR client treats `waiting_confirmation` as an exclusive Run state. Its MCP
+confirmation card exposes both explicit approval and explicit rejection;
+rejection invokes the durable Run cancel command and does not submit an approval
+payload. While a confirmation is pending, message composition is disabled so a
+second Run cannot silently replace the session's active Run. The client carries
+the server expiry into the bound approval payload, detects an expired request
+before confirmation, cancels that Run, and asks the user to start a fresh
+request. Refresh recovery rebuilds the same confirmation card from the durable
+Run snapshot.
 
 Recruiting intelligence uses an internal structured runtime rather than the generic HR Markdown completion path. On every structured operation it loads the current active `system` Prompt for the exact `resume_profile_extractor`, `job_requirement_extractor`, or `candidate_match_evaluator` agent type, then sends distinct System and User messages through the shared structured provider controls. Resume extraction, job-requirement extraction, deterministic-first per-requirement matching, deterministic aggregation, and versioned persistence remain internal to the AI Agent service; public gRPC shapes are unchanged.
 
@@ -86,4 +98,4 @@ Recruiting stage diagnostics pass through an idempotent fail-closed normalizatio
 
 ## Verification
 
-Verified against current repository files and cumulative HR Tool, bounded aggregation, MCP, live-data evidence-gate, Prompt/Skill, durable Run, suggested-questions privacy filters, process.snapshot persistence, application-analysis message, Anthropic envelope, and recruiting runtime tests on 2026-07-23.
+Verified against current repository files and cumulative HR Tool, bounded aggregation, MCP bound confirmation, live-data evidence-gate, Prompt/Skill release allowlists, durable Run, suggested-questions privacy filters, process.snapshot persistence, application-analysis message, Anthropic envelope, and recruiting runtime tests on 2026-07-28.

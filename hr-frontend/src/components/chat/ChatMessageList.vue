@@ -39,6 +39,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'retry', index: number): void
   (e: 'confirm-skill-selection', index: number, skillIds: number[]): void
+  (e: 'reject-skill-selection', index: number): void
 }>()
 
 defineExpose({ scrollToBottom })
@@ -83,6 +84,25 @@ const skillSelectionReason = (candidate: AgentSkillSelectionPayload['candidates'
   return '系统推荐候选 Skill'
 }
 
+const isMCPConfirmation = (selection: AgentSkillSelectionPayload): boolean =>
+  selection.confirmation_kind === 'mcp_tool'
+
+const confirmationTitle = (selection: AgentSkillSelectionPayload): string => {
+  if (isMCPConfirmation(selection)) return '确认执行 MCP 工具'
+  return selection.candidates.length ? '确认本次要调用的 Skill' : 'Skill 候选加载异常'
+}
+
+const confirmationDescription = (selection: AgentSkillSelectionPayload): string => {
+  if (isMCPConfirmation(selection)) {
+    return selection.reason && selection.reason !== 'confirmation_required'
+      ? selection.reason
+      : '该工具需要你的明确授权。拒绝后本次运行将安全取消。'
+  }
+  return selection.candidates.length
+    ? '系统匹配到多个候选，请选择后继续生成回答。'
+    : '未能读取到可选候选，可跳过 Skill 继续生成回答。'
+}
+
 const defaultSelectionIds = (selection: AgentSkillSelectionPayload): number[] =>
   selection.recommended_agent_skill_ids?.length
     ? selection.recommended_agent_skill_ids
@@ -107,6 +127,11 @@ const skipSkillSelection = (index: number) => {
   if (props.interactionDisabled) return
   selectedSkillIds.value = { ...selectedSkillIds.value, [index]: [] }
   emit('confirm-skill-selection', index, [])
+}
+
+const rejectSkillSelection = (index: number) => {
+  if (props.interactionDisabled) return
+  emit('reject-skill-selection', index)
 }
 
 const quickHints = [
@@ -169,10 +194,10 @@ const quickHints = [
             <div class="skill-confirmation__header">
               <div>
                 <div class="skill-confirmation__title">
-                  {{ message.agentSkillSelection.candidates.length ? '确认本次要调用的 Skill' : 'Skill 候选加载异常' }}
+                  {{ confirmationTitle(message.agentSkillSelection) }}
                 </div>
                 <div class="skill-confirmation__desc">
-                  {{ message.agentSkillSelection.candidates.length ? '系统匹配到多个候选，请选择后继续生成回答。' : '未能读取到可选候选，可跳过 Skill 继续生成回答。' }}
+                  {{ confirmationDescription(message.agentSkillSelection) }}
                 </div>
               </div>
               <el-tag size="small" effect="plain">待确认</el-tag>
@@ -200,8 +225,25 @@ const quickHints = [
               </button>
             </div>
             <div class="skill-confirmation__actions">
-              <el-button size="small" :disabled="interactionDisabled" @click="skipSkillSelection(index)">不使用 Skill</el-button>
-              <el-button type="primary" size="small" :disabled="interactionDisabled" @click="confirmSkillSelection(index, message.agentSkillSelection)">继续</el-button>
+              <el-button
+                v-if="isMCPConfirmation(message.agentSkillSelection)"
+                size="small"
+                :disabled="interactionDisabled"
+                @click="rejectSkillSelection(index)"
+              >
+                拒绝并取消
+              </el-button>
+              <el-button
+                v-else
+                size="small"
+                :disabled="interactionDisabled"
+                @click="skipSkillSelection(index)"
+              >
+                不使用 Skill
+              </el-button>
+              <el-button type="primary" size="small" :disabled="interactionDisabled" @click="confirmSkillSelection(index, message.agentSkillSelection)">
+                {{ message.agentSkillSelection.confirmation_kind === 'mcp_tool' ? '确认执行' : '继续' }}
+              </el-button>
             </div>
           </div>
 

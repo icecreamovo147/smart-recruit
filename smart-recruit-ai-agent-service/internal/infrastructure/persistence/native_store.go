@@ -884,6 +884,35 @@ func (s *NativeStore) ListAgentSkills(ctx context.Context, page, pageSize int32,
 	return items, total, nil
 }
 
+func (s *NativeStore) ListAvailableAgentSkills(ctx context.Context, page, pageSize int32, agentType string) ([]*pb.AgentSkillInfo, int64, error) {
+	query := s.db.WithContext(ctx).Model(&agentSkillRecord{}).
+		Where("agent_skills.is_enabled = ?", true).
+		Where("agent_skills.is_manual_invocable = ?", true).
+		Where("agent_skills.current_version_id IS NOT NULL").
+		Where("agent_skills.current_version_id > 0").
+		Where("LOWER(TRIM(agent_skills.agent_type)) = LOWER(TRIM(?))", strings.TrimSpace(agentType)).
+		Where(`EXISTS (
+			SELECT 1
+			FROM agent_skill_versions version
+			WHERE version.id = agent_skills.current_version_id
+			  AND version.skill_id = agent_skills.id
+			  AND TRIM(version.skill_md) <> ''
+		)`)
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []agentSkillRecord
+	if err := query.Order("agent_skills.priority DESC, agent_skills.id ASC").Offset(offset(page, pageSize)).Limit(int(pageSize)).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	items := make([]*pb.AgentSkillInfo, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, agentSkillToPB(row))
+	}
+	return items, total, nil
+}
+
 func (s *NativeStore) ListEmbeddingProviders(ctx context.Context, page, pageSize int32) ([]*pb.EmbeddingProviderInfo, int64, error) {
 	var total int64
 	query := s.db.WithContext(ctx).Model(&embeddingProviderRecord{})

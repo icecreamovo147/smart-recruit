@@ -226,13 +226,18 @@ func (h *AIHandler) ListSkillCapabilities(c *gin.Context) {
 		base.Internal(c, err)
 		return
 	}
-	list := make([]*pb.CapabilityInfo, 0, len(resp.List))
-	for _, item := range resp.List {
-		if item.GetSource() == "skill" && item.GetIsAvailable() {
+	list := availableSkillCapabilities(resp.List)
+	base.From(c, resp.Code, resp.Msg, gin.H{"list": list})
+}
+
+func availableSkillCapabilities(items []*pb.CapabilityInfo) []*pb.CapabilityInfo {
+	list := make([]*pb.CapabilityInfo, 0, len(items))
+	for _, item := range items {
+		if item != nil && item.GetIsAvailable() {
 			list = append(list, item)
 		}
 	}
-	base.From(c, resp.Code, resp.Msg, gin.H{"list": list})
+	return list
 }
 
 func (h *AIHandler) History(c *gin.Context) {

@@ -2,6 +2,9 @@ package grpc
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -148,6 +151,10 @@ type RecruitingADKChatProvider interface {
 type agentSkillDetailStore interface {
 	GetAgentSkill(context.Context, *pb.GetAgentSkillRequest) (*pb.AgentSkillResponse, error)
 	ListAgentSkillVersions(context.Context, *pb.ListAgentSkillVersionsRequest) (*pb.ListAgentSkillVersionsResponse, error)
+}
+
+type availableAgentSkillStore interface {
+	ListAvailableAgentSkills(context.Context, int32, int32, string) ([]*pb.AgentSkillInfo, int64, error)
 }
 
 type hrCandidateMatchReadStore interface {
@@ -503,24 +510,57 @@ type AgentRunEventRow struct {
 }
 
 type agentRunDurablePayload struct {
-	Message                      string   `json:"message,omitempty"`
-	ActionType                   string   `json:"action_type,omitempty"`
-	ActionPayloadJSON            string   `json:"action_payload_json,omitempty"`
-	ApplicationID                int64    `json:"application_id,omitempty"`
-	ModelID                      int64    `json:"model_id,omitempty"`
-	AuthUserID                   int64    `json:"auth_user_id,omitempty"`
-	AuthAccountType              string   `json:"auth_account_type,omitempty"`
-	AuthTenantID                 int64    `json:"auth_tenant_id,omitempty"`
-	AuthMembershipID             int64    `json:"auth_membership_id,omitempty"`
-	AuthClientApp                string   `json:"auth_client_app,omitempty"`
-	EffectiveAgentID             int64    `json:"effective_agent_id,omitempty"`
-	EffectiveAgentPinned         bool     `json:"effective_agent_pinned,omitempty"`
-	SkillCapabilityKeys          []string `json:"skill_capability_keys,omitempty"`
-	AgentSkillIDs                []int64  `json:"agent_skill_ids,omitempty"`
-	AgentSkillSelectionConfirmed bool     `json:"agent_skill_selection_confirmed,omitempty"`
-	AgentSkillSelectionMessageID int64    `json:"agent_skill_selection_message_id,omitempty"`
-	ConfirmationPayloadJSON      string   `json:"confirmation_payload_json,omitempty"`
-	ConfirmationClientRequestID  string   `json:"confirmation_client_request_id,omitempty"`
+	Message                      string                   `json:"message,omitempty"`
+	ActionType                   string                   `json:"action_type,omitempty"`
+	ActionPayloadJSON            string                   `json:"action_payload_json,omitempty"`
+	ApplicationID                int64                    `json:"application_id,omitempty"`
+	ModelID                      int64                    `json:"model_id,omitempty"`
+	AuthUserID                   int64                    `json:"auth_user_id,omitempty"`
+	AuthAccountType              string                   `json:"auth_account_type,omitempty"`
+	AuthTenantID                 int64                    `json:"auth_tenant_id,omitempty"`
+	AuthMembershipID             int64                    `json:"auth_membership_id,omitempty"`
+	AuthClientApp                string                   `json:"auth_client_app,omitempty"`
+	EffectiveAgentID             int64                    `json:"effective_agent_id,omitempty"`
+	EffectiveAgentPinned         bool                     `json:"effective_agent_pinned,omitempty"`
+	SkillCapabilityKeys          []string                 `json:"skill_capability_keys,omitempty"`
+	AgentSkillIDs                []int64                  `json:"agent_skill_ids,omitempty"`
+	AgentSkillSelectionConfirmed bool                     `json:"agent_skill_selection_confirmed,omitempty"`
+	AgentSkillSelectionMessageID int64                    `json:"agent_skill_selection_message_id,omitempty"`
+	ConfirmationPayloadJSON      string                   `json:"confirmation_payload_json,omitempty"`
+	ConfirmationClientRequestID  string                   `json:"confirmation_client_request_id,omitempty"`
+	PendingMCPConfirmation       *agentRunMCPConfirmation `json:"pending_mcp_confirmation,omitempty"`
+	MCPApproval                  *agentRunMCPApproval     `json:"mcp_approval,omitempty"`
+}
+
+type agentRunMCPConfirmation struct {
+	ID            string `json:"id"`
+	CapabilityKey string `json:"capability_key"`
+	ArgumentsHash string `json:"arguments_hash"`
+	Reason        string `json:"reason,omitempty"`
+	ExpiresAt     string `json:"expires_at"`
+}
+
+type agentRunMCPApproval struct {
+	ConfirmationID string `json:"confirmation_id"`
+	CapabilityKey  string `json:"capability_key"`
+	ArgumentsHash  string `json:"arguments_hash"`
+	ApprovedAt     string `json:"approved_at"`
+}
+
+type mcpConfirmationPayload struct {
+	Type           string `json:"type"`
+	ConfirmationID string `json:"confirmation_id"`
+	CapabilityKey  string `json:"capability_key"`
+	ArgumentsHash  string `json:"arguments_hash"`
+	Approved       bool   `json:"approved"`
+}
+
+type mcpConfirmationRequiredError struct {
+	Confirmation agentRunMCPConfirmation
+}
+
+func (e *mcpConfirmationRequiredError) Error() string {
+	return "mcp tool confirmation is required"
 }
 
 type RecruitingApplicationContext struct {
@@ -757,9 +797,10 @@ type RecruitingCandidateMatchDraft struct {
 }
 
 var (
-	errAIStoreRequired     = errors.New("ai store is required for native AI runtime")
-	errAIProviderRequired  = errors.New("ai provider is required for native AI runtime")
-	errChatSessionNotFound = errors.New("chat session not found")
+	errAIStoreRequired        = errors.New("ai store is required for native AI runtime")
+	errAIProviderRequired     = errors.New("ai provider is required for native AI runtime")
+	errChatSessionNotFound    = errors.New("chat session not found")
+	errInvalidMCPConfirmation = errors.New("mcp confirmation payload is invalid")
 )
 
 const (
@@ -1079,6 +1120,7 @@ type hrRuntimeGovernanceContext struct {
 	ReleaseRefs                  CapabilityConfigurationRefs
 	MemorySection                string
 	MemoryEvidence               hrRuntimeMemoryEvidence
+	MCPApproval                  *agentRunMCPApproval
 }
 
 type hrRuntimeMemoryEvidence struct {
@@ -1236,10 +1278,16 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "thinking", EventMessage: "ai.event.planning", CreatedAt: formatTime(time.Now())}); err != nil {
 		return result, err
 	}
-	governance, err := s.loadHRRuntimeGovernanceForAgentWithRelease(ctx, req, opts.effectiveAgentID, opts.effectiveAgentPinned, result.runtimeModel.ConfigurationRefs)
+	var governance hrRuntimeGovernanceContext
+	if result.runtimeModel.CapabilityVersionID > 0 {
+		governance, err = s.loadHRRuntimeGovernanceForAgentWithRelease(ctx, req, opts.effectiveAgentID, opts.effectiveAgentPinned, result.runtimeModel.ConfigurationRefs)
+	} else {
+		governance, err = s.loadHRRuntimeGovernanceForAgent(ctx, req, opts.effectiveAgentID, opts.effectiveAgentPinned)
+	}
 	if err != nil {
 		return result, err
 	}
+	governance.MCPApproval = opts.durablePayload.MCPApproval
 	if result.runtimeModel.CapabilityVersionID > 0 && (governance.Agent == nil || governance.Prompt == nil || len(governance.GovernanceErrors) > 0) {
 		return result, status.Error(codes.FailedPrecondition, "Agent or Prompt is unavailable in the capability release")
 	}
@@ -2364,7 +2412,9 @@ func (s *nativeAIService) loadHRRuntimeGovernanceForAgentCore(ctx context.Contex
 	runtime.Prompt, runtime.PromptContent, runtime.GovernanceErrors = s.loadHRRuntimePromptForRelease(ctx, req, agent, refs.PromptTemplateIDs, runtime.MemorySection)
 	runtime.AgentSkillSelectionConfirmed = req.GetAgentSkillSelectionConfirmed()
 	runtime.AgentSkillSelectionMessageID = req.GetAgentSkillSelectionMessageId()
-	runtime.SelectedAgentSkills = s.selectHRRuntimeAgentSkillsForRelease(ctx, req, runtime.CapabilityKeys, refs.AgentSkillVersionIDs)
+	var skillErrors []hrRuntimeGovernanceError
+	runtime.SelectedAgentSkills, skillErrors = s.selectHRRuntimeAgentSkillsForRelease(ctx, req, runtime.CapabilityKeys, refs.AgentSkillVersionIDs, enforceRelease)
+	runtime.GovernanceErrors = append(runtime.GovernanceErrors, skillErrors...)
 	s.enrichHRRuntimeAgentSkillBodies(ctx, &runtime)
 	switch {
 	case len(req.GetAgentSkillIds()) > 0:
@@ -2663,16 +2713,20 @@ func (s *nativeAIService) enrichHRRuntimeAgentSkillBodies(ctx context.Context, r
 }
 
 func (s *nativeAIService) selectHRRuntimeAgentSkills(ctx context.Context, req *pb.ChatRequest, capabilityKeys []string) []hrRuntimeAgentSkill {
-	return s.selectHRRuntimeAgentSkillsForRelease(ctx, req, capabilityKeys, nil)
+	selected, _ := s.selectHRRuntimeAgentSkillsForRelease(ctx, req, capabilityKeys, nil, false)
+	return selected
 }
 
-func (s *nativeAIService) selectHRRuntimeAgentSkillsForRelease(ctx context.Context, req *pb.ChatRequest, capabilityKeys []string, releasedVersionIDs []int64) []hrRuntimeAgentSkill {
+func (s *nativeAIService) selectHRRuntimeAgentSkillsForRelease(ctx context.Context, req *pb.ChatRequest, capabilityKeys []string, releasedVersionIDs []int64, enforceRelease bool) ([]hrRuntimeAgentSkill, []hrRuntimeGovernanceError) {
 	if s == nil || s.store == nil || req.GetAgentSkillSelectionConfirmed() && len(req.GetAgentSkillIds()) == 0 {
-		return nil
+		return nil, nil
+	}
+	if enforceRelease && len(releasedVersionIDs) == 0 {
+		return nil, outsideReleaseSkillErrors(req.GetAgentSkillIds())
 	}
 	rows, _, err := s.store.ListAgentSkills(ctx, 1, 100, "", true)
 	if err != nil || len(rows) == 0 {
-		return nil
+		return nil, nil
 	}
 	available := make(map[string]bool, len(capabilityKeys)*2)
 	for _, key := range capabilityKeys {
@@ -2699,7 +2753,7 @@ func (s *nativeAIService) selectHRRuntimeAgentSkillsForRelease(ctx context.Conte
 	}
 	allowedVersionIDs := int64RuntimeSet(releasedVersionIDs)
 	versionBySkillID := make(map[int64]int64)
-	if len(allowedVersionIDs) > 0 {
+	if enforceRelease {
 		if detailStore, ok := s.store.(agentSkillDetailStore); ok {
 			for _, row := range rows {
 				if row == nil {
@@ -2724,7 +2778,7 @@ func (s *nativeAIService) selectHRRuntimeAgentSkillsForRelease(ctx context.Conte
 		if row == nil {
 			continue
 		}
-		if len(allowedVersionIDs) > 0 && versionBySkillID[row.GetId()] == 0 {
+		if enforceRelease && versionBySkillID[row.GetId()] == 0 {
 			continue
 		}
 		id := uint64(row.GetId())
@@ -2732,7 +2786,9 @@ func (s *nativeAIService) selectHRRuntimeAgentSkillsForRelease(ctx context.Conte
 		candidates = append(candidates, model.AgentSkill{
 			ID:                   id,
 			Name:                 row.GetName(),
+			DisplayName:          row.GetDisplayName(),
 			AgentType:            row.GetAgentType(),
+			Content:              row.GetDescription(),
 			Enabled:              row.GetIsEnabled(),
 			ManualInvocable:      row.GetIsManualInvocable(),
 			Category:             row.GetCategory(),
@@ -2741,6 +2797,7 @@ func (s *nativeAIService) selectHRRuntimeAgentSkillsForRelease(ctx context.Conte
 			RiskLevel:            row.GetRiskLevel(),
 			RequiredCapabilities: row.GetRequiredCapabilities(),
 			SemanticTags:         row.GetSemanticTags(),
+			TriggerKeywords:      row.GetTriggerKeywords(),
 		})
 	}
 	manualIDs := make([]uint64, 0, len(req.GetAgentSkillIds()))
@@ -2780,6 +2837,31 @@ func (s *nativeAIService) selectHRRuntimeAgentSkillsForRelease(ctx context.Conte
 			RequiredCapabilities: row.GetRequiredCapabilities(),
 			VersionID:            versionBySkillID[row.GetId()],
 		})
+	}
+	var governanceErrors []hrRuntimeGovernanceError
+	if enforceRelease && len(req.GetAgentSkillIds()) > 0 {
+		selectedIDs := make(map[int64]bool, len(result))
+		for _, skill := range result {
+			selectedIDs[skill.ID] = true
+		}
+		for _, id := range req.GetAgentSkillIds() {
+			if id > 0 && versionBySkillID[id] == 0 && !selectedIDs[id] {
+				governanceErrors = append(governanceErrors, hrRuntimeGovernanceError{Source: "agent_skill", Code: "outside_capability_release", ResourceID: id})
+			}
+		}
+	}
+	return result, governanceErrors
+}
+
+func outsideReleaseSkillErrors(ids []int64) []hrRuntimeGovernanceError {
+	result := make([]hrRuntimeGovernanceError, 0, len(ids))
+	seen := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		if id <= 0 || seen[id] {
+			continue
+		}
+		seen[id] = true
+		result = append(result, hrRuntimeGovernanceError{Source: "agent_skill", Code: "outside_capability_release", ResourceID: id})
 	}
 	return result
 }
@@ -2987,16 +3069,23 @@ func (s *nativeAIService) executeHRMCPTools(ctx context.Context, req *pb.ChatReq
 	traces := make([]ToolTraceRow, 0, len(calls))
 	for _, call := range calls {
 		argsJSON := call.argsJSON(req.GetMessage())
+		argumentsHash := hrRuntimeMCPArgumentsHash(call, argsJSON)
+		confirmationApproved := hrRuntimeMCPApprovalMatches(governance.MCPApproval, call.runtimeName, argumentsHash)
 		if emit != nil {
 			if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "tool_calling", EventMessage: "ai.event.mcp_calling", ToolName: call.runtimeName, CreatedAt: formatTime(time.Now())}, nil); err != nil {
 				return traces, err
 			}
 		}
-		resp, err := service.CallMCPTool(ctx, &pb.CallMCPToolRequest{ServerId: call.serverID, ToolName: call.toolName, ArgsJson: argsJSON, CalledByHrId: req.GetHrId(), SessionId: sessionID, CallerRole: "hr_agent", CallerScope: "agent_runtime", ConfirmationApproved: req.GetAgentSkillSelectionConfirmed()})
+		resp, err := service.CallMCPTool(ctx, &pb.CallMCPToolRequest{ServerId: call.serverID, ToolName: call.toolName, ArgsJson: argsJSON, CalledByHrId: req.GetHrId(), SessionId: sessionID, CallerRole: "hr_agent", CallerScope: "agent_runtime", ConfirmationApproved: confirmationApproved})
 		trace := ToolTraceRow{SessionID: sessionID, AgentRunID: agentRunID, ToolCallID: fmt.Sprintf("mcp-%d-%s", call.serverID, call.toolName), ToolName: call.runtimeName, ArgsJSON: service.RedactedArgsForTool(ctx, call.serverID, call.toolName, argsJSON), CreatedAt: time.Now()}
+		var confirmationErr *mcpConfirmationRequiredError
 		if err != nil {
 			trace.ErrorMsg = err.Error()
 			trace.Status = "error"
+		} else if resp.GetPolicyDecision() == model.MCPPolicyDecisionConfirmationRequired {
+			trace.ErrorMsg = "confirmation_required"
+			trace.Status = "error"
+			confirmationErr = &mcpConfirmationRequiredError{Confirmation: newAgentRunMCPConfirmation(call.runtimeName, argumentsHash, resp.GetPolicyReason())}
 		} else if resp.GetCode() != 0 || strings.TrimSpace(resp.GetErrorMsg()) != "" {
 			trace.ErrorMsg = strings.TrimSpace(resp.GetErrorMsg())
 			if trace.ErrorMsg == "" {
@@ -3016,6 +3105,10 @@ func (s *nativeAIService) executeHRMCPTools(ctx context.Context, req *pb.ChatReq
 		if persisted.ID != 0 {
 			trace = persisted
 		}
+		traces = append(traces, trace)
+		if confirmationErr != nil {
+			return traces, confirmationErr
+		}
 		if emit != nil {
 			event := &pb.ChatStreamResponse{Code: 0, Msg: "common.success", EventType: "tool_done", EventMessage: "ai.event.mcp_finished", ToolName: call.runtimeName, CreatedAt: formatTime(time.Now())}
 			if trace.ErrorMsg != "" {
@@ -3028,7 +3121,6 @@ func (s *nativeAIService) executeHRMCPTools(ctx context.Context, req *pb.ChatReq
 				return traces, err
 			}
 		}
-		traces = append(traces, trace)
 	}
 	return traces, nil
 }
@@ -3041,6 +3133,33 @@ type hrRuntimeMCPToolCall struct {
 
 func (call hrRuntimeMCPToolCall) argsJSON(message string) string {
 	return marshalJSONString(map[string]any{"query": strings.TrimSpace(message)})
+}
+
+func hrRuntimeMCPArgumentsHash(call hrRuntimeMCPToolCall, argsJSON string) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%d\n%s\n%s", call.serverID, call.toolName, strings.TrimSpace(argsJSON))))
+	return hex.EncodeToString(sum[:])
+}
+
+func hrRuntimeMCPApprovalMatches(approval *agentRunMCPApproval, capabilityKey, argumentsHash string) bool {
+	return approval != nil &&
+		strings.TrimSpace(approval.ConfirmationID) != "" &&
+		approval.CapabilityKey == strings.TrimSpace(capabilityKey) &&
+		approval.ArgumentsHash == strings.TrimSpace(argumentsHash)
+}
+
+func newAgentRunMCPConfirmation(capabilityKey, argumentsHash, reason string) agentRunMCPConfirmation {
+	random := make([]byte, 24)
+	if _, err := rand.Read(random); err != nil {
+		fallback := sha256.Sum256([]byte(fmt.Sprintf("%s\n%s\n%d", capabilityKey, argumentsHash, time.Now().UnixNano())))
+		random = fallback[:24]
+	}
+	return agentRunMCPConfirmation{
+		ID:            hex.EncodeToString(random),
+		CapabilityKey: strings.TrimSpace(capabilityKey),
+		ArgumentsHash: strings.TrimSpace(argumentsHash),
+		Reason:        strings.TrimSpace(reason),
+		ExpiresAt:     formatTime(time.Now().Add(10 * time.Minute)),
+	}
 }
 
 func hrRuntimeSelectedMCPTools(req *pb.ChatRequest, governance hrRuntimeGovernanceContext) []hrRuntimeMCPToolCall {
@@ -5028,6 +5147,9 @@ func (s *nativeAIService) ConfirmAgentRun(ctx context.Context, req *pb.ConfirmAg
 	}
 	run, found, err = s.updateAgentRunConfirmation(ctx, run, req)
 	if err != nil {
+		if errors.Is(err, errInvalidMCPConfirmation) {
+			return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: "common.invalid_request", Run: mapAgentRunSnapshot(run)}, nil
+		}
 		return nil, err
 	}
 	if !found {
@@ -5052,6 +5174,14 @@ func (s *nativeAIService) updateAgentRunConfirmation(ctx context.Context, run Ag
 		return AgentRunRow{}, false, errAIStoreRequired
 	}
 	payload := agentRunPayloadFromRow(run)
+	if payload.PendingMCPConfirmation != nil {
+		approval, err := validateAgentRunMCPConfirmation(req.GetConfirmationPayloadJson(), *payload.PendingMCPConfirmation, time.Now())
+		if err != nil {
+			return run, true, err
+		}
+		payload.MCPApproval = approval
+		payload.PendingMCPConfirmation = nil
+	}
 	if len(req.GetAgentSkillIds()) > 0 {
 		payload.AgentSkillIDs = append([]int64(nil), req.GetAgentSkillIds()...)
 	}
@@ -5070,6 +5200,30 @@ func (s *nativeAIService) updateAgentRunConfirmation(ctx context.Context, run Ag
 	planJSON := agentRunPlanJSON(payload)
 	optionContextJSON := agentRunConfirmationOptionContext(req)
 	return s.store.UpdateAgentRunPlan(ctx, run.OwnerID, run.ID, planJSON, optionContextJSON)
+}
+
+func validateAgentRunMCPConfirmation(rawJSON string, pending agentRunMCPConfirmation, now time.Time) (*agentRunMCPApproval, error) {
+	var submitted mcpConfirmationPayload
+	if strings.TrimSpace(rawJSON) == "" || json.Unmarshal([]byte(rawJSON), &submitted) != nil {
+		return nil, errInvalidMCPConfirmation
+	}
+	expiresAt, err := time.Parse(time.RFC3339Nano, pending.ExpiresAt)
+	if err != nil || !now.Before(expiresAt) {
+		return nil, errInvalidMCPConfirmation
+	}
+	if submitted.Type != "mcp_tool" ||
+		!submitted.Approved ||
+		submitted.ConfirmationID != pending.ID ||
+		submitted.CapabilityKey != pending.CapabilityKey ||
+		submitted.ArgumentsHash != pending.ArgumentsHash {
+		return nil, errInvalidMCPConfirmation
+	}
+	return &agentRunMCPApproval{
+		ConfirmationID: pending.ID,
+		CapabilityKey:  pending.CapabilityKey,
+		ArgumentsHash:  pending.ArgumentsHash,
+		ApprovedAt:     formatTime(now),
+	}, nil
 }
 
 func (s *nativeAIService) ensureSession(ctx context.Context, ownerRole int32, ownerID, sessionID, applicationID int64, seed string) (ChatSessionRow, error) {
@@ -5223,6 +5377,10 @@ func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow) 
 		durablePayload:           payload,
 	})
 	if err != nil {
+		var confirmationErr *mcpConfirmationRequiredError
+		if errors.As(err, &confirmationErr) {
+			return s.finishAgentRunWaitingForMCPConfirmation(ctx, current, confirmationErr.Confirmation)
+		}
 		if agentRunExecutionTimedOut(ctx, err) {
 			return s.finishAgentRunFailed(ctx, current, context.DeadlineExceeded)
 		}
@@ -5241,6 +5399,67 @@ func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow) 
 		return s.finishAgentRunFailed(ctx, current, errAIProviderRequired)
 	}
 	return s.finishAgentRunSucceeded(ctx, current, result, payload.ModelID)
+}
+
+func (s *nativeAIService) finishAgentRunWaitingForMCPConfirmation(ctx context.Context, run AgentRunRow, confirmation agentRunMCPConfirmation) error {
+	storeCtx := agentRunStoreContext(ctx)
+	s.runTransitionMu.Lock()
+	defer s.runTransitionMu.Unlock()
+
+	current, found, err := s.getRun(storeCtx, run.OwnerID, run.ID)
+	if err != nil || !found {
+		return err
+	}
+	if current.Status == agentRunStatusCancelRequested || current.Status == agentRunStatusCanceled {
+		return s.completeAgentRunCanceledLocked(storeCtx, current)
+	}
+	if isTerminalAgentRunStatus(current.Status) || current.Status == agentRunStatusWaitingConfirmation {
+		return nil
+	}
+	payload := agentRunPayloadFromRow(current)
+	payload.PendingMCPConfirmation = &confirmation
+	payload.MCPApproval = nil
+	optionContextJSON := marshalJSONString(map[string]any{
+		"confirmation_request": map[string]any{
+			"required": true,
+			"reason":   confirmation.Reason,
+			"raw_json": marshalJSONString(map[string]any{
+				"type":            "mcp_tool",
+				"confirmation_id": confirmation.ID,
+				"capability_key":  confirmation.CapabilityKey,
+				"arguments_hash":  confirmation.ArgumentsHash,
+				"expires_at":      confirmation.ExpiresAt,
+			}),
+		},
+	})
+	if _, updated, updateErr := s.store.UpdateAgentRunPlan(storeCtx, current.OwnerID, current.ID, agentRunPlanJSON(payload), optionContextJSON); updateErr != nil {
+		return updateErr
+	} else if !updated {
+		return fmt.Errorf("agent run not found")
+	}
+	waiting, updated, updateErr := s.updateRun(storeCtx, current.OwnerID, current.ID, agentRunStatusWaitingConfirmation)
+	if updateErr != nil {
+		return updateErr
+	}
+	if !updated {
+		return fmt.Errorf("agent run not found")
+	}
+	eventPayload := marshalJSONString(map[string]any{
+		"status": agentRunStatusWaitingConfirmation,
+		"confirmation_request": map[string]any{
+			"required": true,
+			"reason":   confirmation.Reason,
+			"raw_json": marshalJSONString(map[string]any{
+				"type":            "mcp_tool",
+				"confirmation_id": confirmation.ID,
+				"capability_key":  confirmation.CapabilityKey,
+				"arguments_hash":  confirmation.ArgumentsHash,
+				"expires_at":      confirmation.ExpiresAt,
+			}),
+		},
+	})
+	_, eventErr := s.appendAgentRunEvent(storeCtx, waiting.ID, "confirmation.required", eventPayload)
+	return eventErr
 }
 
 func shouldReuseAgentRunUserMessage(run AgentRunRow, payload agentRunDurablePayload) bool {
@@ -7856,11 +8075,35 @@ func (s nativeAgentSkillService) ListAvailableAgentSkills(ctx context.Context, r
 	if s.store == nil {
 		return &pb.ListAgentSkillsResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
-	rows, total, err := s.store.ListAgentSkills(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), "", true)
+	if store, ok := s.store.(availableAgentSkillStore); ok {
+		rows, total, err := store.ListAvailableAgentSkills(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), hrRecruitingAgentType)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.ListAgentSkillsResponse{Code: 0, Msg: "common.success", Total: total, List: rows}, nil
+	}
+	rows, _, err := s.store.ListAgentSkills(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), "", true)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "common.success", Total: total, List: rows}, nil
+	available := make([]*pb.AgentSkillInfo, 0, len(rows))
+	detailStore, hasDetailStore := s.store.(agentSkillDetailStore)
+	for _, row := range rows {
+		if row == nil || !row.GetIsEnabled() || !row.GetIsManualInvocable() || row.GetCurrentVersionId() <= 0 || !strings.EqualFold(strings.TrimSpace(row.GetAgentType()), hrRecruitingAgentType) || !hasDetailStore {
+			continue
+		}
+		versions, versionErr := detailStore.ListAgentSkillVersions(ctx, &pb.ListAgentSkillVersionsRequest{SkillId: row.GetId()})
+		if versionErr != nil || versions == nil || versions.GetCode() != 0 {
+			continue
+		}
+		for _, version := range versions.GetList() {
+			if version != nil && version.GetId() == row.GetCurrentVersionId() && version.GetSkillId() == row.GetId() && strings.TrimSpace(version.GetSkillMd()) != "" {
+				available = append(available, row)
+				break
+			}
+		}
+	}
+	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "common.success", Total: int64(len(available)), List: available}, nil
 }
 func (s nativeEmbeddingConfigService) ListEmbeddingProviders(ctx context.Context, req *pb.ListEmbeddingProvidersRequest) (*pb.ListEmbeddingProvidersResponse, error) {
 	if s.store == nil {

@@ -78,20 +78,24 @@ func TestNativeMCPRuntimeConnectionDiscoveryPolicyAuditAndHRTool(t *testing.T) {
 		t.Fatalf("empty selection executed MCP: logs=%d traces=%d", len(store.mcpLogs), len(store.toolTraces))
 	}
 	chatResp, err := deps.AI.Chat(context.Background(), &pb.ChatRequest{HrId: 88, Message: "find Alice", SkillCapabilityKeys: []string{"7:search"}, AgentSkillSelectionConfirmed: true})
-	if err != nil || chatResp.GetCode() != 0 || chatResp.GetReply() != "MCP-informed reply" {
-		t.Fatalf("chat response=%#v err=%v", chatResp, err)
+	if err == nil || chatResp != nil || !strings.Contains(err.Error(), "mcp tool confirmation is required") {
+		t.Fatalf("chat response=%#v err=%v, want independent MCP confirmation", chatResp, err)
 	}
-	if len(store.toolTraces) != 1 || store.toolTraces[0].ToolName != "mcp_7_search" || strings.Contains(store.toolTraces[0].ResultContent, "secret-token") {
+	if len(store.toolTraces) != 1 || store.toolTraces[0].ToolName != "mcp_7_search" || store.toolTraces[0].Status != "error" || store.toolTraces[0].ErrorMsg != "confirmation_required" {
 		t.Fatalf("tool traces=%#v", store.toolTraces)
 	}
 	if strings.Contains(store.toolTraces[0].ArgsJSON, "find Alice") || !strings.Contains(store.toolTraces[0].ArgsJSON, "[redacted]") {
 		t.Fatalf("tool trace args not policy-redacted: %s", store.toolTraces[0].ArgsJSON)
 	}
-	if len(store.mcpLogs) != 2 || store.mcpLogs[1].PolicyDecision != model.MCPPolicyDecisionAllow {
+	if len(store.mcpLogs) != 2 || store.mcpLogs[1].PolicyDecision != model.MCPPolicyDecisionConfirmationRequired {
 		t.Fatalf("mcp logs=%#v", store.mcpLogs)
 	}
+	approved, err := deps.MCP.CallMCPTool(context.Background(), &pb.CallMCPToolRequest{ServerId: 7, ToolName: "search", ArgsJson: `{"query":"Alice"}`, CalledByHrId: 88, SessionId: 99, CallerRole: "hr_agent", CallerScope: "agent_runtime", ConfirmationApproved: true})
+	if err != nil || approved.GetPolicyDecision() != model.MCPPolicyDecisionAllow || strings.Contains(approved.GetResultContent(), "secret-token") {
+		t.Fatalf("approved response=%#v err=%v", approved, err)
+	}
 	invalid, err := deps.MCP.CallMCPTool(context.Background(), &pb.CallMCPToolRequest{ServerId: 7, ToolName: "search", ArgsJson: `{"query":`, CallerRole: "hr_agent", CallerScope: "agent_runtime"})
-	if err != nil || invalid.GetCode() != 400 || len(store.mcpLogs) != 3 || store.mcpLogs[2].PolicyReason != "invalid_args_json" {
+	if err != nil || invalid.GetCode() != 400 || len(store.mcpLogs) != 4 || store.mcpLogs[3].PolicyReason != "invalid_args_json" {
 		t.Fatalf("invalid args response=%#v err=%v logs=%#v", invalid, err, store.mcpLogs)
 	}
 }

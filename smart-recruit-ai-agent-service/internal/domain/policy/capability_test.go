@@ -106,6 +106,18 @@ func TestSkillVersionAndSelectionPolicy(t *testing.T) {
 	if len(semanticSelected) != 1 || semanticSelected[0].ID != 11 {
 		t.Fatalf("semantic selected = %+v", semanticSelected)
 	}
+
+	fallbackSelected := SelectAgentSkills([]model.AgentSkill{
+		{ID: 20, Name: "resume_screen", DisplayName: "简历筛选", AgentType: "hr", Enabled: true, Priority: 1, TriggerKeywords: []string{"简历", "筛选"}},
+		{ID: 21, Name: "offer_writer", DisplayName: "Offer Writer", AgentType: "hr", Enabled: true, Priority: 100, SemanticTags: []string{"offer"}},
+	}, model.AgentSkillSelectionRequest{
+		AgentType: "hr",
+		Question:  "请筛选这批候选人的简历",
+		MaxSkills: 1,
+	})
+	if len(fallbackSelected) != 1 || fallbackSelected[0].ID != 20 || fallbackSelected[0].Reason != "lexical metadata fallback" {
+		t.Fatalf("fallback selected = %+v", fallbackSelected)
+	}
 }
 
 func TestEmbeddingRuntimeAndCandidateMatchPolicy(t *testing.T) {

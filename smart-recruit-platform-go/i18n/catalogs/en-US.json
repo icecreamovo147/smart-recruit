@@ -22,6 +22,7 @@
   "ai.too_many_requests": "AI requests are too frequent. Please try again later.",
   "ai.stream_failed": "The AI streaming request failed.",
   "ai.stream_timeout": "The AI service timed out. Please try again later.",
+  "ai.model_fallback": "The requested model is unavailable. Switched automatically to {model}.",
   "ai.connection_interrupted": "The AI service connection was interrupted. Please try again later.",
   "ai.invalid_response": "The AI service returned an invalid response.",
   "ai.stream_unavailable": "The AI streaming response is unavailable.",

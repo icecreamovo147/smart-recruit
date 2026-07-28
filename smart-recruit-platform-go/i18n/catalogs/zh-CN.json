@@ -22,6 +22,7 @@
   "ai.too_many_requests": "AI 请求太频繁，请稍后再试",
   "ai.stream_failed": "AI 流式请求失败",
   "ai.stream_timeout": "AI 服务响应超时，请稍后重试",
+  "ai.model_fallback": "请求的模型不可用，已自动切换至 {model}",
   "ai.connection_interrupted": "AI 服务连接已中断，请稍后重试",
   "ai.invalid_response": "AI 服务响应数据格式异常",
   "ai.stream_unavailable": "AI 流式响应不可用",

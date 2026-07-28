@@ -556,11 +556,8 @@ func (s *EmbeddingService) searchMemoryItems(ctx context.Context, owner domainme
 
 func (s *EmbeddingService) SemanticScores(ctx context.Context, query string, limit int) (map[uint64]float64, string) {
 	result, err := s.SearchAgentSkills(ctx, query, limit)
-	if err != nil || !result.EmbeddingAvailable {
-		if err != nil {
-			return nil, err.Error()
-		}
-		return nil, result.FallbackReason
+	if err != nil {
+		return nil, err.Error()
 	}
 	scores := make(map[uint64]float64, len(result.Skills))
 	for _, item := range result.Skills {
@@ -568,25 +565,31 @@ func (s *EmbeddingService) SemanticScores(ctx context.Context, query string, lim
 			scores[uint64(item.GetId())] = item.GetFinalRankScore()
 		}
 	}
-	return scores, ""
+	return scores, result.GetFallbackReason()
 }
 
 func (s *EmbeddingService) SearchAgentSkills(ctx context.Context, query string, limit int) (*pb.DebugSemanticRetrievalResponse, error) {
-	if s == nil || s.store == nil || s.runner == nil {
-		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "common.operation_failed", EmbeddingAvailable: false, FallbackReason: "embedding runner is not bound"}, nil
+	if s == nil || s.store == nil {
+		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "common.operation_failed", EmbeddingAvailable: false, FallbackReason: "embedding store is not bound"}, nil
+	}
+	limit = normalizeLimit(limit)
+	if s.runner == nil {
+		return s.searchAgentSkillsFallback(ctx, query, limit, "embedding runner is not bound", EmbeddingConfig{}, 0)
 	}
 	cfg, ok, err := s.store.ResolveEmbeddingConfig(ctx, 0, 0)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		return &pb.DebugSemanticRetrievalResponse{Code: 501, Msg: "common.operation_failed", EmbeddingAvailable: false, FallbackReason: "embedding provider/model is not configured"}, nil
+		return s.searchAgentSkillsFallback(ctx, query, limit, "embedding provider/model is not configured", EmbeddingConfig{}, 0)
 	}
-	limit = normalizeLimit(limit)
 	start := time.Now()
 	embed, err := s.runner.Embed(ctx, EmbedRequest{Config: cfg, Texts: []string{query}})
 	if err != nil {
-		return &pb.DebugSemanticRetrievalResponse{Code: 0, Msg: "common.success", EmbeddingAvailable: false, FallbackReason: err.Error(), EmbeddingProvider: cfg.ProviderName, EmbeddingModel: cfg.ModelName, EmbeddingDim: int32(cfg.Dimension), QueryEmbeddingLatencyMs: time.Since(start).Milliseconds()}, nil
+		return s.searchAgentSkillsFallback(ctx, query, limit, err.Error(), cfg, time.Since(start).Milliseconds())
+	}
+	if len(embed.Vectors) == 0 || len(embed.Vectors[0]) == 0 {
+		return s.searchAgentSkillsFallback(ctx, query, limit, "embedding provider returned an empty vector", cfg, time.Since(start).Milliseconds())
 	}
 	queryVector := embed.Vectors[0]
 	rows, err := s.store.ListAIEmbeddings(ctx, "agent_skill", cfg.ModelName, 500)
@@ -620,7 +623,7 @@ func (s *EmbeddingService) SearchAgentSkills(ctx context.Context, query string, 
 	}
 	fallbackReason := ""
 	if len(items) == 0 {
-		fallbackReason = "no ready agent_skill embeddings matched current model"
+		return s.searchAgentSkillsFallback(ctx, query, limit, "no ready agent_skill embeddings matched current model", cfg, embed.Latency.Milliseconds())
 	}
 	return &pb.DebugSemanticRetrievalResponse{
 		Code:                    0,
@@ -636,6 +639,58 @@ func (s *EmbeddingService) SearchAgentSkills(ctx context.Context, query string, 
 		EmbeddingDim:            int32(len(queryVector)),
 		CandidateCount:          int32(len(rows)),
 		QueryEmbeddingLatencyMs: embed.Latency.Milliseconds(),
+	}, nil
+}
+
+func (s *EmbeddingService) searchAgentSkillsFallback(ctx context.Context, query string, limit int, reason string, cfg EmbeddingConfig, latencyMs int64) (*pb.DebugSemanticRetrievalResponse, error) {
+	docs, err := s.store.ListAgentSkillEmbeddingDocuments(ctx, 0, 500)
+	if err != nil {
+		return nil, err
+	}
+	lowerQuery := strings.ToLower(strings.TrimSpace(query))
+	items := make([]*pb.SemanticSkillDebugItem, 0, len(docs))
+	for _, doc := range docs {
+		meta := agentSkillMetadata(doc)
+		lexical := lexicalScore(lowerQuery, meta)
+		metadata := metadataScore(lowerQuery, meta)
+		if lexical <= 0 && metadata <= 0 {
+			continue
+		}
+		boost := priorityBoost(meta)
+		final := lexical*0.65 + metadata*0.25 + boost
+		row := AIEmbeddingRecord{ObjectID: doc.ID, Metadata: meta}
+		item := semanticSkillItem(row, 0, lexical, metadata, boost, final)
+		item.Reason = "lexical and metadata fallback"
+		item.RelevanceScore = lexical*0.7 + metadata*0.3
+		item.RelevanceMode = "lexical_metadata"
+		items = append(items, item)
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].FinalRankScore == items[j].FinalRankScore {
+			return items[i].Id < items[j].Id
+		}
+		return items[i].FinalRankScore > items[j].FinalRankScore
+	})
+	if len(items) > limit {
+		items = items[:limit]
+	}
+	for i, item := range items {
+		item.PoolRank = int32(i + 1)
+	}
+	return &pb.DebugSemanticRetrievalResponse{
+		Code:                    0,
+		Msg:                     "common.success",
+		EmbeddingAvailable:      false,
+		FallbackReason:          strings.TrimSpace(reason),
+		Skills:                  items,
+		Memories:                []*pb.SemanticMemoryDebugItem{},
+		SkillPoolConfidence:     confidenceLabel(items),
+		MemoryPoolConfidence:    "none",
+		EmbeddingProvider:       cfg.ProviderName,
+		EmbeddingModel:          cfg.ModelName,
+		EmbeddingDim:            int32(cfg.Dimension),
+		CandidateCount:          int32(len(docs)),
+		QueryEmbeddingLatencyMs: latencyMs,
 	}, nil
 }
 

@@ -157,12 +157,19 @@ func TestEmbeddingServiceMemoryUpsertSearchAndBackfill(t *testing.T) {
 func TestEmbeddingServiceExplicitFallbackWhenRunnerFails(t *testing.T) {
 	store := newFakeEmbeddingStore()
 	service := NewEmbeddingService(store, &fakeEmbeddingRunner{errText: "provider unavailable"})
-	resp, err := service.SearchAgentSkills(context.Background(), "query", 5)
+	resp, err := service.SearchAgentSkills(context.Background(), "请帮我筛选简历", 5)
 	if err != nil {
 		t.Fatalf("SearchAgentSkills returned %v", err)
 	}
-	if resp.GetEmbeddingAvailable() || !strings.Contains(resp.GetFallbackReason(), "provider unavailable") {
+	if resp.GetEmbeddingAvailable() || !strings.Contains(resp.GetFallbackReason(), "provider unavailable") || len(resp.GetSkills()) == 0 {
 		t.Fatalf("resp = %+v", resp)
+	}
+	if resp.GetSkills()[0].GetName() != "resume_screen" || resp.GetSkills()[0].GetRelevanceMode() != "lexical_metadata" || resp.GetSkills()[0].GetVectorScore() != 0 {
+		t.Fatalf("fallback skills = %+v", resp.GetSkills())
+	}
+	scores, fallback := service.SemanticScores(context.Background(), "请帮我筛选简历", 5)
+	if scores[1] <= 0 || !strings.Contains(fallback, "provider unavailable") {
+		t.Fatalf("fallback scores=%v reason=%q", scores, fallback)
 	}
 }
 

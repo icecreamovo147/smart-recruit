@@ -106,3 +106,49 @@ describe('ChatMessageList assistant waiting state', () => {
     expect(wrapper.find('.assistant-typing').exists()).toBe(false)
   })
 })
+
+describe('ChatMessageList MCP confirmation', () => {
+  it('renders explicit confirm and reject actions and emits rejection', async () => {
+    const wrapper = shallowMount(ChatMessageList, {
+      props: {
+        messages: [{
+          role: 'assistant',
+          content: '',
+          agentSkillSelection: {
+            required: true,
+            reason: '请授权候选人检索',
+            candidates: [],
+            recommended_agent_skill_ids: [],
+            confirmation_kind: 'mcp_tool',
+          },
+        }],
+        loading: false,
+        streaming: false,
+        sessionLoading: false,
+        hasSession: true,
+        renderMarkdown: (text: string) => text,
+        waitingText: () => '',
+      },
+      global: {
+        stubs: {
+          'el-button': {
+            props: ['disabled'],
+            emits: ['click'],
+            template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot/></button>',
+          },
+          'el-tag': true,
+          'el-skeleton': true,
+          'el-empty': true,
+        },
+      },
+    })
+
+    expect(wrapper.get('.skill-confirmation__title').text()).toBe('确认执行 MCP 工具')
+    expect(wrapper.get('.skill-confirmation__desc').text()).toBe('请授权候选人检索')
+    const actions = wrapper.findAll('.skill-confirmation__actions button')
+    expect(actions.map((button) => button.text())).toEqual(['拒绝并取消', '确认执行'])
+
+    await actions[0].trigger('click')
+    expect(wrapper.emitted('reject-skill-selection')?.[0]).toEqual([0])
+  })
+})

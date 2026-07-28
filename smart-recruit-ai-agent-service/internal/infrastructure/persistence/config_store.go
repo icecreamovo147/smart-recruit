@@ -1036,8 +1036,8 @@ func (s *NativeStore) ListAgentSkillEmbeddingDocuments(ctx context.Context, obje
 	}
 	query := s.db.WithContext(ctx).Table("agent_skills s").
 		Select("s.*, v.body_markdown, v.skill_md").
-		Joins("LEFT JOIN agent_skill_versions v ON v.id = s.current_version_id").
-		Where("s.is_enabled = ? AND s.current_version_id IS NOT NULL", true)
+		Joins("INNER JOIN agent_skill_versions v ON v.id = s.current_version_id AND v.skill_id = s.id").
+		Where("s.is_enabled = ? AND s.current_version_id IS NOT NULL AND TRIM(v.skill_md) <> ''", true)
 	if objectID > 0 {
 		query = query.Where("s.id = ?", objectID)
 	}

@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -702,6 +703,123 @@ func TestConfirmAgentRunWaitingConfirmationRedispatchesAndCompletes(t *testing.T
 	if got := mapped.GetConfirmation().GetRecommendedAgentSkillIds(); len(got) != 2 || got[0] != 7001 || got[1] != 7002 {
 		t.Fatalf("confirmation event = %#v, want confirmed skill ids", mapped.GetConfirmation())
 	}
+}
+
+func TestValidateAgentRunMCPConfirmationBindsApprovalToPendingCall(t *testing.T) {
+	now := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
+	pending := agentRunMCPConfirmation{
+		ID:            "confirmation-1",
+		CapabilityKey: "7:search",
+		ArgumentsHash: "args-hash",
+		ExpiresAt:     now.Add(time.Minute).Format(time.RFC3339Nano),
+	}
+	valid := `{"type":"mcp_tool","confirmation_id":"confirmation-1","capability_key":"7:search","arguments_hash":"args-hash","approved":true}`
+	approval, err := validateAgentRunMCPConfirmation(valid, pending, now)
+	if err != nil {
+		t.Fatalf("valid confirmation returned error: %v", err)
+	}
+	if approval.ConfirmationID != pending.ID || approval.CapabilityKey != pending.CapabilityKey || approval.ArgumentsHash != pending.ArgumentsHash {
+		t.Fatalf("approval = %#v, want exact pending call binding", approval)
+	}
+	approvedAt, err := time.Parse(time.RFC3339Nano, approval.ApprovedAt)
+	if err != nil {
+		t.Fatalf("approved_at = %q, want RFC3339 timestamp: %v", approval.ApprovedAt, err)
+	}
+	expiresAt, err := time.Parse(time.RFC3339Nano, pending.ExpiresAt)
+	if err != nil || !approvedAt.Before(expiresAt) {
+		t.Fatalf("approved_at = %s, expires_at = %s, want approval before expiry (parse err=%v)", approvedAt, expiresAt, err)
+	}
+	if _, offset := approvedAt.Zone(); offset != 8*60*60 {
+		t.Fatalf("approved_at offset = %d, want Asia/Shanghai +08:00", offset)
+	}
+
+	for name, raw := range map[string]string{
+		"missing payload":    "",
+		"skill confirmation": `{"approved":true}`,
+		"wrong capability":   `{"type":"mcp_tool","confirmation_id":"confirmation-1","capability_key":"8:write","arguments_hash":"args-hash","approved":true}`,
+		"wrong arguments":    `{"type":"mcp_tool","confirmation_id":"confirmation-1","capability_key":"7:search","arguments_hash":"other-hash","approved":true}`,
+		"not approved":       `{"type":"mcp_tool","confirmation_id":"confirmation-1","capability_key":"7:search","arguments_hash":"args-hash","approved":false}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := validateAgentRunMCPConfirmation(raw, pending, now); !errors.Is(err, errInvalidMCPConfirmation) {
+				t.Fatalf("error = %v, want errInvalidMCPConfirmation", err)
+			}
+		})
+	}
+
+	expired := pending
+	expired.ExpiresAt = now.Add(-time.Second).Format(time.RFC3339Nano)
+	if _, err := validateAgentRunMCPConfirmation(valid, expired, now); !errors.Is(err, errInvalidMCPConfirmation) {
+		t.Fatalf("expired error = %v, want errInvalidMCPConfirmation", err)
+	}
+}
+
+func TestNewAgentRunMCPConfirmationUsesParseableBusinessTimestamp(t *testing.T) {
+	before := time.Now()
+	confirmation := newAgentRunMCPConfirmation("7:search", "args-hash", "approval required")
+	after := time.Now()
+
+	expiresAt, err := time.Parse(time.RFC3339Nano, confirmation.ExpiresAt)
+	if err != nil {
+		t.Fatalf("expires_at = %q, want RFC3339 timestamp: %v", confirmation.ExpiresAt, err)
+	}
+	if expiresAt.Before(before.Add(9*time.Minute+59*time.Second)) || expiresAt.After(after.Add(10*time.Minute)) {
+		t.Fatalf("expires_at = %s, want approximately ten minutes after creation", expiresAt)
+	}
+	if _, offset := expiresAt.Zone(); offset != 8*60*60 {
+		t.Fatalf("expires_at offset = %d, want Asia/Shanghai +08:00", offset)
+	}
+}
+
+func TestConfirmAgentRunPersistsBoundMCPApprovalBeforeRedispatch(t *testing.T) {
+	store := newAgentRunTestStore()
+	store.seedChatSession(ownerRoleHR, 77, 101, "mcp confirmation")
+	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: 77, SessionID: 101, Role: "user", Content: "find Alice", ModelID: 123})
+	provider := newBlockingAgentRunProvider("approved reply")
+	service := &nativeAIService{store: store, provider: provider}
+	pending := &agentRunMCPConfirmation{
+		ID:            "confirmation-1",
+		CapabilityKey: "7:search",
+		ArgumentsHash: "args-hash",
+		ExpiresAt:     formatTime(time.Now().Add(time.Minute)),
+	}
+	run := fallbackAgentRun(77, 101, "confirm-mcp", agentRunDurablePayload{Message: "find Alice", ModelID: 123, PendingMCPConfirmation: pending})
+	run.Status = agentRunStatusWaitingConfirmation
+	created, _, err := store.CreateAgentRun(context.Background(), run)
+	if err != nil {
+		t.Fatalf("CreateAgentRun returned error: %v", err)
+	}
+	confirmationJSON := `{"type":"mcp_tool","confirmation_id":"confirmation-1","capability_key":"7:search","arguments_hash":"args-hash","approved":true}`
+
+	resp, err := service.ConfirmAgentRun(context.Background(), &pb.ConfirmAgentRunRequest{
+		HrId:                    77,
+		RunId:                   created.ID,
+		ConfirmationPayloadJson: confirmationJSON,
+	})
+	if err != nil || resp.GetCode() != 0 || resp.GetRun().GetStatus() != agentRunStatusRunning {
+		t.Fatalf("ConfirmAgentRun response=%#v err=%v", resp, err)
+	}
+	select {
+	case <-provider.started:
+	case <-time.After(time.Second):
+		t.Fatal("provider was not redispatched")
+	}
+	current, found := store.runSnapshot(created.ID)
+	if !found {
+		t.Fatal("confirmed run not found")
+	}
+	payload := agentRunPayloadFromRow(current)
+	if payload.PendingMCPConfirmation != nil || payload.MCPApproval == nil ||
+		payload.MCPApproval.ConfirmationID != pending.ID ||
+		payload.MCPApproval.CapabilityKey != pending.CapabilityKey ||
+		payload.MCPApproval.ArgumentsHash != pending.ArgumentsHash {
+		t.Fatalf("durable payload = %#v, want consumed pending request and exact approval", payload)
+	}
+	close(provider.release)
+	waitUntilAgentRunTest(t, time.Second, func() bool {
+		final, ok := store.runSnapshot(created.ID)
+		return ok && final.Status == agentRunStatusSucceeded
+	})
 }
 
 func TestConfirmAgentRunNonWaitingStatusesDoNotJump(t *testing.T) {
