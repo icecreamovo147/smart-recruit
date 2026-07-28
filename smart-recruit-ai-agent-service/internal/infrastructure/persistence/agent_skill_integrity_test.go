@@ -163,7 +163,7 @@ func TestAgentSkillPackageV2Lifecycle(t *testing.T) {
 		Activate: true,
 	})
 	if err != nil || rejected.GetCode() != governanceBadRequest ||
-		rejected.GetMsg() != agentskill.CodePackageInvalid {
+		rejected.GetMsg() != "ai.agent_skill_package_invalid" {
 		t.Fatalf("mismatched version response = %#v, err = %v", rejected, err)
 	}
 	var versionCount int64
@@ -261,16 +261,16 @@ func TestPreviewAgentSkillUsesCanonicalCompiler(t *testing.T) {
 
 func TestPreviewAgentSkillRejectsInvalidDrafts(t *testing.T) {
 	tests := []struct {
-		name     string
-		mutate   func(*pb.AgentSkillPackageDraft) *pb.AgentSkillPackageDraft
-		wantCode string
+		name           string
+		mutate         func(*pb.AgentSkillPackageDraft) *pb.AgentSkillPackageDraft
+		wantMessageKey string
 	}{
 		{
 			name: "missing package",
 			mutate: func(*pb.AgentSkillPackageDraft) *pb.AgentSkillPackageDraft {
 				return nil
 			},
-			wantCode: agentskill.CodePackageInvalid,
+			wantMessageKey: "ai.agent_skill_package_invalid",
 		},
 		{
 			name: "invalid authoring json",
@@ -278,7 +278,7 @@ func TestPreviewAgentSkillRejectsInvalidDrafts(t *testing.T) {
 				draft.AuthoringJson = "{invalid"
 				return draft
 			},
-			wantCode: agentskill.CodePackageInvalid,
+			wantMessageKey: "ai.agent_skill_package_invalid",
 		},
 		{
 			name: "client activation policy conflicts with risk",
@@ -286,7 +286,7 @@ func TestPreviewAgentSkillRejectsInvalidDrafts(t *testing.T) {
 				draft.Manifest.ActivationPolicy = pb.AgentSkillActivationPolicy_AGENT_SKILL_ACTIVATION_POLICY_CONFIRM
 				return draft
 			},
-			wantCode: agentskill.CodePackageInvalid,
+			wantMessageKey: "ai.agent_skill_package_invalid",
 		},
 		{
 			name: "null reference section",
@@ -294,7 +294,7 @@ func TestPreviewAgentSkillRejectsInvalidDrafts(t *testing.T) {
 				draft.Sections = append(draft.Sections, nil)
 				return draft
 			},
-			wantCode: agentskill.CodeSectionInvalid,
+			wantMessageKey: "ai.agent_skill_section_invalid",
 		},
 	}
 
@@ -306,8 +306,50 @@ func TestPreviewAgentSkillRejectsInvalidDrafts(t *testing.T) {
 			if err != nil {
 				t.Fatalf("PreviewAgentSkill returned error: %v", err)
 			}
-			if resp.GetCode() != governanceBadRequest || resp.GetMsg() != tt.wantCode {
-				t.Fatalf("response = %#v, want code=%d msg=%s", resp, governanceBadRequest, tt.wantCode)
+			if resp.GetCode() != governanceBadRequest || resp.GetMsg() != tt.wantMessageKey {
+				t.Fatalf("response = %#v, want code=%d msg=%s", resp, governanceBadRequest, tt.wantMessageKey)
+			}
+		})
+	}
+}
+
+func TestAgentSkillCompileErrorMessageKey(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "package invalid",
+			err:  &agentskill.CompileError{Code: agentskill.CodePackageInvalid},
+			want: "ai.agent_skill_package_invalid",
+		},
+		{
+			name: "core budget exceeded",
+			err:  &agentskill.CompileError{Code: agentskill.CodeCoreBudgetExceeded},
+			want: "ai.agent_skill_core_budget_exceeded",
+		},
+		{
+			name: "section invalid",
+			err:  &agentskill.CompileError{Code: agentskill.CodeSectionInvalid},
+			want: "ai.agent_skill_section_invalid",
+		},
+		{
+			name: "composition conflict",
+			err:  &agentskill.CompileError{Code: agentskill.CodeCompositionConflict},
+			want: "ai.agent_skill_composition_conflict",
+		},
+		{
+			name: "unknown error",
+			err:  errors.New("unclassified"),
+			want: "common.invalid_request",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := agentSkillCompileErrorMessageKey(tt.err); got != tt.want {
+				t.Fatalf("agentSkillCompileErrorMessageKey() = %q, want %q", got, tt.want)
 			}
 		})
 	}

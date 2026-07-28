@@ -377,7 +377,8 @@ func (s *NativeStore) GetAgentSkill(ctx context.Context, req *pb.GetAgentSkillRe
 func (s *NativeStore) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
 	compiled, authoringJSON, compileErr := compileAgentSkillPackage(req.GetPackage())
 	if compileErr != nil {
-		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: agentSkillCompileErrorMessage(compileErr)}, nil
+		messageKey := agentSkillCompileErrorMessageKey(compileErr)
+		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: messageKey}, nil
 	}
 	row := agentSkillRecord{
 		Name:              compiled.Manifest.SkillName,
@@ -457,7 +458,8 @@ func (s *NativeStore) CreateAgentSkillVersion(ctx context.Context, req *pb.Creat
 	}
 	compiled, authoringJSON, compileErr := compileAgentSkillPackage(req.GetPackage())
 	if compileErr != nil {
-		return &pb.AgentSkillVersionResponse{Code: governanceBadRequest, Msg: agentSkillCompileErrorMessage(compileErr)}, nil
+		messageKey := agentSkillCompileErrorMessageKey(compileErr)
+		return &pb.AgentSkillVersionResponse{Code: governanceBadRequest, Msg: messageKey}, nil
 	}
 	var version agentSkillVersionRecord
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -483,7 +485,7 @@ func (s *NativeStore) CreateAgentSkillVersion(ctx context.Context, req *pb.Creat
 		return &pb.AgentSkillVersionResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil
 	}
 	if errors.Is(err, errAgentSkillNameMismatch) {
-		return &pb.AgentSkillVersionResponse{Code: governanceBadRequest, Msg: agentskill.CodePackageInvalid}, nil
+		return &pb.AgentSkillVersionResponse{Code: governanceBadRequest, Msg: "ai.agent_skill_package_invalid"}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -569,7 +571,8 @@ func (s *NativeStore) UpdateAgentSkillStatus(ctx context.Context, req *pb.Update
 func (s *NativeStore) PreviewAgentSkill(_ context.Context, req *pb.PreviewAgentSkillRequest) (*pb.PreviewAgentSkillResponse, error) {
 	compiled, authoringJSON, err := compileAgentSkillPackage(req.GetPackage())
 	if err != nil {
-		return &pb.PreviewAgentSkillResponse{Code: governanceBadRequest, Msg: agentSkillCompileErrorMessage(err)}, nil
+		messageKey := agentSkillCompileErrorMessageKey(err)
+		return &pb.PreviewAgentSkillResponse{Code: governanceBadRequest, Msg: messageKey}, nil
 	}
 	return &pb.PreviewAgentSkillResponse{
 		Code:    governanceOK,
@@ -982,11 +985,19 @@ func agentSkillManifestToPB(manifest agentskill.Manifest) *pb.AgentSkillManifest
 	}
 }
 
-func agentSkillCompileErrorMessage(err error) string {
-	if code := agentskill.ErrorCode(err); code != "" {
-		return code
+func agentSkillCompileErrorMessageKey(err error) string {
+	switch agentskill.ErrorCode(err) {
+	case agentskill.CodePackageInvalid:
+		return "ai.agent_skill_package_invalid"
+	case agentskill.CodeCoreBudgetExceeded:
+		return "ai.agent_skill_core_budget_exceeded"
+	case agentskill.CodeSectionInvalid:
+		return "ai.agent_skill_section_invalid"
+	case agentskill.CodeCompositionConflict:
+		return "ai.agent_skill_composition_conflict"
+	default:
+		return "common.invalid_request"
 	}
-	return "common.invalid_request"
 }
 
 func agentSkillRiskFromPB(value pb.AgentSkillRiskLevel) agentskill.RiskLevel {
