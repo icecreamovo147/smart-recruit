@@ -750,6 +750,18 @@ func validatePublishedConfigurationRefs(tx *gorm.DB, snapshot PlatformAICapabili
 			return errors.New("structured AI releases require at least one Prompt template")
 		}
 	}
+	if len(refs.AgentSkillVersionIDs) > 0 && tx.Migrator().HasTable("agent_skill_versions") {
+		var count int64
+		if err := tx.Table("agent_skill_versions v").
+			Joins("JOIN agent_skills s ON s.id = v.skill_id").
+			Where("v.id IN ?", refs.AgentSkillVersionIDs).
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count != int64(len(refs.AgentSkillVersionIDs)) {
+			return errors.New("all released agent skill versions must exist and belong to an Agent Skill registry")
+		}
+	}
 	checks := []struct {
 		label string
 		table string
@@ -759,7 +771,6 @@ func validatePublishedConfigurationRefs(tx *gorm.DB, snapshot PlatformAICapabili
 	}{
 		{"agents", "agent_configs", "agent_configs", refs.AgentIDs, "is_enabled = 1"},
 		{"prompt templates", "prompt_templates", "prompt_templates", refs.PromptTemplateIDs, "is_active = 1"},
-		{"agent skill versions", "agent_skill_versions v JOIN agent_skills s ON s.id = v.skill_id", "agent_skill_versions", refs.AgentSkillVersionIDs, "s.is_enabled = 1"},
 		{"MCP policies", "mcp_tool_policies p JOIN mcp_servers s ON s.id = p.server_id", "mcp_tool_policies", refs.MCPPolicyIDs, "p.is_enabled = 1 AND s.is_enabled = 1"},
 	}
 	for _, check := range checks {
@@ -769,8 +780,6 @@ func validatePublishedConfigurationRefs(tx *gorm.DB, snapshot PlatformAICapabili
 		var count int64
 		query := tx.Table(check.table)
 		switch check.label {
-		case "agent skill versions":
-			query = query.Where("v.id IN ?", check.ids)
 		case "MCP policies":
 			query = query.Where("p.id IN ?", check.ids)
 		default:

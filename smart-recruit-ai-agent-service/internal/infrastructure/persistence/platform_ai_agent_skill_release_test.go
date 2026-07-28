@@ -170,6 +170,19 @@ func TestPlatformAICapabilityPublishRevalidatesAgentSkillPackage(t *testing.T) {
 			want: "disabled registry",
 		},
 		{
+			name: "missing version",
+			prepare: func(db *gorm.DB, version agentSkillVersionRecord) {
+				if err := db.Where("skill_version_id = ?", version.ID).
+					Delete(&agentSkillSectionRecord{}).Error; err != nil {
+					t.Fatalf("delete version sections: %v", err)
+				}
+				if err := db.Delete(&agentSkillVersionRecord{}, version.ID).Error; err != nil {
+					t.Fatalf("delete version: %v", err)
+				}
+			},
+			want: "all released agent skill versions must exist",
+		},
+		{
 			name: "compiled hash mismatch",
 			prepare: func(db *gorm.DB, version agentSkillVersionRecord) {
 				if err := db.Model(&agentSkillVersionRecord{}).Where("id = ?", version.ID).
