@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -8,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"time"
@@ -27,12 +29,31 @@ const (
 	PlatformAIReleaseRetired   = "retired"
 
 	ModelFallbackUnavailable = "model_unavailable"
+
+	PlatformAISnapshotSchemaVersion     = 2
+	PlatformAISkillPolicyVersion        = "skill-package-v2.1"
+	PlatformAIDefaultMaxSkillTokens     = 3000
+	PlatformAIDefaultMaxSkillInputRatio = 0.15
+	PlatformAIDefaultMaxSkills          = 2
+	platformAIMaxSkillTokens            = 3000
+	platformAIMaxSkillInputRatio        = 0.15
+	platformAIFixedMaxSkills            = 2
 )
+
+var platformAICapabilitySnapshotRequiredFields = [...]string{
+	"schema_version",
+	"capability_key",
+	"audience",
+	"model_policy",
+	"configuration_refs",
+	"skill_runtime_policy",
+}
 
 var (
 	ErrCapabilityNotFound       = errors.New("platform AI capability not found")
 	ErrCapabilityUnavailable    = errors.New("platform AI capability is unavailable")
 	ErrCapabilityVersionChanged = errors.New("published platform AI capability versions are immutable")
+	ErrCapabilitySnapshotHash   = errors.New("platform AI capability snapshot hash does not match its canonical content")
 	ErrModelNotAllowed          = errors.New("requested model is not allowed by the capability release")
 )
 
@@ -44,11 +65,12 @@ type PlatformAIModelPolicy struct {
 }
 
 type PlatformAICapabilitySnapshot struct {
-	SchemaVersion    int                         `json:"schema_version"`
-	CapabilityKey    string                      `json:"capability_key"`
-	Audience         string                      `json:"audience"`
-	ModelPolicy      PlatformAIModelPolicy       `json:"model_policy"`
-	ConfigurationRef PlatformAIConfigurationRefs `json:"configuration_refs"`
+	SchemaVersion      int                          `json:"schema_version"`
+	CapabilityKey      string                       `json:"capability_key"`
+	Audience           string                       `json:"audience"`
+	ModelPolicy        PlatformAIModelPolicy        `json:"model_policy"`
+	ConfigurationRef   PlatformAIConfigurationRefs  `json:"configuration_refs"`
+	SkillRuntimePolicy PlatformAISkillRuntimePolicy `json:"skill_runtime_policy"`
 }
 
 type PlatformAIConfigurationRefs struct {
@@ -56,6 +78,15 @@ type PlatformAIConfigurationRefs struct {
 	PromptTemplateIDs    []int64 `json:"prompt_template_ids"`
 	AgentSkillVersionIDs []int64 `json:"agent_skill_version_ids"`
 	MCPPolicyIDs         []int64 `json:"mcp_policy_ids"`
+}
+
+type PlatformAISkillRuntimePolicy struct {
+	PolicyVersion        string  `json:"policy_version"`
+	MaxSkillTokens       int     `json:"max_skill_tokens"`
+	MaxInputRatio        float64 `json:"max_input_ratio"`
+	MaxSkills            int     `json:"max_skills"`
+	EvaluationSuiteHash  string  `json:"evaluation_suite_hash"`
+	EvaluationResultHash string  `json:"evaluation_result_hash"`
 }
 
 type PlatformAICapability struct {
@@ -373,14 +404,24 @@ func (s *NativeStore) PublishPlatformAICapabilityVersion(ctx context.Context, ve
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&capability, version.CapabilityID).Error; err != nil {
 			return err
 		}
-		_, _, snapshot, err := normalizeCapabilitySnapshot([]byte(version.SnapshotJSON), capability)
+		normalized, hash, snapshot, err := normalizeCapabilitySnapshot([]byte(version.SnapshotJSON), capability)
 		if err != nil {
 			return err
+		}
+		if normalized != version.SnapshotJSON || hash != version.SnapshotHash {
+			return ErrCapabilitySnapshotHash
 		}
 		if err := validatePublishedModelPolicy(tx, snapshot.ModelPolicy); err != nil {
 			return err
 		}
 		if err := validatePublishedConfigurationRefs(tx, snapshot); err != nil {
+			return err
+		}
+		packages, err := validatePublishedAgentSkillPackages(tx, snapshot)
+		if err != nil {
+			return err
+		}
+		if err := s.validateAgentSkillReleaseEvaluation(ctx, snapshot, packages); err != nil {
 			return err
 		}
 		now := time.Now()
@@ -544,16 +585,36 @@ func (s *NativeStore) loadPublishedCapability(ctx context.Context, capabilityKey
 		}
 		return capability, version, PlatformAICapabilitySnapshot{}, err
 	}
-	_, _, snapshot, err := normalizeCapabilitySnapshot([]byte(version.SnapshotJSON), capability)
-	return capability, version, snapshot, err
+	normalized, hash, snapshot, err := normalizeCapabilitySnapshot([]byte(version.SnapshotJSON), capability)
+	if err != nil {
+		return capability, version, snapshot, err
+	}
+	if normalized != version.SnapshotJSON || hash != version.SnapshotHash {
+		return capability, version, PlatformAICapabilitySnapshot{}, ErrCapabilitySnapshotHash
+	}
+	return capability, version, snapshot, nil
 }
 
 func normalizeCapabilitySnapshot(raw []byte, capability platformAICapabilityRecord) (string, string, PlatformAICapabilitySnapshot, error) {
 	var snapshot PlatformAICapabilitySnapshot
-	if err := json.Unmarshal(raw, &snapshot); err != nil {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err != nil {
 		return "", "", snapshot, fmt.Errorf("invalid capability snapshot: %w", err)
 	}
-	if snapshot.SchemaVersion != 1 {
+	for _, field := range platformAICapabilitySnapshotRequiredFields {
+		if _, ok := object[field]; !ok {
+			return "", "", snapshot, fmt.Errorf("capability snapshot %s is required", field)
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&snapshot); err != nil {
+		return "", "", snapshot, fmt.Errorf("invalid capability snapshot: %w", err)
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return "", "", snapshot, errors.New("invalid capability snapshot: trailing JSON value")
+	}
+	if snapshot.SchemaVersion != PlatformAISnapshotSchemaVersion {
 		return "", "", snapshot, fmt.Errorf("unsupported capability snapshot schema_version %d", snapshot.SchemaVersion)
 	}
 	if snapshot.CapabilityKey != capability.CapabilityKey || snapshot.Audience != capability.Audience {
@@ -590,12 +651,64 @@ func normalizeCapabilitySnapshot(raw []byte, capability platformAICapabilityReco
 		}
 		*ids = normalized
 	}
+	if err := normalizeSkillRuntimePolicy(&snapshot.SkillRuntimePolicy); err != nil {
+		return "", "", snapshot, err
+	}
 	normalized, err := json.Marshal(snapshot)
 	if err != nil {
 		return "", "", snapshot, err
 	}
 	sum := sha256.Sum256(normalized)
 	return string(normalized), hex.EncodeToString(sum[:]), snapshot, nil
+}
+
+func normalizeSkillRuntimePolicy(policy *PlatformAISkillRuntimePolicy) error {
+	policy.PolicyVersion = strings.TrimSpace(policy.PolicyVersion)
+	if policy.PolicyVersion != PlatformAISkillPolicyVersion {
+		return fmt.Errorf("unsupported skill runtime policy_version %q", policy.PolicyVersion)
+	}
+	if policy.MaxSkillTokens == 0 {
+		policy.MaxSkillTokens = PlatformAIDefaultMaxSkillTokens
+	}
+	if policy.MaxSkillTokens < 1 || policy.MaxSkillTokens > platformAIMaxSkillTokens {
+		return fmt.Errorf("skill runtime max_skill_tokens must be between 1 and %d", platformAIMaxSkillTokens)
+	}
+	if policy.MaxInputRatio == 0 {
+		policy.MaxInputRatio = PlatformAIDefaultMaxSkillInputRatio
+	}
+	if policy.MaxInputRatio < 0 || policy.MaxInputRatio > platformAIMaxSkillInputRatio {
+		return fmt.Errorf("skill runtime max_input_ratio must be greater than 0 and at most %.2f", platformAIMaxSkillInputRatio)
+	}
+	if policy.MaxSkills == 0 {
+		policy.MaxSkills = PlatformAIDefaultMaxSkills
+	}
+	if policy.MaxSkills != platformAIFixedMaxSkills {
+		return fmt.Errorf("skill runtime max_skills must be %d", platformAIFixedMaxSkills)
+	}
+	var err error
+	policy.EvaluationSuiteHash, err = normalizeOptionalSHA256(policy.EvaluationSuiteHash)
+	if err != nil {
+		return fmt.Errorf("skill runtime evaluation_suite_hash: %w", err)
+	}
+	policy.EvaluationResultHash, err = normalizeOptionalSHA256(policy.EvaluationResultHash)
+	if err != nil {
+		return fmt.Errorf("skill runtime evaluation_result_hash: %w", err)
+	}
+	return nil
+}
+
+func normalizeOptionalSHA256(value string) (string, error) {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return "", nil
+	}
+	if len(value) != sha256.Size*2 {
+		return "", errors.New("must be a SHA-256 hex digest")
+	}
+	if _, err := hex.DecodeString(value); err != nil {
+		return "", errors.New("must be a SHA-256 hex digest")
+	}
+	return value, nil
 }
 
 func validatePublishedModelPolicy(tx *gorm.DB, policy PlatformAIModelPolicy) error {

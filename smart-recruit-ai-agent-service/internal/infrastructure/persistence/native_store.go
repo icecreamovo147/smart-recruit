@@ -23,10 +23,11 @@ import (
 )
 
 type NativeStore struct {
-	db               *gorm.DB
-	runtimeLLM       RuntimeLLMConfig
-	encryptionKey    crypto.EncryptionKey
-	hasEncryptionKey bool
+	db                         *gorm.DB
+	runtimeLLM                 RuntimeLLMConfig
+	agentSkillReleaseEvaluator PlatformAIAgentSkillReleaseEvaluator
+	encryptionKey              crypto.EncryptionKey
+	hasEncryptionKey           bool
 }
 
 const (
@@ -41,6 +42,10 @@ func NewNativeStore(db *gorm.DB) *NativeStore {
 
 func (s *NativeStore) SetRuntimeLLMConfig(cfg RuntimeLLMConfig) {
 	s.runtimeLLM = cfg
+}
+
+func (s *NativeStore) SetAgentSkillReleaseEvaluator(evaluator PlatformAIAgentSkillReleaseEvaluator) {
+	s.agentSkillReleaseEvaluator = evaluator
 }
 
 func (s *NativeStore) SetEncryptionKey(key crypto.EncryptionKey) {

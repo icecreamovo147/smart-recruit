@@ -5,16 +5,24 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+
+	"smart-recruit-ai-agent-service/internal/domain/agentskill"
+)
+
+var (
+	platformAITestEvaluationSuiteHash  = strings.Repeat("a", 64)
+	platformAITestEvaluationResultHash = strings.Repeat("b", 64)
 )
 
 func TestPlatformAICapabilityPublishIsImmutableAndAudited(t *testing.T) {
 	db := newPlatformAIControlPlaneTestDB(t)
-	store := NewNativeStore(db)
+	store := newPlatformAIControlPlaneTestStore(db)
 	providerID, defaultModelID, _ := seedPlatformAIModels(t, db)
 	_ = providerID
 	seedPlatformAIAgentPrompt(t, db, 10, 20, "hr_recruiting_agent", "hr_agent")
@@ -72,37 +80,221 @@ func TestPlatformAICapabilityPublishIsImmutableAndAudited(t *testing.T) {
 	}
 }
 
-func TestNormalizeCapabilitySnapshotDropsRetiredAISkillReferences(t *testing.T) {
+func TestNormalizeCapabilitySnapshotRequiresV2Contract(t *testing.T) {
 	capability := platformAICapabilityRecord{CapabilityKey: "ai.chat", Audience: PlatformAIAudienceTenantHR}
-	legacySnapshot := map[string]any{}
-	if err := json.Unmarshal(mustCapabilitySnapshotJSON(t, capability, []int64{1}, 1), &legacySnapshot); err != nil {
-		t.Fatalf("decode snapshot: %v", err)
+	valid := mustCapabilitySnapshotObject(t, capability, []int64{1}, 1)
+	tests := []struct {
+		name   string
+		mutate func(map[string]any)
+		want   string
+	}{
+		{
+			name: "schema v1",
+			mutate: func(snapshot map[string]any) {
+				snapshot["schema_version"] = 1
+			},
+			want: "unsupported capability snapshot schema_version 1",
+		},
+		{
+			name: "missing schema",
+			mutate: func(snapshot map[string]any) {
+				delete(snapshot, "schema_version")
+			},
+			want: "schema_version is required",
+		},
+		{
+			name: "missing capability key",
+			mutate: func(snapshot map[string]any) {
+				delete(snapshot, "capability_key")
+			},
+			want: "capability_key is required",
+		},
+		{
+			name: "missing audience",
+			mutate: func(snapshot map[string]any) {
+				delete(snapshot, "audience")
+			},
+			want: "audience is required",
+		},
+		{
+			name: "missing model policy",
+			mutate: func(snapshot map[string]any) {
+				delete(snapshot, "model_policy")
+			},
+			want: "model_policy is required",
+		},
+		{
+			name: "missing configuration refs",
+			mutate: func(snapshot map[string]any) {
+				delete(snapshot, "configuration_refs")
+			},
+			want: "configuration_refs is required",
+		},
+		{
+			name: "missing skill policy",
+			mutate: func(snapshot map[string]any) {
+				delete(snapshot, "skill_runtime_policy")
+			},
+			want: "skill_runtime_policy is required",
+		},
+		{
+			name: "legacy skill IDs",
+			mutate: func(snapshot map[string]any) {
+				snapshot["configuration_refs"].(map[string]any)["ai_skill_version_ids"] = []int64{101}
+			},
+			want: "unknown field",
+		},
+		{
+			name: "unknown top level",
+			mutate: func(snapshot map[string]any) {
+				snapshot["runtime_mode"] = "legacy"
+			},
+			want: "unknown field",
+		},
 	}
-	legacySnapshot["configuration_refs"].(map[string]any)["ai_skill_version_ids"] = []int64{101, 102}
-	raw, err := json.Marshal(legacySnapshot)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			snapshot := cloneJSONMap(t, valid)
+			tt.mutate(snapshot)
+			raw, err := json.Marshal(snapshot)
+			if err != nil {
+				t.Fatalf("encode snapshot: %v", err)
+			}
+			if _, _, _, err := normalizeCapabilitySnapshot(raw, capability); err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("normalize error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeCapabilitySnapshotPreservesCanonicalNormalization(t *testing.T) {
+	capability := platformAICapabilityRecord{CapabilityKey: "ai.chat", Audience: PlatformAIAudienceTenantHR}
+	snapshot := mustCapabilitySnapshotObject(t, capability, []int64{3, 1, 3}, 1)
+	snapshot["configuration_refs"].(map[string]any)["agent_ids"] = []int64{10, 2, 10}
+	policy := snapshot["skill_runtime_policy"].(map[string]any)
+	policy["policy_version"] = " " + PlatformAISkillPolicyVersion + " "
+	policy["evaluation_suite_hash"] = " " + strings.ToUpper(platformAITestEvaluationSuiteHash) + " "
+
+	raw, err := json.Marshal(snapshot)
 	if err != nil {
-		t.Fatalf("encode legacy snapshot: %v", err)
+		t.Fatalf("encode non-canonical snapshot: %v", err)
+	}
+	normalized, hash, decoded, err := normalizeCapabilitySnapshot(raw, capability)
+	if err != nil {
+		t.Fatalf("normalize snapshot: %v", err)
+	}
+	if got, want := decoded.ModelPolicy.AllowedLLMModelIDs, []int64{1, 3}; !equalInt64s(got, want) {
+		t.Fatalf("allowed models = %#v, want %#v", got, want)
+	}
+	if got, want := decoded.ConfigurationRef.AgentIDs, []int64{2, 10}; !equalInt64s(got, want) {
+		t.Fatalf("agent IDs = %#v, want %#v", got, want)
+	}
+	if decoded.SkillRuntimePolicy.PolicyVersion != PlatformAISkillPolicyVersion ||
+		decoded.SkillRuntimePolicy.EvaluationSuiteHash != platformAITestEvaluationSuiteHash {
+		t.Fatalf("normalized skill policy = %+v", decoded.SkillRuntimePolicy)
 	}
 
-	normalized, hash, snapshot, err := normalizeCapabilitySnapshot(raw, capability)
+	secondNormalized, secondHash, _, err := normalizeCapabilitySnapshot([]byte(normalized), capability)
 	if err != nil {
-		t.Fatalf("normalize legacy snapshot: %v", err)
+		t.Fatalf("normalize canonical snapshot: %v", err)
 	}
-	if hash == "" || len(snapshot.ConfigurationRef.AgentSkillVersionIDs) != 0 {
-		t.Fatalf("unexpected normalized snapshot: hash=%q refs=%+v", hash, snapshot.ConfigurationRef)
+	if secondNormalized != normalized || secondHash != hash {
+		t.Fatalf("canonical normalization is not stable: first=(%s,%s) second=(%s,%s)", normalized, hash, secondNormalized, secondHash)
 	}
-	var normalizedObject map[string]any
-	if err := json.Unmarshal([]byte(normalized), &normalizedObject); err != nil {
-		t.Fatalf("decode normalized snapshot: %v", err)
+}
+
+func TestNormalizeCapabilitySnapshotSkillPolicy(t *testing.T) {
+	capability := platformAICapabilityRecord{CapabilityKey: "ai.chat", Audience: PlatformAIAudienceTenantHR}
+	tests := []struct {
+		name   string
+		policy PlatformAISkillRuntimePolicy
+		want   string
+	}{
+		{
+			name:   "defaults",
+			policy: PlatformAISkillRuntimePolicy{PolicyVersion: PlatformAISkillPolicyVersion},
+		},
+		{
+			name:   "bounded custom budget",
+			policy: validPlatformAITestSkillPolicy(),
+		},
+		{
+			name:   "wrong policy version",
+			policy: PlatformAISkillRuntimePolicy{PolicyVersion: "legacy"},
+			want:   "unsupported skill runtime policy_version",
+		},
+		{
+			name:   "token budget too large",
+			policy: PlatformAISkillRuntimePolicy{PolicyVersion: PlatformAISkillPolicyVersion, MaxSkillTokens: 3001},
+			want:   "max_skill_tokens",
+		},
+		{
+			name:   "ratio too large",
+			policy: PlatformAISkillRuntimePolicy{PolicyVersion: PlatformAISkillPolicyVersion, MaxInputRatio: 0.16},
+			want:   "max_input_ratio",
+		},
+		{
+			name:   "max skills not fixed",
+			policy: PlatformAISkillRuntimePolicy{PolicyVersion: PlatformAISkillPolicyVersion, MaxSkills: 1},
+			want:   "max_skills",
+		},
+		{
+			name: "invalid evaluation hash",
+			policy: PlatformAISkillRuntimePolicy{
+				PolicyVersion:       PlatformAISkillPolicyVersion,
+				EvaluationSuiteHash: "not-a-hash",
+			},
+			want: "evaluation_suite_hash",
+		},
 	}
-	if _, exists := normalizedObject["configuration_refs"].(map[string]any)["ai_skill_version_ids"]; exists {
-		t.Fatalf("normalized snapshot retains retired ai_skill_version_ids: %s", normalized)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			snapshot := PlatformAICapabilitySnapshot{
+				SchemaVersion:      PlatformAISnapshotSchemaVersion,
+				CapabilityKey:      capability.CapabilityKey,
+				Audience:           capability.Audience,
+				ModelPolicy:        PlatformAIModelPolicy{AllowedLLMModelIDs: []int64{1}, DefaultLLMModelID: 1},
+				ConfigurationRef:   PlatformAIConfigurationRefs{},
+				SkillRuntimePolicy: tt.policy,
+			}
+			raw, err := json.Marshal(snapshot)
+			if err != nil {
+				t.Fatalf("encode snapshot: %v", err)
+			}
+			_, _, normalized, err := normalizeCapabilitySnapshot(raw, capability)
+			if tt.want != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.want) {
+					t.Fatalf("normalize error = %v, want %q", err, tt.want)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("normalize: %v", err)
+			}
+			if normalized.SkillRuntimePolicy.MaxSkillTokens != PlatformAIDefaultMaxSkillTokens ||
+				normalized.SkillRuntimePolicy.MaxInputRatio != PlatformAIDefaultMaxSkillInputRatio ||
+				normalized.SkillRuntimePolicy.MaxSkills != PlatformAIDefaultMaxSkills {
+				t.Fatalf("normalized policy = %+v", normalized.SkillRuntimePolicy)
+			}
+		})
 	}
+}
+
+func equalInt64s(left, right []int64) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestPlatformAICapabilityDraftCanBeDeletedWithoutLosingAuditEvidence(t *testing.T) {
 	db := newPlatformAIControlPlaneTestDB(t)
-	store := NewNativeStore(db)
+	store := newPlatformAIControlPlaneTestStore(db)
 	_, defaultModelID, _ := seedPlatformAIModels(t, db)
 	seedPlatformAIAgentPrompt(t, db, 10, 20, "hr_recruiting_agent", "hr_agent")
 	capability := seedPlatformAICapability(t, db, "ai.chat", PlatformAIAudienceTenantHR)
@@ -156,7 +348,7 @@ func TestPlatformAICapabilityPublishRequiresAgentPromptClosure(t *testing.T) {
 	for _, capabilityKey := range []string{"ai.chat", "ai.agent_run", "ai.application_analysis"} {
 		t.Run(capabilityKey, func(t *testing.T) {
 			db := newPlatformAIControlPlaneTestDB(t)
-			store := NewNativeStore(db)
+			store := newPlatformAIControlPlaneTestStore(db)
 			_, defaultModelID, _ := seedPlatformAIModels(t, db)
 			seedPlatformAIAgentPrompt(t, db, 10, 20, "hr_recruiting_agent", "hr_agent")
 			seedPlatformAIAgentPrompt(t, db, 11, 21, "custom", "custom")
@@ -187,7 +379,7 @@ func TestPlatformAICapabilityPublishRequiresAgentPromptClosure(t *testing.T) {
 
 func TestResolveRuntimeModelHonorsPoolAndFallsBackWithinRelease(t *testing.T) {
 	db := newPlatformAIControlPlaneTestDB(t)
-	store := NewNativeStore(db)
+	store := newPlatformAIControlPlaneTestStore(db)
 	_, defaultModelID, alternateModelID := seedPlatformAIModels(t, db)
 	capability := seedPlatformAICapability(t, db, "ai.chat", PlatformAIAudienceTenantHR)
 	published := seedPublishedCapabilityVersion(t, db, capability, []int64{defaultModelID, alternateModelID}, defaultModelID)
@@ -229,7 +421,7 @@ func TestResolveRuntimeModelHonorsPoolAndFallsBackWithinRelease(t *testing.T) {
 
 func TestRuntimeModelPoolsAreAudienceIsolated(t *testing.T) {
 	db := newPlatformAIControlPlaneTestDB(t)
-	store := NewNativeStore(db)
+	store := newPlatformAIControlPlaneTestStore(db)
 	_, hrModelID, candidateModelID := seedPlatformAIModels(t, db)
 	hrCapability := seedPlatformAICapability(t, db, "ai.chat", PlatformAIAudienceTenantHR)
 	candidateCapability := seedPlatformAICapability(t, db, "ai.chat", PlatformAIAudienceCandidate)
@@ -263,7 +455,11 @@ func newPlatformAIControlPlaneTestDB(t *testing.T) *gorm.DB {
 		&llmProviderRecord{},
 		&llmModelRecord{},
 		&agentConfigRecord{},
+		&agentCapabilityBindingRecord{},
 		&promptTemplateRecord{},
+		&agentSkillRecord{},
+		&agentSkillVersionRecord{},
+		&agentSkillSectionRecord{},
 	); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
@@ -332,17 +528,125 @@ func seedPublishedCapabilityVersion(t *testing.T, db *gorm.DB, capability platfo
 func mustCapabilitySnapshotJSON(t *testing.T, capability platformAICapabilityRecord, allowed []int64, defaultID int64) []byte {
 	t.Helper()
 	raw, err := json.Marshal(PlatformAICapabilitySnapshot{
-		SchemaVersion: 1,
+		SchemaVersion: PlatformAISnapshotSchemaVersion,
 		CapabilityKey: capability.CapabilityKey,
 		Audience:      capability.Audience,
 		ModelPolicy: PlatformAIModelPolicy{
 			AllowedLLMModelIDs: allowed,
 			DefaultLLMModelID:  defaultID,
 		},
-		ConfigurationRef: PlatformAIConfigurationRefs{AgentIDs: []int64{10}, PromptTemplateIDs: []int64{20}},
+		ConfigurationRef:   PlatformAIConfigurationRefs{AgentIDs: []int64{10}, PromptTemplateIDs: []int64{20}},
+		SkillRuntimePolicy: validPlatformAITestSkillPolicy(),
 	})
 	if err != nil {
 		t.Fatalf("marshal snapshot: %v", err)
 	}
 	return raw
+}
+
+func mustCapabilitySnapshotObject(t *testing.T, capability platformAICapabilityRecord, allowed []int64, defaultID int64) map[string]any {
+	t.Helper()
+	var result map[string]any
+	if err := json.Unmarshal(mustCapabilitySnapshotJSON(t, capability, allowed, defaultID), &result); err != nil {
+		t.Fatalf("decode snapshot: %v", err)
+	}
+	return result
+}
+
+func cloneJSONMap(t *testing.T, input map[string]any) map[string]any {
+	t.Helper()
+	raw, err := json.Marshal(input)
+	if err != nil {
+		t.Fatalf("encode JSON clone: %v", err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatalf("decode JSON clone: %v", err)
+	}
+	return result
+}
+
+func validPlatformAITestSkillPolicy() PlatformAISkillRuntimePolicy {
+	return PlatformAISkillRuntimePolicy{
+		PolicyVersion:        PlatformAISkillPolicyVersion,
+		MaxSkillTokens:       PlatformAIDefaultMaxSkillTokens,
+		MaxInputRatio:        PlatformAIDefaultMaxSkillInputRatio,
+		MaxSkills:            PlatformAIDefaultMaxSkills,
+		EvaluationSuiteHash:  platformAITestEvaluationSuiteHash,
+		EvaluationResultHash: platformAITestEvaluationResultHash,
+	}
+}
+
+type fixedPlatformAITestEvaluator struct {
+	result PlatformAIAgentSkillReleaseEvaluationResult
+	err    error
+}
+
+func (e fixedPlatformAITestEvaluator) EvaluateAgentSkillRelease(
+	_ context.Context,
+	_ PlatformAIAgentSkillReleaseEvaluationInput,
+) (PlatformAIAgentSkillReleaseEvaluationResult, error) {
+	return e.result, e.err
+}
+
+func newPlatformAIControlPlaneTestStore(db *gorm.DB) *NativeStore {
+	store := NewNativeStore(db)
+	store.SetAgentSkillReleaseEvaluator(fixedPlatformAITestEvaluator{
+		result: PlatformAIAgentSkillReleaseEvaluationResult{
+			Passed:     true,
+			SuiteHash:  platformAITestEvaluationSuiteHash,
+			ResultHash: platformAITestEvaluationResultHash,
+		},
+	})
+	return store
+}
+
+func seedPlatformAIAgentSkillPackage(
+	t *testing.T,
+	db *gorm.DB,
+	name, agentType, scenario string,
+	role agentskill.CompositionRole,
+	requiredCapabilities []string,
+) agentSkillVersionRecord {
+	t.Helper()
+	compiled, err := agentskill.Compile(agentskill.PackageDraft{
+		Manifest: agentskill.Manifest{
+			SchemaVersion:        agentskill.SchemaVersion,
+			SkillName:            name,
+			DisplayName:          name,
+			AgentType:            agentType,
+			Scenario:             scenario,
+			RiskLevel:            agentskill.RiskLevelMedium,
+			Composition:          agentskill.Composition{Role: role},
+			OutputContract:       agentskill.OutputContract{Mode: agentskill.OutputModeNone},
+			RequiredCapabilities: requiredCapabilities,
+		},
+		Core: agentskill.Core{ContentMarkdown: fmt.Sprintf("Core instructions for %s.", name)},
+		Sections: []agentskill.ReferenceSection{{
+			SectionKey:      "details",
+			Title:           "Details",
+			ContentMarkdown: fmt.Sprintf("Reference details for %s.", name),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("compile Agent Skill package: %v", err)
+	}
+	registry := agentSkillRecord{
+		Name:              name,
+		DisplayName:       name,
+		IsEnabled:         true,
+		IsManualInvocable: true,
+	}
+	if err := db.Create(&registry).Error; err != nil {
+		t.Fatalf("create Agent Skill registry: %v", err)
+	}
+	version, err := persistCompiledAgentSkillVersion(db, registry.ID, "v1", "", 1, "", compiled)
+	if err != nil {
+		t.Fatalf("create Agent Skill version: %v", err)
+	}
+	if err := db.Model(&agentSkillRecord{}).Where("id = ?", registry.ID).
+		Update("current_version_id", version.ID).Error; err != nil {
+		t.Fatalf("activate Agent Skill version: %v", err)
+	}
+	return version
 }
