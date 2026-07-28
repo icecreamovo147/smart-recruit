@@ -5,13 +5,101 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"gorm.io/gorm"
 
 	"smart-recruit-ai-agent-service/internal/domain/agentskill"
 )
+
+func TestValidatePublishedAgentSkillPackagesLoadsCanonicalPackageFromGORM(t *testing.T) {
+	db, _, capability, defaultModelID := setupPlatformAIAgentSkillReleaseTest(t, "ai.chat")
+	version := seedPlatformAIAgentSkillPackage(
+		t,
+		db,
+		"gorm-release-package",
+		"hr_recruiting_agent",
+		"candidate-screening",
+		agentskill.CompositionRolePrimary,
+		nil,
+	)
+	if version.ID == 0 || version.SkillID == 0 {
+		t.Fatalf("seeded version must have nonzero IDs: %+v", version)
+	}
+	distinctCreatedAt := time.Date(2026, time.July, 28, 9, 8, 7, 0, time.UTC)
+	if err := db.Model(&agentSkillVersionRecord{}).
+		Where("id = ?", version.ID).
+		Updates(map[string]any{
+			"version":        "v7-distinct",
+			"authoring_json": `{"canvas":"distinct-authoring"}`,
+			"change_note":    "distinct release note",
+			"created_by":     int64(9087),
+			"created_at":     distinctCreatedAt,
+		}).Error; err != nil {
+		t.Fatalf("seed distinctive version metadata: %v", err)
+	}
+	var persistedVersion agentSkillVersionRecord
+	if err := db.First(&persistedVersion, version.ID).Error; err != nil {
+		t.Fatalf("load persisted version: %v", err)
+	}
+	rows, err := loadPublishedAgentSkillVersionRows(db, []int64{version.ID})
+	if err != nil {
+		t.Fatalf("load published version rows: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("published version rows = %d, want 1", len(rows))
+	}
+	if !rows[0].RegistryEnabled {
+		t.Fatal("published version registry must be enabled")
+	}
+	if got := rows[0].versionRecord(); !reflect.DeepEqual(got, persistedVersion) {
+		t.Fatalf("scanned version = %+v, want full persisted record %+v", got, persistedVersion)
+	}
+
+	var snapshot PlatformAICapabilitySnapshot
+	if err := json.Unmarshal(
+		platformAITestSnapshotWithSkills(t, capability, defaultModelID, version.ID),
+		&snapshot,
+	); err != nil {
+		t.Fatalf("decode snapshot: %v", err)
+	}
+	packages, err := validatePublishedAgentSkillPackages(db, snapshot)
+	if err != nil {
+		t.Fatalf("validate published package: %v", err)
+	}
+	if len(packages) != 1 {
+		t.Fatalf("packages = %d, want 1", len(packages))
+	}
+	pkg := packages[0]
+	if pkg.SkillID != version.SkillID || pkg.VersionID != version.ID {
+		t.Fatalf(
+			"package IDs = skill %d version %d, want skill %d version %d",
+			pkg.SkillID,
+			pkg.VersionID,
+			version.SkillID,
+			version.ID,
+		)
+	}
+	if pkg.Package.Manifest.SkillName != "gorm-release-package" ||
+		pkg.Package.Manifest.AgentType != "hr_recruiting_agent" ||
+		pkg.Package.Manifest.Scenario != "candidate-screening" {
+		t.Fatalf("manifest = %+v", pkg.Package.Manifest)
+	}
+	if pkg.Package.Core.ContentMarkdown != "Core instructions for gorm-release-package.\n" {
+		t.Fatalf("core markdown = %q", pkg.Package.Core.ContentMarkdown)
+	}
+	if pkg.Package.CompiledHash != version.CompiledHash {
+		t.Fatalf("compiled hash = %q, want %q", pkg.Package.CompiledHash, version.CompiledHash)
+	}
+	if len(pkg.Package.Sections) != 1 ||
+		pkg.Package.Sections[0].SectionKey != "details" ||
+		pkg.Package.Sections[0].ContentMarkdown != "Reference details for gorm-release-package.\n" {
+		t.Fatalf("sections = %+v", pkg.Package.Sections)
+	}
+}
 
 func TestPlatformAICapabilityPublishRevalidatesAgentSkillPackage(t *testing.T) {
 	tests := []struct {

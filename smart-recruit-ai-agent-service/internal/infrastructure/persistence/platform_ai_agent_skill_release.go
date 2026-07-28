@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -48,8 +49,36 @@ type PlatformAIAgentSkillReleaseEvaluator interface {
 }
 
 type publishedAgentSkillVersionRow struct {
-	agentSkillVersionRecord
-	RegistryEnabled bool `gorm:"column:registry_enabled"`
+	ID                  int64          `gorm:"column:id"`
+	SkillID             int64          `gorm:"column:skill_id"`
+	Version             string         `gorm:"column:version"`
+	ManifestJSON        string         `gorm:"column:manifest_json"`
+	CoreMarkdown        string         `gorm:"column:core_markdown"`
+	CompiledMarkdown    string         `gorm:"column:compiled_markdown"`
+	AuthoringJSON       sql.NullString `gorm:"column:authoring_json"`
+	CompiledHash        string         `gorm:"column:compiled_hash"`
+	CoreEstimatedTokens int            `gorm:"column:core_estimated_tokens"`
+	ChangeNote          sql.NullString `gorm:"column:change_note"`
+	CreatedBy           sql.NullInt64  `gorm:"column:created_by"`
+	CreatedAt           time.Time      `gorm:"column:created_at"`
+	RegistryEnabled     bool           `gorm:"column:registry_enabled"`
+}
+
+func (row publishedAgentSkillVersionRow) versionRecord() agentSkillVersionRecord {
+	return agentSkillVersionRecord{
+		ID:                  row.ID,
+		SkillID:             row.SkillID,
+		Version:             row.Version,
+		ManifestJSON:        row.ManifestJSON,
+		CoreMarkdown:        row.CoreMarkdown,
+		CompiledMarkdown:    row.CompiledMarkdown,
+		AuthoringJSON:       row.AuthoringJSON,
+		CompiledHash:        row.CompiledHash,
+		CoreEstimatedTokens: row.CoreEstimatedTokens,
+		ChangeNote:          row.ChangeNote,
+		CreatedBy:           row.CreatedBy,
+		CreatedAt:           row.CreatedAt,
+	}
 }
 
 type releaseAgent struct {
@@ -69,13 +98,8 @@ func validatePublishedAgentSkillPackages(tx *gorm.DB, snapshot PlatformAICapabil
 		return []PlatformAIAgentSkillReleasePackage{}, nil
 	}
 
-	var rows []publishedAgentSkillVersionRow
-	if err := tx.Table("agent_skill_versions v").
-		Select("v.*, s.is_enabled AS registry_enabled").
-		Joins("JOIN agent_skills s ON s.id = v.skill_id").
-		Where("v.id IN ?", versionIDs).
-		Order("v.id ASC").
-		Scan(&rows).Error; err != nil {
+	rows, err := loadPublishedAgentSkillVersionRows(tx, versionIDs)
+	if err != nil {
 		return nil, err
 	}
 	if len(rows) != len(versionIDs) {
@@ -96,7 +120,7 @@ func validatePublishedAgentSkillPackages(tx *gorm.DB, snapshot PlatformAICapabil
 		if !row.RegistryEnabled {
 			return nil, fmt.Errorf("released Agent Skill version %d belongs to a disabled registry", row.ID)
 		}
-		compiled, err := recompilePublishedAgentSkillPackage(row.agentSkillVersionRecord, sectionsByVersion[row.ID])
+		compiled, err := recompilePublishedAgentSkillPackage(row.versionRecord(), sectionsByVersion[row.ID])
 		if err != nil {
 			return nil, err
 		}
@@ -113,6 +137,26 @@ func validatePublishedAgentSkillPackages(tx *gorm.DB, snapshot PlatformAICapabil
 		return nil, err
 	}
 	return packages, nil
+}
+
+func loadPublishedAgentSkillVersionRows(tx *gorm.DB, versionIDs []int64) ([]publishedAgentSkillVersionRow, error) {
+	var rows []publishedAgentSkillVersionRow
+	if err := tx.Table("agent_skill_versions v").
+		Select(
+			"v.id AS id, v.skill_id AS skill_id, v.version AS version, v.manifest_json AS manifest_json, "+
+				"v.core_markdown AS core_markdown, v.compiled_markdown AS compiled_markdown, "+
+				"v.authoring_json AS authoring_json, v.compiled_hash AS compiled_hash, "+
+				"v.core_estimated_tokens AS core_estimated_tokens, v.change_note AS change_note, "+
+				"v.created_by AS created_by, v.created_at AS created_at, "+
+				"s.is_enabled AS registry_enabled",
+		).
+		Joins("JOIN agent_skills s ON s.id = v.skill_id").
+		Where("v.id IN ?", versionIDs).
+		Order("v.id ASC").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 func loadReleaseAgentSkillSections(tx *gorm.DB, versionIDs []int64) (map[int64][]agentSkillSectionRecord, error) {
