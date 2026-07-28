@@ -153,7 +153,7 @@ const formatScore = (value?: number) => (typeof value === 'number' ? value.toFix
 const embeddingScore = (item: SemanticSkillDebugItem | SemanticMemoryDebugItem) => item.vector_score
 const finalRankScore = (item: SemanticSkillDebugItem | SemanticMemoryDebugItem) => item.final_rank_score ?? item.score
 const formatDuration = (value: number | null) => (typeof value === 'number' ? `${value}ms` : '-')
-const skillTitle = (item: SemanticSkillDebugItem) => item.display_name || item.name || `Skill #${item.id}`
+const skillTitle = (item: SemanticSkillDebugItem) => item.display_name || item.name || `Skill #${item.skill_id}`
 const memoryScopeText = (item: SemanticMemoryDebugItem) => `${item.scope_type || '-'} #${item.scope_id || '-'}`
 const isSkillExpanded = (id: number) => expandedSkillIds.value.includes(id)
 const isMemoryExpanded = (id: number) => expandedMemoryIds.value.includes(id)
@@ -514,11 +514,11 @@ const submitCorrectionMemory = async () => {
             </div>
             <div class="debug-card-body">
               <div v-if="skillRows.length" class="debug-result-list">
-                <article v-for="item in skillRows" :key="item.id" class="debug-result-item">
+                <article v-for="item in skillRows" :key="item.version_id" class="debug-result-item">
                   <div class="debug-result-item__top">
                     <div>
                       <h4>{{ skillTitle(item) }}</h4>
-                      <p>#{{ item.id }} · {{ item.name }}</p>
+                      <p>Skill #{{ item.skill_id }} · Version #{{ item.version_id }} · {{ item.version }}</p>
                     </div>
                     <div class="debug-score-pill-group">
                       <span
@@ -542,17 +542,19 @@ const submitCorrectionMemory = async () => {
                   <div v-if="item.semantic_tags?.length" class="debug-tag-row">
                     <el-tag v-for="tag in item.semantic_tags" :key="tag" size="small" effect="plain">{{ tag }}</el-tag>
                   </div>
-                  <button type="button" class="debug-detail-toggle" @click="toggleSkill(item.id)">
-                    {{ isSkillExpanded(item.id) ? '收起详情' : '查看详情' }}
+                  <button type="button" class="debug-detail-toggle" @click="toggleSkill(item.version_id)">
+                    {{ isSkillExpanded(item.version_id) ? '收起详情' : '查看详情' }}
                   </button>
-                  <div v-if="isSkillExpanded(item.id)" class="debug-detail-block">
-                    <div><span>Skill ID</span><strong>{{ item.id }}</strong></div>
+                  <div v-if="isSkillExpanded(item.version_id)" class="debug-detail-block">
+                    <div><span>Skill ID</span><strong>{{ item.skill_id }}</strong></div>
+                    <div><span>Version ID</span><strong>{{ item.version_id }}</strong></div>
+                    <div><span>Compiled Hash</span><strong>{{ item.compiled_hash || '-' }}</strong></div>
                     <div><span>Embedding 分数</span><strong>{{ formatScore(embeddingScore(item)) }}</strong></div>
                     <div><span>最终排序分</span><strong>{{ formatScore(finalRankScore(item)) }}</strong></div>
                     <div><span>召回原因</span><strong>{{ item.reason || '-' }}</strong></div>
                   </div>
                   <!-- TASK-FU-003：breakdown 展开区 -->
-                  <div v-if="isSkillExpanded(item.id)" class="debug-breakdown">
+                  <div v-if="isSkillExpanded(item.version_id)" class="debug-breakdown">
                     <h5 class="debug-breakdown__title">混合打分 breakdown</h5>
                     <div class="debug-breakdown__grid">
                       <div>
