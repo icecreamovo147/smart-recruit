@@ -10,6 +10,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"smart-recruit-ai-agent-service/internal/application/agentskilleval"
 	"smart-recruit-ai-agent-service/internal/domain/agentskill"
 )
 
@@ -32,9 +33,11 @@ type PlatformAIAgentSkillReleaseEvaluationInput struct {
 }
 
 type PlatformAIAgentSkillReleaseEvaluationResult struct {
-	Passed     bool
-	SuiteHash  string
-	ResultHash string
+	Passed       bool
+	SuiteVersion string
+	SuiteHash    string
+	ResultHash   string
+	Cases        []agentskilleval.CaseResult
 }
 
 // PlatformAIAgentSkillReleaseEvaluator is the deterministic publication gate.
@@ -399,8 +402,23 @@ func (s *NativeStore) validateAgentSkillReleaseEvaluation(
 	if policy.EvaluationSuiteHash == "" || policy.EvaluationResultHash == "" {
 		return fmt.Errorf("%w: evaluation hashes are required", ErrAgentSkillReleaseEvaluationUnavailable)
 	}
+	result, err := s.evaluateAgentSkillRelease(ctx, snapshot, packages)
+	if err != nil {
+		return err
+	}
+	if result.SuiteHash != policy.EvaluationSuiteHash || result.ResultHash != policy.EvaluationResultHash {
+		return fmt.Errorf("%w: evaluator hashes do not match the immutable snapshot", ErrAgentSkillReleaseEvaluationFailed)
+	}
+	return nil
+}
+
+func (s *NativeStore) evaluateAgentSkillRelease(
+	ctx context.Context,
+	snapshot PlatformAICapabilitySnapshot,
+	packages []PlatformAIAgentSkillReleasePackage,
+) (PlatformAIAgentSkillReleaseEvaluationResult, error) {
 	if s.agentSkillReleaseEvaluator == nil {
-		return ErrAgentSkillReleaseEvaluationUnavailable
+		return PlatformAIAgentSkillReleaseEvaluationResult{}, ErrAgentSkillReleaseEvaluationUnavailable
 	}
 	result, err := s.agentSkillReleaseEvaluator.EvaluateAgentSkillRelease(ctx, PlatformAIAgentSkillReleaseEvaluationInput{
 		CapabilityKey: snapshot.CapabilityKey,
@@ -409,18 +427,51 @@ func (s *NativeStore) validateAgentSkillReleaseEvaluation(
 		Packages:      packages,
 	})
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrAgentSkillReleaseEvaluationUnavailable, err)
+		return PlatformAIAgentSkillReleaseEvaluationResult{}, fmt.Errorf("%w: %v", ErrAgentSkillReleaseEvaluationUnavailable, err)
 	}
 	suiteHash, suiteErr := normalizeOptionalSHA256(result.SuiteHash)
 	resultHash, resultErr := normalizeOptionalSHA256(result.ResultHash)
 	if suiteErr != nil || resultErr != nil || suiteHash == "" || resultHash == "" {
-		return fmt.Errorf("%w: evaluator returned invalid hashes", ErrAgentSkillReleaseEvaluationUnavailable)
+		return PlatformAIAgentSkillReleaseEvaluationResult{}, fmt.Errorf("%w: evaluator returned invalid hashes", ErrAgentSkillReleaseEvaluationUnavailable)
 	}
 	if !result.Passed {
-		return ErrAgentSkillReleaseEvaluationFailed
+		return PlatformAIAgentSkillReleaseEvaluationResult{}, ErrAgentSkillReleaseEvaluationFailed
 	}
-	if suiteHash != policy.EvaluationSuiteHash || resultHash != policy.EvaluationResultHash {
-		return fmt.Errorf("%w: evaluator hashes do not match the immutable snapshot", ErrAgentSkillReleaseEvaluationFailed)
+	result.SuiteHash = suiteHash
+	result.ResultHash = resultHash
+	return result, nil
+}
+
+func (s *NativeStore) prepareCapabilityDraftSnapshot(
+	ctx context.Context,
+	tx *gorm.DB,
+	snapshotJSON []byte,
+	capability platformAICapabilityRecord,
+) (string, string, error) {
+	_, _, snapshot, err := normalizeCapabilitySnapshot(snapshotJSON, capability)
+	if err != nil {
+		return "", "", err
 	}
-	return nil
+	if err := validatePublishedModelPolicy(tx, snapshot.ModelPolicy); err != nil {
+		return "", "", err
+	}
+	if err := validatePublishedConfigurationRefs(tx, snapshot); err != nil {
+		return "", "", err
+	}
+	packages, err := validatePublishedAgentSkillPackages(tx, snapshot)
+	if err != nil {
+		return "", "", err
+	}
+	result, err := s.evaluateAgentSkillRelease(ctx, snapshot, packages)
+	if err != nil {
+		return "", "", err
+	}
+	snapshot.SkillRuntimePolicy.EvaluationSuiteHash = result.SuiteHash
+	snapshot.SkillRuntimePolicy.EvaluationResultHash = result.ResultHash
+	prepared, err := json.Marshal(snapshot)
+	if err != nil {
+		return "", "", err
+	}
+	normalized, hash, _, err := normalizeCapabilitySnapshot(prepared, capability)
+	return normalized, hash, err
 }

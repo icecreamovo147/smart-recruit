@@ -293,7 +293,7 @@ func (s *NativeStore) CreatePlatformAICapabilityDraft(ctx context.Context, capab
 			}
 			return err
 		}
-		normalized, hash, _, err := normalizeCapabilitySnapshot(snapshotJSON, capability)
+		normalized, hash, err := s.prepareCapabilityDraftSnapshot(ctx, tx, snapshotJSON, capability)
 		if err != nil {
 			return err
 		}
@@ -339,7 +339,7 @@ func (s *NativeStore) UpdatePlatformAICapabilityDraft(ctx context.Context, versi
 		if err := tx.First(&capability, version.CapabilityID).Error; err != nil {
 			return err
 		}
-		normalized, hash, _, err := normalizeCapabilitySnapshot(snapshotJSON, capability)
+		normalized, hash, err := s.prepareCapabilityDraftSnapshot(ctx, tx, snapshotJSON, capability)
 		if err != nil {
 			return err
 		}

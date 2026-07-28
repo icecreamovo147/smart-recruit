@@ -84,9 +84,6 @@ func TestPlatformAICapabilityPublishRevalidatesAgentSkillPackage(t *testing.T) {
 				agentskill.CompositionRolePrimary,
 				nil,
 			)
-			if tt.prepare != nil {
-				tt.prepare(db, version)
-			}
 			snapshot := platformAITestSnapshotWithSkills(t, capability, defaultModelID, version.ID)
 			draft, err := store.CreatePlatformAICapabilityDraft(
 				context.Background(),
@@ -98,6 +95,9 @@ func TestPlatformAICapabilityPublishRevalidatesAgentSkillPackage(t *testing.T) {
 			)
 			if err != nil {
 				t.Fatalf("create draft: %v", err)
+			}
+			if tt.prepare != nil {
+				tt.prepare(db, version)
 			}
 			_, err = store.PublishPlatformAICapabilityVersion(context.Background(), draft.ID, 91, "req-publish")
 			if tt.want == "" {
@@ -114,7 +114,7 @@ func TestPlatformAICapabilityPublishRevalidatesAgentSkillPackage(t *testing.T) {
 	}
 }
 
-func TestPlatformAICapabilityPublishRequiresSkillAgentCapabilityFit(t *testing.T) {
+func TestPlatformAICapabilityDraftRequiresSkillAgentCapabilityFit(t *testing.T) {
 	tests := []struct {
 		name         string
 		agentType    string
@@ -169,18 +169,17 @@ func TestPlatformAICapabilityPublishRequiresSkillAgentCapabilityFit(t *testing.T
 				"capability fit",
 				"req-draft",
 			)
-			if err != nil {
-				t.Fatalf("create draft: %v", err)
-			}
-			_, err = store.PublishPlatformAICapabilityVersion(context.Background(), draft.ID, 91, "req-publish")
-			if tt.want == "" {
-				if err != nil {
-					t.Fatalf("publish: %v", err)
+			if tt.want != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.want) {
+					t.Fatalf("create draft error = %v, want %q", err, tt.want)
 				}
 				return
 			}
-			if err == nil || !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("publish error = %v, want %q", err, tt.want)
+			if err != nil {
+				t.Fatalf("create draft: %v", err)
+			}
+			if _, err := store.PublishPlatformAICapabilityVersion(context.Background(), draft.ID, 91, "req-publish"); err != nil {
+				t.Fatalf("publish: %v", err)
 			}
 		})
 	}
@@ -381,21 +380,12 @@ func TestPlatformAICapabilityPublishFailsClosedWithoutMatchingEvaluation(t *test
 	tests := []struct {
 		name        string
 		mutateStore func(*NativeStore)
-		mutate      func(*PlatformAICapabilitySnapshot)
 		want        error
 	}{
 		{
 			name: "missing evaluator",
 			mutateStore: func(store *NativeStore) {
 				store.SetAgentSkillReleaseEvaluator(nil)
-			},
-			want: ErrAgentSkillReleaseEvaluationUnavailable,
-		},
-		{
-			name: "missing snapshot hashes",
-			mutate: func(snapshot *PlatformAICapabilitySnapshot) {
-				snapshot.SkillRuntimePolicy.EvaluationSuiteHash = ""
-				snapshot.SkillRuntimePolicy.EvaluationResultHash = ""
 			},
 			want: ErrAgentSkillReleaseEvaluationUnavailable,
 		},
@@ -429,15 +419,9 @@ func TestPlatformAICapabilityPublishFailsClosedWithoutMatchingEvaluation(t *test
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db, store, capability, defaultModelID := setupPlatformAIAgentSkillReleaseTest(t, "ai.chat")
-			if tt.mutateStore != nil {
-				tt.mutateStore(store)
-			}
 			var snapshot PlatformAICapabilitySnapshot
 			if err := json.Unmarshal(mustCapabilitySnapshotJSON(t, capability, []int64{defaultModelID}, defaultModelID), &snapshot); err != nil {
 				t.Fatalf("decode snapshot: %v", err)
-			}
-			if tt.mutate != nil {
-				tt.mutate(&snapshot)
 			}
 			raw, err := json.Marshal(snapshot)
 			if err != nil {
@@ -447,12 +431,91 @@ func TestPlatformAICapabilityPublishFailsClosedWithoutMatchingEvaluation(t *test
 			if err != nil {
 				t.Fatalf("create draft: %v", err)
 			}
+			if tt.mutateStore != nil {
+				tt.mutateStore(store)
+			}
 			_, err = store.PublishPlatformAICapabilityVersion(context.Background(), draft.ID, 91, "req-publish")
 			if !errors.Is(err, tt.want) {
 				t.Fatalf("publish error = %v, want %v", err, tt.want)
 			}
 			assertPlatformAIDraftUnpublished(t, db, capability.ID, draft.ID)
 		})
+	}
+}
+
+func TestPlatformAICapabilityDraftComputesEvaluationHashesAndPublishesWithProductionEvaluator(t *testing.T) {
+	db, _, capability, defaultModelID := setupPlatformAIAgentSkillReleaseTest(t, "ai.chat")
+	store := NewNativeStore(db)
+	version := seedPlatformAIAgentSkillPackage(
+		t,
+		db,
+		"candidate-screen-evaluation",
+		"hr_recruiting_agent",
+		"candidate-screening",
+		agentskill.CompositionRolePrimary,
+		nil,
+	)
+	var snapshot PlatformAICapabilitySnapshot
+	if err := json.Unmarshal(platformAITestSnapshotWithSkills(t, capability, defaultModelID, version.ID), &snapshot); err != nil {
+		t.Fatalf("decode snapshot: %v", err)
+	}
+	snapshot.SkillRuntimePolicy.EvaluationSuiteHash = ""
+	snapshot.SkillRuntimePolicy.EvaluationResultHash = ""
+	raw, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatalf("encode snapshot: %v", err)
+	}
+	draft, err := store.CreatePlatformAICapabilityDraft(
+		context.Background(),
+		capability.ID,
+		91,
+		raw,
+		"server evaluated draft",
+		"req-evaluated-draft",
+	)
+	if err != nil {
+		t.Fatalf("create evaluated draft: %v", err)
+	}
+	var stored PlatformAICapabilitySnapshot
+	if err := json.Unmarshal([]byte(draft.SnapshotJSON), &stored); err != nil {
+		t.Fatalf("decode stored snapshot: %v", err)
+	}
+	if len(stored.SkillRuntimePolicy.EvaluationSuiteHash) != 64 ||
+		len(stored.SkillRuntimePolicy.EvaluationResultHash) != 64 {
+		t.Fatalf("stored evaluation hashes = %+v", stored.SkillRuntimePolicy)
+	}
+	if _, err := store.PublishPlatformAICapabilityVersion(
+		context.Background(),
+		draft.ID,
+		91,
+		"req-evaluated-publish",
+	); err != nil {
+		t.Fatalf("publish evaluated draft: %v", err)
+	}
+}
+
+func TestPlatformAICapabilityDraftFailsClosedWhenEvaluationUnavailable(t *testing.T) {
+	_, store, capability, defaultModelID := setupPlatformAIAgentSkillReleaseTest(t, "ai.chat")
+	store.SetAgentSkillReleaseEvaluator(nil)
+	var snapshot PlatformAICapabilitySnapshot
+	if err := json.Unmarshal(mustCapabilitySnapshotJSON(t, capability, []int64{defaultModelID}, defaultModelID), &snapshot); err != nil {
+		t.Fatalf("decode snapshot: %v", err)
+	}
+	snapshot.SkillRuntimePolicy.EvaluationSuiteHash = ""
+	snapshot.SkillRuntimePolicy.EvaluationResultHash = ""
+	raw, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatalf("encode snapshot: %v", err)
+	}
+	if _, err := store.CreatePlatformAICapabilityDraft(
+		context.Background(),
+		capability.ID,
+		91,
+		raw,
+		"missing evaluator",
+		"req-missing-evaluator",
+	); !errors.Is(err, ErrAgentSkillReleaseEvaluationUnavailable) {
+		t.Fatalf("create draft error = %v, want %v", err, ErrAgentSkillReleaseEvaluationUnavailable)
 	}
 }
 

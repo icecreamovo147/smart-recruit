@@ -37,7 +37,10 @@ const (
 )
 
 func NewNativeStore(db *gorm.DB) *NativeStore {
-	return &NativeStore{db: db}
+	return &NativeStore{
+		db:                         db,
+		agentSkillReleaseEvaluator: newDeterministicAgentSkillReleaseEvaluator(),
+	}
 }
 
 func (s *NativeStore) SetRuntimeLLMConfig(cfg RuntimeLLMConfig) {

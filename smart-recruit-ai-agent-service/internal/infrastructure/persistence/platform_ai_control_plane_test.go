@@ -344,7 +344,7 @@ func TestPlatformAICapabilityDraftCanBeDeletedWithoutLosingAuditEvidence(t *test
 	}
 }
 
-func TestPlatformAICapabilityPublishRequiresAgentPromptClosure(t *testing.T) {
+func TestPlatformAICapabilityDraftRequiresAgentPromptClosure(t *testing.T) {
 	for _, capabilityKey := range []string{"ai.chat", "ai.agent_run", "ai.application_analysis"} {
 		t.Run(capabilityKey, func(t *testing.T) {
 			db := newPlatformAIControlPlaneTestDB(t)
@@ -364,14 +364,9 @@ func TestPlatformAICapabilityPublishRequiresAgentPromptClosure(t *testing.T) {
 			if err != nil {
 				t.Fatalf("encode snapshot: %v", err)
 			}
-			draft, err := store.CreatePlatformAICapabilityDraft(context.Background(), capability.ID, 91, snapshot, "invalid closure", "req-draft")
-			if err != nil {
-				t.Fatalf("create draft: %v", err)
-			}
-
-			_, err = store.PublishPlatformAICapabilityVersion(context.Background(), draft.ID, 91, "req-publish")
+			_, err = store.CreatePlatformAICapabilityDraft(context.Background(), capability.ID, 91, snapshot, "invalid closure", "req-draft")
 			if err == nil || !strings.Contains(err.Error(), "every released Agent") {
-				t.Fatalf("publish error = %v, want Agent/Prompt closure rejection", err)
+				t.Fatalf("create draft error = %v, want Agent/Prompt closure rejection", err)
 			}
 		})
 	}
