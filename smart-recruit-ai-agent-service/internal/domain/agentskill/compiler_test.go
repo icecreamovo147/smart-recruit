@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	domaintokenbudget "smart-recruit-ai-agent-service/internal/domain/tokenbudget"
 )
 
 func TestCompileNormalizesDeterministically(t *testing.T) {
@@ -439,6 +441,28 @@ func TestCompileAllowsSectionAtBudgetLimit(t *testing.T) {
 	}
 	if got := compiled.Sections[0].EstimatedTokens; got != MaxSectionTokens {
 		t.Fatalf("EstimatedTokens = %d, want %d", got, MaxSectionTokens)
+	}
+}
+
+func TestCompileUsesSharedDomainTokenEstimatorForEveryArtifactBoundary(t *testing.T) {
+	draft := validDraft()
+	draft.Core.ContentMarkdown = "abcd招聘🙂"
+	draft.Sections = []ReferenceSection{
+		validSection("mixed-content", 1, "abcde面试🙂"),
+	}
+
+	compiled, err := Compile(draft)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if got, want := compiled.Core.EstimatedTokens, domaintokenbudget.EstimateConservative(compiled.Core.ContentMarkdown); got != want {
+		t.Fatalf("Core.EstimatedTokens = %d, want shared estimate %d", got, want)
+	}
+	if got, want := compiled.Sections[0].EstimatedTokens, domaintokenbudget.EstimateConservative(compiled.Sections[0].ContentMarkdown); got != want {
+		t.Fatalf("Section.EstimatedTokens = %d, want shared estimate %d", got, want)
+	}
+	if got, want := compiled.EstimatedTokens, domaintokenbudget.EstimateConservative(compiled.CompiledMarkdown); got != want {
+		t.Fatalf("Package.EstimatedTokens = %d, want shared estimate %d", got, want)
 	}
 }
 

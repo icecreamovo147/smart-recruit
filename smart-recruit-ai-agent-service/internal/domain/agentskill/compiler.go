@@ -12,7 +12,7 @@ import (
 	"slices"
 	"strings"
 
-	"smart-recruit-ai-agent-service/internal/application/contextbudget"
+	domaintokenbudget "smart-recruit-ai-agent-service/internal/domain/tokenbudget"
 )
 
 const (
@@ -47,7 +47,7 @@ func Compile(draft PackageDraft) (*CompiledPackage, error) {
 	if core.ContentMarkdown == "" {
 		return nil, compileError(CodePackageInvalid, "core.content_markdown", "is required")
 	}
-	coreTokens := contextbudget.EstimateTokensConservative(core.ContentMarkdown)
+	coreTokens := domaintokenbudget.EstimateConservative(core.ContentMarkdown)
 	if coreTokens > MaxCoreTokens {
 		return nil, compileError(
 			CodeCoreBudgetExceeded,
@@ -99,7 +99,7 @@ func Compile(draft PackageDraft) (*CompiledPackage, error) {
 }
 
 func estimateCompiledArtifactTokens(compiledMarkdown string) int {
-	return contextbudget.EstimateTokensConservative(compiledMarkdown)
+	return domaintokenbudget.EstimateConservative(compiledMarkdown)
 }
 
 func normalizedReferenceSections(sections []CompiledSection) []ReferenceSection {
@@ -351,7 +351,7 @@ func normalizeSections(input []ReferenceSection) ([]CompiledSection, int, error)
 			return nil, 0, compileError(CodeSectionInvalid, field+".content_markdown", "is required")
 		}
 
-		tokens := contextbudget.EstimateTokensConservative(section.ContentMarkdown)
+		tokens := domaintokenbudget.EstimateConservative(section.ContentMarkdown)
 		if tokens > MaxSectionTokens {
 			return nil, 0, compileError(
 				CodeSectionInvalid,
