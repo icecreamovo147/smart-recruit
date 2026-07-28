@@ -30,7 +30,7 @@ operation; do not edit historical SQL or manually forge migration history.
 
 ## Adding schema changes
 
-Start new migrations at `000090`. Add an up/down pair, update `db.sql`, and run:
+Start new migrations at `000091`. Add an up/down pair, update `db.sql`, and run:
 
 ```bash
 node scripts/check-migration-baseline.mjs
