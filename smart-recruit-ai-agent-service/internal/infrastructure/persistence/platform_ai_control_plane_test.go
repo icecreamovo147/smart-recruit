@@ -443,6 +443,51 @@ func TestRuntimeModelPoolsAreAudienceIsolated(t *testing.T) {
 	}
 }
 
+func TestSemanticDebugSkillScopeUsesCurrentPublishedRelease(t *testing.T) {
+	db := newPlatformAIControlPlaneTestDB(t)
+	store := newPlatformAIControlPlaneTestStore(db)
+	_, defaultModelID, _ := seedPlatformAIModels(t, db)
+	capability := seedPlatformAICapability(t, db, "ai.chat", PlatformAIAudienceTenantHR)
+	var snapshot PlatformAICapabilitySnapshot
+	if err := json.Unmarshal(
+		mustCapabilitySnapshotJSON(t, capability, []int64{defaultModelID}, defaultModelID),
+		&snapshot,
+	); err != nil {
+		t.Fatalf("decode capability snapshot: %v", err)
+	}
+	snapshot.ConfigurationRef.AgentSkillVersionIDs = []int64{701, 702}
+	raw, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatalf("encode capability snapshot: %v", err)
+	}
+	normalized, hash, _, err := normalizeCapabilitySnapshot(raw, capability)
+	if err != nil {
+		t.Fatalf("normalize capability snapshot: %v", err)
+	}
+	version := platformAICapabilityVersionRecord{
+		CapabilityID: capability.ID, Version: 1, Status: PlatformAIReleasePublished,
+		SnapshotJSON: normalized, SnapshotHash: hash,
+	}
+	if err := db.Create(&version).Error; err != nil {
+		t.Fatalf("create published capability version: %v", err)
+	}
+	if err := db.Model(&platformAICapabilityRecord{}).Where("id = ?", capability.ID).
+		Update("current_published_version_id", version.ID).Error; err != nil {
+		t.Fatalf("activate published capability version: %v", err)
+	}
+
+	versionIDs, releaseID, err := store.ResolveSemanticDebugAgentSkillVersionIDs(
+		context.Background(),
+		"hr_recruiting_agent",
+	)
+	if err != nil {
+		t.Fatalf("resolve semantic debug scope: %v", err)
+	}
+	if releaseID != version.ID || !equalInt64s(versionIDs, []int64{701, 702}) {
+		t.Fatalf("semantic debug scope = release %d versions %#v", releaseID, versionIDs)
+	}
+}
+
 func newPlatformAIControlPlaneTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
@@ -461,6 +506,9 @@ func newPlatformAIControlPlaneTestDB(t *testing.T) *gorm.DB {
 		&agentSkillRecord{},
 		&agentSkillVersionRecord{},
 		&agentSkillSectionRecord{},
+		&embeddingProviderRecord{},
+		&embeddingModelRecord{},
+		&aiEmbeddingRecord{},
 	); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
@@ -649,5 +697,40 @@ func seedPlatformAIAgentSkillPackage(
 		Update("current_version_id", version.ID).Error; err != nil {
 		t.Fatalf("activate Agent Skill version: %v", err)
 	}
+	seedReadyPlatformAIAgentSkillEmbeddings(t, db, version)
 	return version
+}
+
+func seedReadyPlatformAIAgentSkillEmbeddings(t *testing.T, db *gorm.DB, version agentSkillVersionRecord) {
+	t.Helper()
+	var model embeddingModelRecord
+	if err := db.Where("is_default = ? AND is_enabled = ?", true, true).First(&model).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return
+		}
+		t.Fatalf("load default embedding model: %v", err)
+	}
+	metadata := sql.NullString{String: fmt.Sprintf(`{"compiled_hash":%q,"version_id":%d}`, version.CompiledHash, version.ID), Valid: true}
+	vector := sql.NullString{String: `[0.1,0.2]`, Valid: true}
+	rows := []aiEmbeddingRecord{{
+		ObjectType: "agent_skill_version", ObjectID: version.ID,
+		ScopeType: "agent_skill_version", ScopeID: version.ID,
+		TextHash: version.CompiledHash, EmbeddingModel: model.ModelName,
+		EmbeddingDim: model.EmbeddingDim, VectorJSON: vector, MetadataJSON: metadata, Status: "ready",
+	}}
+	var sections []agentSkillSectionRecord
+	if err := db.Where("skill_version_id = ?", version.ID).Find(&sections).Error; err != nil {
+		t.Fatalf("load Agent Skill sections: %v", err)
+	}
+	for _, section := range sections {
+		rows = append(rows, aiEmbeddingRecord{
+			ObjectType: "agent_skill_section", ObjectID: section.ID,
+			ScopeType: "agent_skill_version", ScopeID: version.ID,
+			TextHash: section.ContentHash, EmbeddingModel: model.ModelName,
+			EmbeddingDim: model.EmbeddingDim, VectorJSON: vector, MetadataJSON: metadata, Status: "ready",
+		})
+	}
+	if err := db.Create(&rows).Error; err != nil {
+		t.Fatalf("seed ready Agent Skill embeddings: %v", err)
+	}
 }

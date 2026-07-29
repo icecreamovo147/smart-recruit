@@ -57,6 +57,10 @@ type agentSkillGovernanceStore interface {
 	DebugSemanticRetrieval(context.Context, *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error)
 }
 
+type semanticDebugAgentSkillScopeResolver interface {
+	ResolveSemanticDebugAgentSkillVersionIDs(context.Context, string) ([]int64, int64, error)
+}
+
 func (s nativeMCPService) CreateMCPServer(ctx context.Context, req *pb.CreateMCPServerRequest) (*pb.MCPServerResponse, error) {
 	store, ok := s.store.(mcpGovernanceStore)
 	if !ok {
@@ -425,7 +429,25 @@ func (s nativeAgentSkillService) DebugSemanticRetrieval(ctx context.Context, req
 		}
 	}
 	if s.embedding != nil {
-		return s.embedding.DebugSemanticRetrieval(ctx, req)
+		resolver, ok := s.store.(semanticDebugAgentSkillScopeResolver)
+		if !ok {
+			return &pb.DebugSemanticRetrievalResponse{
+				Code:               configCodeUnavailable,
+				Msg:                "common.operation_failed",
+				EmbeddingAvailable: false,
+				FallbackReason:     "runtime Agent Skill release scope is unavailable",
+			}, nil
+		}
+		versionIDs, _, err := resolver.ResolveSemanticDebugAgentSkillVersionIDs(ctx, req.GetAgentType())
+		if err != nil {
+			response, memoryErr := s.embedding.DebugSemanticRetrievalForVersions(ctx, req, nil)
+			if memoryErr != nil {
+				return nil, memoryErr
+			}
+			response.FallbackReason = "runtime Agent Skill release scope is unavailable: " + err.Error()
+			return response, nil
+		}
+		return s.embedding.DebugSemanticRetrievalForVersions(ctx, req, versionIDs)
 	}
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {

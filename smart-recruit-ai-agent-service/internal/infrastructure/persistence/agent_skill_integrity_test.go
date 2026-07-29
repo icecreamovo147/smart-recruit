@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -136,6 +137,19 @@ func TestAgentSkillPackageV2Lifecycle(t *testing.T) {
 		versions[0].ManifestJSON == "" || versions[0].CompiledMarkdown == "" {
 		t.Fatalf("persisted version = %#v", versions[0])
 	}
+	var outboxRows []embeddingOutboxRecord
+	if err := db.Order("id ASC").Find(&outboxRows).Error; err != nil || len(outboxRows) != 1 {
+		t.Fatalf("embedding outbox rows = %#v, err = %v", outboxRows, err)
+	}
+	var queued embeddingUpsertEnvelope
+	if err := json.Unmarshal([]byte(outboxRows[0].Payload), &queued); err != nil {
+		t.Fatalf("decode embedding outbox payload: %v", err)
+	}
+	if queued.EventType != embeddingUpsertEventType ||
+		queued.Payload.ObjectType != "agent_skill_version" ||
+		queued.Payload.ObjectID != versions[0].ID {
+		t.Fatalf("embedding outbox payload = %#v", queued)
+	}
 	var sections []agentSkillSectionRecord
 	if err := db.Order("ordinal ASC").Find(&sections).Error; err != nil || len(sections) != 2 {
 		t.Fatalf("section rows = %#v, err = %v", sections, err)
@@ -185,6 +199,9 @@ func TestAgentSkillPackageV2Lifecycle(t *testing.T) {
 	})
 	if err != nil || createdVersion.GetCode() != governanceOK {
 		t.Fatalf("CreateAgentSkillVersion response = %#v, err = %v", createdVersion, err)
+	}
+	if err := db.Order("id ASC").Find(&outboxRows).Error; err != nil || len(outboxRows) != 2 {
+		t.Fatalf("embedding outbox rows after v2 = %#v, err = %v", outboxRows, err)
 	}
 	var unchanged agentSkillVersionRecord
 	if err := db.First(&unchanged, before.ID).Error; err != nil {
@@ -375,7 +392,7 @@ func newAgentSkillTestStore(t *testing.T) (*NativeStore, *gorm.DB) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&agentSkillRecord{}, &agentSkillVersionRecord{}, &agentSkillSectionRecord{}); err != nil {
+	if err := db.AutoMigrate(&agentSkillRecord{}, &agentSkillVersionRecord{}, &agentSkillSectionRecord{}, &embeddingOutboxRecord{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	return &NativeStore{db: db}, db

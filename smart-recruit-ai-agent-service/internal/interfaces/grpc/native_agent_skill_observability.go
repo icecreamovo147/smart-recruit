@@ -344,6 +344,12 @@ func (s *nativeAIService) recordAgentSkillRuntimeDecision(
 		summary.Reason = governanceErrors[0].Code
 	case len(evidence) > 0:
 		summary.Result, summary.Reason = agentSkillEvidenceResult(evidence[0])
+		for _, item := range evidence {
+			if item != nil && item.GetIncluded() {
+				summary.Result, summary.Reason = agentSkillEvidenceResult(item)
+				break
+			}
+		}
 	}
 	s.metrics.ObserveAgentSkillRetrieval(summary, elapsed)
 

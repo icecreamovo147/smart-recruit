@@ -73,7 +73,7 @@ func TestEmbeddingServiceBackfillDebugAndSharedVersionRanking(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Backfill returned %v", err)
 	}
-	if backfill.GetSuccessCount() != 2 || len(store.embeddings) != 2 {
+	if backfill.GetSuccessCount() != 4 || len(store.embeddings) != 4 {
 		t.Fatalf("backfill=%+v embeddings=%d", backfill, len(store.embeddings))
 	}
 
@@ -280,6 +280,37 @@ func TestSearchAgentSkillVersionsScopesAllowedVersionsBeforeRankingAndLimit(t *t
 	}
 }
 
+func TestSemanticDebugScopesSkillPoolToPublishedReleaseVersions(t *testing.T) {
+	store := newFakeEmbeddingStore()
+	service := NewEmbeddingService(store, &fakeEmbeddingRunner{vectors: map[string][]float64{
+		"面试": {0, 1},
+	}})
+	if err := service.UpsertAgentSkillVersion(context.Background(), 101); err != nil {
+		t.Fatalf("seed version 101 embedding: %v", err)
+	}
+	if err := service.UpsertAgentSkillVersion(context.Background(), 102); err != nil {
+		t.Fatalf("seed version 102 embedding: %v", err)
+	}
+
+	response, err := service.SearchAgentSkillsForVersions(context.Background(), "面试", []int64{102}, 5)
+	if err != nil {
+		t.Fatalf("scoped semantic debug returned error: %v", err)
+	}
+	if response.GetCandidateCount() != 1 || len(response.GetSkills()) != 1 ||
+		response.GetSkills()[0].GetVersionId() != 102 {
+		t.Fatalf("scoped semantic debug response = %+v, want only released version 102", response)
+	}
+
+	empty, err := service.SearchAgentSkillsForVersions(context.Background(), "面试", nil, 5)
+	if err != nil {
+		t.Fatalf("empty release scope returned error: %v", err)
+	}
+	if empty.GetCandidateCount() != 0 || len(empty.GetSkills()) != 0 ||
+		!strings.Contains(empty.GetFallbackReason(), "contains no Agent Skill versions") {
+		t.Fatalf("empty release scope escaped to global pool: %+v", empty)
+	}
+}
+
 func TestEmbeddingServiceSectionSearchRequiresAndEnforcesVersionScope(t *testing.T) {
 	store := newFakeEmbeddingStore()
 	service := NewEmbeddingService(store, &fakeEmbeddingRunner{errText: "provider unavailable"})
@@ -352,10 +383,14 @@ func TestEmbeddingServiceBackfillCountsAgentSkillProviderFailures(t *testing.T) 
 			if err != nil {
 				t.Fatalf("backfill returned transport error %v", err)
 			}
-			if resp.GetSuccessCount() != 0 || resp.GetFailedCount() != 1 || resp.GetSkippedCount() != 0 {
+			wantFailed := int32(1)
+			if test.objectType == agentSkillVersionObjectType {
+				wantFailed = 2
+			}
+			if resp.GetSuccessCount() != 0 || resp.GetFailedCount() != wantFailed || resp.GetSkippedCount() != 0 {
 				t.Fatalf("provider failure counters = %+v", resp)
 			}
-			if len(store.embeddings) != 1 {
+			if len(store.embeddings) != int(wantFailed) {
 				t.Fatalf("failed diagnostic embeddings = %+v", store.embeddings)
 			}
 			row := store.embeddings[0]

@@ -152,6 +152,34 @@ func TestRecordAgentSkillRuntimeDecisionEmitsEachDecisionOnce(t *testing.T) {
 	}
 }
 
+func TestRecordAgentSkillRuntimeDecisionExposesBelowGateReason(t *testing.T) {
+	metrics := observability.NewRegistry("ai-agent")
+	service := &nativeAIService{metrics: metrics}
+	service.recordAgentSkillRuntimeDecision(
+		context.Background(),
+		"v2",
+		"none",
+		[]*pb.AgentSkillRuntimeEvidence{{
+			SkillId: 9, VersionId: 101,
+			CompositionRole: pb.AgentSkillCompositionRole_AGENT_SKILL_COMPOSITION_ROLE_PRIMARY,
+			Risk:            pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_LOW,
+			Included:        false,
+			DecisionReason:  "below_relevance_gate",
+			RelevanceScore:  0.12,
+		}},
+		nil,
+		10*time.Millisecond,
+	)
+
+	output := metrics.Prometheus()
+	if !strings.Contains(
+		output,
+		`smart_recruit_agent_skill_selection_total{runtime_mode="v2",execution_mode="direct",selection_mode="none",role="primary",risk="low",result="dropped",reason="below_relevance_gate"} 1`,
+	) {
+		t.Fatalf("below-gate metric missing:\n%s", output)
+	}
+}
+
 func TestAgentSkillPreflightMetricsAreSuppressedBeforeDurableExecution(t *testing.T) {
 	metrics := observability.NewRegistry("ai-agent")
 	service := &nativeAIService{metrics: metrics}

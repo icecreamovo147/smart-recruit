@@ -56,6 +56,15 @@ func TestRankDocumentsAppliesGateBeforeBusinessBoost(t *testing.T) {
 	if len(ranked) != 0 {
 		t.Fatalf("business priority must not rescue an irrelevant document: %+v", ranked)
 	}
+	decisions := RankCandidateDecisions("resume", []RankingCandidate{{
+		Document: RankingDocument{
+			ObjectID: 1, VersionID: 1, Priority: 1000, VectorScore: 0.20,
+		},
+		EmbeddingAvailable: true,
+	}})
+	if len(decisions) != 1 || decisions[0].Signals.PassedGate {
+		t.Fatalf("below-gate decision evidence = %+v, want retained rejection", decisions)
+	}
 }
 
 func TestRankDocumentsUsesVersionAndSectionAsDeterministicTieBreakers(t *testing.T) {
@@ -74,5 +83,56 @@ func TestRankDocumentsUsesVersionAndSectionAsDeterministicTieBreakers(t *testing
 		if got[i] != want[i] {
 			t.Fatalf("tie order = %v, want %v", got, want)
 		}
+	}
+}
+
+func TestChineseLexicalFallbackRecallsCandidateScreeningSkill(t *testing.T) {
+	query := `我要筛选一名 Java 后端候选人。
+
+岗位要求：
+- 5 年以上 Java 经验
+- 熟悉 Spring Boot 和 MySQL
+- 有微服务架构经验
+
+候选人信息：
+- 4 年 Java 经验
+- 熟悉 Spring Boot 和 PostgreSQL
+- 参与过两个微服务项目
+- 没有提供 MySQL 项目证据
+
+请评估该候选人与岗位的匹配情况。`
+	document := RankingDocument{
+		ObjectID:  101,
+		VersionID: 101,
+		LexicalText: []string{
+			"候选人筛选方法",
+			"评估候选人与岗位要求的匹配情况",
+			"Java Spring Boot MySQL 微服务",
+		},
+		MetadataTerms: []string{"候选人筛选", "candidate screening"},
+	}
+
+	signals := ScoreRankingSignals(query, document, false)
+	if !signals.PassedGate || signals.Mode != RelevanceModeLexicalMetadata {
+		t.Fatalf("Chinese fallback signals = %+v, want candidate screening Skill to pass", signals)
+	}
+	if signals.LexicalScore < 0.4 || signals.RelevanceScore < RelevanceGate {
+		t.Fatalf("Chinese fallback score = %+v, want stable relevance above gate", signals)
+	}
+}
+
+func TestChineseLexicalFallbackRejectsUnrelatedSkill(t *testing.T) {
+	signals := ScoreRankingSignals(
+		"安排销售团队年度团建预算并预订场地",
+		RankingDocument{
+			ObjectID:      101,
+			VersionID:     101,
+			LexicalText:   []string{"候选人筛选方法", "评估 Java 后端候选人与岗位要求的匹配情况"},
+			MetadataTerms: []string{"招聘", "微服务经验"},
+		},
+		false,
+	)
+	if signals.PassedGate {
+		t.Fatalf("unrelated Chinese fallback signals = %+v, want below relevance gate", signals)
 	}
 }

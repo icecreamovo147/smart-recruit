@@ -424,6 +424,9 @@ func (s *NativeStore) PublishPlatformAICapabilityVersion(ctx context.Context, ve
 		if err != nil {
 			return err
 		}
+		if err := validatePublishedAgentSkillEmbeddingReadiness(tx, snapshot, packages); err != nil {
+			return err
+		}
 		if err := s.validateAgentSkillReleaseEvaluation(ctx, snapshot, packages); err != nil {
 			return err
 		}

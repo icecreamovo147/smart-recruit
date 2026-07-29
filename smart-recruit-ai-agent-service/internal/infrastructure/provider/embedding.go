@@ -222,6 +222,7 @@ type RankedAgentSkillSection struct {
 
 type AgentSkillVersionSearchResult struct {
 	Items                   []RankedAgentSkillVersion
+	RejectedItems           []RankedAgentSkillVersion
 	EmbeddingAvailable      bool
 	FallbackReason          string
 	EmbeddingProvider       string
@@ -368,13 +369,34 @@ func (s *EmbeddingService) Backfill(ctx context.Context, req *pb.BackfillEmbeddi
 		if err != nil {
 			return nil, err
 		}
+		selectedVersionIDs := make([]int64, 0, len(docs))
 		for _, doc := range docs {
+			selectedVersionIDs = append(selectedVersionIDs, doc.ID)
 			text := AgentSkillVersionEmbeddingText(doc)
 			if strings.TrimSpace(text) == "" || req.GetDryRun() {
 				skipped++
 				continue
 			}
 			if err := s.UpsertAgentSkillVersionDocument(ctx, cfg, doc, text); err != nil {
+				failed++
+				continue
+			}
+			success++
+		}
+		if len(selectedVersionIDs) == 0 {
+			break
+		}
+		sections, err := s.store.ListAgentSkillSectionEmbeddingDocuments(ctx, 0, selectedVersionIDs, maxAgentSkillEmbeddingPoolSize)
+		if err != nil {
+			return nil, err
+		}
+		for _, doc := range sections {
+			text := AgentSkillSectionEmbeddingText(doc)
+			if strings.TrimSpace(text) == "" || req.GetDryRun() {
+				skipped++
+				continue
+			}
+			if err := s.UpsertAgentSkillSectionDocument(ctx, cfg, doc, text); err != nil {
 				failed++
 				continue
 			}
@@ -628,6 +650,27 @@ func (s *EmbeddingService) DebugSemanticRetrieval(ctx context.Context, req *pb.D
 	return skillsResp, nil
 }
 
+func (s *EmbeddingService) DebugSemanticRetrievalForVersions(
+	ctx context.Context,
+	req *pb.DebugSemanticRetrievalRequest,
+	allowedVersionIDs []int64,
+) (*pb.DebugSemanticRetrievalResponse, error) {
+	skillsResp, err := s.SearchAgentSkillsForVersions(ctx, req.GetQuery(), allowedVersionIDs, int(req.GetLimit()))
+	if err != nil {
+		return nil, err
+	}
+	memResp, err := s.SearchMemories(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	skillsResp.Memories = memResp.GetMemories()
+	skillsResp.MemoryPoolConfidence = memResp.GetMemoryPoolConfidence()
+	if skillsResp.GetFallbackReason() == "" {
+		skillsResp.FallbackReason = memResp.GetFallbackReason()
+	}
+	return skillsResp, nil
+}
+
 func (s *EmbeddingService) searchMemoryItems(ctx context.Context, owner domainmemory.OwnerKey, query string, scopes []domainmemory.Scope, targetScopeType string, targetScopeID uint64, limit int) ([]*pb.SemanticMemoryDebugItem, error) {
 	if err := owner.Validate(); err != nil {
 		return nil, nil
@@ -697,6 +740,25 @@ func (s *EmbeddingService) searchMemoryItems(ctx context.Context, owner domainme
 }
 
 func (s *EmbeddingService) SearchAgentSkills(ctx context.Context, query string, limit int) (*pb.DebugSemanticRetrievalResponse, error) {
+	return s.searchAgentSkills(ctx, query, nil, false, limit)
+}
+
+func (s *EmbeddingService) SearchAgentSkillsForVersions(
+	ctx context.Context,
+	query string,
+	allowedVersionIDs []int64,
+	limit int,
+) (*pb.DebugSemanticRetrievalResponse, error) {
+	return s.searchAgentSkills(ctx, query, allowedVersionIDs, true, limit)
+}
+
+func (s *EmbeddingService) searchAgentSkills(
+	ctx context.Context,
+	query string,
+	allowedVersionIDs []int64,
+	enforceVersionScope bool,
+	limit int,
+) (*pb.DebugSemanticRetrievalResponse, error) {
 	if s == nil || s.store == nil {
 		return &pb.DebugSemanticRetrievalResponse{
 			Code:               501,
@@ -705,7 +767,20 @@ func (s *EmbeddingService) SearchAgentSkills(ctx context.Context, query string, 
 			FallbackReason:     "embedding store is not bound",
 		}, nil
 	}
-	result, err := s.SearchAgentSkillVersions(ctx, query, nil, limit)
+	allowedVersionIDs = positiveUniqueIDs(allowedVersionIDs)
+	if enforceVersionScope && len(allowedVersionIDs) == 0 {
+		return &pb.DebugSemanticRetrievalResponse{
+			Code:                 0,
+			Msg:                  "common.success",
+			EmbeddingAvailable:   false,
+			FallbackReason:       "published capability release contains no Agent Skill versions",
+			Skills:               []*pb.SemanticSkillDebugItem{},
+			Memories:             []*pb.SemanticMemoryDebugItem{},
+			SkillPoolConfidence:  "none",
+			MemoryPoolConfidence: "none",
+		}, nil
+	}
+	result, err := s.SearchAgentSkillVersions(ctx, query, allowedVersionIDs, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -1214,17 +1289,23 @@ func rankAgentSkillVersions(query string, docs []AgentSkillVersionEmbeddingDocum
 		})
 		documents[doc.ID] = doc
 	}
-	ranked := domainagentskill.RankCandidates(query, candidates)
-	if len(ranked) > limit {
-		ranked = ranked[:limit]
-	}
-	items := make([]RankedAgentSkillVersion, 0, len(ranked))
-	for _, item := range ranked {
-		items = append(items, RankedAgentSkillVersion{Document: documents[item.Document.ObjectID], Ranking: item})
+	decisions := domainagentskill.RankCandidateDecisions(query, candidates)
+	items := make([]RankedAgentSkillVersion, 0, min(len(decisions), limit))
+	rejected := make([]RankedAgentSkillVersion, 0, len(decisions))
+	for _, item := range decisions {
+		ranked := RankedAgentSkillVersion{Document: documents[item.Document.ObjectID], Ranking: item}
+		if item.Signals.PassedGate {
+			if len(items) < limit {
+				items = append(items, ranked)
+			}
+			continue
+		}
+		rejected = append(rejected, ranked)
 	}
 	embeddingAvailable := len(vectors) > 0
 	return &AgentSkillVersionSearchResult{
 		Items:                   items,
+		RejectedItems:           rejected,
 		EmbeddingAvailable:      embeddingAvailable,
 		FallbackReason:          strings.TrimSpace(fallbackReason),
 		EmbeddingProvider:       cfg.ProviderName,

@@ -58,6 +58,12 @@ type hrRuntimeAgentSkill struct {
 	Manual               bool
 	Reason               string
 	RelevanceMode        string
+	VectorScore          float64
+	LexicalScore         float64
+	MetadataScore        float64
+	RelevanceScore       float64
+	BusinessBoost        float64
+	FinalRankScore       float64
 	CompositionRole      domainagentskill.CompositionRole
 	RiskLevel            domainagentskill.RiskLevel
 	ActivationPolicy     domainagentskill.ActivationPolicy
@@ -275,6 +281,7 @@ func (s *nativeAIService) selectHRRuntimeAgentSkillPackages(
 	availableCapabilities := hrRuntimeAvailableCapabilities(capabilityKeys, req.GetCapabilityKeys())
 	maxSkills := effectiveAgentSkillMaxCount(model.SkillRuntimePolicy)
 	var ranked []hrRankedAgentSkillVersion
+	var evidence []*pb.AgentSkillRuntimeEvidence
 	if len(manualVersionIDs) > 0 {
 		if len(manualVersionIDs) > maxSkills {
 			return nil, nil, false, []hrRuntimeGovernanceError{{Source: "agent_skill", Code: "manual_selection_limit_exceeded"}}
@@ -287,11 +294,14 @@ func (s *nativeAIService) selectHRRuntimeAgentSkillPackages(
 			ranked = append(ranked, hrRankedAgentSkillVersion{Document: document, Manual: true})
 		}
 	} else {
-		ranked = s.searchHRRuntimeAgentSkillVersions(ctx, req.GetMessage(), documents, allowedVersionIDs)
+		var rejected []hrRankedAgentSkillVersion
+		ranked, rejected = s.searchHRRuntimeAgentSkillVersions(ctx, req.GetMessage(), documents, allowedVersionIDs)
+		for _, candidate := range rejected {
+			evidence = append(evidence, hrRuntimeAgentSkillEvidenceFromCandidate(candidate, false, "below_relevance_gate"))
+		}
 	}
 
 	eligible := make([]hrRankedAgentSkillVersion, 0, len(ranked))
-	var evidence []*pb.AgentSkillRuntimeEvidence
 	for _, candidate := range ranked {
 		reason := hrRuntimeAgentSkillEligibilityReason(candidate.Document, candidate.Manual, availableCapabilities)
 		if reason == "" && !candidate.Manual && candidate.Document.Manifest.RiskLevel == domainagentskill.RiskLevelCritical {
@@ -420,7 +430,7 @@ func (s *nativeAIService) searchHRRuntimeAgentSkillVersions(
 	query string,
 	documents []embeddinginfra.AgentSkillVersionEmbeddingDocument,
 	allowedVersionIDs []int64,
-) []hrRankedAgentSkillVersion {
+) ([]hrRankedAgentSkillVersion, []hrRankedAgentSkillVersion) {
 	allowed := int64RuntimeSet(allowedVersionIDs)
 	documentByID := make(map[int64]embeddinginfra.AgentSkillVersionEmbeddingDocument, len(documents))
 	for _, document := range documents {
@@ -437,7 +447,13 @@ func (s *nativeAIService) searchHRRuntimeAgentSkillVersions(
 					out = append(out, hrRankedAgentSkillVersion{Document: document, Ranking: item.Ranking})
 				}
 			}
-			return out
+			rejected := make([]hrRankedAgentSkillVersion, 0, len(result.RejectedItems))
+			for _, item := range result.RejectedItems {
+				if document, exists := documentByID[item.Document.ID]; exists {
+					rejected = append(rejected, hrRankedAgentSkillVersion{Document: document, Ranking: item.Ranking})
+				}
+			}
+			return out, rejected
 		}
 	}
 	rankingDocuments := make([]domainagentskill.RankingDocument, 0, len(documents))
@@ -448,14 +464,24 @@ func (s *nativeAIService) searchHRRuntimeAgentSkillVersions(
 		documentByID[document.ID] = document
 		rankingDocuments = append(rankingDocuments, hrRuntimeVersionRankingDocument(document))
 	}
-	ranked := domainagentskill.RankDocuments(query, rankingDocuments, false)
-	out := make([]hrRankedAgentSkillVersion, 0, len(ranked))
-	for _, item := range ranked {
+	rankingCandidates := make([]domainagentskill.RankingCandidate, 0, len(rankingDocuments))
+	for _, document := range rankingDocuments {
+		rankingCandidates = append(rankingCandidates, domainagentskill.RankingCandidate{Document: document})
+	}
+	decisions := domainagentskill.RankCandidateDecisions(query, rankingCandidates)
+	out := make([]hrRankedAgentSkillVersion, 0, len(decisions))
+	rejected := make([]hrRankedAgentSkillVersion, 0, len(decisions))
+	for _, item := range decisions {
 		if document, exists := documentByID[item.Document.VersionID]; exists {
-			out = append(out, hrRankedAgentSkillVersion{Document: document, Ranking: item})
+			candidate := hrRankedAgentSkillVersion{Document: document, Ranking: item}
+			if item.Signals.PassedGate {
+				out = append(out, candidate)
+			} else {
+				rejected = append(rejected, candidate)
+			}
 		}
 	}
-	return out
+	return out, rejected
 }
 
 func hrRuntimeVersionRankingDocument(document embeddinginfra.AgentSkillVersionEmbeddingDocument) domainagentskill.RankingDocument {
@@ -648,6 +674,12 @@ func hrRuntimeAgentSkillFromCandidate(candidate hrRankedAgentSkillVersion) hrRun
 		Manual:               candidate.Manual,
 		Reason:               reason,
 		RelevanceMode:        mode,
+		VectorScore:          candidate.Ranking.Signals.VectorScore,
+		LexicalScore:         candidate.Ranking.Signals.LexicalScore,
+		MetadataScore:        candidate.Ranking.Signals.MetadataScore,
+		RelevanceScore:       candidate.Ranking.Signals.RelevanceScore,
+		BusinessBoost:        candidate.Ranking.Signals.BusinessBoost,
+		FinalRankScore:       candidate.Ranking.Signals.FinalRankScore,
 		CompositionRole:      manifest.Composition.Role,
 		RiskLevel:            manifest.RiskLevel,
 		ActivationPolicy:     manifest.ActivationPolicy,
@@ -978,6 +1010,12 @@ func hrRuntimeAgentSkillEvidenceToPB(skill hrRuntimeAgentSkill) *pb.AgentSkillRu
 		Sections:            sections,
 		Included:            skill.Included,
 		DecisionReason:      skill.DecisionReason,
+		VectorScore:         skill.VectorScore,
+		LexicalScore:        skill.LexicalScore,
+		MetadataScore:       skill.MetadataScore,
+		RelevanceScore:      skill.RelevanceScore,
+		BusinessBoost:       skill.BusinessBoost,
+		FinalRankScore:      skill.FinalRankScore,
 	}
 }
 

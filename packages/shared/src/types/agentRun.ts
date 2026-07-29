@@ -165,6 +165,12 @@ export interface AgentSkillRuntimeEvidence {
   sections: AgentSkillSectionRuntimeEvidence[]
   included: boolean
   decision_reason: string
+  vector_score?: number
+  lexical_score?: number
+  metadata_score?: number
+  relevance_score?: number
+  business_boost?: number
+  final_rank_score?: number
 }
 
 export interface AgentRunConfirmation {

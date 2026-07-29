@@ -396,19 +396,23 @@ func (s *NativeStore) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentS
 		row.IsManualInvocable = req.GetIsManualInvocable()
 	}
 	versionName := defaultString(strings.TrimSpace(req.GetVersion()), "v1")
+	var version agentSkillVersionRecord
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&row).Error; err != nil {
 			return err
 		}
-		version, err := persistCompiledAgentSkillVersion(tx, row.ID, versionName, req.GetChangeNote(), req.GetActorUserId(), authoringJSON, compiled)
+		persisted, err := persistCompiledAgentSkillVersion(tx, row.ID, versionName, req.GetChangeNote(), req.GetActorUserId(), authoringJSON, compiled)
 		if err != nil {
 			return err
 		}
+		version = persisted
 		if req.GetActivate() {
-			return tx.Model(&agentSkillRecord{}).Where("id = ?", row.ID).
-				Updates(map[string]any{"current_version_id": version.ID, "updated_by": nullInt64From(req.GetActorUserId())}).Error
+			if err := tx.Model(&agentSkillRecord{}).Where("id = ?", row.ID).
+				Updates(map[string]any{"current_version_id": version.ID, "updated_by": nullInt64From(req.GetActorUserId())}).Error; err != nil {
+				return err
+			}
 		}
-		return nil
+		return queueAgentSkillEmbeddingUpsert(tx, version.ID, version.CompiledHash)
 	})
 	if err != nil {
 		return nil, err
@@ -476,10 +480,12 @@ func (s *NativeStore) CreateAgentSkillVersion(ctx context.Context, req *pb.Creat
 		}
 		version = persisted
 		if req.GetActivate() {
-			return tx.Model(&agentSkillRecord{}).Where("id = ?", req.GetSkillId()).
-				Updates(map[string]any{"current_version_id": version.ID, "updated_by": nullInt64From(req.GetActorUserId())}).Error
+			if err := tx.Model(&agentSkillRecord{}).Where("id = ?", req.GetSkillId()).
+				Updates(map[string]any{"current_version_id": version.ID, "updated_by": nullInt64From(req.GetActorUserId())}).Error; err != nil {
+				return err
+			}
 		}
-		return nil
+		return queueAgentSkillEmbeddingUpsert(tx, version.ID, version.CompiledHash)
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &pb.AgentSkillVersionResponse{Code: governanceNotFound, Msg: "common.not_found"}, nil

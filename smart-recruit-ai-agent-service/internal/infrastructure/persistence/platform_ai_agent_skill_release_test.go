@@ -756,6 +756,56 @@ func TestPlatformAICapabilityDraftFailsClosedWhenEvaluationUnavailable(t *testin
 	}
 }
 
+func TestPlatformAICapabilityPublishRequiresReadySkillEmbeddingBundle(t *testing.T) {
+	tests := []struct {
+		name       string
+		objectType string
+	}{
+		{name: "version embedding missing", objectType: "agent_skill_version"},
+		{name: "section embedding missing", objectType: "agent_skill_section"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, store, capability, defaultModelID := setupPlatformAIAgentSkillReleaseTest(t, "ai.chat")
+			version := seedPlatformAIAgentSkillPackage(
+				t,
+				db,
+				"embedding-ready-gate",
+				"hr_recruiting_agent",
+				"candidate-screening",
+				agentskill.CompositionRolePrimary,
+				nil,
+			)
+			draft, err := store.CreatePlatformAICapabilityDraft(
+				context.Background(),
+				capability.ID,
+				91,
+				platformAITestSnapshotWithSkills(t, capability, defaultModelID, version.ID),
+				"embedding readiness",
+				"req-embedding-ready",
+			)
+			if err != nil {
+				t.Fatalf("create draft: %v", err)
+			}
+			if err := db.Where("object_type = ? AND scope_id = ?", tt.objectType, version.ID).
+				Delete(&aiEmbeddingRecord{}).Error; err != nil {
+				t.Fatalf("delete %s embedding: %v", tt.objectType, err)
+			}
+
+			_, err = store.PublishPlatformAICapabilityVersion(
+				context.Background(),
+				draft.ID,
+				91,
+				"req-publish-embedding-ready",
+			)
+			if !errors.Is(err, ErrAgentSkillEmbeddingNotReady) {
+				t.Fatalf("publish error = %v, want ErrAgentSkillEmbeddingNotReady", err)
+			}
+			assertPlatformAIDraftUnpublished(t, db, capability.ID, draft.ID)
+		})
+	}
+}
+
 func TestRetiredCapabilitySnapshotIsHistoricalOnly(t *testing.T) {
 	db := newPlatformAIControlPlaneTestDB(t)
 	store := newPlatformAIControlPlaneTestStore(db)
@@ -920,9 +970,30 @@ func setupPlatformAIAgentSkillReleaseTest(
 	db := newPlatformAIControlPlaneTestDB(t)
 	store := newPlatformAIControlPlaneTestStore(db)
 	_, defaultModelID, _ := seedPlatformAIModels(t, db)
+	seedPlatformAIEmbeddingModel(t, db)
 	seedPlatformAIAgentPrompt(t, db, 10, 20, "hr_recruiting_agent", "hr_agent")
 	capability := seedPlatformAICapability(t, db, capabilityKey, PlatformAIAudienceTenantHR)
 	return db, store, capability, defaultModelID
+}
+
+func seedPlatformAIEmbeddingModel(t *testing.T, db *gorm.DB) embeddingModelRecord {
+	t.Helper()
+	provider := embeddingProviderRecord{
+		Name: "embedding-provider", ProviderType: "openai_compatible",
+		Endpoint: "https://example.invalid/embeddings", IsEnabled: true,
+	}
+	if err := db.Create(&provider).Error; err != nil {
+		t.Fatalf("create embedding provider: %v", err)
+	}
+	model := embeddingModelRecord{
+		ProviderID: provider.ID, ModelName: "test-embedding", DisplayName: "Test Embedding",
+		EmbeddingDim: 2, BatchSize: 10, TimeoutSeconds: 30, MaxRetries: 3,
+		IsEnabled: true, IsDefault: true,
+	}
+	if err := db.Create(&model).Error; err != nil {
+		t.Fatalf("create embedding model: %v", err)
+	}
+	return model
 }
 
 func platformAITestSnapshotWithSkills(

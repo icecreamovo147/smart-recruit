@@ -44,6 +44,7 @@ const reasonLabels: Record<string, string> = {
   primary_limit_exceeded: 'Primary Package 数量超过限制',
   supporting_limit_exceeded: 'Supporting Package 数量超过限制',
   supporting_requires_primary: 'Supporting Package 缺少 Primary',
+  below_relevance_gate: '相关性低于自动召回门槛',
 }
 
 const roleLabels: Record<string, string> = {
@@ -75,7 +76,9 @@ const formatInteger = (value: unknown): string =>
 
 const formatScore = (value: unknown): string => {
   const score = Number(value)
-  return Number.isFinite(score) && score > 0 ? score.toFixed(4) : '—'
+  return value !== undefined && value !== null && value !== '' && Number.isFinite(score)
+    ? score.toFixed(4)
+    : '—'
 }
 
 const reasonText = (reason: string): string => {
@@ -161,6 +164,18 @@ const contextPromptTokenKind = computed(() =>
         <div>
           <span>相关性模式</span>
           <strong>{{ evidence.relevance_mode || '未记录' }}</strong>
+        </div>
+        <div>
+          <span>向量分</span>
+          <strong>{{ formatScore(evidence.vector_score) }}</strong>
+        </div>
+        <div>
+          <span>词法 / 元数据</span>
+          <strong>{{ formatScore(evidence.lexical_score) }} / {{ formatScore(evidence.metadata_score) }}</strong>
+        </div>
+        <div>
+          <span>相关性 / 最终分</span>
+          <strong>{{ formatScore(evidence.relevance_score) }} / {{ formatScore(evidence.final_rank_score) }}</strong>
         </div>
       </div>
 

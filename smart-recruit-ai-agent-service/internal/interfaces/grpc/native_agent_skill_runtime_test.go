@@ -715,6 +715,68 @@ func TestSelectHRRuntimeAgentSkillPackagesUsesLexicalMetadataFallback(t *testing
 	if len(governanceErrors) != 0 || len(selected) != 1 || selected[0].VersionID != 101 || selected[0].RelevanceMode != string(domainagentskill.RelevanceModeLexicalMetadata) {
 		t.Fatalf("selected=%#v evidence=%#v errors=%#v", selected, evidence, governanceErrors)
 	}
+	var rejectedEvidence *pb.AgentSkillRuntimeEvidence
+	for _, item := range evidence {
+		if item.GetVersionId() == 102 {
+			rejectedEvidence = item
+			break
+		}
+	}
+	if rejectedEvidence == nil || rejectedEvidence.GetIncluded() ||
+		rejectedEvidence.GetDecisionReason() != "below_relevance_gate" ||
+		rejectedEvidence.GetRelevanceScore() >= domainagentskill.RelevanceGate {
+		t.Fatalf("unrelated Skill evidence = %#v, want below_relevance_gate with score", rejectedEvidence)
+	}
+}
+
+func TestSelectHRRuntimeAgentSkillPackagesRecallsChineseCandidateScreeningRequest(t *testing.T) {
+	store := newFakeAIStore()
+	screening := runtimeSkillVersionDocument(
+		101,
+		1,
+		domainagentskill.CompositionRolePrimary,
+		domainagentskill.RiskLevelLow,
+		"评估候选人与岗位要求的匹配情况，并区分满足项、缺口和缺失证据。",
+	)
+	screening.Manifest.SkillName = "candidate-screening-method"
+	screening.Manifest.DisplayName = "候选人筛选方法"
+	screening.Manifest.Description = "根据岗位要求与候选人信息评估匹配情况"
+	screening.Manifest.Category = "screening"
+	screening.Manifest.Scenario = "candidate-screening"
+	screening.Manifest.TriggerKeywords = []string{"候选人筛选", "岗位匹配", "Java", "Spring Boot", "MySQL", "微服务"}
+	screening.Manifest.SemanticTags = []string{"招聘", "候选人评估"}
+	store.agentSkillVersionDocs = []embeddinginfra.AgentSkillVersionEmbeddingDocument{screening}
+	service := newNativeAIService(store, nil, nil, nil, nil)
+
+	query := `我要筛选一名 Java 后端候选人。
+
+岗位要求：
+- 5 年以上 Java 经验
+- 熟悉 Spring Boot 和 MySQL
+- 有微服务架构经验
+
+候选人信息：
+- 4 年 Java 经验
+- 熟悉 Spring Boot 和 PostgreSQL
+- 参与过两个微服务项目
+- 没有提供 MySQL 项目证据
+
+请评估该候选人与岗位的匹配情况。`
+	selected, evidence, confirmationRequired, governanceErrors := service.selectHRRuntimeAgentSkillPackages(
+		context.Background(),
+		&pb.ChatRequest{Message: query},
+		nil,
+		runtimeSkillModel([]int64{101}, CapabilitySkillRuntimePolicy{}),
+		true,
+	)
+	if len(governanceErrors) != 0 || confirmationRequired || len(selected) != 1 ||
+		selected[0].VersionID != 101 || selected[0].RelevanceMode != string(domainagentskill.RelevanceModeLexicalMetadata) {
+		t.Fatalf("selected=%#v evidence=%#v errors=%#v confirmation=%v", selected, evidence, governanceErrors, confirmationRequired)
+	}
+	if len(evidence) != 1 || !evidence[0].GetIncluded() ||
+		evidence[0].GetRelevanceScore() < domainagentskill.RelevanceGate {
+		t.Fatalf("runtime evidence=%#v, want included Chinese screening Skill above gate", evidence)
+	}
 }
 
 func TestSelectHRRuntimeAgentSkillPackagesFailsClosedForHighAndCriticalRisk(t *testing.T) {

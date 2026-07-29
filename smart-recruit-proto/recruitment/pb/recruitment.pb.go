@@ -35070,6 +35070,12 @@ type AgentSkillRuntimeEvidence struct {
 	Sections            []*AgentSkillSectionRuntimeEvidence `protobuf:"bytes,14,rep,name=sections,proto3" json:"sections,omitempty"`
 	Included            bool                                `protobuf:"varint,15,opt,name=included,proto3" json:"included,omitempty"`
 	DecisionReason      string                              `protobuf:"bytes,16,opt,name=decision_reason,json=decisionReason,proto3" json:"decision_reason,omitempty"`
+	VectorScore         float64                             `protobuf:"fixed64,17,opt,name=vector_score,json=vectorScore,proto3" json:"vector_score,omitempty"`
+	LexicalScore        float64                             `protobuf:"fixed64,18,opt,name=lexical_score,json=lexicalScore,proto3" json:"lexical_score,omitempty"`
+	MetadataScore       float64                             `protobuf:"fixed64,19,opt,name=metadata_score,json=metadataScore,proto3" json:"metadata_score,omitempty"`
+	RelevanceScore      float64                             `protobuf:"fixed64,20,opt,name=relevance_score,json=relevanceScore,proto3" json:"relevance_score,omitempty"`
+	BusinessBoost       float64                             `protobuf:"fixed64,21,opt,name=business_boost,json=businessBoost,proto3" json:"business_boost,omitempty"`
+	FinalRankScore      float64                             `protobuf:"fixed64,22,opt,name=final_rank_score,json=finalRankScore,proto3" json:"final_rank_score,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -35214,6 +35220,48 @@ func (x *AgentSkillRuntimeEvidence) GetDecisionReason() string {
 		return x.DecisionReason
 	}
 	return ""
+}
+
+func (x *AgentSkillRuntimeEvidence) GetVectorScore() float64 {
+	if x != nil {
+		return x.VectorScore
+	}
+	return 0
+}
+
+func (x *AgentSkillRuntimeEvidence) GetLexicalScore() float64 {
+	if x != nil {
+		return x.LexicalScore
+	}
+	return 0
+}
+
+func (x *AgentSkillRuntimeEvidence) GetMetadataScore() float64 {
+	if x != nil {
+		return x.MetadataScore
+	}
+	return 0
+}
+
+func (x *AgentSkillRuntimeEvidence) GetRelevanceScore() float64 {
+	if x != nil {
+		return x.RelevanceScore
+	}
+	return 0
+}
+
+func (x *AgentSkillRuntimeEvidence) GetBusinessBoost() float64 {
+	if x != nil {
+		return x.BusinessBoost
+	}
+	return 0
+}
+
+func (x *AgentSkillRuntimeEvidence) GetFinalRankScore() float64 {
+	if x != nil {
+		return x.FinalRankScore
+	}
+	return 0
 }
 
 type AgentSkillInfo struct {
@@ -47503,7 +47551,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x10estimated_tokens\x18\x04 \x01(\x05R\x0festimatedTokens\x12(\n" +
 	"\x10final_rank_score\x18\x05 \x01(\x01R\x0efinalRankScore\x12\x1a\n" +
 	"\bincluded\x18\x06 \x01(\bR\bincluded\x12'\n" +
-	"\x0fdecision_reason\x18\a \x01(\tR\x0edecisionReason\"\xec\x05\n" +
+	"\x0fdecision_reason\x18\a \x01(\tR\x0edecisionReason\"\xd5\a\n" +
 	"\x19AgentSkillRuntimeEvidence\x12\x19\n" +
 	"\bskill_id\x18\x01 \x01(\x03R\askillId\x12\x1d\n" +
 	"\n" +
@@ -47523,7 +47571,13 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\rloaded_tokens\x18\r \x01(\x05R\floadedTokens\x12I\n" +
 	"\bsections\x18\x0e \x03(\v2-.recruitment.AgentSkillSectionRuntimeEvidenceR\bsections\x12\x1a\n" +
 	"\bincluded\x18\x0f \x01(\bR\bincluded\x12'\n" +
-	"\x0fdecision_reason\x18\x10 \x01(\tR\x0edecisionReason\"\xd1\x04\n" +
+	"\x0fdecision_reason\x18\x10 \x01(\tR\x0edecisionReason\x12!\n" +
+	"\fvector_score\x18\x11 \x01(\x01R\vvectorScore\x12#\n" +
+	"\rlexical_score\x18\x12 \x01(\x01R\flexicalScore\x12%\n" +
+	"\x0emetadata_score\x18\x13 \x01(\x01R\rmetadataScore\x12'\n" +
+	"\x0frelevance_score\x18\x14 \x01(\x01R\x0erelevanceScore\x12%\n" +
+	"\x0ebusiness_boost\x18\x15 \x01(\x01R\rbusinessBoost\x12(\n" +
+	"\x10final_rank_score\x18\x16 \x01(\x01R\x0efinalRankScore\"\xd1\x04\n" +
 	"\x0eAgentSkillInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +

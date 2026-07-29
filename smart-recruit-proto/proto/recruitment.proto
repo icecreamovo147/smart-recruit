@@ -4223,6 +4223,12 @@ message AgentSkillRuntimeEvidence {
   repeated AgentSkillSectionRuntimeEvidence sections = 14;
   bool included = 15;
   string decision_reason = 16;
+  double vector_score = 17;
+  double lexical_score = 18;
+  double metadata_score = 19;
+  double relevance_score = 20;
+  double business_boost = 21;
+  double final_rank_score = 22;
 }
 
 service AgentSkillService {

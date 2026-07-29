@@ -20,6 +20,7 @@ scrape_configs:
       - targets:
           - smart-recruit-identity-service:9091
           - smart-recruit-recruitment-service:9091
+          - smart-recruit-ai-agent-service:9091
           - smart-recruit-billing-service:9099
         labels:
           service_group: smart-recruit-backend

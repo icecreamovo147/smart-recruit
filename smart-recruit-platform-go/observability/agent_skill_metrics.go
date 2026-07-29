@@ -25,6 +25,7 @@ var (
 	agentSkillReasons        = labelSet(
 		"none",
 		"no_match",
+		"below_relevance_gate",
 		"skill_v2_disabled",
 		"core_included",
 		"section_included",

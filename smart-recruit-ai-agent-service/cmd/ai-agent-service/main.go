@@ -25,6 +25,7 @@ import (
 
 	appmemory "smart-recruit-ai-agent-service/internal/application/memory"
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
+	embeddingqueue "smart-recruit-ai-agent-service/internal/infrastructure/embeddingqueue"
 	aiagentpersistence "smart-recruit-ai-agent-service/internal/infrastructure/persistence"
 	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
@@ -288,6 +289,16 @@ func serveAIAgent(addr string) error {
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, redisClient, mqConn))
 	outboxCtx, stopOutbox := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stopOutbox()
+	embeddingConsumer := embeddingqueue.NewConsumer(
+		mqConn,
+		embeddingqueue.NewStore(db),
+		embeddingService,
+		embeddingqueue.Options{Logger: log},
+	)
+	if err := embeddingConsumer.Start(outboxCtx); err != nil {
+		_ = listener.Close()
+		return fmt.Errorf("start embedding consumer: %w", err)
+	}
 	go nativeStore.RunBillingSettlementOutbox(outboxCtx, billingClient)
 	go runMemoryCleanupLoop(outboxCtx, log, memoryService, memoryCfg)
 	go stopOnSignal(grpcServer)

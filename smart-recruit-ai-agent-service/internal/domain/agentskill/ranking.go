@@ -5,6 +5,7 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"unicode"
 )
 
 const (
@@ -97,13 +98,24 @@ func RankDocuments(query string, documents []RankingDocument, embeddingAvailable
 }
 
 func RankCandidates(query string, candidates []RankingCandidate) []RankedDocument {
+	decisions := RankCandidateDecisions(query, candidates)
 	ranked := make([]RankedDocument, 0, len(candidates))
-	for _, candidate := range candidates {
-		signals := ScoreRankingSignals(query, candidate.Document, candidate.EmbeddingAvailable)
-		if !signals.PassedGate {
+	for _, decision := range decisions {
+		if !decision.Signals.PassedGate {
 			continue
 		}
-		ranked = append(ranked, RankedDocument{Document: candidate.Document, Signals: signals})
+		ranked = append(ranked, decision)
+	}
+	return ranked
+}
+
+func RankCandidateDecisions(query string, candidates []RankingCandidate) []RankedDocument {
+	ranked := make([]RankedDocument, 0, len(candidates))
+	for _, candidate := range candidates {
+		ranked = append(ranked, RankedDocument{
+			Document: candidate.Document,
+			Signals:  ScoreRankingSignals(query, candidate.Document, candidate.EmbeddingAvailable),
+		})
 	}
 	slices.SortFunc(ranked, func(a, b RankedDocument) int {
 		if a.Signals.FinalRankScore != b.Signals.FinalRankScore {
@@ -141,24 +153,101 @@ func termScore(query string, values []string) float64 {
 	if strings.Contains(haystack, normalizedQuery) {
 		return 1
 	}
-	queryTerms := strings.Fields(normalizedQuery)
+	queryTerms := rankingTerms(normalizedQuery)
 	if len(queryTerms) == 0 {
 		return 0
 	}
-	matched := 0
+	querySet := make(map[string]struct{}, len(queryTerms))
 	for _, term := range queryTerms {
-		for _, value := range normalizedValues {
-			if strings.Contains(value, term) || strings.Contains(term, value) {
+		querySet[term] = struct{}{}
+	}
+	best := 0.0
+	for _, value := range normalizedValues {
+		if strings.Contains(normalizedQuery, value) || strings.Contains(value, normalizedQuery) {
+			return 1
+		}
+		valueTerms := rankingTerms(value)
+		if len(valueTerms) == 0 {
+			continue
+		}
+		matched := 0
+		for _, term := range valueTerms {
+			if _, ok := querySet[term]; ok {
 				matched++
-				break
 			}
 		}
+		if score := float64(matched) / float64(len(valueTerms)); score > best {
+			best = score
+		}
 	}
-	return clamp(float64(matched)/float64(len(queryTerms)), 0, 1)
+	return clamp(best, 0, 1)
 }
 
 func normalizeRankingText(value string) string {
 	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(value)), " "))
+}
+
+func rankingTerms(value string) []string {
+	type tokenKind int
+	const (
+		tokenNone tokenKind = iota
+		tokenWord
+		tokenHan
+	)
+	seen := map[string]struct{}{}
+	terms := make([]string, 0)
+	var current []rune
+	kind := tokenNone
+	flush := func() {
+		if len(current) == 0 {
+			return
+		}
+		if kind == tokenHan {
+			if len(current) == 1 {
+				appendRankingTerm(&terms, seen, string(current))
+			} else {
+				for i := 0; i < len(current)-1; i++ {
+					appendRankingTerm(&terms, seen, string(current[i:i+2]))
+				}
+			}
+		} else {
+			appendRankingTerm(&terms, seen, string(current))
+		}
+		current = current[:0]
+	}
+	for _, r := range []rune(strings.ToLower(value)) {
+		nextKind := tokenNone
+		switch {
+		case unicode.Is(unicode.Han, r):
+			nextKind = tokenHan
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			nextKind = tokenWord
+		}
+		if nextKind == tokenNone {
+			flush()
+			kind = tokenNone
+			continue
+		}
+		if kind != tokenNone && nextKind != kind {
+			flush()
+		}
+		kind = nextKind
+		current = append(current, r)
+	}
+	flush()
+	return terms
+}
+
+func appendRankingTerm(terms *[]string, seen map[string]struct{}, term string) {
+	term = strings.TrimSpace(term)
+	if term == "" {
+		return
+	}
+	if _, ok := seen[term]; ok {
+		return
+	}
+	seen[term] = struct{}{}
+	*terms = append(*terms, term)
 }
 
 func clamp(value, minimum, maximum float64) float64 {

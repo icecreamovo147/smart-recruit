@@ -93,6 +93,12 @@ type agentSkillRuntimeEvidenceHTTP struct {
 	Sections            []agentSkillSectionRuntimeEvidenceHTTP `json:"sections"`
 	Included            bool                                   `json:"included"`
 	DecisionReason      string                                 `json:"decision_reason"`
+	VectorScore         float64                                `json:"vector_score"`
+	LexicalScore        float64                                `json:"lexical_score"`
+	MetadataScore       float64                                `json:"metadata_score"`
+	RelevanceScore      float64                                `json:"relevance_score"`
+	BusinessBoost       float64                                `json:"business_boost"`
+	FinalRankScore      float64                                `json:"final_rank_score"`
 }
 
 type chatMessageHTTP struct {
@@ -1161,6 +1167,12 @@ func agentSkillRuntimeEvidenceListPayload(
 			Sections:            sections,
 			Included:            item.GetIncluded(),
 			DecisionReason:      item.GetDecisionReason(),
+			VectorScore:         item.GetVectorScore(),
+			LexicalScore:        item.GetLexicalScore(),
+			MetadataScore:       item.GetMetadataScore(),
+			RelevanceScore:      item.GetRelevanceScore(),
+			BusinessBoost:       item.GetBusinessBoost(),
+			FinalRankScore:      item.GetFinalRankScore(),
 		})
 	}
 	return result
