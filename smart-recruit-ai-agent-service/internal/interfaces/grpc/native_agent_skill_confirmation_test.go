@@ -1229,7 +1229,7 @@ func TestCancelAgentRunAndGovernedCompletionHaveOneTerminalWinnerAcrossReplicas(
 		defer wg.Done()
 		<-start
 		_, _, completionErr = service.completeAgentRunExecution(
-			context.Background(), claimed, "winner", agentRunStatusSucceeded, "", "",
+			context.Background(), claimed, "winner", agentRunStatusSucceeded, "", "", "",
 		)
 	}()
 	close(start)

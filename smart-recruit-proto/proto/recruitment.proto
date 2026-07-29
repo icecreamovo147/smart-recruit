@@ -1497,6 +1497,7 @@ message AgentRunItem {
   string completed_at = 17;
   string created_at = 18;
   repeated AgentRunStepItem steps = 19;
+  AgentRunResultMetadata result_metadata = 20;
 }
 
 message GetAgentRunsResponse {

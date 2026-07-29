@@ -2989,7 +2989,7 @@ func (s *fakeAIStore) UpdateAgentRunPlan(context.Context, int64, int64, string, 
 	return AgentRunRow{}, false, nil
 }
 
-func (s *fakeAIStore) CompleteAgentRun(context.Context, int64, int64, string, string, string, string) (AgentRunRow, bool, error) {
+func (s *fakeAIStore) CompleteAgentRun(context.Context, int64, int64, string, string, string, string, string) (AgentRunRow, bool, error) {
 	return AgentRunRow{}, false, nil
 }
 

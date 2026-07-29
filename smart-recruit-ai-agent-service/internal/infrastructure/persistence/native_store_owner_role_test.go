@@ -542,7 +542,7 @@ func TestNativeStoreCompleteAgentRunCanceledSetsCanceledAt(t *testing.T) {
 		t.Fatalf("created run identity = id:%d type:%q name:%q", run.AgentID, run.AgentType, run.AgentName)
 	}
 
-	completed, found, err := store.CompleteAgentRun(ctx, 77, run.ID, "", "canceled", "", "")
+	completed, found, err := store.CompleteAgentRun(ctx, 77, run.ID, "", "canceled", "", "", "")
 	if err != nil {
 		t.Fatalf("CompleteAgentRun returned error: %v", err)
 	}
@@ -551,6 +551,62 @@ func TestNativeStoreCompleteAgentRunCanceledSetsCanceledAt(t *testing.T) {
 	}
 	if completed.Status != "canceled" || completed.CompletedAt == nil || completed.CanceledAt == nil {
 		t.Fatalf("completed run = %#v, want canceled with completed_at and canceled_at", completed)
+	}
+}
+
+func TestNativeStorePersistsAndHydratesAgentRunResultMetadata(t *testing.T) {
+	ctx := context.Background()
+	db := newNativeStoreTestDB(t)
+	store := NewNativeStore(db)
+
+	persistedRun, _, err := store.CreateAgentRun(ctx, aiagentgrpc.AgentRunRow{
+		SessionID: 201,
+		OwnerID:   77,
+		PlanJSON:  `{"durable_request":{"message":"persisted"}}`,
+		ModelName: "model-a",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	persistedMetadata := `{"context_usage":{"prompt_tokens_estimated":5312},"agent_skill_runtime_evidence":[{"version_id":1,"version":"1.0.0","loaded_tokens":69}]}`
+	completed, found, err := store.CompleteAgentRun(
+		ctx, 77, persistedRun.ID, "done", "succeeded", "", "", persistedMetadata,
+	)
+	if err != nil || !found || completed.ResultMetadataJSON != persistedMetadata {
+		t.Fatalf("completed=%#v found=%v err=%v", completed, found, err)
+	}
+
+	historicalRun, _, err := store.CreateAgentRun(ctx, aiagentgrpc.AgentRunRow{
+		SessionID: 201,
+		OwnerID:   77,
+		PlanJSON:  `{"durable_request":{"message":"historical"}}`,
+		ModelName: "model-a",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.AppendAgentRunEvent(
+		ctx,
+		historicalRun.ID,
+		"run.result",
+		`{"status":"succeeded","result_metadata":{"agent_skill_runtime_evidence":[{"version_id":2,"version":"2.0.0","decision_reason":"core_included"}]}}`,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	runs, err := store.ListAgentRuns(ctx, 77, 201)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadataByRunID := make(map[int64]string, len(runs))
+	for _, run := range runs {
+		metadataByRunID[run.ID] = run.ResultMetadataJSON
+	}
+	if !strings.Contains(metadataByRunID[persistedRun.ID], `"prompt_tokens_estimated":5312`) {
+		t.Fatalf("persisted metadata missing: %s", metadataByRunID[persistedRun.ID])
+	}
+	if !strings.Contains(metadataByRunID[historicalRun.ID], `"version":"2.0.0"`) {
+		t.Fatalf("historical metadata not hydrated: %s", metadataByRunID[historicalRun.ID])
 	}
 }
 
@@ -565,7 +621,7 @@ func newNativeStoreTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("get sql db: %v", err)
 	}
 	sqlDB.SetMaxOpenConns(1)
-	if err := db.AutoMigrate(&aiChatSessionRecord{}, &aiChatHistoryRecord{}, &agentRunRecord{}); err != nil {
+	if err := db.AutoMigrate(&aiChatSessionRecord{}, &aiChatHistoryRecord{}, &agentRunRecord{}, &agentRunEventRecord{}); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
 	return db

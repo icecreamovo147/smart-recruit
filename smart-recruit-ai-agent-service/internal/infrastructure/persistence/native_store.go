@@ -607,6 +607,9 @@ func (s *NativeStore) ListAgentRuns(ctx context.Context, ownerID, sessionID int6
 	if err := query.Order("created_at DESC, id DESC").Limit(100).Find(&rows).Error; err != nil {
 		return nil, err
 	}
+	if err := s.hydrateAgentRunResultMetadata(ctx, rows); err != nil {
+		return nil, err
+	}
 	result := make([]aiagentgrpc.AgentRunRow, 0, len(rows))
 	for _, row := range rows {
 		result = append(result, mapRunRecord(row))
@@ -623,7 +626,61 @@ func (s *NativeStore) GetAgentRun(ctx context.Context, ownerID, runID int64) (ai
 	if err != nil {
 		return aiagentgrpc.AgentRunRow{}, false, err
 	}
+	rows := []agentRunRecord{row}
+	if err := s.hydrateAgentRunResultMetadata(ctx, rows); err != nil {
+		return aiagentgrpc.AgentRunRow{}, false, err
+	}
+	row = rows[0]
 	return mapRunRecord(row), true, nil
+}
+
+// hydrateAgentRunResultMetadata keeps pre-persistence runs observable. Older
+// successful runs stored result metadata only in their durable run.result
+// event, so list/detail reads recover that exact metadata without mutating the
+// historical row.
+func (s *NativeStore) hydrateAgentRunResultMetadata(ctx context.Context, rows []agentRunRecord) error {
+	missingIndexes := make(map[int64]int)
+	runIDs := make([]int64, 0, len(rows))
+	for index := range rows {
+		if rows[index].ID <= 0 || strings.TrimSpace(stringValue(rows[index].ResultMetadata)) != "" {
+			continue
+		}
+		missingIndexes[rows[index].ID] = index
+		runIDs = append(runIDs, rows[index].ID)
+	}
+	if len(runIDs) == 0 {
+		return nil
+	}
+	if !s.db.Migrator().HasTable(&agentRunEventRecord{}) {
+		return nil
+	}
+
+	var events []agentRunEventRecord
+	if err := s.db.WithContext(ctx).
+		Where("run_id IN ? AND event_type = ?", runIDs, "run.result").
+		Order("run_id ASC, seq DESC").
+		Find(&events).Error; err != nil {
+		return err
+	}
+	hydrated := make(map[int64]bool, len(runIDs))
+	for _, event := range events {
+		index, wanted := missingIndexes[event.RunID]
+		if !wanted || hydrated[event.RunID] {
+			continue
+		}
+		var payload struct {
+			ResultMetadata json.RawMessage `json:"result_metadata"`
+		}
+		if err := json.Unmarshal([]byte(event.PayloadJSON), &payload); err != nil ||
+			len(payload.ResultMetadata) == 0 ||
+			string(payload.ResultMetadata) == "null" {
+			continue
+		}
+		value := string(payload.ResultMetadata)
+		rows[index].ResultMetadata = &value
+		hydrated[event.RunID] = true
+	}
+	return nil
 }
 
 func (s *NativeStore) GetActiveAgentRun(ctx context.Context, ownerID, sessionID int64) (aiagentgrpc.AgentRunRow, bool, error) {
@@ -1175,6 +1232,7 @@ func (s *NativeStore) CompleteAgentRunForSkillLease(
 	status string,
 	errorType string,
 	errorMessage string,
+	resultMetadataJSON string,
 ) (aiagentgrpc.AgentRunRow, bool, error) {
 	var completed agentRunRecord
 	owned := false
@@ -1207,6 +1265,9 @@ func (s *NativeStore) CompleteAgentRunForSkillLease(
 		if errorMessage != "" {
 			updates["error_message"] = errorMessage
 		}
+		if strings.TrimSpace(resultMetadataJSON) != "" {
+			updates["result_metadata_json"] = nullableJSON(resultMetadataJSON)
+		}
 		if err := tx.Model(&agentRunRecord{}).Where("id = ?", runID).Updates(updates).Error; err != nil {
 			return err
 		}
@@ -1222,7 +1283,7 @@ func (s *NativeStore) CompleteAgentRunForSkillLease(
 	return mapRunRecord(completed), true, nil
 }
 
-func (s *NativeStore) CompleteAgentRun(ctx context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage string) (aiagentgrpc.AgentRunRow, bool, error) {
+func (s *NativeStore) CompleteAgentRun(ctx context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage, resultMetadataJSON string) (aiagentgrpc.AgentRunRow, bool, error) {
 	now := time.Now()
 	if status == "" {
 		status = "succeeded"
@@ -1243,6 +1304,9 @@ func (s *NativeStore) CompleteAgentRun(ctx context.Context, ownerID, runID int64
 	}
 	if errorMessage != "" {
 		updates["error_message"] = errorMessage
+	}
+	if strings.TrimSpace(resultMetadataJSON) != "" {
+		updates["result_metadata_json"] = nullableJSON(resultMetadataJSON)
 	}
 	result := s.db.WithContext(ctx).Model(&agentRunRecord{}).Where("id = ? AND hr_id = ?", runID, ownerID).Updates(updates)
 	if result.Error != nil {
@@ -2707,6 +2771,7 @@ type agentRunRecord struct {
 	AssistantText     string     `gorm:"column:assistant_text"`
 	ProcessText       string     `gorm:"column:process_text"`
 	PlanJSON          *string    `gorm:"column:plan_json"`
+	ResultMetadata    *string    `gorm:"column:result_metadata_json"`
 	OptionContext     *string    `gorm:"column:option_context_json"`
 	LastEventSeq      int64      `gorm:"column:last_event_seq"`
 	ErrorType         string     `gorm:"column:error_type"`
@@ -3277,7 +3342,7 @@ func chatCompatibilityHRID(ownerRole int32, ownerID int64) int64 {
 }
 
 func mapRunRecord(row agentRunRecord) aiagentgrpc.AgentRunRow {
-	return aiagentgrpc.AgentRunRow{ID: row.ID, TenantID: int64FromPointer(row.TenantID), SessionID: row.SessionID, MessageID: row.MessageID, HistoryID: row.HistoryID, OwnerID: row.HRID, ClientRequestID: row.ClientRequestID, Status: row.Status, AssistantText: row.AssistantText, ProcessText: row.ProcessText, PlanJSON: stringValue(row.PlanJSON), OptionContextJSON: stringValue(row.OptionContext), LastEventSeq: row.LastEventSeq, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, ModelID: row.ModelID, ModelName: row.ModelName, AgentType: row.AgentType, AgentID: row.AgentID, AgentName: row.AgentName, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, CancelRequestedAt: row.CancelRequestedAt, CanceledAt: row.CanceledAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return aiagentgrpc.AgentRunRow{ID: row.ID, TenantID: int64FromPointer(row.TenantID), SessionID: row.SessionID, MessageID: row.MessageID, HistoryID: row.HistoryID, OwnerID: row.HRID, ClientRequestID: row.ClientRequestID, Status: row.Status, AssistantText: row.AssistantText, ProcessText: row.ProcessText, PlanJSON: stringValue(row.PlanJSON), ResultMetadataJSON: stringValue(row.ResultMetadata), OptionContextJSON: stringValue(row.OptionContext), LastEventSeq: row.LastEventSeq, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, ModelID: row.ModelID, ModelName: row.ModelName, AgentType: row.AgentType, AgentID: row.AgentID, AgentName: row.AgentName, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, CancelRequestedAt: row.CancelRequestedAt, CanceledAt: row.CanceledAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func positiveInt64Pointer(value int64) *int64 {

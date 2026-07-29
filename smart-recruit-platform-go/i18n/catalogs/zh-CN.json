@@ -101,5 +101,6 @@
   "frontend.save_failed": "保存失败",
   "frontend.delete_failed": "删除失败",
   "frontend.copy_failed": "复制失败",
-  "frontend.subscribe_failed": "订阅失败"
+  "frontend.subscribe_failed": "订阅失败",
+  "platform.plan_capability_release_required": "请为 {capability} 选择已发布的能力版本"
 }

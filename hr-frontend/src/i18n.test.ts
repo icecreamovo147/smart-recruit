@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { configureLocale, getLocale, initializeLocale, t } from '@shared/i18n'
+import {
+  configureLocale,
+  getLocale,
+  initializeLocale,
+  localizedBackendText,
+  t,
+} from '@shared/i18n'
 
 describe('shared runtime i18n', () => {
   beforeEach(() => {
@@ -27,5 +33,11 @@ describe('shared runtime i18n', () => {
   it('uses the Chinese default when runtime configuration is unavailable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
     await expect(initializeLocale()).resolves.toBe('zh-CN')
+  })
+
+  it('localizes known backend message keys and preserves unknown diagnostic text', () => {
+    expect(localizedBackendText('common.operation_failed')).toBe('操作没有成功，请稍后再试')
+    expect(localizedBackendText('upstream provider disconnected')).toBe('upstream provider disconnected')
+    expect(localizedBackendText(undefined)).toBe('')
   })
 })

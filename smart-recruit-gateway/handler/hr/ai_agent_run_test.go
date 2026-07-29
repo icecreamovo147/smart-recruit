@@ -26,6 +26,7 @@ import (
 type mockAIServiceClient struct {
 	chatFn      func(context.Context, *pb.ChatRequest, ...grpc.CallOption) (*pb.ChatResponse, error)
 	createFn    func(context.Context, *pb.CreateAgentRunRequest, ...grpc.CallOption) (*pb.CreateAgentRunResponse, error)
+	listRunsFn  func(context.Context, *pb.GetAgentRunsRequest, ...grpc.CallOption) (*pb.GetAgentRunsResponse, error)
 	getFn       func(context.Context, *pb.GetAgentRunRequest, ...grpc.CallOption) (*pb.GetAgentRunResponse, error)
 	activeFn    func(context.Context, *pb.GetActiveAgentRunRequest, ...grpc.CallOption) (*pb.GetActiveAgentRunResponse, error)
 	subscribeFn func(context.Context, *pb.SubscribeAgentRunEventsRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[pb.AgentRunEvent], error)
@@ -96,7 +97,10 @@ func (m *mockAIServiceClient) CandidateDeleteSession(context.Context, *pb.Candid
 func (m *mockAIServiceClient) GetToolTraces(context.Context, *pb.GetToolTracesRequest, ...grpc.CallOption) (*pb.GetToolTracesResponse, error) {
 	return &pb.GetToolTracesResponse{Code: 0, Msg: "ok"}, nil
 }
-func (m *mockAIServiceClient) GetAgentRuns(context.Context, *pb.GetAgentRunsRequest, ...grpc.CallOption) (*pb.GetAgentRunsResponse, error) {
+func (m *mockAIServiceClient) GetAgentRuns(ctx context.Context, req *pb.GetAgentRunsRequest, opts ...grpc.CallOption) (*pb.GetAgentRunsResponse, error) {
+	if m.listRunsFn != nil {
+		return m.listRunsFn(ctx, req, opts...)
+	}
 	return &pb.GetAgentRunsResponse{Code: 0, Msg: "ok"}, nil
 }
 
@@ -238,6 +242,7 @@ func newAgentRunTestRouter(mock *mockAIServiceClient, userID int64) *gin.Engine 
 	r.POST("/api/v1/hr/ai/chat", handler.Chat)
 	r.POST("/api/v1/hr/ai/chat/stream", handler.ChatStream)
 	r.POST("/api/v1/hr/ai/runs", handler.CreateAgentRun)
+	r.GET("/api/v1/hr/ai/sessions/:session_id/agent-runs", handler.GetAgentRuns)
 	r.GET("/api/v1/hr/ai/runs/:run_id", handler.GetAgentRun)
 	r.GET("/api/v1/hr/ai/sessions/:session_id/active-run", handler.GetActiveAgentRun)
 	r.GET("/api/v1/hr/ai/runs/:run_id/events", handler.SubscribeAgentRunEvents)
@@ -245,6 +250,63 @@ func newAgentRunTestRouter(mock *mockAIServiceClient, userID int64) *gin.Engine 
 	r.POST("/api/v1/hr/ai/runs/:run_id/confirm", handler.ConfirmAgentRun)
 	r.PUT("/api/v1/hr/ai/sessions/:session_id/context-model", handler.PreviewChatContext)
 	return r
+}
+
+func TestGetAgentRunsMapsRuntimeEvidenceToStableHTTPValues(t *testing.T) {
+	mock := &mockAIServiceClient{listRunsFn: func(_ context.Context, req *pb.GetAgentRunsRequest, _ ...grpc.CallOption) (*pb.GetAgentRunsResponse, error) {
+		return &pb.GetAgentRunsResponse{
+			Code: 0,
+			Msg:  "ok",
+			List: []*pb.AgentRunItem{{
+				Id:        190,
+				SessionId: req.GetSessionId(),
+				Status:    "succeeded",
+				ResultMetadata: &pb.AgentRunResultMetadata{
+					ContextUsage: &pb.ContextUsageInfo{
+						ModelName:             "deepseek-v4-flash",
+						PromptTokensEstimated: 5312,
+						Breakdown:             &pb.ContextUsageBreakdown{SkillTokens: 69},
+					},
+					AgentSkillRuntimeEvidence: []*pb.AgentSkillRuntimeEvidence{{
+						VersionId:        1,
+						Version:          "1.0.0",
+						DisplayName:      "候选人筛选方法",
+						CompositionRole:  pb.AgentSkillCompositionRole_AGENT_SKILL_COMPOSITION_ROLE_PRIMARY,
+						Risk:             pb.AgentSkillRiskLevel_AGENT_SKILL_RISK_LEVEL_LOW,
+						ActivationPolicy: pb.AgentSkillActivationPolicy_AGENT_SKILL_ACTIVATION_POLICY_AUTO,
+						LoadedTokens:     69,
+						Included:         true,
+						DecisionReason:   "core_included",
+						Sections: []*pb.AgentSkillSectionRuntimeEvidence{{
+							SectionId:       1,
+							SectionKey:      "evidence_rules",
+							EstimatedTokens: 37,
+							Included:        false,
+							DecisionReason:  "section_not_relevant",
+						}},
+					}},
+				},
+			}},
+		}, nil
+	}}
+	r := newAgentRunTestRouter(mock, 42)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/hr/ai/sessions/133/agent-runs", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	for _, expected := range []string{
+		`"version":"1.0.0"`,
+		`"composition_role":"primary"`,
+		`"risk":"low"`,
+		`"activation_policy":"auto"`,
+		`"skill_tokens":69`,
+		`"decision_reason":"section_not_relevant"`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("response missing %s: %s", expected, body)
+		}
+	}
 }
 
 func TestChatForwardsCapabilityKeys(t *testing.T) {

@@ -68,7 +68,8 @@ func (s *platformAIControlPlaneServer) UpdatePlatformAICapabilityDraft(ctx conte
 func (s *platformAIControlPlaneServer) DeletePlatformAICapabilityDraft(ctx context.Context, req *pb.DeletePlatformAICapabilityDraftRequest) (*pb.CommonResponse, error) {
 	if err := s.store.DeletePlatformAICapabilityDraft(ctx, req.GetVersionId(), req.GetActorUserId(), req.GetRequestId()); err != nil {
 		code, _ := platformAIErrorCode(err)
-		return &pb.CommonResponse{Code: code, Msg: "common.operation_failed"}, nil
+		messageKey := platformAIErrorMessageKey(err, code)
+		return &pb.CommonResponse{Code: code, Msg: messageKey}, nil
 	}
 	return &pb.CommonResponse{Code: 0, Msg: "common.success"}, nil
 }
@@ -85,7 +86,8 @@ func (s *platformAIControlPlaneServer) ListPlatformAIRuntimeModels(ctx context.C
 	models, version, err := s.store.ListAllowedRuntimeModels(ctx, req.GetCapabilityKey(), req.GetAudience(), req.GetCapabilityVersionId())
 	if err != nil {
 		code, _ := platformAIErrorCode(err)
-		return &pb.ListPlatformAIRuntimeModelsResponse{Code: code, Msg: "common.operation_failed"}, nil
+		messageKey := platformAIErrorMessageKey(err, code)
+		return &pb.ListPlatformAIRuntimeModelsResponse{Code: code, Msg: messageKey}, nil
 	}
 	result := make([]*pb.PlatformAIRuntimeModelInfo, 0, len(models))
 	for _, model := range models {
@@ -107,7 +109,8 @@ func (s *platformAIControlPlaneServer) ResolvePlatformAIRuntimeModel(ctx context
 	resolution, err := s.store.ResolveRuntimeModel(ctx, req.GetCapabilityKey(), req.GetAudience(), req.GetCapabilityVersionId(), req.GetRequestedModelId())
 	if err != nil {
 		code, _ := platformAIErrorCode(err)
-		return &pb.ResolvePlatformAIRuntimeModelResponse{Code: code, Msg: "common.operation_failed", RequestedModelId: req.GetRequestedModelId()}, nil
+		messageKey := platformAIErrorMessageKey(err, code)
+		return &pb.ResolvePlatformAIRuntimeModelResponse{Code: code, Msg: messageKey, RequestedModelId: req.GetRequestedModelId()}, nil
 	}
 	return &pb.ResolvePlatformAIRuntimeModelResponse{
 		Code:                0,
@@ -169,7 +172,29 @@ func platformAICapabilityVersionProto(row PlatformAICapabilityVersion) *pb.Platf
 
 func platformAICapabilityError(err error) *pb.PlatformAICapabilityVersionResponse {
 	code, _ := platformAIErrorCode(err)
-	return &pb.PlatformAICapabilityVersionResponse{Code: code, Msg: "common.operation_failed"}
+	messageKey := platformAIErrorMessageKey(err, code)
+	return &pb.PlatformAICapabilityVersionResponse{Code: code, Msg: messageKey}
+}
+
+func platformAIErrorMessageKey(err error, code int32) string {
+	switch {
+	case errors.Is(err, ErrAgentSkillReleaseEvaluationUnavailable):
+		return "ai.unavailable"
+	case errors.Is(err, ErrAgentSkillReleaseEvaluationFailed):
+		return "ai.agent_skill_package_invalid"
+	}
+	switch code {
+	case 400:
+		return "common.invalid_request"
+	case 404:
+		return "common.not_found"
+	case 409:
+		return "common.invalid_request"
+	case 503:
+		return "common.backend_unavailable"
+	default:
+		return "common.operation_failed"
+	}
 }
 
 func platformAIErrorCode(err error) (int32, string) {
@@ -178,6 +203,10 @@ func platformAIErrorCode(err error) (int32, string) {
 		return 404, err.Error()
 	case errors.Is(err, ErrCapabilityVersionChanged):
 		return 409, err.Error()
+	case errors.Is(err, ErrAgentSkillReleaseEvaluationUnavailable):
+		return 503, err.Error()
+	case errors.Is(err, ErrAgentSkillReleaseEvaluationFailed):
+		return 400, err.Error()
 	case errors.Is(err, ErrCapabilityUnavailable):
 		return 503, err.Error()
 	case errors.Is(err, ErrModelNotAllowed):

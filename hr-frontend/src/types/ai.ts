@@ -1,6 +1,7 @@
 // ---- AI Chat Types ----
 
 import type {
+  AgentRunResultMetadata,
   AgentRunSkillCandidate,
   AgentSkillRuntimeEvidence,
 } from '@shared/types/agentRun'
@@ -275,4 +276,5 @@ export interface AgentRunItem {
   completed_at: string
   created_at: string
   steps: AgentRunStepItem[]
+  result_metadata?: AgentRunResultMetadata | null
 }

@@ -187,6 +187,113 @@ describe('AgentTracePanel overview shell', () => {
     expect(wrapper.html()).toContain('min(860px')
   })
 
+  it('localizes backend message keys in run and step errors', async () => {
+    getAgentRuns.mockResolvedValue({
+      list: [
+        makeRun({
+          error_message: 'common.operation_failed',
+          steps: [
+            {
+              ...makeRun().steps[0],
+              error_message: 'common.operation_failed',
+            },
+          ],
+        }),
+      ],
+    })
+    getToolTraces.mockResolvedValue({ list: [] })
+
+    const wrapper = await openPanel(1)
+
+    expect(wrapper.text()).toContain('操作没有成功，请稍后再试')
+    expect(wrapper.text()).not.toContain('common.operation_failed')
+  })
+
+  it('shows the resolved runtime model and labels application binding as a recruiting record', async () => {
+    getAgentRuns.mockResolvedValue({
+      list: [
+        makeRun({
+          model_id: 6,
+          model_name: '模型 #6',
+          plan_json: JSON.stringify({
+            model: 'deepseek-v4-flash',
+            runtime: 'adk',
+            application_bound: false,
+            application_id: 0,
+            recruiting_plan: { intent: 'general_chat' },
+          }),
+        }),
+      ],
+    })
+    getToolTraces.mockResolvedValue({ list: [] })
+
+    const wrapper = await openPanel(1)
+
+    expect(wrapper.text()).toContain('deepseek-v4-flash')
+    expect(wrapper.text()).not.toContain('模型 #6')
+    expect(wrapper.text()).toContain('投递记录')
+    expect(wrapper.html()).not.toContain('>应用<')
+  })
+
+  it('shows exact Agent Skill package, section decisions, and token usage', async () => {
+    getAgentRuns.mockResolvedValue({
+      list: [
+        makeRun({
+          status: 'succeeded',
+          error_message: '',
+          result_metadata: {
+            context_usage: {
+              model_name: 'deepseek-v4-flash',
+              prompt_tokens_estimated: 5312,
+              completion_tokens_actual: 0,
+              remaining_tokens_estimated: 988544,
+              estimated: true,
+              breakdown: { skill_tokens: 69 },
+            },
+            agent_skill_runtime_evidence: [{
+              skill_id: 1,
+              version_id: 1,
+              version: '1.0.0',
+              compiled_hash: '32faba00d397e4c8a29311f488203fa4525207b14f508c6a013ce6cb4b245220',
+              skill_name: 'candidate_screening_method',
+              display_name: '候选人筛选方法',
+              composition_role: 'primary',
+              risk: 'low',
+              activation_policy: 'auto',
+              selection_mode: 'manual',
+              relevance_mode: 'manual',
+              core_estimated_tokens: 69,
+              loaded_tokens: 69,
+              included: true,
+              decision_reason: 'core_included',
+              sections: [{
+                section_id: 1,
+                section_key: 'evidence_rules',
+                content_hash: '45274a930c412972c50c93b51e4e635b1cc82d8635359f742ab4269f3bd5de4a',
+                estimated_tokens: 37,
+                final_rank_score: 0,
+                included: false,
+                decision_reason: 'section_not_relevant',
+              }],
+            }],
+          },
+        }),
+      ],
+    })
+    getToolTraces.mockResolvedValue({ list: [] })
+
+    const wrapper = await openPanel(1)
+
+    expect(wrapper.find('[data-testid="trace-skill-evidence"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('v1.0.0 · Version ID #1')
+    expect(wrapper.text()).toContain('5,312 tokens')
+    expect(wrapper.text()).toContain('Skill Token')
+    expect(wrapper.text()).toContain('evidence_rules')
+    expect(wrapper.text()).toContain('Dropped')
+    expect(wrapper.text()).toContain('Reference Section 相关性不足（section_not_relevant）')
+    expect(wrapper.text()).toContain('运行结果元数据')
+  })
+
   it('keeps legacy-only sessions usable with overview', async () => {
     getAgentRuns.mockResolvedValue({ list: [] })
     getToolTraces.mockResolvedValue({

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Close, Position } from '@element-plus/icons-vue'
+import { computed, ref, watch } from 'vue'
+import { Box, Close, Position } from '@element-plus/icons-vue'
 import type { Session, ContextUsageInfo } from '@/types/ai'
 import type { LlmModel } from '@shared/types/llm'
 import type { CapabilityInfo } from '@shared/types/agent'
@@ -85,21 +85,6 @@ const selectionMenuVisible = computed(() =>
   !props.disabled && !props.streaming && activeSlashIndex.value >= 0,
 )
 
-const filteredCapabilities = computed(() => {
-  const query = slashQuery.value
-  if (!query) return props.capabilities
-  return props.capabilities.filter((cap) => {
-    const haystack = [
-      cap.display_name,
-      cap.name,
-      cap.key,
-      cap.description,
-      cap.skill_name,
-    ].filter(Boolean).join(' ').toLowerCase()
-    return haystack.includes(query)
-  })
-})
-
 const filteredAgentSkills = computed(() => {
   const query = slashQuery.value
   const selectable = props.agentSkills.filter((skill) => Boolean(skill.current_version?.version_id))
@@ -117,6 +102,15 @@ const filteredAgentSkills = computed(() => {
   })
 })
 
+const highlightedSkillIndex = ref(0)
+
+watch(
+  [selectionMenuVisible, slashQuery, () => filteredAgentSkills.value.length],
+  () => {
+    highlightedSkillIndex.value = 0
+  },
+)
+
 const selectedCapabilities = computed(() =>
   props.selectedCapabilityKeys
     .map((key) => props.capabilities.find((cap) => cap.key === key))
@@ -133,20 +127,28 @@ const selectedAgentSkills = computed(() =>
 
 const capabilityLabel = (cap: CapabilityInfo) => cap.display_name || cap.name || cap.key
 const agentSkillLabel = (skill: AvailableAgentSkill) => skill.display_name || skill.name
+const agentSkillDescription = (skill: AvailableAgentSkill): string => {
+  const label = agentSkillLabel(skill).trim()
+  const description = skill.description?.trim() || ''
+  return description && description !== label ? description : ''
+}
 const agentSkillVersionId = (skill: AvailableAgentSkill): number =>
   Number(skill.current_version?.version_id) || 0
 const agentSkillMeta = (skill: AvailableAgentSkill): string => {
   const version = skill.current_version
   if (!version) return '不可用'
-  const role = version.composition_role === 'supporting' ? 'supporting' : 'primary'
-  const risk = ['low', 'medium', 'high', 'critical'].includes(version.risk)
-    ? version.risk
-    : 'low'
+  const role = version.composition_role === 'supporting' ? '辅助技能' : '主技能'
+  const risk = {
+    low: '低风险',
+    medium: '中风险',
+    high: '高风险',
+    critical: '极高风险',
+  }[version.risk] || '低风险'
   return [
     `v${version.version}`,
     role,
     risk,
-    `${version.core_estimated_tokens} tokens`,
+    `${version.core_estimated_tokens} Tokens`,
   ].join(' · ')
 }
 
@@ -156,14 +158,6 @@ const clearSlashToken = () => {
   const after = props.input.slice(index).match(/^\S*/)?.[0] || ''
   const nextInput = `${props.input.slice(0, index)}${props.input.slice(index + after.length).replace(/^\s+/, '')}`
   emit('update:input', nextInput)
-}
-
-const selectCapability = (cap: CapabilityInfo) => {
-  if (props.disabled) return
-  if (!props.selectedCapabilityKeys.includes(cap.key)) {
-    emit('update:selectedCapabilityKeys', [...props.selectedCapabilityKeys, cap.key])
-  }
-  clearSlashToken()
 }
 
 const selectAgentSkill = (skill: AvailableAgentSkill) => {
@@ -187,6 +181,44 @@ const selectAgentSkill = (skill: AvailableAgentSkill) => {
     emit('update:selectedAgentSkillVersionIds', [...props.selectedAgentSkillVersionIds, versionId])
   }
   clearSlashToken()
+}
+
+const handleComposerKeydown = (event: KeyboardEvent) => {
+  if (selectionMenuVisible.value) {
+    const skillCount = filteredAgentSkills.value.length
+    if (event.key === 'ArrowDown' && skillCount > 0) {
+      event.preventDefault()
+      highlightedSkillIndex.value = (highlightedSkillIndex.value + 1) % skillCount
+      return
+    }
+    if (event.key === 'ArrowUp' && skillCount > 0) {
+      event.preventDefault()
+      highlightedSkillIndex.value = (highlightedSkillIndex.value - 1 + skillCount) % skillCount
+      return
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      const highlightedSkill = filteredAgentSkills.value[highlightedSkillIndex.value]
+      if (highlightedSkill) selectAgentSkill(highlightedSkill)
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      clearSlashToken()
+      return
+    }
+  }
+
+  if (
+    event.key === 'Enter'
+    && !event.shiftKey
+    && !event.altKey
+    && !event.ctrlKey
+    && !event.metaKey
+  ) {
+    event.preventDefault()
+    if (!props.streaming && !props.contextPreviewing && !props.disabled) emit('submit')
+  }
 }
 
 const removeCapability = (key: string) => {
@@ -257,36 +289,38 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
 <template>
   <div class="chat-composer" :class="{ 'chat-composer--disabled': disabled }">
     <Transition name="chat-composer-skill-menu">
-      <div v-if="selectionMenuVisible" class="chat-composer__skill-menu">
-        <template v-if="capabilities.length > 0">
-          <button
-            v-for="capability in filteredCapabilities"
-            :key="capability.key"
-            type="button"
-            class="chat-composer__skill-option"
-            :class="{ 'chat-composer__skill-option--selected': selectedCapabilityKeys.includes(capability.key) }"
-            @click="selectCapability(capability)"
-          >
-            <span class="chat-composer__skill-name">{{ capabilityLabel(capability) }}</span>
-            <span class="chat-composer__skill-meta">{{ capability.runtime_type || 'data capability' }}</span>
-          </button>
-        </template>
-        <div v-if="capabilities.length > 0 && filteredCapabilities.length === 0" class="chat-composer__skill-empty">
-          暂无匹配的数据能力或工具
-        </div>
+      <div
+        v-if="selectionMenuVisible"
+        class="chat-composer__skill-menu"
+        role="listbox"
+        aria-label="可用 Agent Skills"
+      >
         <button
-          v-for="skill in filteredAgentSkills"
+          v-for="(skill, index) in filteredAgentSkills"
           :key="`agent-version-${agentSkillVersionId(skill)}`"
           type="button"
           class="chat-composer__skill-option"
-          :class="{ 'chat-composer__skill-option--selected': selectedAgentSkillVersionIds.includes(agentSkillVersionId(skill)) }"
+          :class="{
+            'chat-composer__skill-option--highlighted': highlightedSkillIndex === index,
+            'chat-composer__skill-option--selected': selectedAgentSkillVersionIds.includes(agentSkillVersionId(skill)),
+          }"
+          role="option"
+          :aria-selected="selectedAgentSkillVersionIds.includes(agentSkillVersionId(skill))"
+          :title="agentSkillMeta(skill)"
+          @mouseenter="highlightedSkillIndex = index"
           @click="selectAgentSkill(skill)"
         >
-          <span class="chat-composer__skill-name">{{ agentSkillLabel(skill) }}</span>
-          <span class="chat-composer__skill-meta">{{ agentSkillMeta(skill) }}</span>
+          <el-icon class="chat-composer__skill-icon"><Box /></el-icon>
+          <span class="chat-composer__skill-content">
+            <strong class="chat-composer__skill-name">{{ agentSkillLabel(skill) }}</strong>
+            <span v-if="agentSkillDescription(skill)" class="chat-composer__skill-description">
+              {{ agentSkillDescription(skill) }}
+            </span>
+          </span>
+          <span class="chat-composer__skill-source">smart-recruit</span>
         </button>
         <div v-if="filteredAgentSkills.length === 0" class="chat-composer__skill-empty">
-          暂无匹配 Skill
+          暂无匹配的 Skill
         </div>
       </div>
     </Transition>
@@ -326,7 +360,7 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
         :autosize="{ minRows: 2, maxRows: 6 }"
         resize="none"
         class="chat-composer__text-input"
-        @keydown.enter.exact.prevent="streaming || contextPreviewing || disabled ? undefined : emit('submit')"
+        @keydown="handleComposerKeydown"
         @update:model-value="(val: string) => emit('update:input', val)"
       />
     </div>
@@ -527,15 +561,19 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
   position: absolute;
   left: 0;
   right: 0;
-  bottom: calc(100% + 8px);
+  bottom: calc(100% + 10px);
   z-index: 10;
+  width: auto;
   max-height: 240px;
+  box-sizing: border-box;
   overflow: auto;
-  padding: 6px;
+  padding: 5px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+  border-radius: 14px;
+  box-shadow:
+    0 14px 36px rgba(15, 23, 42, 0.11),
+    0 2px 6px rgba(15, 23, 42, 0.04);
 }
 
 .chat-composer-skill-menu-enter-active,
@@ -560,44 +598,81 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
 
 .chat-composer__skill-option {
   width: 100%;
-  min-height: 38px;
+  min-height: 42px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 10px;
   background: transparent;
   color: var(--text-primary);
-  display: flex;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 10px;
+  gap: 9px;
+  padding: 7px 10px;
   cursor: pointer;
   text-align: left;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
 }
 
 .chat-composer__skill-option:hover,
+.chat-composer__skill-option--highlighted,
 .chat-composer__skill-option--selected {
   background: var(--surface-muted);
 }
 
+.chat-composer__skill-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--text-secondary);
+  font-size: 17px;
+}
+
+.chat-composer__skill-content {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 9px;
+}
+
 .chat-composer__skill-name {
+  flex: 0 0 auto;
+  max-width: 38%;
+  overflow: hidden;
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 600;
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.chat-composer__skill-meta {
+.chat-composer__skill-description {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-composer__skill-source {
   flex-shrink: 0;
-  font-size: 11px;
   color: var(--text-faint);
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.chat-composer__skill-option--selected .chat-composer__skill-source {
+  color: var(--text-muted);
 }
 
 .chat-composer__skill-empty {
-  padding: 10px;
+  padding: 14px 12px;
   color: var(--text-faint);
   font-size: 13px;
+  text-align: center;
 }
 
 .chat-composer__selected-skills {
@@ -923,6 +998,24 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
   .chat-composer {
     padding: 10px 12px 12px;
   }
+
+  .chat-composer__skill-menu {
+    max-height: 220px;
+    border-radius: 12px;
+  }
+
+  .chat-composer__skill-option {
+    grid-template-columns: 22px minmax(0, 1fr);
+    padding: 7px 9px;
+  }
+
+  .chat-composer__skill-content {
+    display: grid;
+    gap: 2px;
+  }
+
+  .chat-composer__skill-name { max-width: 100%; }
+  .chat-composer__skill-source { display: none; }
 
   .chat-composer__toolbar {
     align-items: flex-end;

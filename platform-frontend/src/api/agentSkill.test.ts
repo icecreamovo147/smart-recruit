@@ -21,6 +21,7 @@ vi.mock('@shared/utils/debugLog', () => ({
 import {
   createAgentSkill,
   createAgentSkillVersion,
+  debugSemanticRetrieval,
   previewAgentSkill,
   regenerateAgentSkillVersionEmbedding,
 } from './agentSkill'
@@ -155,6 +156,33 @@ describe('Agent Skill Package v2 API', () => {
 
     expect(request.post).toHaveBeenCalledWith(
       '/api/v1/platform/ai/agent-skills/32/embedding/regenerate',
+    )
+  })
+
+  it('sends an explicit tenant-scoped HR owner context for semantic retrieval', async () => {
+    request.get.mockResolvedValueOnce({ skills: [], memories: [], embedding_available: true })
+
+    await debugSemanticRetrieval({
+      query: '候选人与岗位是否匹配',
+      agent_type: 'hr_recruiting_agent',
+      tenant_id: 7,
+      owner_role: 2,
+      owner_id: 41,
+      limit: 5,
+    })
+
+    expect(request.get).toHaveBeenCalledWith(
+      '/api/v1/platform/ai/agent-skills/semantic-debug',
+      {
+        params: {
+          query: '候选人与岗位是否匹配',
+          agent_type: 'hr_recruiting_agent',
+          tenant_id: 7,
+          limit: 5,
+          owner_role: 2,
+          owner_id: 41,
+        },
+      },
     )
   })
 })

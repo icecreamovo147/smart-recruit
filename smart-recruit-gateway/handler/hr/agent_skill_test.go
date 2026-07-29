@@ -18,6 +18,7 @@ import (
 type mockAgentSkillClient struct {
 	createFn        func(context.Context, *pb.CreateAgentSkillRequest, ...grpc.CallOption) (*pb.AgentSkillResponse, error)
 	createVersionFn func(context.Context, *pb.CreateAgentSkillVersionRequest, ...grpc.CallOption) (*pb.AgentSkillVersionResponse, error)
+	debugFn         func(context.Context, *pb.DebugSemanticRetrievalRequest, ...grpc.CallOption) (*pb.DebugSemanticRetrievalResponse, error)
 	updateFn        func(context.Context, *pb.UpdateAgentSkillRequest, ...grpc.CallOption) (*pb.AgentSkillResponse, error)
 	previewFn       func(context.Context, *pb.PreviewAgentSkillRequest, ...grpc.CallOption) (*pb.PreviewAgentSkillResponse, error)
 }
@@ -74,7 +75,10 @@ func (m *mockAgentSkillClient) ListAvailableAgentSkills(context.Context, *pb.Lis
 	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "ok"}, nil
 }
 
-func (m *mockAgentSkillClient) DebugSemanticRetrieval(context.Context, *pb.DebugSemanticRetrievalRequest, ...grpc.CallOption) (*pb.DebugSemanticRetrievalResponse, error) {
+func (m *mockAgentSkillClient) DebugSemanticRetrieval(ctx context.Context, req *pb.DebugSemanticRetrievalRequest, opts ...grpc.CallOption) (*pb.DebugSemanticRetrievalResponse, error) {
+	if m.debugFn != nil {
+		return m.debugFn(ctx, req, opts...)
+	}
 	return &pb.DebugSemanticRetrievalResponse{Code: 0, Msg: "ok"}, nil
 }
 
@@ -110,6 +114,97 @@ func packageJSON(risk, role, outputMode string) string {
 		}],
 		"authoring_json":"{\"editor\":\"package-v2\"}"
 	}`
+}
+
+func TestAgentSkillHandlerDebugSemanticRetrievalMapsExplicitHROwnerContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	var captured *pb.DebugSemanticRetrievalRequest
+	handler := NewAgentSkillHandler(&rpc.Clients{AgentSkill: &mockAgentSkillClient{
+		debugFn: func(_ context.Context, req *pb.DebugSemanticRetrievalRequest, _ ...grpc.CallOption) (*pb.DebugSemanticRetrievalResponse, error) {
+			captured = req
+			return &pb.DebugSemanticRetrievalResponse{Code: 0, Msg: "ok"}, nil
+		},
+	}})
+	router := gin.New()
+	router.GET("/platform/ai/agent-skills/semantic-debug", func(c *gin.Context) {
+		c.Set("user_id", int64(99))
+		handler.DebugSemanticRetrieval(c)
+	})
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/platform/ai/agent-skills/semantic-debug?query=candidate+screening&agent_type=hr_recruiting_agent&tenant_id=7&owner_role=2&owner_id=41&limit=5",
+		nil,
+	)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK || captured == nil {
+		t.Fatalf("status=%d captured=%#v body=%s", w.Code, captured, w.Body.String())
+	}
+	if captured.GetTenantId() != 7 || captured.GetOwnerRole() != memoryOwnerRoleHR ||
+		captured.GetOwnerId() != 41 || captured.GetHrId() != 99 ||
+		captured.GetQuery() != "candidate screening" {
+		t.Fatalf("unexpected debug request: %#v", captured)
+	}
+}
+
+func TestAgentSkillHandlerDebugSemanticRetrievalRejectsInvalidOwnerContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	called := false
+	handler := NewAgentSkillHandler(&rpc.Clients{AgentSkill: &mockAgentSkillClient{
+		debugFn: func(_ context.Context, _ *pb.DebugSemanticRetrievalRequest, _ ...grpc.CallOption) (*pb.DebugSemanticRetrievalResponse, error) {
+			called = true
+			return &pb.DebugSemanticRetrievalResponse{Code: 0, Msg: "ok"}, nil
+		},
+	}})
+	router := gin.New()
+	router.GET("/platform/ai/agent-skills/semantic-debug", handler.DebugSemanticRetrieval)
+
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{
+			name:  "HR owner requires tenant",
+			query: "query=test&owner_role=2&owner_id=41&limit=5",
+		},
+		{
+			name:  "candidate owner rejects tenant",
+			query: "query=test&tenant_id=7&owner_role=1&owner_id=41&limit=5",
+		},
+		{
+			name:  "query is required",
+			query: "tenant_id=7&owner_role=2&owner_id=41&limit=5",
+		},
+		{
+			name:  "limit is bounded",
+			query: "query=test&tenant_id=7&owner_role=2&owner_id=41&limit=21",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(
+				http.MethodGet,
+				"/platform/ai/agent-skills/semantic-debug?"+tt.query,
+				nil,
+			)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			var response struct {
+				Code int `json:"code"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if w.Code != http.StatusOK || response.Code != http.StatusBadRequest {
+				t.Fatalf("status=%d code=%d body=%s", w.Code, response.Code, w.Body.String())
+			}
+		})
+	}
+	if called {
+		t.Fatal("invalid debug request reached Agent Skill service")
+	}
 }
 
 func TestAgentSkillHandlerCreateMapsTypedPackage(t *testing.T) {

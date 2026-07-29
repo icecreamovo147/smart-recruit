@@ -404,11 +404,14 @@ func (s *NativeStore) PublishPlatformAICapabilityVersion(ctx context.Context, ve
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&capability, version.CapabilityID).Error; err != nil {
 			return err
 		}
-		normalized, hash, snapshot, err := normalizeCapabilitySnapshot([]byte(version.SnapshotJSON), capability)
+		_, hash, snapshot, err := normalizeCapabilitySnapshot([]byte(version.SnapshotJSON), capability)
 		if err != nil {
 			return err
 		}
-		if normalized != version.SnapshotJSON || hash != version.SnapshotHash {
+		// MySQL JSON columns may reorder object keys and change insignificant
+		// whitespace. The hash is calculated from normalized semantic content,
+		// so it remains the authoritative integrity check.
+		if hash != version.SnapshotHash {
 			return ErrCapabilitySnapshotHash
 		}
 		if err := validatePublishedModelPolicy(tx, snapshot.ModelPolicy); err != nil {
@@ -591,11 +594,14 @@ func (s *NativeStore) loadPublishedCapability(ctx context.Context, capabilityKey
 		}
 		return capability, version, PlatformAICapabilitySnapshot{}, err
 	}
-	normalized, hash, snapshot, err := normalizeCapabilitySnapshot([]byte(version.SnapshotJSON), capability)
+	_, hash, snapshot, err := normalizeCapabilitySnapshot([]byte(version.SnapshotJSON), capability)
 	if err != nil {
 		return capability, version, snapshot, err
 	}
-	if normalized != version.SnapshotJSON || hash != version.SnapshotHash {
+	// MySQL may serialize JSON differently from the canonical encoder. Compare
+	// the canonical hash so formatting-only changes remain valid while semantic
+	// tampering is still rejected.
+	if hash != version.SnapshotHash {
 		return capability, version, PlatformAICapabilitySnapshot{}, ErrCapabilitySnapshotHash
 	}
 	return capability, version, snapshot, nil

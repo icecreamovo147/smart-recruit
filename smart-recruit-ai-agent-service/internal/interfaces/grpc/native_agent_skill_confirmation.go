@@ -171,6 +171,7 @@ type agentRunSkillExecutionFenceStore interface {
 		status string,
 		errorType string,
 		errorMessage string,
+		resultMetadataJSON string,
 	) (AgentRunRow, bool, error)
 }
 
@@ -907,6 +908,7 @@ func (s *nativeAIService) completeAgentRunExecution(
 	status string,
 	errorType string,
 	errorMessage string,
+	resultMetadataJSON string,
 ) (AgentRunRow, bool, error) {
 	runPayload := agentRunPayloadFromRow(run)
 	leaseID := agentRunSkillExecutionLease(run)
@@ -914,7 +916,7 @@ func (s *nativeAIService) completeAgentRunExecution(
 		if runPayload.AgentSkillApproval != nil {
 			return AgentRunRow{}, false, errAgentRunExecutionLeaseLost
 		}
-		return s.store.CompleteAgentRun(ctx, run.OwnerID, run.ID, assistantText, status, errorType, errorMessage)
+		return s.store.CompleteAgentRun(ctx, run.OwnerID, run.ID, assistantText, status, errorType, errorMessage, resultMetadataJSON)
 	}
 	store, ok := s.store.(agentRunSkillExecutionFenceStore)
 	if !ok {
@@ -929,6 +931,7 @@ func (s *nativeAIService) completeAgentRunExecution(
 		status,
 		errorType,
 		errorMessage,
+		resultMetadataJSON,
 	)
 	if err != nil {
 		return AgentRunRow{}, false, err

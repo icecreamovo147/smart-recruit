@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -174,8 +175,8 @@ func loadReleaseAgentSkillSections(tx *gorm.DB, versionIDs []int64) (map[int64][
 }
 
 func recompilePublishedAgentSkillPackage(row agentSkillVersionRecord, sections []agentSkillSectionRecord) (*agentskill.CompiledPackage, error) {
-	var manifest agentskill.Manifest
-	if err := json.Unmarshal([]byte(row.ManifestJSON), &manifest); err != nil {
+	manifest, storedManifestCanonical, err := agentskill.DecodeManifestJSON([]byte(row.ManifestJSON))
+	if err != nil {
 		return nil, fmt.Errorf("released Agent Skill version %d has invalid manifest: %w", row.ID, err)
 	}
 	draft := agentskill.PackageDraft{
@@ -233,7 +234,11 @@ func recompilePublishedAgentSkillPackage(row agentSkillVersionRecord, sections [
 	if err != nil {
 		return nil, fmt.Errorf("released Agent Skill version %d does not compile: %w", row.ID, err)
 	}
-	if compiled.ManifestJSON != row.ManifestJSON ||
+	_, compiledManifestCanonical, err := agentskill.DecodeManifestJSON([]byte(compiled.ManifestJSON))
+	if err != nil {
+		return nil, fmt.Errorf("released Agent Skill version %d compiled an invalid manifest: %w", row.ID, err)
+	}
+	if !bytes.Equal(compiledManifestCanonical, storedManifestCanonical) ||
 		compiled.Core.ContentMarkdown != row.CoreMarkdown ||
 		compiled.CompiledMarkdown != row.CompiledMarkdown ||
 		compiled.CompiledHash != row.CompiledHash ||

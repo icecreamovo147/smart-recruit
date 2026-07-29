@@ -969,6 +969,37 @@ func TestSubscribeAgentRunEventsReplaysStructuredMetadata(t *testing.T) {
 	}
 }
 
+func TestMapAgentRunItemIncludesPersistedResultMetadata(t *testing.T) {
+	item := mapAgentRunItem(AgentRunRow{
+		ID:        190,
+		SessionID: 133,
+		Status:    agentRunStatusSucceeded,
+		ResultMetadataJSON: `{
+			"context_usage":{"prompt_tokens_estimated":5312,"breakdown":{"skill_tokens":69}},
+			"agent_skill_runtime_evidence":[{
+				"version_id":1,
+				"version":"1.0.0",
+				"loaded_tokens":69,
+				"included":true,
+				"decision_reason":"core_included",
+				"sections":[{"section_id":1,"section_key":"evidence_rules","estimated_tokens":37,"decision_reason":"section_not_relevant"}]
+			}]
+		}`,
+	})
+
+	metadata := item.GetResultMetadata()
+	if metadata.GetContextUsage().GetPromptTokensEstimated() != 5312 ||
+		metadata.GetContextUsage().GetBreakdown().GetSkillTokens() != 69 {
+		t.Fatalf("context usage = %#v", metadata.GetContextUsage())
+	}
+	evidence := metadata.GetAgentSkillRuntimeEvidence()
+	if len(evidence) != 1 || evidence[0].GetVersion() != "1.0.0" ||
+		evidence[0].GetLoadedTokens() != 69 || len(evidence[0].GetSections()) != 1 ||
+		evidence[0].GetSections()[0].GetDecisionReason() != "section_not_relevant" {
+		t.Fatalf("runtime evidence = %#v", evidence)
+	}
+}
+
 func TestSubscribeAgentRunEventsRejectsWrongHROwnerBeforeLiveSubscription(t *testing.T) {
 	store := newAgentRunTestStore()
 	service := &nativeAIService{store: store}
@@ -1377,6 +1408,7 @@ func (s *agentRunTestStore) CompleteAgentRunForSkillLease(
 	status string,
 	errorType string,
 	errorMessage string,
+	resultMetadataJSON string,
 ) (AgentRunRow, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1392,6 +1424,7 @@ func (s *agentRunTestStore) CompleteAgentRunForSkillLease(
 	run.AssistantText = assistantText
 	run.ErrorType = errorType
 	run.ErrorMessage = errorMessage
+	run.ResultMetadataJSON = resultMetadataJSON
 	run.CompletedAt = &now
 	if status == agentRunStatusCanceled {
 		run.CanceledAt = &now
@@ -1410,7 +1443,7 @@ func agentRunTestSkillLease(run AgentRunRow) string {
 	return payload.AgentSkillApproval.DispatchLeaseID
 }
 
-func (s *agentRunTestStore) CompleteAgentRun(_ context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage string) (AgentRunRow, bool, error) {
+func (s *agentRunTestStore) CompleteAgentRun(_ context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage, resultMetadataJSON string) (AgentRunRow, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	run, ok := s.runs[runID]
@@ -1422,6 +1455,7 @@ func (s *agentRunTestStore) CompleteAgentRun(_ context.Context, ownerID, runID i
 	run.AssistantText = assistantText
 	run.ErrorType = errorType
 	run.ErrorMessage = errorMessage
+	run.ResultMetadataJSON = resultMetadataJSON
 	run.CompletedAt = &now
 	if status == "canceled" {
 		run.CanceledAt = &now

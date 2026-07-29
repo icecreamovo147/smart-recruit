@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { t } from '@shared/i18n'
+import { localizedBackendText, t } from '@shared/i18n'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import DOMPurify from 'dompurify'
@@ -21,6 +21,7 @@ import TraceFilterBar from '@/components/agent-trace/TraceFilterBar.vue'
 import TraceRunSection from '@/components/agent-trace/TraceRunSection.vue'
 import TraceLegacySection from '@/components/agent-trace/TraceLegacySection.vue'
 import TraceJsonBlock from '@/components/agent-trace/TraceJsonBlock.vue'
+import TraceAgentSkillEvidence from '@/components/agent-trace/TraceAgentSkillEvidence.vue'
 import {
   applyTraceFilters,
   buildTraceSessionVM,
@@ -31,6 +32,7 @@ import {
   nextTraceVisibleCount,
   paginateTraceItems,
   resetTraceFilters,
+  runModelDisplayName as resolveRunModelDisplayName,
   toolLabel as resolveToolLabel,
   type TraceFilterState,
   type TraceLiveState,
@@ -203,7 +205,7 @@ const applyLiveEvent = (event: AgentRunEvent) => {
     || event.delta
     || event.display_message
     || event.event_message
-    || event.error_message
+    || localizedBackendText(event.error_message)
     || (event.tool_name ? `工具: ${formatToolTitle(event.tool_name)}` : liveState.value.processText)
   liveState.value = {
     active: !isTerminalAgentRunStatus(status),
@@ -660,14 +662,8 @@ const parseNestedPlanner = (value: unknown): AgentRunRecruitingPlan | null => {
 const runPlan = (run: AgentRunItem): AgentRunPlanJSON | null =>
   parseJsonObject<AgentRunPlanJSON>(run.plan_json)
 
-const runModelDisplayName = (run: AgentRunItem): string => {
-  const fromRun = String(run.model_name || '').trim()
-  if (fromRun) return fromRun
-  const plan = runPlan(run)
-  const fromPlan = typeof plan?.model === 'string' ? plan.model.trim() : ''
-  if (fromPlan) return fromPlan
-  return run.model_id > 0 ? `模型 #${run.model_id}` : '默认模型'
-}
+const runModelDisplayName = (run: AgentRunItem): string =>
+  resolveRunModelDisplayName(run, runPlan(run))
 
 const recruitingPlan = (run: AgentRunItem): AgentRunRecruitingPlan | null => {
   const plan = runPlan(run)
@@ -753,8 +749,13 @@ const capabilityItems = (run: AgentRunItem): string[] => {
     .filter((item) => item.length > 0)
 }
 
-const selectedAgentSkillVersionIds = (run: AgentRunItem): number[] =>
-  normalizeNumberList(runPlan(run)?.selected_agent_skill_version_ids)
+const selectedAgentSkillVersionIds = (run: AgentRunItem): number[] => {
+  const plan = runPlan(run)
+  const selected = normalizeNumberList(plan?.selected_agent_skill_version_ids)
+  if (selected.length > 0) return selected
+  const durableRequest = isRecord(plan?.durable_request) ? plan.durable_request : null
+  return normalizeNumberList(durableRequest?.agent_skill_version_ids)
+}
 
 const selectedMemoryIds = (run: AgentRunItem): number[] =>
   normalizeNumberList(runPlan(run)?.selected_memory_ids)
@@ -1038,7 +1039,7 @@ onBeforeUnmount(() => {
                   <strong>{{ runtimeLabel(runPlan(run)?.runtime || run.agent_type || '未记录') }}</strong>
                 </div>
                 <div class="summary-cell">
-                  <span class="summary-cell__label">应用</span>
+                  <span class="summary-cell__label">投递记录</span>
                   <strong>{{ runPlan(run)?.application_bound ? `#${runPlan(run)?.application_id || '-'}` : '未绑定' }}</strong>
                 </div>
               </div>
@@ -1136,6 +1137,8 @@ onBeforeUnmount(() => {
                 </div>
               </div>
 
+              <TraceAgentSkillEvidence :metadata="run.result_metadata" />
+
               <div v-if="riskFlags(run, recruitingPlan(run)).length" class="compact-section">
                 <div class="compact-section__title">风险检查</div>
                 <div class="chip-list">
@@ -1175,7 +1178,7 @@ onBeforeUnmount(() => {
           <el-alert
             v-if="run.error_message"
             class="run-item__alert"
-            :title="run.error_message"
+            :title="localizedBackendText(run.error_message)"
             :type="run.status === 'partial' ? 'warning' : 'error'"
             :closable="false"
             show-icon
@@ -1264,7 +1267,7 @@ onBeforeUnmount(() => {
 
                 <el-alert
                   v-if="step.error_message"
-                  :title="step.error_message"
+                  :title="localizedBackendText(step.error_message)"
                   type="error"
                   :closable="false"
                   show-icon
@@ -1345,7 +1348,7 @@ onBeforeUnmount(() => {
                         </div>
                         <el-alert
                           v-if="step.error_message"
-                          :title="step.error_message"
+                          :title="localizedBackendText(step.error_message)"
                           type="error"
                           :closable="false"
                           show-icon
@@ -1364,10 +1367,16 @@ onBeforeUnmount(() => {
           </el-tab-pane>
 
           <el-tab-pane label="原始数据" name="raw">
-            <TraceRunSection :is-empty="filteredRunItems.every(r => !(r.steps || []).length)" empty-text="当前筛选下没有原始数据">
+            <TraceRunSection
+              :is-empty="filteredRunItems.every(r => !(r.steps || []).length && !r.result_metadata)"
+              empty-text="当前筛选下没有原始数据"
+            >
               <div class="run-list">
                 <section v-for="run in filteredRunItems" :key="'raw-' + run.id" class="run-item">
                   <div class="run-item__title">{{ runAgentName(run) }}</div>
+                  <div v-if="run.result_metadata" class="trace-item raw-step">
+                    <TraceJsonBlock :content="JSON.stringify(run.result_metadata)" label="运行结果元数据" />
+                  </div>
                   <div class="raw-step-list">
                     <div
                       v-for="step in run.steps"
@@ -1461,7 +1470,7 @@ onBeforeUnmount(() => {
               <!-- Error message -->
               <div v-if="item.error_msg" class="trace-item__error">
                 <el-alert
-                  :title="item.error_msg"
+                  :title="localizedBackendText(item.error_msg)"
                   type="error"
                   :closable="false"
                   show-icon

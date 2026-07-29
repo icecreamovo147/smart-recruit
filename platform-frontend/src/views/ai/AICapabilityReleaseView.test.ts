@@ -116,7 +116,10 @@ describe('AICapabilityReleaseView draft submission', () => {
       username: 'operator',
       account_type: 'platform',
       roles: ['platform_operator'],
-      permissions: [PLATFORM_PERMISSIONS.AI_RELEASE_MANAGE],
+      permissions: [
+        PLATFORM_PERMISSIONS.AI_RELEASE_MANAGE,
+        PLATFORM_PERMISSIONS.AI_RELEASE_PUBLISH,
+      ],
       client_app: 'platform',
       available_apps: ['platform'],
     })
@@ -169,6 +172,7 @@ describe('AICapabilityReleaseView draft submission', () => {
     expect(platformAIMocks.listVersions).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('V2')
     expect(wrapper.text()).toContain('server evaluated draft')
+    expect(wrapper.get('[data-testid="publish-capability-version"]').text()).toBe('发布')
     wrapper.unmount()
   })
 })

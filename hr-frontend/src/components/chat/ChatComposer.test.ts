@@ -82,7 +82,17 @@ describe('ChatComposer Context indicator', () => {
         contextPreviewing: false,
         dataSource: '招聘业务数据库',
         currentSession: null,
-        capabilities: [],
+        capabilities: [{
+          source: 'builtin',
+          key: 'parse_resume_profile',
+          name: 'parse_resume_profile',
+          display_name: 'parse_resume_profile',
+          description: 'Parse a resume profile',
+          mcp_server_id: 0,
+          mcp_server_name: '',
+          is_available: true,
+          runtime_type: 'native',
+        }],
         selectedCapabilityKeys: [],
         agentSkills: [{
           id: 7,
@@ -124,11 +134,21 @@ describe('ChatComposer Context indicator', () => {
       },
     })
 
-    const option = wrapper.get('.chat-composer__skill-option')
-    expect(option.text()).toContain('v2.1.0 · primary · high · 240 tokens')
+    const options = wrapper.findAll('.chat-composer__skill-option')
+    expect(options).toHaveLength(1)
+    const option = options[0]
+    expect(option.text()).toContain('简历复核')
+    expect(option.text()).toContain('复核候选人材料')
+    expect(option.text()).toContain('smart-recruit')
+    expect(option.attributes('title')).toBe('v2.1.0 · 主技能 · 高风险 · 240 Tokens')
+    expect(wrapper.text()).not.toContain('parse_resume_profile')
     await option.trigger('click')
     expect(wrapper.emitted('update:selectedAgentSkillVersionIds')?.[0]).toEqual([[701]])
     expect(wrapper.emitted()).not.toHaveProperty('update:selectedAgentSkillIds')
+
+    const [skill] = wrapper.props().agentSkills
+    await wrapper.setProps({ agentSkills: [{ ...skill, description: '简历复核' }] })
+    expect(wrapper.find('.chat-composer__skill-description').exists()).toBe(false)
   })
 
   it('renders current effective input with the total context window and full details', () => {

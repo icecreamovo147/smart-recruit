@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 
@@ -129,9 +130,9 @@ func validateHRRuntimeAgentSkillPackage(runtimePackage embeddinginfra.AgentSkill
 			stored.Title != expected.Title ||
 			stored.Description != expected.Description ||
 			stored.ContentMarkdown != expected.ContentMarkdown ||
-			!reflect.DeepEqual(stored.TriggerTerms, expected.TriggerTerms) ||
-			!reflect.DeepEqual(stored.SemanticTags, expected.SemanticTags) ||
-			!reflect.DeepEqual(stored.PlannerIntents, expected.PlannerIntents) ||
+			!slices.Equal(stored.TriggerTerms, expected.TriggerTerms) ||
+			!slices.Equal(stored.SemanticTags, expected.SemanticTags) ||
+			!slices.Equal(stored.PlannerIntents, expected.PlannerIntents) ||
 			stored.Priority != expected.Priority ||
 			stored.Ordinal != expected.Ordinal ||
 			stored.EstimatedTokens != expected.EstimatedTokens ||

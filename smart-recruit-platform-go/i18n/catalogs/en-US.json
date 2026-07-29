@@ -101,5 +101,6 @@
   "frontend.save_failed": "Failed to save",
   "frontend.delete_failed": "Failed to delete",
   "frontend.copy_failed": "Failed to copy",
-  "frontend.subscribe_failed": "Subscription failed"
+  "frontend.subscribe_failed": "Subscription failed",
+  "platform.plan_capability_release_required": "Select a published capability version for {capability}"
 }

@@ -210,7 +210,7 @@ func (s *runtimeStore) UpdateAgentRunStatus(context.Context, int64, int64, strin
 func (s *runtimeStore) UpdateAgentRunPlan(context.Context, int64, int64, string, string) (aiagentgrpc.AgentRunRow, bool, error) {
 	return aiagentgrpc.AgentRunRow{}, false, nil
 }
-func (s *runtimeStore) CompleteAgentRun(context.Context, int64, int64, string, string, string, string) (aiagentgrpc.AgentRunRow, bool, error) {
+func (s *runtimeStore) CompleteAgentRun(context.Context, int64, int64, string, string, string, string, string) (aiagentgrpc.AgentRunRow, bool, error) {
 	return aiagentgrpc.AgentRunRow{}, false, nil
 }
 func (s *runtimeStore) AppendAgentRunEvent(context.Context, int64, string, string) (aiagentgrpc.AgentRunEventRow, error) {

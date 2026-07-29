@@ -103,7 +103,8 @@ export const catalogs = {
     "frontend.save_failed": "保存失败",
     "frontend.delete_failed": "删除失败",
     "frontend.copy_failed": "复制失败",
-    "frontend.subscribe_failed": "订阅失败"
+    "frontend.subscribe_failed": "订阅失败",
+    "platform.plan_capability_release_required": "请为 {capability} 选择已发布的能力版本"
   },
   "en-US": {
     "common.success": "Success",
@@ -208,7 +209,8 @@ export const catalogs = {
     "frontend.save_failed": "Failed to save",
     "frontend.delete_failed": "Failed to delete",
     "frontend.copy_failed": "Failed to copy",
-    "frontend.subscribe_failed": "Subscription failed"
+    "frontend.subscribe_failed": "Subscription failed",
+    "platform.plan_capability_release_required": "Select a published capability version for {capability}"
   }
 } as const
 

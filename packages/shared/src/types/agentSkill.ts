@@ -245,6 +245,7 @@ export interface SemanticMemoryDebugItem {
 export interface SemanticRetrievalDebugParams {
   query: string
   agent_type?: string
+  tenant_id?: number
   job_id?: number
   application_id?: number
   limit?: number

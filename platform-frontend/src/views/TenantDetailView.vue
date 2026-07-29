@@ -127,7 +127,7 @@ const actionLabel = (action: string) => ({
 const formatTime = (value?: string) => formatShanghaiDateTime(value)
 
 const openSubscription = () => {
-  subscriptionForm.plan_version_id = subscription.value?.plan_version_id || 0
+  subscriptionForm.plan_version_id = Number(subscription.value?.plan_version_id) || 0
   subscriptionForm.starts_at = toShanghaiRFC3339(new Date())
   subscriptionForm.ends_at = ''
   subscriptionForm.reason = ''
@@ -135,9 +135,10 @@ const openSubscription = () => {
 }
 
 const submitSubscription = async () => {
-  if (!subscriptionForm.plan_version_id || !subscriptionForm.reason.trim()) { ElMessage.warning(t('common.invalid_request')); return }
+  const planVersionID = Number(subscriptionForm.plan_version_id)
+  if (!Number.isSafeInteger(planVersionID) || planVersionID <= 0 || !subscriptionForm.reason.trim()) { ElMessage.warning(t('common.invalid_request')); return }
   if (new Date(subscriptionForm.starts_at).getTime() > Date.now()) { ElMessage.warning(t('common.invalid_request')); return }
-  await updateTenantSubscription(tenantId, { plan_version_id: subscriptionForm.plan_version_id, starts_at: toShanghaiRFC3339(subscriptionForm.starts_at), ends_at: subscriptionForm.ends_at ? toShanghaiRFC3339(subscriptionForm.ends_at) : undefined, reason: subscriptionForm.reason.trim() })
+  await updateTenantSubscription(tenantId, { plan_version_id: planVersionID, starts_at: toShanghaiRFC3339(subscriptionForm.starts_at), ends_at: subscriptionForm.ends_at ? toShanghaiRFC3339(subscriptionForm.ends_at) : undefined, reason: subscriptionForm.reason.trim() })
   subscriptionVisible.value = false
   ElMessage.success(t('common.success'))
   await Promise.all([loadCommercial(), loadAudit()])

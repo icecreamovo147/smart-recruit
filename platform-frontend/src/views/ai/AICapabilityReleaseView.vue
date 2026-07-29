@@ -354,7 +354,7 @@ onMounted(load)
                       data-testid="publish-capability-version"
                       @click="publish(version)"
                     >
-                      发布并冻结
+                      发布
                     </el-button>
                   </span>
                 </el-tooltip>

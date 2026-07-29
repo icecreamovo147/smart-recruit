@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap"
 
 	base "smart-recruit-gateway/handler"
-	"smart-recruit-gateway/middleware"
 	"smart-recruit-gateway/pkg/logger"
 	"smart-recruit-gateway/rpc"
 	pb "smart-recruit-proto/recruitment/pb"
@@ -230,20 +229,28 @@ func (h *AgentSkillHandler) ListAvailable(c *gin.Context) {
 }
 
 func (h *AgentSkillHandler) DebugSemanticRetrieval(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
+	query := strings.TrimSpace(c.Query("query"))
+	limit, limitErr := strconv.Atoi(c.DefaultQuery("limit", "5"))
 	jobID, _ := strconv.ParseInt(c.DefaultQuery("job_id", "0"), 10, 64)
 	applicationID, _ := strconv.ParseInt(c.DefaultQuery("application_id", "0"), 10, 64)
 	ownerRole, _ := strconv.Atoi(strings.TrimSpace(c.Query("owner_role")))
 	ownerID, _ := strconv.ParseUint(strings.TrimSpace(c.Query("owner_id")), 10, 64)
-	hrID := currentUserID(c)
-	if ownerRole <= 0 || ownerID == 0 {
-		ownerRole = int(memoryOwnerRoleHR)
-		ownerID = uint64(hrID)
+	tenantID, _ := strconv.ParseInt(strings.TrimSpace(c.Query("tenant_id")), 10, 64)
+	if query == "" || limitErr != nil || limit < 1 || limit > 20 || ownerID == 0 ||
+		(ownerRole != int(memoryOwnerRoleHR) && ownerRole != int(memoryOwnerRoleCandidate)) {
+		base.BadRequest(c, "invalid semantic retrieval parameters")
+		return
 	}
+	if (ownerRole == int(memoryOwnerRoleHR) && tenantID <= 0) ||
+		(ownerRole == int(memoryOwnerRoleCandidate) && tenantID != 0) {
+		base.BadRequest(c, "invalid semantic retrieval owner context")
+		return
+	}
+	hrID := currentUserID(c)
 	resp, err := h.clients.AgentSkill.DebugSemanticRetrieval(c.Request.Context(), &pb.DebugSemanticRetrievalRequest{
-		TenantId:      middleware.TenantID(c),
+		TenantId:      tenantID,
 		HrId:          hrID,
-		Query:         strings.TrimSpace(c.Query("query")),
+		Query:         query,
 		AgentType:     strings.TrimSpace(c.DefaultQuery("agent_type", "hr_recruiting_agent")),
 		JobId:         jobID,
 		ApplicationId: applicationID,

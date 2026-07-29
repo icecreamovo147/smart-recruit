@@ -74,4 +74,18 @@ export function localizedBackendMessage(
   return t(fallback)
 }
 
+/**
+ * Resolve a raw backend message when the transport returned an i18n key instead
+ * of an already-localized message. Unknown text is intentionally preserved so
+ * operational details are never replaced by a generic fallback.
+ */
+export function localizedBackendText(value: string | null | undefined): string {
+  if (!value) return ''
+  const candidateKey = value.trim()
+  if (Object.prototype.hasOwnProperty.call(catalogs[currentLocale], candidateKey)) {
+    return t(candidateKey as MessageKey)
+  }
+  return value
+}
+
 export type { MessageKey }

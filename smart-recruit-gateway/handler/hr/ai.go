@@ -547,7 +547,7 @@ func (h *AIHandler) GetAgentRuns(c *gin.Context) {
 		base.Internal(c, err)
 		return
 	}
-	base.From(c, resp.Code, resp.Msg, gin.H{"list": resp.List})
+	base.From(c, resp.Code, resp.Msg, gin.H{"list": agentRunItemListPayload(resp.GetList())})
 }
 
 // CreateAgentRun creates a durable resumable HR Agent run (or returns an
@@ -996,6 +996,38 @@ func agentRunResultMetadataPayload(meta *pb.AgentRunResultMetadata) map[string]a
 			meta.GetAgentSkillRuntimeEvidence(),
 		),
 	}
+}
+
+func agentRunItemListPayload(items []*pb.AgentRunItem) []gin.H {
+	result := make([]gin.H, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		result = append(result, gin.H{
+			"id":              item.GetId(),
+			"session_id":      item.GetSessionId(),
+			"message_id":      item.GetMessageId(),
+			"history_id":      item.GetHistoryId(),
+			"hr_id":           item.GetHrId(),
+			"agent_type":      item.GetAgentType(),
+			"agent_id":        item.GetAgentId(),
+			"agent_name":      item.GetAgentName(),
+			"model_id":        item.GetModelId(),
+			"model_name":      item.GetModelName(),
+			"status":          item.GetStatus(),
+			"plan_json":       item.GetPlanJson(),
+			"final_answer":    item.GetFinalAnswer(),
+			"error_type":      item.GetErrorType(),
+			"error_message":   item.GetErrorMessage(),
+			"started_at":      item.GetStartedAt(),
+			"completed_at":    item.GetCompletedAt(),
+			"created_at":      item.GetCreatedAt(),
+			"steps":           item.GetSteps(),
+			"result_metadata": agentRunResultMetadataPayload(item.GetResultMetadata()),
+		})
+	}
+	return result
 }
 
 func localizedAgentError(message string) (string, string) {

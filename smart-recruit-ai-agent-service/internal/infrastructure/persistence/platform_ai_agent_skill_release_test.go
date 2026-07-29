@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -149,6 +150,90 @@ func TestValidatePublishedAgentSkillPackagesLoadsCanonicalPackageFromGORM(t *tes
 		pkg.Package.Sections[0].SectionKey != "details" ||
 		pkg.Package.Sections[0].ContentMarkdown != "Reference details for gorm-release-package.\n" {
 		t.Fatalf("sections = %+v", pkg.Package.Sections)
+	}
+}
+
+func TestValidatePublishedAgentSkillPackagesAcceptsSemanticallyEquivalentManifestJSON(t *testing.T) {
+	db, _, capability, defaultModelID := setupPlatformAIAgentSkillReleaseTest(t, "ai.chat")
+	version := seedPlatformAIAgentSkillPackage(
+		t,
+		db,
+		"mysql-json-normalized-package",
+		"hr_recruiting_agent",
+		"candidate-screening",
+		agentskill.CompositionRolePrimary,
+		nil,
+	)
+
+	var manifest map[string]any
+	if err := json.Unmarshal([]byte(version.ManifestJSON), &manifest); err != nil {
+		t.Fatalf("decode manifest: %v", err)
+	}
+	mysqlStyleJSON, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("format semantically equivalent manifest: %v", err)
+	}
+	if string(mysqlStyleJSON) == version.ManifestJSON {
+		t.Fatal("test fixture must differ from the compiler JSON representation")
+	}
+	if err := db.Model(&agentSkillVersionRecord{}).
+		Where("id = ?", version.ID).
+		Update("manifest_json", string(mysqlStyleJSON)).Error; err != nil {
+		t.Fatalf("simulate MySQL JSON normalization: %v", err)
+	}
+
+	var snapshot PlatformAICapabilitySnapshot
+	if err := json.Unmarshal(
+		platformAITestSnapshotWithSkills(t, capability, defaultModelID, version.ID),
+		&snapshot,
+	); err != nil {
+		t.Fatalf("decode snapshot: %v", err)
+	}
+	packages, err := validatePublishedAgentSkillPackages(db, snapshot)
+	if err != nil {
+		t.Fatalf("validate semantically equivalent manifest: %v", err)
+	}
+	if len(packages) != 1 || packages[0].Package.CompiledHash != version.CompiledHash {
+		t.Fatalf("validated packages = %+v, want immutable package hash %q", packages, version.CompiledHash)
+	}
+}
+
+func TestPlatformAIErrorMessageKeyIsSpecificAndSafe(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		wantCode int32
+		wantKey  string
+	}{
+		{
+			name:     "invalid release configuration",
+			err:      errors.New("sensitive internal validation detail"),
+			wantCode: 400,
+			wantKey:  "common.invalid_request",
+		},
+		{
+			name:     "evaluation unavailable",
+			err:      fmt.Errorf("wrapped: %w", ErrAgentSkillReleaseEvaluationUnavailable),
+			wantCode: 503,
+			wantKey:  "ai.unavailable",
+		},
+		{
+			name:     "evaluation failed",
+			err:      fmt.Errorf("wrapped: %w", ErrAgentSkillReleaseEvaluationFailed),
+			wantCode: 400,
+			wantKey:  "ai.agent_skill_package_invalid",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			code, _ := platformAIErrorCode(tt.err)
+			if code != tt.wantCode {
+				t.Fatalf("error code = %d, want %d", code, tt.wantCode)
+			}
+			if got := platformAIErrorMessageKey(tt.err, code); got != tt.wantKey {
+				t.Fatalf("message key = %q, want %q", got, tt.wantKey)
+			}
+		})
 	}
 }
 
@@ -709,6 +794,64 @@ func TestRetiredCapabilitySnapshotIsHistoricalOnly(t *testing.T) {
 }
 
 func TestPlatformAICapabilitySnapshotHashIsRevalidated(t *testing.T) {
+	t.Run("MySQL JSON normalization is accepted by publish and runtime", func(t *testing.T) {
+		db, store, capability, defaultModelID := setupPlatformAIAgentSkillReleaseTest(t, "ai.chat")
+		snapshot := mustCapabilitySnapshotJSON(t, capability, []int64{defaultModelID}, defaultModelID)
+		draft, err := store.CreatePlatformAICapabilityDraft(
+			context.Background(),
+			capability.ID,
+			91,
+			snapshot,
+			"MySQL JSON normalization",
+			"req-draft",
+		)
+		if err != nil {
+			t.Fatalf("create draft: %v", err)
+		}
+		var semanticSnapshot map[string]any
+		if err := json.Unmarshal([]byte(draft.SnapshotJSON), &semanticSnapshot); err != nil {
+			t.Fatalf("decode prepared snapshot: %v", err)
+		}
+		mysqlStyleJSON, err := json.MarshalIndent(semanticSnapshot, "", "  ")
+		if err != nil {
+			t.Fatalf("format semantically equivalent snapshot: %v", err)
+		}
+		if string(mysqlStyleJSON) == draft.SnapshotJSON {
+			t.Fatal("test fixture must differ from the canonical snapshot representation")
+		}
+		if err := db.Model(&platformAICapabilityVersionRecord{}).Where("id = ?", draft.ID).
+			Update("snapshot_json", string(mysqlStyleJSON)).Error; err != nil {
+			t.Fatalf("simulate MySQL JSON normalization: %v", err)
+		}
+
+		published, err := store.PublishPlatformAICapabilityVersion(
+			context.Background(),
+			draft.ID,
+			91,
+			"req-publish",
+		)
+		if err != nil {
+			t.Fatalf("publish normalized snapshot: %v", err)
+		}
+		resolution, err := store.ResolveRuntimeModel(
+			context.Background(),
+			capability.CapabilityKey,
+			capability.Audience,
+			published.ID,
+			defaultModelID,
+		)
+		if err != nil {
+			t.Fatalf("resolve normalized published snapshot: %v", err)
+		}
+		if resolution.SnapshotHash != draft.SnapshotHash {
+			t.Fatalf(
+				"runtime snapshot hash = %q, want %q",
+				resolution.SnapshotHash,
+				draft.SnapshotHash,
+			)
+		}
+	})
+
 	t.Run("draft cannot publish after snapshot tampering", func(t *testing.T) {
 		db, store, capability, defaultModelID := setupPlatformAIAgentSkillReleaseTest(t, "ai.chat")
 		snapshot := mustCapabilitySnapshotJSON(t, capability, []int64{defaultModelID}, defaultModelID)

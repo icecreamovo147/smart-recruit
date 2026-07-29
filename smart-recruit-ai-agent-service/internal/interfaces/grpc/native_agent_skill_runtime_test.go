@@ -387,6 +387,29 @@ func TestSelectHRRuntimeAgentSkillPackagesFailsClosedOnImmutablePackageTampering
 		}
 	})
 
+	t.Run("nil and empty section sets are semantically equivalent", func(t *testing.T) {
+		represented := validPackage
+		represented.Sections = append([]embeddinginfra.AgentSkillRuntimeSection(nil), validPackage.Sections...)
+		represented.Sections[0].SemanticTags = nil
+		represented.Sections[0].PlannerIntents = nil
+
+		store := newFakeAIStore()
+		store.agentSkillPackages = []embeddinginfra.AgentSkillRuntimePackage{represented}
+		service := newNativeAIService(store, nil, nil, nil, nil)
+
+		selected, evidence, confirmationRequired, governanceErrors := service.selectHRRuntimeAgentSkillPackages(
+			context.Background(),
+			&pb.ChatRequest{Message: "resume screening"},
+			nil,
+			runtimeSkillModel([]int64{101}, CapabilitySkillRuntimePolicy{}),
+			true,
+		)
+		if len(selected) != 1 || selected[0].VersionID != 101 || confirmationRequired || len(governanceErrors) != 0 ||
+			len(evidence) != 1 || !evidence[0].GetIncluded() {
+			t.Fatalf("selected=%#v evidence=%#v errors=%#v confirmation=%v", selected, evidence, governanceErrors, confirmationRequired)
+		}
+	})
+
 	tests := []struct {
 		name   string
 		mutate func(*embeddinginfra.AgentSkillRuntimePackage)

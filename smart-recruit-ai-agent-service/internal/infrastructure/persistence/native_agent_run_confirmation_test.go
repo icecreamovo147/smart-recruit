@@ -221,7 +221,7 @@ func TestAgentRunSkillLeaseFencesOldReplicaEventsAndCompletion(t *testing.T) {
 		t.Fatalf("old lease append owned=%v err=%v", owned, err)
 	}
 	if _, owned, err := store.CompleteAgentRunForSkillLease(
-		context.Background(), 77, row.ID, "old-lease", "stale", "succeeded", "", "",
+		context.Background(), 77, row.ID, "old-lease", "stale", "succeeded", "", "", "",
 	); err != nil || owned {
 		t.Fatalf("old lease complete owned=%v err=%v", owned, err)
 	}
@@ -231,9 +231,10 @@ func TestAgentRunSkillLeaseFencesOldReplicaEventsAndCompletion(t *testing.T) {
 		t.Fatalf("new lease append owned=%v err=%v", owned, err)
 	}
 	completed, owned, err := store.CompleteAgentRunForSkillLease(
-		context.Background(), 77, row.ID, "new-lease", "fresh", "succeeded", "", "",
+		context.Background(), 77, row.ID, "new-lease", "fresh", "succeeded", "", "", `{"status":1}`,
 	)
-	if err != nil || !owned || completed.AssistantText != "fresh" || completed.Status != "succeeded" {
+	if err != nil || !owned || completed.AssistantText != "fresh" || completed.Status != "succeeded" ||
+		completed.ResultMetadataJSON != `{"status":1}` {
 		t.Fatalf("new lease complete=%#v owned=%v err=%v", completed, owned, err)
 	}
 	var resultCount int64

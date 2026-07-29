@@ -254,6 +254,23 @@ describe('agentTraceViewModel durable runs', () => {
     expect(session.issues.some((issue) => issue.label === '运行告警')).toBe(true)
   })
 
+  it('prefers the resolved runtime model over the persisted placeholder name', () => {
+    const session = buildTraceSessionVM([
+      makeRun({
+        model_id: 6,
+        model_name: '模型 #6',
+        plan_json: JSON.stringify({
+          model: 'deepseek-v4-flash',
+          runtime: 'adk',
+          recruiting_plan: { intent: 'general_chat' },
+        }),
+      }),
+    ], [])
+
+    expect(session.overview.modelName).toBe('deepseek-v4-flash')
+    expect(session.runs[0].modelName).toBe('deepseek-v4-flash')
+  })
+
   it('localizes known risk flags including do_not_claim_unavailable_tools', () => {
     const run = makeRun({
       plan_json: JSON.stringify({

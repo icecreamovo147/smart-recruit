@@ -189,7 +189,7 @@ type AIStore interface {
 	GetActiveAgentRun(ctx context.Context, ownerID, sessionID int64) (AgentRunRow, bool, error)
 	UpdateAgentRunStatus(ctx context.Context, ownerID, runID int64, status string) (AgentRunRow, bool, error)
 	UpdateAgentRunPlan(ctx context.Context, ownerID, runID int64, planJSON, optionContextJSON string) (AgentRunRow, bool, error)
-	CompleteAgentRun(ctx context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage string) (AgentRunRow, bool, error)
+	CompleteAgentRun(ctx context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage, resultMetadataJSON string) (AgentRunRow, bool, error)
 	AppendAgentRunEvent(ctx context.Context, runID int64, eventType, payload string) (AgentRunEventRow, error)
 	ListAgentRunEvents(ctx context.Context, ownerID, runID, afterSeq int64) ([]AgentRunEventRow, error)
 	ListLlmProviders(ctx context.Context, page, pageSize int32) ([]*pb.LlmProviderInfo, int64, error)
@@ -487,32 +487,33 @@ func candidateUsageAuditToUsageAudit(row CandidateUsageAuditRow) UsageAuditRow {
 }
 
 type AgentRunRow struct {
-	ID                int64
-	TenantID          int64
-	SessionID         int64
-	MessageID         int64
-	HistoryID         int64
-	OwnerID           int64
-	ClientRequestID   string
-	Status            string
-	AssistantText     string
-	ProcessText       string
-	PlanJSON          string
-	OptionContextJSON string
-	LastEventSeq      int64
-	ErrorType         string
-	ErrorMessage      string
-	ModelID           int64
-	ModelName         string
-	AgentType         string
-	AgentID           int64
-	AgentName         string
-	StartedAt         time.Time
-	CompletedAt       *time.Time
-	CancelRequestedAt *time.Time
-	CanceledAt        *time.Time
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                 int64
+	TenantID           int64
+	SessionID          int64
+	MessageID          int64
+	HistoryID          int64
+	OwnerID            int64
+	ClientRequestID    string
+	Status             string
+	AssistantText      string
+	ProcessText        string
+	PlanJSON           string
+	ResultMetadataJSON string
+	OptionContextJSON  string
+	LastEventSeq       int64
+	ErrorType          string
+	ErrorMessage       string
+	ModelID            int64
+	ModelName          string
+	AgentType          string
+	AgentID            int64
+	AgentName          string
+	StartedAt          time.Time
+	CompletedAt        *time.Time
+	CancelRequestedAt  *time.Time
+	CanceledAt         *time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 type AgentRunEventRow struct {
@@ -6020,7 +6021,8 @@ func (s *nativeAIService) finishAgentRunSucceeded(ctx context.Context, run Agent
 			return err
 		}
 	}
-	if _, _, err := s.completeAgentRunExecution(storeCtx, run, reply, agentRunStatusSucceeded, "", ""); err != nil {
+	resultMetadataJSON := marshalJSONString(agentRunResultMetadata(result, s.hrRuntimeLabel()))
+	if _, _, err := s.completeAgentRunExecution(storeCtx, run, reply, agentRunStatusSucceeded, "", "", resultMetadataJSON); err != nil {
 		return err
 	}
 	_, err = s.appendAgentRunExecutionEvent(storeCtx, run, "run.completed", fmt.Sprintf(`{"status":%q}`, agentRunStatusSucceeded))
@@ -6046,7 +6048,7 @@ func (s *nativeAIService) finishAgentRunFailed(ctx context.Context, run AgentRun
 	if _, eventErr := s.appendAgentRunExecutionEvent(storeCtx, run, "run.error", fmt.Sprintf(`{"status":%q,"error_type":%q,"error_message":%q}`, agentRunStatusFailed, errorType, errorMessage)); eventErr != nil {
 		return eventErr
 	}
-	if _, _, completeErr := s.completeAgentRunExecution(storeCtx, run, "", agentRunStatusFailed, errorType, errorMessage); completeErr != nil {
+	if _, _, completeErr := s.completeAgentRunExecution(storeCtx, run, "", agentRunStatusFailed, errorType, errorMessage, ""); completeErr != nil {
 		return completeErr
 	}
 	_, eventErr := s.appendAgentRunExecutionEvent(storeCtx, run, "run.completed", fmt.Sprintf(`{"status":%q,"error_type":%q,"error_message":%q}`, agentRunStatusFailed, errorType, errorMessage))
@@ -6069,7 +6071,7 @@ func (s *nativeAIService) completeAgentRunCanceledLocked(ctx context.Context, ru
 	if run.Status == agentRunStatusCanceled || isTerminalAgentRunStatus(run.Status) {
 		return nil
 	}
-	_, found, err := s.completeAgentRunExecution(ctx, run, run.AssistantText, agentRunStatusCanceled, "", "")
+	_, found, err := s.completeAgentRunExecution(ctx, run, run.AssistantText, agentRunStatusCanceled, "", "", "")
 	if err != nil || !found {
 		return err
 	}
@@ -6135,6 +6137,7 @@ func (s *nativeAIService) ensureAgentRunTerminal(run AgentRunRow, runErr error) 
 		agentRunStatusFailed,
 		errorType,
 		errorMessage,
+		"",
 	)
 	if err != nil {
 		return err
@@ -6391,16 +6394,20 @@ func agentRunEventTypeFromChatEvent(event *pb.ChatStreamResponse) string {
 
 func agentRunResultPayload(result hrChatRuntimeResult, runtimeLabel string) string {
 	payload := map[string]any{
-		"status": agentRunStatusSucceeded,
-		"result_metadata": map[string]any{
-			"status":                       result.status,
-			"suggested_questions":          append([]string(nil), result.suggestedQuestions...),
-			"context_usage":                contextUsagePayload(result.contextUsage),
-			"agent_skill_runtime_evidence": result.governance.AgentSkillRuntimeEvidence,
-			"raw_json":                     buildHRProcessContent(result.toolTraces, result.contextUsage, result.fallbackUsed, result.governance, result.plan, runtimeLabel, result.suggestedQuestions),
-		},
+		"status":          agentRunStatusSucceeded,
+		"result_metadata": agentRunResultMetadata(result, runtimeLabel),
 	}
 	return marshalJSONString(payload)
+}
+
+func agentRunResultMetadata(result hrChatRuntimeResult, runtimeLabel string) map[string]any {
+	return map[string]any{
+		"status":                       result.status,
+		"suggested_questions":          append([]string(nil), result.suggestedQuestions...),
+		"context_usage":                contextUsagePayload(result.contextUsage),
+		"agent_skill_runtime_evidence": result.governance.AgentSkillRuntimeEvidence,
+		"raw_json":                     buildHRProcessContent(result.toolTraces, result.contextUsage, result.fallbackUsed, result.governance, result.plan, runtimeLabel, result.suggestedQuestions),
+	}
 }
 
 func contextUsagePayload(usage *pb.ContextUsageInfo) map[string]any {
@@ -8746,7 +8753,7 @@ func agentSkillRuntimeEvidenceFromProcessContent(processContent string) []*pb.Ag
 }
 
 func mapAgentRunItem(row AgentRunRow) *pb.AgentRunItem {
-	return &pb.AgentRunItem{Id: row.ID, SessionId: row.SessionID, MessageId: row.MessageID, HistoryId: row.HistoryID, HrId: row.OwnerID, AgentType: row.AgentType, AgentId: row.AgentID, AgentName: row.AgentName, ModelId: row.ModelID, ModelName: row.ModelName, Status: row.Status, PlanJson: row.PlanJSON, FinalAnswer: row.AssistantText, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, StartedAt: formatTime(row.StartedAt), CompletedAt: formatTimePtr(row.CompletedAt), CreatedAt: formatTime(row.CreatedAt)}
+	return &pb.AgentRunItem{Id: row.ID, SessionId: row.SessionID, MessageId: row.MessageID, HistoryId: row.HistoryID, HrId: row.OwnerID, AgentType: row.AgentType, AgentId: row.AgentID, AgentName: row.AgentName, ModelId: row.ModelID, ModelName: row.ModelName, Status: row.Status, PlanJson: row.PlanJSON, FinalAnswer: row.AssistantText, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, StartedAt: formatTime(row.StartedAt), CompletedAt: formatTimePtr(row.CompletedAt), CreatedAt: formatTime(row.CreatedAt), ResultMetadata: parseAgentRunResultMetadata(json.RawMessage(row.ResultMetadataJSON))}
 }
 
 func mapAgentRunStepItem(row AgentRunStepRow) *pb.AgentRunStepItem {
@@ -8773,7 +8780,7 @@ func mapAgentRunSnapshot(row AgentRunRow) *pb.AgentRunSnapshot {
 	if row.ID == 0 {
 		return nil
 	}
-	snapshot := &pb.AgentRunSnapshot{RunId: row.ID, SessionId: row.SessionID, HrId: row.OwnerID, ClientRequestId: row.ClientRequestID, MessageId: row.MessageID, HistoryId: row.HistoryID, Status: row.Status, AssistantText: row.AssistantText, ProcessText: row.ProcessText, OptionContextJson: row.OptionContextJSON, LastEventSeq: row.LastEventSeq, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, ModelId: row.ModelID, ModelName: row.ModelName, AgentType: row.AgentType, AgentId: row.AgentID, AgentName: row.AgentName, StartedAt: formatTime(row.StartedAt), CompletedAt: formatTimePtr(row.CompletedAt), CancelRequestedAt: formatTimePtr(row.CancelRequestedAt), CanceledAt: formatTimePtr(row.CanceledAt), CreatedAt: formatTime(row.CreatedAt), UpdatedAt: formatTime(row.UpdatedAt)}
+	snapshot := &pb.AgentRunSnapshot{RunId: row.ID, SessionId: row.SessionID, HrId: row.OwnerID, ClientRequestId: row.ClientRequestID, MessageId: row.MessageID, HistoryId: row.HistoryID, Status: row.Status, AssistantText: row.AssistantText, ProcessText: row.ProcessText, ResultMetadata: parseAgentRunResultMetadata(json.RawMessage(row.ResultMetadataJSON)), OptionContextJson: row.OptionContextJSON, LastEventSeq: row.LastEventSeq, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, ModelId: row.ModelID, ModelName: row.ModelName, AgentType: row.AgentType, AgentId: row.AgentID, AgentName: row.AgentName, StartedAt: formatTime(row.StartedAt), CompletedAt: formatTimePtr(row.CompletedAt), CancelRequestedAt: formatTimePtr(row.CancelRequestedAt), CanceledAt: formatTimePtr(row.CanceledAt), CreatedAt: formatTime(row.CreatedAt), UpdatedAt: formatTime(row.UpdatedAt)}
 	applyAgentRunSnapshotPayload(snapshot, row.OptionContextJSON)
 	applyAgentRunSnapshotPayload(snapshot, row.ProcessText)
 	return snapshot

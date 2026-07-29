@@ -152,6 +152,7 @@ export const debugSemanticRetrieval = async (
     params: {
       query: params.query,
       ...(params.agent_type ? { agent_type: params.agent_type } : {}),
+      ...(params.tenant_id ? { tenant_id: params.tenant_id } : {}),
       ...(params.job_id ? { job_id: params.job_id } : {}),
       ...(params.application_id ? { application_id: params.application_id } : {}),
       ...(params.limit ? { limit: params.limit } : {}),
