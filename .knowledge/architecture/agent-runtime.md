@@ -23,6 +23,7 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_skill_runtime.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_skill_confirmation.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_skill_observability.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_skill_observability_test.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/config_store.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/mcp_skill_store.go
@@ -44,7 +45,7 @@ source_refs:
   - hr-frontend/src/components/hr/ai/agentRunChatFlow.ts
   - hr-frontend/src/api/ai.ts
   - hr-frontend/src/utils/hrAgentRunReducer.ts
-last_verified: 2026-07-28
+last_verified: 2026-07-30
 review_after: 2026-10-21
 ---
 
@@ -72,7 +73,7 @@ Prompt and Agent Skill compilation is fail closed. HR Prompts must be active com
 
 Allowed Packages are ranked hierarchically—version first, then sections scoped to the selected versions—and composed as at most one Primary followed by one Supporting. Core is mandatory and sections are optional whole units. The effective budget is the strictest of 3,000 tokens, 15% of the model input budget, and the immutable release policy; at most two Packages may be composed. Core/section budget drops and integrity failures are retained as content-free runtime evidence.
 
-The `skill_package_v2` feature defaults off. When off, runtime loads no Package and emits `skill_v2_disabled` evidence rather than reviving v1. Bounded metrics cover retrieval, selection, tokens, budget drops, confirmation, and output validation. The optional default-off Agent Skill judge is asynchronous, bounded, and receives only redacted response text plus bounded evaluation criteria.
+The `skill_package_v2` feature defaults off. When off, runtime loads no Package and emits `skill_v2_disabled` evidence rather than reviving v1. Bounded metrics cover retrieval, selection, tokens, budget drops, confirmation, and output validation. The optional default-off Agent Skill judge is asynchronous and non-blocking. It never receives response text or reversible response fragments. Its response input is a fixed-schema JSON structural profile containing only `schema_version`, response presence, bounded rune/line counts, truncation state, and coarse format (`empty`, `text`, `json`, or `markdown_list`). Evaluation criteria are separately redacted for PII and selected entity values, deduplicated, count-bounded, and length-bounded. Queue capacity and a ten-second worker deadline bound judge work; saturation, shutdown, missing runner, errors, and pass/fail remain observable through bounded labels.
 
 Tool schemas and the actual model ToolRunner independently enforce the active Agent allowlist, so Prompt or Skill text cannot cause an unbound builtin or MCP Tool to reach Recruitment services; attempted calls become classified error Traces.
 
@@ -114,4 +115,4 @@ Recruiting stage diagnostics pass through an idempotent fail-closed normalizatio
 
 ## Verification
 
-Verified against current repository files and cumulative HR Tool, Package v2 exact release selection/composition/budget/hash tests, feature-off evidence and bounded metrics, durable Agent Skill and MCP-independent confirmation tests, advisory/strict output and fallback-suppression tests, live-data evidence gate, durable Run, suggested-questions privacy filters, process.snapshot persistence, application-analysis message, Anthropic envelope, and recruiting runtime tests on 2026-07-28.
+Verified against current repository files and cumulative HR Tool, Package v2 exact release selection/composition/budget/hash tests, feature-off evidence and bounded metrics, the fixed-schema non-reversible Agent Skill judge profile and bounded criteria/queue/deadline tests, durable Agent Skill and MCP-independent confirmation tests, advisory/strict output and fallback-suppression tests, live-data evidence gate, durable Run, suggested-questions privacy filters, process.snapshot persistence, application-analysis message, Anthropic envelope, and recruiting runtime tests on 2026-07-30.

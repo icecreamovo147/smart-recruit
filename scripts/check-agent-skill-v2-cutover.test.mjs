@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { scanEntries } from './check-agent-skill-v2-cutover.mjs'
+import {
+  collectRepositoryEntries,
+  scanEntries,
+  trackedAndUntrackedFiles,
+} from './check-agent-skill-v2-cutover.mjs'
 
 const scriptPath = fileURLToPath(new URL('./check-agent-skill-v2-cutover.mjs', import.meta.url))
 const repositoryRoot = path.resolve(path.dirname(scriptPath), '..')
@@ -106,6 +112,38 @@ test('real repository scan accepts only the current narrow legacy occurrences', 
       stdio: 'pipe',
     },
   ))
+})
+
+test('repository enumeration skips unstaged deletions and scans an untracked move target', (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'agent-skill-cutover-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const write = (file, source) => {
+    const target = path.join(root, file)
+    mkdirSync(path.dirname(target), { recursive: true })
+    writeFileSync(target, source, 'utf8')
+  }
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' })
+
+  git('init', '-q')
+  git('config', 'user.email', 'cutover-test@example.com')
+  git('config', 'user.name', 'Cutover Test')
+  write('active.go', 'package fixture\n')
+  write('deleted.go', 'package fixture\n')
+  write('move-source.go', 'package fixture\nvar agent_skill_ids []int64\n')
+  git('add', '-A')
+  git('commit', '-qm', 'fixture')
+
+  rmSync(path.join(root, 'deleted.go'))
+  renameSync(path.join(root, 'move-source.go'), path.join(root, 'moved.go'))
+
+  assert.deepEqual(trackedAndUntrackedFiles(root), ['active.go', 'moved.go'])
+  assert.deepEqual(scanEntries(collectRepositoryEntries(root)), [
+    {
+      file: 'moved.go',
+      line: 2,
+      rule: 'legacy-agent-skill-id-selection',
+    },
+  ])
 })
 
 test('does not flag Package v2 registry and exact-version concepts', () => {

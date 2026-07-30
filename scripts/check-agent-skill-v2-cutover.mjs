@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -166,22 +166,26 @@ export const scanEntries = (entries) => {
     || left.rule.localeCompare(right.rule))
 }
 
-const trackedAndUntrackedFiles = (root) => execFileSync(
+export const trackedAndUntrackedFiles = (root) => execFileSync(
   'git',
-  ['ls-files', '--cached', '--others', '--exclude-standard'],
+  ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
   { cwd: root, encoding: 'utf8' },
 )
-  .split('\n')
+  .split('\0')
   .filter(Boolean)
+  .filter((file) => existsSync(path.join(root, file)))
+  .sort((left, right) => left.localeCompare(right))
 
-const main = () => {
-  const entries = trackedAndUntrackedFiles(repositoryRoot)
+export const collectRepositoryEntries = (root) =>
+  trackedAndUntrackedFiles(root)
     .filter(isActiveSource)
     .map((file) => ({
       file,
-      source: readFileSync(path.join(repositoryRoot, file), 'utf8'),
+      source: readFileSync(path.join(root, file), 'utf8'),
     }))
-  const findings = scanEntries(entries)
+
+const main = () => {
+  const findings = scanEntries(collectRepositoryEntries(repositoryRoot))
   if (findings.length > 0) {
     console.error('Agent Skill Package v2 cutover violations:')
     for (const finding of findings) {

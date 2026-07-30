@@ -30,10 +30,14 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/platform_ai_control_plane.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/platform_ai_release_guard.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/platform_ai_agent_skill_release.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/platform_ai_embedding_readiness.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/embedding_outbox.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/embeddingqueue/consumer.go
   - smart-recruit-ai-agent-service/internal/application/agentskilleval/evaluator.go
   - smart-recruit-ai-agent-service/internal/domain/agentskill/compiler.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_skill_runtime.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_skill_observability.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_skill_observability_test.go
   - smart-recruit-platform-go/serviceconfig/config.go
   - smart-recruit-commons/migrations/000090_agent_skill_package_v2.sql
   - smart-recruit-commons/migrations/archive/pre-baseline-000089/000070_add_platform_ai_control_plane.sql
@@ -49,7 +53,7 @@ source_refs:
   - smart-recruit-gateway/router/router.go
   - platform-frontend/src/views/ai/AICapabilityReleaseView.vue
   - platform-frontend/src/views/ai/capabilityRelease.ts
-last_verified: 2026-07-28
+last_verified: 2026-07-30
 review_after: 2026-10-14
 ---
 
@@ -61,7 +65,9 @@ The pre-launch one-time cutover promotes the default tenant's technical AI confi
 
 `platform_ai_capabilities` separates capability identity and audience (`tenant_hr` or `candidate`) from immutable release content. Package v2 capability snapshots use schema version 2 and contain exactly model policy, configuration references, and `skill_runtime_policy`. `configuration_refs.agent_skill_version_ids` is an exact immutable Package allowlist; an empty list authorizes none. Published snapshots are immutable, carry a SHA-256 hash, and are referenced by `*.release_version_id` plan or price entitlements. Referenced mutable configuration rows cannot be edited or deleted in place; administrators create a new configuration/version and publish a new capability release. A sellable subscription price snapshot is generated on the server from the published platform plan or candidate capability release; the frontend is not an authority for entitlement JSON.
 
-Saving a capability draft recompiles every referenced Package from persisted manifest/Core/sections and verifies canonical content, compiled hash, section hashes/tokens, registry enablement, Agent type/capability compatibility, and composition. The snapshot policy fixes at most one Primary plus one Supporting, two total Skills, up to 3,000 Skill tokens and 15% of input budget; configured limits may be stricter. A deterministic release evaluator computes suite/result hashes while saving the draft. Publication reruns validation and fails closed if the evaluator is unavailable, any case fails, or the recomputed hashes differ from the immutable snapshot.
+Saving a capability draft recompiles every referenced Package from persisted manifest/Core/sections and verifies canonical content, compiled hash, section hashes/tokens, registry enablement, Agent type/capability compatibility, and composition. Package/version creation also queues an idempotent `embedding.upsert` outbox event in the version transaction; the Worker publishes it and the AI Agent consumer regenerates the version and section embeddings with `event_inbox` idempotency.
+
+The snapshot policy fixes at most one Primary plus one Supporting, two total Skills, up to 3,000 Skill tokens and 15% of input budget; configured limits may be stricter. A deterministic release evaluator computes suite/result hashes while saving the draft. Publication reruns validation, then fails closed before evaluator execution unless every referenced version and section has a `ready` embedding for the release-selected enabled model with matching object/scope identity, compiled hash, dimension, and non-empty vector. It also fails closed if the evaluator is unavailable, any case fails, or the recomputed hashes differ from the immutable snapshot. Runtime lexical fallback does not weaken this publication readiness gate.
 
 For Agent-backed releases (`ai.chat`, `ai.agent_run`, and `ai.application_analysis`), validation also enforces reference closure: every released Agent must bind an active compatible system Prompt, and that Prompt ID must be present in the same immutable release snapshot. Corrective data migrations append a replacement release and advance entitlement pointers instead of editing an already-published snapshot.
 
@@ -81,8 +87,8 @@ HR Agent Prompt bindings are valid only when the template is active, has the `sy
 
 Durable Run governance uses the configuration that was effective when the Run was created: `agent_runs` stores the effective Agent ID/type/name and the requested/effective model, fallback reason, capability release ID, and snapshot hash. Package evidence adds exact Skill/version/compiled hash, composition/risk/activation, loaded token count, section hashes, and include/drop reason while excluding Core/section bodies. Billable usage metadata carries the same release/model trace. New Runs resolve the release pinned by the purchaser's entitlement; already persisted Run identity and evidence remain stable for audit and replay.
 
-Package v2 and the optional asynchronous Agent Skill judge are independent default-off service features (`AGENT_FEATURE_SKILL_PACKAGE_V2`, `AGENT_FEATURE_AGENT_SKILL_JUDGE`). Feature-off means “load no Package and emit disabled evidence,” not v1 fallback. Enabling Package v2 still requires an exact published release and valid Package store. The judge does not gate the response: it receives only redacted/bounded output and evaluation criteria, uses a bounded queue/deadline, and reports bounded metrics.
+Package v2 and the optional asynchronous Agent Skill judge are independent default-off service features (`AGENT_FEATURE_SKILL_PACKAGE_V2`, `AGENT_FEATURE_AGENT_SKILL_JUDGE`). Feature-off means “load no Package and emit disabled evidence,” not v1 fallback. Enabling Package v2 still requires an exact published release and valid Package store. The judge does not gate the response and never receives response text or reversible response fragments. Its response-side input is a fixed JSON structural profile containing only schema version, presence, bounded rune/line counts, truncation state, and coarse format. Evaluation criteria pass through PII/entity redaction, deduplication, count limits, and length limits. A bounded queue and ten-second worker deadline contain asynchronous work, and bounded metrics report queued, unavailable, pass, or failure outcomes.
 
 ## Verification
 
-Verified against the platform AI control-plane, Package v2 compiler/migration, exact release validation and deterministic evaluation tests, immutable snapshot policy/hash checks, service feature defaults and metrics, platform release UI, billing entitlement resolution, HR/candidate model contracts, cumulative runtime tests, and frontend type checks on 2026-07-28.
+Verified against the platform AI control-plane, Package v2 compiler/migration, transactional embedding outbox and inbox consumer, publication embedding-readiness validation, exact release validation and deterministic evaluation tests, immutable snapshot policy/hash checks, the fixed-schema non-reversible judge profile and bounded criteria/queue/deadline tests, service feature defaults and metrics, platform release UI, billing entitlement resolution, HR/candidate model contracts, cumulative runtime tests, and frontend type checks on 2026-07-30.

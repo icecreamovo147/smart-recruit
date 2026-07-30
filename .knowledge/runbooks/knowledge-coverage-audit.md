@@ -15,6 +15,7 @@ applies_to:
   - .knowledge/**
   - .spec/development-agent-knowledge-base/**
   - .spec/knowledge-base-current-state-refresh/**
+  - tools/agent-orchestrator/**
 source_refs:
   - AGENTS.md
   - .knowledge/README.md
@@ -31,7 +32,10 @@ source_refs:
   - pnpm-workspace.yaml
   - .spec/development-agent-knowledge-base/development-agent-knowledge-base-SPEC.md
   - .spec/knowledge-base-current-state-refresh/knowledge-base-current-state-refresh-SPEC.md
-last_verified: 2026-07-23
+  - tools/agent-orchestrator/README.md
+  - tools/agent-orchestrator/orchestrate_serial.py
+  - tools/agent-orchestrator/tasks.yaml
+last_verified: 2026-07-30
 review_after: 2026-10-21
 ---
 
@@ -63,6 +67,7 @@ Use this runbook when expanding or reviewing the coding-Agent knowledge layer. T
 | Deployment and infrastructure | Covered across system overview, local development, service-binary convention, and routes for `docker/`, `deploy/`, and `smart-recruit-deploy/` | Recheck service names, images, health, and configuration together |
 | Email delivery | **Accepted partial coverage gap (KREM-010 / KNO-010):** provider/retry/fault handling remains partially covered by notification/outbox knowledge only. Owner: `architecture-and-operations`. Revisit by `2026-10-21` or sooner if email operations expand. | Add a focused delivery runbook if provider/retry operations expand |
 | Command-line tools under `cmd/` directories | Migration command is explicitly routed; service binaries are covered by convention knowledge | Add focused routes for other operational commands when they gain independent workflows |
+| Historical `tools/agent-orchestrator` | Isolated in place as read-only historical evidence. Only `--dry-run` inventory inspection is allowed; actual execution fails before Git/Agent side effects. Missing `docs/agent-harness/tasks/` references, the old `integration/agent-platform` model, task list, implementation, and logs are retained for provenance, not current routing. | Keep the exact Manifest route pointed at this runbook; do not reactivate or migrate without a new explicit owner decision |
 
 ## Audit Procedure
 
@@ -103,4 +108,4 @@ node .knowledge/scripts/check-references.mjs --root .
 
 When the current work explicitly uses an active Harness feature and has a reliable TASK base tree, also run its task-scope and agent checks. Do not invoke `spec-harness` or create a feature contract solely because this coverage audit is being used.
 
-Verified against the active knowledge catalog, manifest routes, current frontend shared package, `pnpm-workspace.yaml`, `interviewer-frontend/README.md`, migration startup path, deployment roots, accepted Analytics/email coverage-gap decision, and current knowledge-validation workflow on 2026-07-23.
+Verified against the active knowledge catalog, manifest routes, current frontend shared package, `pnpm-workspace.yaml`, `interviewer-frontend/README.md`, migration startup path, deployment roots, accepted Analytics/email coverage-gap decision, the isolated historical Agent Orchestrator CLI/task inventory, and current knowledge-validation workflow on 2026-07-30.

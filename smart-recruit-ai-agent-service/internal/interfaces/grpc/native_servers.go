@@ -249,6 +249,64 @@ type applicationSnapshotClient interface {
 	GetApplicationSnapshot(ctx context.Context, in *pb.GetApplicationSnapshotRequest, opts ...gogrpc.CallOption) (*pb.GetApplicationSnapshotResponse, error)
 }
 
+type jobServiceClient interface {
+	ListHRJobs(ctx context.Context, in *pb.ListHRJobsRequest, opts ...gogrpc.CallOption) (*pb.ListJobsResponse, error)
+	GetJobDetail(ctx context.Context, in *pb.GetJobDetailRequest, opts ...gogrpc.CallOption) (*pb.GetJobDetailResponse, error)
+}
+
+type applicationListServiceClient interface {
+	ListJobApplications(ctx context.Context, in *pb.ListJobApplicationsRequest, opts ...gogrpc.CallOption) (*pb.ListJobApplicationsResponse, error)
+}
+
+type hrToolJobClientAdapter struct {
+	client jobServiceClient
+}
+
+func (a hrToolJobClientAdapter) ListHRJobs(ctx context.Context, in *pb.ListHRJobsRequest) (*pb.ListJobsResponse, error) {
+	return a.client.ListHRJobs(ctx, in)
+}
+
+func (a hrToolJobClientAdapter) GetJobDetail(ctx context.Context, in *pb.GetJobDetailRequest) (*pb.GetJobDetailResponse, error) {
+	return a.client.GetJobDetail(ctx, in)
+}
+
+type hrToolApplicationListClientAdapter struct {
+	client applicationListServiceClient
+}
+
+func (a hrToolApplicationListClientAdapter) ListJobApplications(ctx context.Context, in *pb.ListJobApplicationsRequest) (*pb.ListJobApplicationsResponse, error) {
+	return a.client.ListJobApplications(ctx, in)
+}
+
+type hrToolSnapshotClientAdapter struct {
+	client applicationSnapshotClient
+}
+
+func (a hrToolSnapshotClientAdapter) GetApplicationSnapshot(ctx context.Context, in *pb.GetApplicationSnapshotRequest) (*pb.GetApplicationSnapshotResponse, error) {
+	return a.client.GetApplicationSnapshot(ctx, in)
+}
+
+func adaptHRToolJobClient(client jobServiceClient) hr_tools.JobClient {
+	if client == nil {
+		return nil
+	}
+	return hrToolJobClientAdapter{client: client}
+}
+
+func adaptHRToolApplicationListClient(client applicationListServiceClient) hr_tools.ApplicationListClient {
+	if client == nil {
+		return nil
+	}
+	return hrToolApplicationListClientAdapter{client: client}
+}
+
+func adaptHRToolSnapshotClient(client applicationSnapshotClient) hr_tools.SnapshotClient {
+	if client == nil {
+		return nil
+	}
+	return hrToolSnapshotClientAdapter{client: client}
+}
+
 type RuntimeDeps struct {
 	Store            AIStore
 	Provider         ChatProvider
@@ -936,11 +994,11 @@ func NewNativeAIService(store AIStore, provider ChatProvider) pb.AIServiceServer
 	return newNativeAIService(store, provider, nil, nil, nil)
 }
 
-func newNativeAIService(store AIStore, provider ChatProvider, applications applicationSnapshotClient, jobs hr_tools.JobClient, appList hr_tools.ApplicationListClient) *nativeAIService {
+func newNativeAIService(store AIStore, provider ChatProvider, applications applicationSnapshotClient, jobs jobServiceClient, appList applicationListServiceClient) *nativeAIService {
 	return newNativeAIServiceWithRunner(store, provider, applications, jobs, appList, nil, nil)
 }
 
-func newNativeAIServiceWithRunner(store AIStore, provider ChatProvider, applications applicationSnapshotClient, jobs hr_tools.JobClient, appList hr_tools.ApplicationListClient, mcpRunner mcpinfra.Runner, embedding *embeddinginfra.EmbeddingService) *nativeAIService {
+func newNativeAIServiceWithRunner(store AIStore, provider ChatProvider, applications applicationSnapshotClient, jobs jobServiceClient, appList applicationListServiceClient, mcpRunner mcpinfra.Runner, embedding *embeddinginfra.EmbeddingService) *nativeAIService {
 	return &nativeAIService{
 		store:        store,
 		provider:     provider,
@@ -979,8 +1037,8 @@ type nativeAIService struct {
 	billingRequired         bool
 	agentRunTimeout         time.Duration
 	applications            applicationSnapshotClient
-	jobs                    hr_tools.JobClient
-	appList                 hr_tools.ApplicationListClient
+	jobs                    jobServiceClient
+	appList                 applicationListServiceClient
 	mcpRunner               mcpinfra.Runner
 	embedding               *embeddinginfra.EmbeddingService
 	agentRuntime            string
@@ -1446,7 +1504,11 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		}
 	}
 
-	executor := &hr_tools.Executor{Jobs: s.jobs, Applications: s.appList, Snapshots: s.applications}
+	executor := &hr_tools.Executor{
+		Jobs:         adaptHRToolJobClient(s.jobs),
+		Applications: adaptHRToolApplicationListClient(s.appList),
+		Snapshots:    adaptHRToolSnapshotClient(s.applications),
+	}
 	planTools := append([]string(nil), governance.ExecutableToolNames...)
 	planTools = append(planTools, governance.ToolNames...)
 	plan := commonsai.NewRecruitingPlanner().Plan(commonsai.RecruitingPlannerInput{
@@ -7036,7 +7098,7 @@ type nativeRecruitingIntelligenceService struct {
 	policy       recruitingruntime.RuntimePolicy
 	auth         pb.AuthServiceClient
 	applications applicationSnapshotClient
-	jobs         hr_tools.JobClient
+	jobs         jobServiceClient
 	observer     recruitingruntime.Observer
 	meter        *nativeAIService
 }

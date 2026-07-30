@@ -1,3 +1,6 @@
+# Historical task inventory only. The orchestrator was isolated as read-only on
+# 2026-07-30; these missing task_file paths are retained for audit provenance and
+# must not be treated as a current executable plan.
 tasks:
   - id: P0-002
     name: 聊天页状态栏

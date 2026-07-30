@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"strings"
 
-	gogrpc "google.golang.org/grpc"
-
 	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-proto/recruitment/pb"
@@ -18,8 +16,8 @@ import (
 
 // JobClient is the subset of JobService used by HR builtin tools.
 type JobClient interface {
-	ListHRJobs(ctx context.Context, in *pb.ListHRJobsRequest, opts ...gogrpc.CallOption) (*pb.ListJobsResponse, error)
-	GetJobDetail(ctx context.Context, in *pb.GetJobDetailRequest, opts ...gogrpc.CallOption) (*pb.GetJobDetailResponse, error)
+	ListHRJobs(ctx context.Context, in *pb.ListHRJobsRequest) (*pb.ListJobsResponse, error)
+	GetJobDetail(ctx context.Context, in *pb.GetJobDetailRequest) (*pb.GetJobDetailResponse, error)
 }
 
 // Executor implements commonsai.ToolRunner for HR recruiting builtins.

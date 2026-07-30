@@ -93,7 +93,7 @@ func checkRuntime() error {
 		AgentSkill:             noopAgentSkillService{},
 		RecruitingIntelligence: noopRecruitingIntelligenceService{},
 		EmbeddingConfig:        noopEmbeddingConfigService{},
-		PlatformAIControlPlane: noopPlatformAIControlPlaneService{},
+		PlatformAIControlPlane: aiagentpersistence.NewPlatformAIControlPlaneServer(nil),
 	})
 	if err != nil {
 		return err
@@ -579,7 +579,4 @@ type noopRecruitingIntelligenceService struct {
 }
 type noopEmbeddingConfigService struct {
 	pb.UnimplementedEmbeddingConfigServiceServer
-}
-type noopPlatformAIControlPlaneService struct {
-	pb.UnimplementedPlatformAIControlPlaneServiceServer
 }

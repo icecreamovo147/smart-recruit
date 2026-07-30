@@ -268,7 +268,7 @@ test("catalog CLI supports JSON and usage errors return exit code 2", () => {
   assert.equal(bad.status, 2);
 });
 
-test("repository Manifest routes cover platform frontend, fingerprint, audit skill, and isolate legacy interviewer", () => {
+test("repository Manifest routes cover governed surfaces and isolate legacy interviewer", () => {
   const repoRoot = path.resolve(".");
   const scanned = scanKnowledge(repoRoot);
   assert.deepEqual(scanned.errors, []);
@@ -294,6 +294,17 @@ test("repository Manifest routes cover platform frontend, fingerprint, audit ski
   assert.equal(fingerprint.has("local-development"), true);
   const auditSkill = matchedDocuments(".agents/skills/knowledge-current-state-audit/SKILL.md");
   assert.equal(auditSkill.has("knowledge-coverage-audit"), true);
+  const gateRoutes = new Map([
+    ["scripts/check-agent-skill-v2-cutover.mjs", ["agent-skill", "api-contracts-and-gateway", "protobuf-synchronization"]],
+    ["scripts/check-agent-skill-v2-cutover.test.mjs", ["agent-skill", "api-contracts-and-gateway", "protobuf-synchronization"]],
+    ["scripts/check-backend-boundaries.mjs", ["service-boundaries"]],
+    ["scripts/check-migration-baseline.mjs", ["migration-model-drift", "persistence-and-migrations", "protobuf-and-migration-change", "service-boundaries"]],
+    ["scripts/check-mysql-table-ownership.mjs", ["migration-model-drift", "persistence-and-migrations", "protobuf-and-migration-change", "service-boundaries"]],
+    ["scripts/check-proto-sync.mjs", ["api-contracts-and-gateway", "protobuf-and-migration-change", "protobuf-synchronization", "service-boundaries"]],
+  ]);
+  for (const [file, expected] of gateRoutes) {
+    assert.deepEqual([...matchedDocuments(file)].sort(), expected, `${file} must route only to its governed knowledge`);
+  }
   const legacy = matchedDocuments("interviewer-frontend/src/stores/auth.ts");
   assert.equal(legacy.has("frontend-apps"), true);
   assert.equal(legacy.has("local-development"), true);

@@ -28,6 +28,10 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/infrastructure/provider/embedding_test.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/config_store.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/config_store_agent_skill_embedding_test.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/embedding_outbox.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/embeddingqueue/consumer.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/embeddingqueue/store.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/platform_ai_embedding_readiness.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_skill_runtime.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_skill_runtime_test.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_memory_runtime.go
@@ -35,7 +39,7 @@ source_refs:
   - platform-frontend/src/views/ai/SemanticRetrievalDebugView.vue
   - platform-frontend/src/api/memory.ts
   - smart-recruit-commons/config/config.example.yaml
-last_verified: 2026-07-28
+last_verified: 2026-07-30
 review_after: 2026-10-14
 ---
 
@@ -52,11 +56,15 @@ Agent Skill retrieval has two explicit levels:
 
 Both levels validate embedding object type, model, scope, text hash, and ready vector state. The runtime independently recompiles the persisted Package and checks compiled/section hashes before ranking or injection; a vector hit cannot authorize stale or altered content.
 
+Embedding generation is asynchronous. Package/version creation persists the immutable version, sections, and an idempotent `embedding.upsert` outbox event in one transaction. After the Worker publishes the event, the AI Agent consumer claims it through `event_inbox` and upserts the version document followed by all section documents. Consumer or provider failure leaves the inbox attempt failed and relies on the shared retry/DLQ flow; duplicate delivery after success is a no-op.
+
 The shared ranker evaluates mode per candidate. Cosine is computed only when both the query vector and stored vector are non-empty and have exactly the same dimension. A candidate with a compatible vector uses vector 0.70, lexical 0.20, and metadata 0.10 in `hybrid` mode; a candidate without one uses lexical 0.70 and metadata 0.30 with `RelevanceMode=lexical_metadata` and zero vector score. A single version/section pool may therefore contain both modes. A 0.15 relevance gate runs before the bounded priority boost (maximum 0.10), so unrelated high-priority Packages/sections are excluded. Ties are deterministic by object identity.
 
 When some stored vectors are empty or dimension-incompatible but at least one candidate has a compatible vector, the search keeps `EmbeddingAvailable=true`, preserves valid hybrid candidates, degrades only affected candidates, and reports a partial fallback reason. When no candidate has a compatible vector, the whole pool ranks lexical+metadata with `EmbeddingAvailable=false` and an all-fallback reason. Missing runner/config, provider failure, an empty query vector, or no ready model/hash-matching rows also produces an explicit whole-pool fallback. A dimension error in one stored embedding must not force otherwise valid candidates out of hybrid mode.
 
 Runtime auto-selection applies the same local fallback if the embedding service itself is absent. The fallback reason remains visible in semantic diagnostics. Section loading consumes the remaining Skill budget in rank order and drops a whole section when it does not fit; it never truncates the immutable section.
+
+Capability publication does not use that runtime fallback. For every referenced Package, the publication transaction requires a ready version vector and ready vectors for all persisted sections under the release-selected enabled embedding model. Object type, scope type/ID, compiled-hash metadata, configured dimension, decoded vector length, and non-empty vector content must all match. Any missing, failed, stale, malformed, wrong-scope, or wrong-model row blocks publication before the release evaluator.
 
 ## Memory pool (live)
 
@@ -74,4 +82,4 @@ Memory ranking reads `RankingConfigFromService(cfg.Ranking)` with defaults: vect
 
 ## Verification
 
-Verified against the Package v2 ranker and tests, per-candidate vector compatibility and partial/all fallback tests, version/section embedding persistence, hash- and release-scoped provider searches, HR two-level runtime selection/budget tests, memory ranking/runtime wiring, SemanticRetrievalDebugView, and embedding config defaults on 2026-07-28.
+Verified against the Package v2 ranker and tests, per-candidate vector compatibility and partial/all fallback tests, transactional embedding outbox, inbox consumer retry/idempotency, publication readiness validation, version/section embedding persistence, hash- and release-scoped provider searches, HR two-level runtime selection/budget tests, memory ranking/runtime wiring, SemanticRetrievalDebugView, and embedding config defaults on 2026-07-30.

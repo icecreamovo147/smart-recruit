@@ -14,6 +14,8 @@ applies_to:
   - smart-recruit-ai-agent-service/internal/domain/agentskill/ranking.go
   - smart-recruit-ai-agent-service/internal/infrastructure/provider/embedding.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_skill_runtime.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/mcp_skill_services.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/semantic_debug_scope.go
   - platform-frontend/src/views/ai/SemanticRetrievalDebugView.vue
 source_refs:
   - smart-recruit-ai-agent-service/internal/domain/agentskill/ranking.go
@@ -21,9 +23,13 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/infrastructure/provider/embedding_test.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_skill_runtime.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_agent_skill_runtime_test.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/mcp_skill_services.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_memory_handlers_test.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/semantic_debug_scope.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/platform_ai_control_plane_test.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/platform_ai_control_plane.go
   - platform-frontend/src/views/ai/SemanticRetrievalDebugView.vue
-last_verified: 2026-07-28
+last_verified: 2026-07-30
 review_after: 2026-10-21
 ---
 
@@ -39,8 +45,17 @@ Diagnose Agent Skill Package v2 in this order:
 6. Inspect runtime evidence for `core_included`, `section_included`, relevance, integrity, composition, confirmation, or budget drop reasons. Core/section bodies are intentionally absent.
 7. Compare the effective Skill budget with release `max_skill_tokens`, `max_input_ratio`, model input budget, and the fixed two-Skill ceiling.
 
-The Semantic Retrieval debug page can inspect the global version/Memory pools, but a real HR run additionally enforces the exact release allowlist, Agent/capability eligibility, composition, risk confirmation, and context budget. Reproduce runtime issues with `native_agent_skill_runtime_test.go`; use provider tests for embedding-scope/hash/fallback issues.
+The Semantic Retrieval debug page does not query a global Skill version pool. With the embedding runtime bound, blank or `hr_recruiting_agent` resolves the current published `ai.chat` release for audience `tenant_hr`; `candidate_assistant` resolves audience `candidate`. Only that release's exact `agent_skill_version_ids` are passed to the provider search.
+
+Interpret scope edge cases as follows:
+
+- An empty release allowlist returns zero Skill candidates with `published capability release contains no Agent Skill versions`; it never falls back to the global catalog. A valid owner-scoped Memory search still runs.
+- An unsupported `agent_type`, missing published release, or release resolution failure produces no Skill candidates and reports `runtime Agent Skill release scope is unavailable`; the service still attempts the independent Memory search when its embedding runtime is available.
+- If the store cannot provide the release-scope resolver, the request returns unavailable instead of performing an unscoped Skill query. If no embedding runtime is bound, the persistence fallback reports that the embedding query runner is unavailable.
+- Memory results are a separate owner-scoped pool. HR requests require a valid tenant/HR owner and use HR plus requested application/job scopes; candidate owners use user plus requested application/job scopes. Owner/tenant validation happens before retrieval, so a forged or incomplete owner cannot widen the Memory pool.
+
+A real runtime still adds capability eligibility, Primary/Supporting composition, risk confirmation, whole-section injection, and context-budget decisions that the debug result does not simulate. Reproduce runtime issues with `native_agent_skill_runtime_test.go`; use control-plane/provider tests for release resolution, embedding scope/hash, empty-allowlist, and fallback behavior.
 
 ## Verification
 
-Verified against Package v2 ranker/provider searches, mixed-mode and partial/all vector fallback tests, exact-release runtime selection, normalized composition mismatch handling, budget evidence, capability snapshot policy, focused runtime/provider tests, and `SemanticRetrievalDebugView` on 2026-07-28.
+Verified against the semantic debug release-scope resolver, gRPC owner/scope validation and fallback branches, release-scoped provider searches, empty-allowlist tests, Package v2 ranker mixed-mode and partial/all vector fallback tests, exact-release runtime selection, normalized composition mismatch handling, budget evidence, capability snapshot policy, focused runtime/provider tests, and `SemanticRetrievalDebugView` on 2026-07-30.
