@@ -240,3 +240,49 @@ func TestMQConfigMapsAIAgentWorkerQueues(t *testing.T) {
 		t.Fatalf("unexpected retry settings: %#v", mapped)
 	}
 }
+
+func TestMQKeepAliveUsesConfiguredIntervalAndStopsWithServiceContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	conn := &trackingMQKeepAliveConnection{
+		started: make(chan time.Duration, 1),
+		stopped: make(chan struct{}),
+	}
+	const reconnectInterval = 17 * time.Second
+
+	done := startMQKeepAlive(ctx, conn, reconnectInterval)
+	select {
+	case got := <-conn.started:
+		if got != reconnectInterval {
+			t.Fatalf("reconnect interval = %v, want %v", got, reconnectInterval)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("MQ KeepAlive did not start")
+	}
+
+	stopped := make(chan struct{})
+	go func() {
+		stopMQKeepAlive(cancel, done)
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("MQ KeepAlive did not stop after service context cancellation")
+	}
+	select {
+	case <-conn.stopped:
+	default:
+		t.Fatal("MQ KeepAlive connection did not observe context cancellation")
+	}
+}
+
+type trackingMQKeepAliveConnection struct {
+	started chan time.Duration
+	stopped chan struct{}
+}
+
+func (c *trackingMQKeepAliveConnection) KeepAlive(ctx context.Context, reconnectInterval time.Duration) {
+	c.started <- reconnectInterval
+	<-ctx.Done()
+	close(c.stopped)
+}

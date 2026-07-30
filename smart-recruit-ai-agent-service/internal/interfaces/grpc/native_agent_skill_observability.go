@@ -2,6 +2,8 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"regexp"
 	"strings"
 	"sync"
@@ -16,21 +18,27 @@ const (
 	agentSkillJudgeQueueSize         = 64
 	agentSkillJudgeTimeout           = 10 * time.Second
 	agentSkillJudgeMaxResponseRunes  = 4000
+	agentSkillJudgeMaxResponseLines  = 100
 	agentSkillJudgeMaxCriteria       = 20
 	agentSkillJudgeMaxCriterionRunes = 256
 )
 
 var (
-	agentSkillJudgeEmailPattern = regexp.MustCompile(`(?i)[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}`)
-	agentSkillJudgePhonePattern = regexp.MustCompile(`(?:\+?86[-\s]?)?1[3-9]\d{9}`)
-	agentSkillJudgeIDPattern    = regexp.MustCompile(`[0-9]{14,18}[0-9Xx]`)
+	agentSkillJudgeEmailPattern        = regexp.MustCompile(`(?i)[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}`)
+	agentSkillJudgePhonePattern        = regexp.MustCompile(`(?:(?:\+|00)?86[\s-]?)?1[3-9]\d{9}`)
+	agentSkillJudgeIDPattern           = regexp.MustCompile(`(?:\d{17}[\dXx]|\d{15})`)
+	agentSkillJudgeSalaryPattern       = regexp.MustCompile(`(?i)(?:薪资|工资|薪水|年薪|月薪|薪酬|package|salary)[^\d]{0,12}\d+(?:\.\d+)?(?:\s*(?:万|k|K|元|人民币|rmb|USD|\$))?|\d+(?:\.\d+)?(?:\s*(?:万|k|K))(?:\s*(?:元|人民币|rmb|USD|\$))?[^\d]{0,12}(?:薪资|工资|薪水|年薪|月薪|薪酬|salary)`)
+	agentSkillJudgeBankCardPattern     = regexp.MustCompile(`\b(?:\d{4}[\s-]?){3,4}\d{1,7}\b`)
+	agentSkillJudgeMarkdownListPattern = regexp.MustCompile(`(?m)^\s*(?:[-*+]|\d+[.)])\s+\S`)
 )
 
 type agentSkillExecutionModeContextKey struct{}
 type agentSkillMetricsSuppressedContextKey struct{}
 
 // AgentSkillJudgeInput intentionally contains no tenant/user/run identifiers,
-// prompt, request, Tool result, resume, or job source body.
+// prompt, request, Tool result, resume, job source body, or reversible response
+// fragments. RedactedResponse is a fixed-schema JSON profile containing only
+// structural signals about the response.
 type AgentSkillJudgeInput struct {
 	RedactedResponse   string
 	EvaluationCriteria []string
@@ -186,7 +194,7 @@ func (s *nativeAIService) trySubmitAgentSkillJudge(
 		}
 		criteria = append(criteria, skill.EvaluationCriteria...)
 	}
-	criteria = boundedAgentSkillJudgeCriteria(criteria)
+	criteria = boundedAgentSkillJudgeCriteria(criteria, candidateName, jobTitle)
 	if len(criteria) == 0 {
 		return
 	}
@@ -198,12 +206,12 @@ func (s *nativeAIService) trySubmitAgentSkillJudge(
 		Risk:          "unknown",
 	}
 	s.agentSkillJudge.TrySubmit(AgentSkillJudgeInput{
-		RedactedResponse:   redactAgentSkillJudgeResponse(response, candidateName, jobTitle),
+		RedactedResponse:   agentSkillJudgeResponseProfile(response),
 		EvaluationCriteria: criteria,
 	}, labels)
 }
 
-func boundedAgentSkillJudgeCriteria(values []string) []string {
+func boundedAgentSkillJudgeCriteria(values []string, sensitiveValues ...string) []string {
 	capacity := len(values)
 	if capacity > agentSkillJudgeMaxCriteria {
 		capacity = agentSkillJudgeMaxCriteria
@@ -211,7 +219,7 @@ func boundedAgentSkillJudgeCriteria(values []string) []string {
 	out := make([]string, 0, capacity)
 	seen := make(map[string]struct{}, len(values))
 	for _, value := range values {
-		value = redactAndBoundAgentSkillJudgeText(value, agentSkillJudgeMaxCriterionRunes)
+		value = redactAndBoundAgentSkillJudgeText(value, agentSkillJudgeMaxCriterionRunes, sensitiveValues...)
 		if value == "" {
 			continue
 		}
@@ -227,8 +235,37 @@ func boundedAgentSkillJudgeCriteria(values []string) []string {
 	return out
 }
 
-func redactAgentSkillJudgeResponse(response string, sensitiveValues ...string) string {
-	return redactAndBoundAgentSkillJudgeText(response, agentSkillJudgeMaxResponseRunes, sensitiveValues...)
+func agentSkillJudgeResponseProfile(response string) string {
+	trimmed := strings.TrimSpace(response)
+	runeCount := utf8.RuneCountInString(trimmed)
+	truncated := runeCount > agentSkillJudgeMaxResponseRunes
+	if truncated {
+		runeCount = agentSkillJudgeMaxResponseRunes
+	}
+	lineCount := 0
+	if trimmed != "" {
+		lineCount = strings.Count(trimmed, "\n") + 1
+		if lineCount > agentSkillJudgeMaxResponseLines {
+			lineCount = agentSkillJudgeMaxResponseLines
+		}
+	}
+	format := "text"
+	switch {
+	case trimmed == "":
+		format = "empty"
+	case json.Valid([]byte(trimmed)):
+		format = "json"
+	case agentSkillJudgeMarkdownListPattern.MatchString(trimmed):
+		format = "markdown_list"
+	}
+	return fmt.Sprintf(
+		`{"schema_version":1,"response_present":%t,"bounded_rune_count":%d,"bounded_line_count":%d,"truncated":%t,"format":%q}`,
+		trimmed != "",
+		runeCount,
+		lineCount,
+		truncated,
+		format,
+	)
 }
 
 func redactAndBoundAgentSkillJudgeText(value string, maxRunes int, sensitiveValues ...string) string {
@@ -236,6 +273,8 @@ func redactAndBoundAgentSkillJudgeText(value string, maxRunes int, sensitiveValu
 	redacted = agentSkillJudgeEmailPattern.ReplaceAllString(redacted, "[EMAIL]")
 	redacted = agentSkillJudgeIDPattern.ReplaceAllString(redacted, "[IDENTIFIER]")
 	redacted = agentSkillJudgePhonePattern.ReplaceAllString(redacted, "[PHONE]")
+	redacted = agentSkillJudgeSalaryPattern.ReplaceAllString(redacted, "[SALARY]")
+	redacted = agentSkillJudgeBankCardPattern.ReplaceAllString(redacted, "[BANK_CARD]")
 	for _, value := range sensitiveValues {
 		value = strings.TrimSpace(value)
 		if value == "" {

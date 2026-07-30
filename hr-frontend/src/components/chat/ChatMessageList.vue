@@ -78,8 +78,6 @@ const messageSkillBadges = (message: MessageItem): string[] =>
     .map(skillBadgeText)
     .filter(Boolean)
 
-const selectedAgentSkillVersionIds = ref<Record<number, number[]>>({})
-
 const skillSelectionLabel = (candidate: AgentSkillSelectionPayload['candidates'][number]): string =>
   candidate.display_name || candidate.name || `Skill #${candidate.skill_id}`
 
@@ -108,26 +106,16 @@ const confirmationDescription = (selection: AgentSkillSelectionPayload): string 
     : '未能读取精确 Skill 版本，请取消本次运行后重试。'
 }
 
-const defaultSelectionIds = (selection: AgentSkillSelectionPayload): number[] =>
-  selection.recommended_agent_skill_version_ids?.length
-    ? selection.recommended_agent_skill_version_ids
-    : selection.candidates
-      .filter((candidate) => candidate.recommended)
-      .map((candidate) => candidate.version_id)
-
-const selectionIds = (index: number, selection: AgentSkillSelectionPayload): number[] =>
-  selectedAgentSkillVersionIds.value[index] ?? defaultSelectionIds(selection)
-
-const toggleSkillSelection = (index: number, selection: AgentSkillSelectionPayload, id: number) => {
-  if (props.interactionDisabled) return
-  const current = selectionIds(index, selection)
-  const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
-  selectedAgentSkillVersionIds.value = { ...selectedAgentSkillVersionIds.value, [index]: next }
-}
+const exactSelectionIds = (selection: AgentSkillSelectionPayload): number[] =>
+  isMCPConfirmation(selection)
+    ? []
+    : Array.isArray(selection.recommended_agent_skill_version_ids)
+      ? [...selection.recommended_agent_skill_version_ids]
+      : []
 
 const confirmSkillSelection = (index: number, selection: AgentSkillSelectionPayload) => {
   if (props.interactionDisabled) return
-  emit('confirm-skill-selection', index, selectionIds(index, selection))
+  emit('confirm-skill-selection', index, exactSelectionIds(selection))
 }
 
 const rejectSkillSelection = (index: number) => {
@@ -237,18 +225,16 @@ const quickHints = [
               </div>
               <el-tag size="small" effect="plain">待确认</el-tag>
             </div>
-            <div class="skill-confirmation__list">
-              <button
+            <div class="skill-confirmation__list" role="list" aria-label="本次精确授权的 Agent Skill 版本">
+              <div
                 v-for="candidate in message.agentSkillSelection.candidates"
                 :key="candidate.version_id"
                 class="skill-confirmation__option"
-                :class="{ 'skill-confirmation__option--selected': selectionIds(index, message.agentSkillSelection).includes(candidate.version_id) }"
-                type="button"
-                :disabled="interactionDisabled"
-                @click="toggleSkillSelection(index, message.agentSkillSelection, candidate.version_id)"
+                :class="{ 'skill-confirmation__option--selected': exactSelectionIds(message.agentSkillSelection).includes(candidate.version_id) }"
+                role="listitem"
               >
                 <span class="skill-confirmation__check">
-                  {{ selectionIds(index, message.agentSkillSelection).includes(candidate.version_id) ? '✓' : '' }}
+                  {{ exactSelectionIds(message.agentSkillSelection).includes(candidate.version_id) ? '✓' : '' }}
                 </span>
                 <span class="skill-confirmation__body">
                   <span class="skill-confirmation__name">
@@ -258,7 +244,7 @@ const quickHints = [
                   <span class="skill-confirmation__meta">{{ candidateMeta(candidate) }}</span>
                   <span class="skill-confirmation__reason">{{ skillSelectionReason(candidate) }}</span>
                 </span>
-              </button>
+              </div>
             </div>
             <div class="skill-confirmation__actions">
               <el-button
@@ -288,7 +274,7 @@ const quickHints = [
               <el-button
                 type="primary"
                 size="small"
-                :disabled="interactionDisabled || (!isMCPConfirmation(message.agentSkillSelection) && selectionIds(index, message.agentSkillSelection).length === 0)"
+                :disabled="interactionDisabled || (!isMCPConfirmation(message.agentSkillSelection) && exactSelectionIds(message.agentSkillSelection).length === 0)"
                 @click="confirmSkillSelection(index, message.agentSkillSelection)"
               >
                 {{ message.agentSkillSelection.confirmation_kind === 'mcp_tool' ? '确认执行' : '确认启用' }}
@@ -519,12 +505,10 @@ const quickHints = [
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-secondary);
-  cursor: pointer;
+  cursor: default;
   text-align: left;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.skill-confirmation__option:hover,
 .skill-confirmation__option--selected {
   border-color: color-mix(in srgb, var(--brand) 52%, var(--border));
   background: var(--brand-soft);

@@ -288,7 +288,6 @@ func serveAIAgent(addr string) error {
 	}
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, redisClient, mqConn))
 	outboxCtx, stopOutbox := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	defer stopOutbox()
 	embeddingConsumer := embeddingqueue.NewConsumer(
 		mqConn,
 		embeddingqueue.NewStore(db),
@@ -299,6 +298,8 @@ func serveAIAgent(addr string) error {
 		_ = listener.Close()
 		return fmt.Errorf("start embedding consumer: %w", err)
 	}
+	mqKeepAliveDone := startMQKeepAlive(outboxCtx, mqConn, cfg.RabbitMQ.ReconnectInterval.Duration)
+	defer stopMQKeepAlive(stopOutbox, mqKeepAliveDone)
 	go nativeStore.RunBillingSettlementOutbox(outboxCtx, billingClient)
 	go runMemoryCleanupLoop(outboxCtx, log, memoryService, memoryCfg)
 	go stopOnSignal(grpcServer)
@@ -312,6 +313,24 @@ func serveAIAgent(addr string) error {
 		return fmt.Errorf("grpc serve: %w", err)
 	}
 	return nil
+}
+
+type mqKeepAliveConnection interface {
+	KeepAlive(context.Context, time.Duration)
+}
+
+func startMQKeepAlive(ctx context.Context, conn mqKeepAliveConnection, reconnectInterval time.Duration) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		conn.KeepAlive(ctx, reconnectInterval)
+	}()
+	return done
+}
+
+func stopMQKeepAlive(stop context.CancelFunc, done <-chan struct{}) {
+	stop()
+	<-done
 }
 
 func closeAIRuntime(runtime *aiagentruntime.Runtime) {

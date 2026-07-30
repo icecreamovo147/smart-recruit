@@ -110,25 +110,40 @@ describe('agentRunChatFlow helpers', () => {
       required: true,
       reason: 'pick',
       agent_skill_confirmation_id: 'skill-confirm-7',
-      recommended_agent_skill_version_ids: [17],
+      recommended_agent_skill_version_ids: [18, 17],
       agent_skill_confirmation_expires_at: '2026-07-28T12:10:00Z',
-      candidates: [{
-        skill_id: 7,
-        version_id: 17,
-        version: '2.0.0',
-        compiled_hash: 'abcdef0123456789',
-        name: 'resume_review',
-        display_name: '简历复核',
-        composition_role: 'primary',
-        risk: 'high',
-        activation_policy: 'confirm',
-        core_estimated_tokens: 320,
-        recommended: true,
-      }],
+      candidates: [
+        {
+          skill_id: 7,
+          version_id: 17,
+          version: '2.0.0',
+          compiled_hash: 'abcdef0123456789',
+          name: 'resume_review',
+          display_name: '简历复核',
+          composition_role: 'primary',
+          risk: 'high',
+          activation_policy: 'confirm',
+          core_estimated_tokens: 320,
+          recommended: true,
+        },
+        {
+          skill_id: 8,
+          version_id: 18,
+          version: '1.0.0',
+          compiled_hash: 'fedcba9876543210',
+          name: 'interview_rubric',
+          display_name: '面试评估',
+          composition_role: 'supporting',
+          risk: 'high',
+          activation_policy: 'confirm',
+          core_estimated_tokens: 180,
+          recommended: true,
+        },
+      ],
     })
     expect(payload?.candidates[0]?.version_id).toBe(17)
     expect(payload?.candidates[0]?.risk).toBe('high')
-    expect(payload?.recommended_agent_skill_version_ids).toEqual([17])
+    expect(payload?.recommended_agent_skill_version_ids).toEqual([18, 17])
     expect(payload?.confirmation_id).toBe('skill-confirm-7')
     expect(payload?.expires_at).toBe('2026-07-28T12:10:00Z')
     expect(payload).not.toHaveProperty('recommended_agent_skill_ids')
@@ -165,11 +180,14 @@ describe('agentRunChatFlow helpers', () => {
     expect(toAgentSkillSelectionPayload({
       required: true,
       reason: 'confirmation payload incomplete',
+      agent_skill_confirmation_id: 'skill-confirm-incomplete',
+      recommended_agent_skill_version_ids: [18, 17],
     })).toEqual({
       required: true,
       reason: 'confirmation payload incomplete',
       candidates: [],
       confirmation_kind: 'agent_skill',
+      confirmation_id: 'skill-confirm-incomplete',
       recommended_agent_skill_version_ids: [],
     })
   })
@@ -229,6 +247,208 @@ describe('agentRunChatFlow helpers', () => {
       confirmation_id: 'skill-confirm-7',
       recommended_agent_skill_version_ids: [],
     })
+  })
+
+  it('fails closed instead of filtering a partially invalid candidate snapshot', () => {
+    const payload = toAgentSkillSelectionPayload({
+      required: true,
+      reason: 'restore failed',
+      agent_skill_confirmation_id: 'skill-confirm-partial',
+      recommended_agent_skill_version_ids: [18, 17],
+      candidates: [
+        {
+          skill_id: 8,
+          version_id: 18,
+          version: '1.0.0',
+          compiled_hash: 'hash-18',
+          name: 'interview_rubric',
+          display_name: '面试评估',
+          composition_role: 'supporting',
+          risk: 'high',
+          activation_policy: 'confirm',
+          core_estimated_tokens: 180,
+          recommended: true,
+        },
+        {
+          skill_id: 7,
+          version_id: 0,
+          version: '2.0.0',
+          compiled_hash: 'hash-17',
+          name: 'resume_review',
+          display_name: '简历复核',
+          composition_role: 'primary',
+          risk: 'high',
+          activation_policy: 'confirm',
+          core_estimated_tokens: 320,
+          recommended: true,
+        },
+      ],
+    })
+
+    expect(payload?.candidates).toEqual([])
+    expect(payload?.recommended_agent_skill_version_ids).toEqual([])
+  })
+
+  it.each([
+    ['string coercion', ['18', 17] as unknown as number[]],
+    ['fractional ID', [18.5, 17]],
+    ['zero ID', [0, 17]],
+    ['negative ID', [-18, 17]],
+    ['duplicate ID', [18, 18]],
+  ])('fails closed for %s in the exact recommendation snapshot', (_name, recommendedIDs) => {
+    const payload = toAgentSkillSelectionPayload({
+      required: true,
+      agent_skill_confirmation_id: 'skill-confirm-invalid-ids',
+      recommended_agent_skill_version_ids: recommendedIDs,
+      candidates: [
+        {
+          skill_id: 8,
+          version_id: 18,
+          version: '1.0.0',
+          compiled_hash: 'hash-18',
+          name: 'interview_rubric',
+          display_name: '面试评估',
+          composition_role: 'supporting',
+          risk: 'high',
+          activation_policy: 'confirm',
+          core_estimated_tokens: 180,
+          recommended: true,
+        },
+        {
+          skill_id: 7,
+          version_id: 17,
+          version: '2.0.0',
+          compiled_hash: 'hash-17',
+          name: 'resume_review',
+          display_name: '简历复核',
+          composition_role: 'primary',
+          risk: 'high',
+          activation_policy: 'confirm',
+          core_estimated_tokens: 320,
+          recommended: true,
+        },
+      ],
+    })
+
+    expect(payload?.candidates).toEqual([])
+    expect(payload?.recommended_agent_skill_version_ids).toEqual([])
+  })
+
+  it.each([
+    ['missing candidate', [18]],
+    ['extra candidate', [18, 17, 16]],
+  ])('fails closed when the exact recommendation has a %s', (_name, recommendedIDs) => {
+    const payload = toAgentSkillSelectionPayload({
+      required: true,
+      agent_skill_confirmation_id: 'skill-confirm-membership',
+      recommended_agent_skill_version_ids: recommendedIDs,
+      candidates: [
+        {
+          skill_id: 8,
+          version_id: 18,
+          version: '1.0.0',
+          compiled_hash: 'hash-18',
+          name: 'interview_rubric',
+          display_name: '面试评估',
+          composition_role: 'supporting',
+          risk: 'high',
+          activation_policy: 'confirm',
+          core_estimated_tokens: 180,
+          recommended: true,
+        },
+        {
+          skill_id: 7,
+          version_id: 17,
+          version: '2.0.0',
+          compiled_hash: 'hash-17',
+          name: 'resume_review',
+          display_name: '简历复核',
+          composition_role: 'primary',
+          risk: 'high',
+          activation_policy: 'confirm',
+          core_estimated_tokens: 320,
+          recommended: true,
+        },
+      ],
+    })
+
+    expect(payload?.candidates).toEqual([])
+    expect(payload?.recommended_agent_skill_version_ids).toEqual([])
+  })
+
+  it('fails closed when candidate version IDs are duplicated', () => {
+    const payload = toAgentSkillSelectionPayload({
+      required: true,
+      agent_skill_confirmation_id: 'skill-confirm-duplicate-candidates',
+      recommended_agent_skill_version_ids: [18, 17],
+      candidates: [
+        {
+          skill_id: 8,
+          version_id: 18,
+          version: '1.0.0',
+          compiled_hash: 'hash-18-a',
+          name: 'interview_rubric',
+          display_name: '面试评估',
+          composition_role: 'supporting',
+          risk: 'high',
+          activation_policy: 'confirm',
+          core_estimated_tokens: 180,
+          recommended: true,
+        },
+        {
+          skill_id: 9,
+          version_id: 18,
+          version: '1.0.1',
+          compiled_hash: 'hash-18-b',
+          name: 'interview_rubric_copy',
+          display_name: '面试评估副本',
+          composition_role: 'primary',
+          risk: 'high',
+          activation_policy: 'confirm',
+          core_estimated_tokens: 200,
+          recommended: true,
+        },
+      ],
+    })
+
+    expect(payload?.candidates).toEqual([])
+    expect(payload?.recommended_agent_skill_version_ids).toEqual([])
+  })
+
+  it.each([
+    ['string version ID', { version_id: '18' as unknown as number }],
+    ['string skill ID', { skill_id: '8' as unknown as number }],
+    ['missing version', { version: '' }],
+    ['missing compiled hash', { compiled_hash: '' }],
+    ['missing display identity', { name: '', display_name: '' }],
+    ['invalid risk', { risk: 'unknown' as 'high' }],
+    ['invalid activation policy', { activation_policy: 'sometimes' as 'confirm' }],
+    ['invalid composition role', { composition_role: 'secondary' as 'primary' }],
+    ['invalid token estimate', { core_estimated_tokens: Number.NaN }],
+    ['not recommended', { recommended: false }],
+  ])('fails closed for an incomplete candidate: %s', (_name, override) => {
+    const payload = toAgentSkillSelectionPayload({
+      required: true,
+      agent_skill_confirmation_id: 'skill-confirm-invalid-candidate',
+      recommended_agent_skill_version_ids: [18],
+      candidates: [{
+        skill_id: 8,
+        version_id: 18,
+        version: '1.0.0',
+        compiled_hash: 'hash-18',
+        name: 'interview_rubric',
+        display_name: '面试评估',
+        composition_role: 'supporting',
+        risk: 'high',
+        activation_policy: 'confirm',
+        core_estimated_tokens: 180,
+        recommended: true,
+        ...override,
+      }],
+    })
+
+    expect(payload?.candidates).toEqual([])
+    expect(payload?.recommended_agent_skill_version_ids).toEqual([])
   })
 
   it('parseCandidateOptionsFromMeta parses JSON string', () => {
@@ -604,6 +824,7 @@ describe('agentRunChatFlow entry paths (submit + skill confirm)', () => {
               risk: 'critical',
               activation_policy: 'manual_only',
               core_estimated_tokens: 300,
+              recommended: true,
             }],
           }),
         })

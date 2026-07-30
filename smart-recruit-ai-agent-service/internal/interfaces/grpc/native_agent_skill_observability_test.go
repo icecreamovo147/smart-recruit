@@ -220,10 +220,8 @@ func TestAgentSkillJudgeIsNonBlockingBoundedAndRedacted(t *testing.T) {
 	dispatcher := newAgentSkillJudgeDispatcher(true, runner, metrics)
 	t.Cleanup(dispatcher.Close)
 	input := AgentSkillJudgeInput{
-		RedactedResponse: redactAgentSkillJudgeResponse(
-			"候选人 Alice 应聘 Senior Go Engineer，邮箱 alice@example.invalid，电话 13800138000。",
-			"Alice",
-			"Senior Go Engineer",
+		RedactedResponse: agentSkillJudgeResponseProfile(
+			"候选人 Alice 和 Bob 应聘 Senior Go Engineer，邮箱 alice@example.invalid，电话 13800138000，期望月薪 25000 元。",
 		),
 		EvaluationCriteria: []string{"回答准确"},
 	}
@@ -243,18 +241,120 @@ func TestAgentSkillJudgeIsNonBlockingBoundedAndRedacted(t *testing.T) {
 	runner.mu.Lock()
 	captured := runner.input
 	runner.mu.Unlock()
-	for _, forbidden := range []string{"Alice", "Senior Go Engineer", "alice@example.invalid", "13800138000"} {
+	for _, forbidden := range []string{"Alice", "Bob", "Senior Go Engineer", "alice@example.invalid", "13800138000", "25000"} {
 		if strings.Contains(captured.RedactedResponse, forbidden) {
 			t.Fatalf("judge input leaked %q: %#v", forbidden, captured)
 		}
 	}
+	var profile map[string]any
+	if err := json.Unmarshal([]byte(captured.RedactedResponse), &profile); err != nil {
+		t.Fatalf("judge response profile is invalid JSON: %v", err)
+	}
+	if profile["schema_version"] != float64(1) ||
+		profile["response_present"] != true ||
+		profile["format"] != "text" {
+		t.Fatalf("judge response profile = %#v", profile)
+	}
 	close(block)
 }
 
-func TestAgentSkillJudgeRedactsPIIBeforeBoundaryTruncation(t *testing.T) {
+func TestAgentSkillJudgeResponseProfileContainsNoReversibleRecruitingText(t *testing.T) {
+	response := strings.Join([]string{
+		"候选人张三应聘高级后端工程师，现居上海浦东。",
+		"候选人李四应聘数据科学家，期望月薪 35000 元。",
+		"联系方式 alice@example.invalid / 13800138000。",
+		"身份证 110101199001011234，银行卡 6222 0212 3456 7890 123。",
+	}, "\n")
+	got := agentSkillJudgeResponseProfile(response)
+	for _, forbidden := range []string{
+		"张三", "李四", "高级后端工程师", "数据科学家", "上海浦东",
+		"35000", "alice@example.invalid", "13800138000",
+		"110101199001011234", "6222 0212 3456 7890 123",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("response profile leaked %q: %s", forbidden, got)
+		}
+	}
+	var profile map[string]any
+	if err := json.Unmarshal([]byte(got), &profile); err != nil {
+		t.Fatalf("response profile is invalid JSON: %v", err)
+	}
+	allowed := map[string]struct{}{
+		"schema_version": {}, "response_present": {}, "bounded_rune_count": {},
+		"bounded_line_count": {}, "truncated": {}, "format": {},
+	}
+	for key := range profile {
+		if _, ok := allowed[key]; !ok {
+			t.Fatalf("response profile contains non-allowlisted field %q: %#v", key, profile)
+		}
+	}
+	if profile["bounded_line_count"] != float64(4) {
+		t.Fatalf("bounded_line_count = %#v, want 4", profile["bounded_line_count"])
+	}
+}
+
+func TestAgentSkillJudgeResponseProfileBoundsStructuralSignals(t *testing.T) {
+	response := strings.Repeat("界\n", agentSkillJudgeMaxResponseRunes+100)
+	var profile map[string]any
+	if err := json.Unmarshal([]byte(agentSkillJudgeResponseProfile(response)), &profile); err != nil {
+		t.Fatalf("response profile is invalid JSON: %v", err)
+	}
+	if profile["bounded_rune_count"] != float64(agentSkillJudgeMaxResponseRunes) ||
+		profile["bounded_line_count"] != float64(agentSkillJudgeMaxResponseLines) ||
+		profile["truncated"] != true {
+		t.Fatalf("unbounded response profile: %#v", profile)
+	}
+}
+
+func TestTrySubmitAgentSkillJudgeBuildsPrivacySafeInput(t *testing.T) {
+	metrics := observability.NewRegistry("ai-agent")
+	runner := &capturingAgentSkillJudgeRunner{called: make(chan struct{}, 1)}
+	dispatcher := newAgentSkillJudgeDispatcher(true, runner, metrics)
+	t.Cleanup(dispatcher.Close)
+	service := &nativeAIService{metrics: metrics, agentSkillJudge: dispatcher}
+	governance := hrRuntimeGovernanceContext{
+		AgentSkillSelectionMode: "auto",
+		SelectedAgentSkills: []hrRuntimeAgentSkill{{
+			Included: true,
+			EvaluationCriteria: []string{
+				"不得提及候选人 Alice 或岗位 Senior Go Engineer",
+				"不得包含期望月薪 25000 元",
+				"不得包含银行卡 6222 0212 3456 7890 123",
+			},
+		}},
+	}
+
+	service.trySubmitAgentSkillJudge(
+		context.Background(),
+		"Alice 与 Bob 正在应聘 Senior Go Engineer，期望月薪 25000 元，银行卡 6222 0212 3456 7890 123。",
+		"Alice",
+		"Senior Go Engineer",
+		governance,
+	)
+	select {
+	case <-runner.called:
+	case <-time.After(time.Second):
+		t.Fatal("judge worker did not receive privacy-safe input")
+	}
+	runner.mu.Lock()
+	captured := cloneAgentSkillJudgeInput(runner.input)
+	runner.mu.Unlock()
+	serialized := captured.RedactedResponse + strings.Join(captured.EvaluationCriteria, "\n")
+	for _, forbidden := range []string{
+		"Alice", "Bob", "Senior Go Engineer", "25000", "6222 0212 3456 7890 123",
+	} {
+		if strings.Contains(serialized, forbidden) {
+			t.Fatalf("production judge input leaked %q: %#v", forbidden, captured)
+		}
+	}
+	if len(captured.EvaluationCriteria) != 3 {
+		t.Fatalf("evaluation criteria = %#v, want 3 bounded values", captured.EvaluationCriteria)
+	}
+}
+
+func TestAgentSkillJudgeCriteriaRedactsPIIBeforeBoundaryTruncation(t *testing.T) {
 	tests := []struct {
 		name            string
-		maxRunes        int
 		prefixRunes     int
 		sensitive       string
 		sensitiveValues []string
@@ -262,58 +362,58 @@ func TestAgentSkillJudgeRedactsPIIBeforeBoundaryTruncation(t *testing.T) {
 	}{
 		{
 			name:        "email",
-			maxRunes:    agentSkillJudgeMaxResponseRunes,
-			prefixRunes: agentSkillJudgeMaxResponseRunes - 5,
+			prefixRunes: agentSkillJudgeMaxCriterionRunes - 5,
 			sensitive:   "alice@example.invalid",
 			forbidden:   "alice",
 		},
 		{
 			name:        "phone",
-			maxRunes:    agentSkillJudgeMaxResponseRunes,
-			prefixRunes: agentSkillJudgeMaxResponseRunes - 5,
+			prefixRunes: agentSkillJudgeMaxCriterionRunes - 5,
 			sensitive:   "13800138000",
 			forbidden:   "13800",
 		},
 		{
 			name:        "identifier",
-			maxRunes:    agentSkillJudgeMaxResponseRunes,
-			prefixRunes: agentSkillJudgeMaxResponseRunes - 6,
+			prefixRunes: agentSkillJudgeMaxCriterionRunes - 6,
 			sensitive:   "110101199001011234",
 			forbidden:   "110101",
 		},
 		{
 			name:            "candidate name",
-			maxRunes:        agentSkillJudgeMaxResponseRunes,
-			prefixRunes:     agentSkillJudgeMaxResponseRunes - 2,
+			prefixRunes:     agentSkillJudgeMaxCriterionRunes - 2,
 			sensitive:       "候选人张三",
 			sensitiveValues: []string{"候选人张三"},
 			forbidden:       "候选",
 		},
 		{
 			name:            "job title",
-			maxRunes:        agentSkillJudgeMaxResponseRunes,
-			prefixRunes:     agentSkillJudgeMaxResponseRunes - 4,
+			prefixRunes:     agentSkillJudgeMaxCriterionRunes - 4,
 			sensitive:       "Senior Platform Engineer",
 			sensitiveValues: []string{"Senior Platform Engineer"},
 			forbidden:       "Seni",
 		},
 		{
-			name:        "criterion email",
-			maxRunes:    agentSkillJudgeMaxCriterionRunes,
+			name:        "salary",
 			prefixRunes: agentSkillJudgeMaxCriterionRunes - 5,
-			sensitive:   "alice@example.invalid",
-			forbidden:   "alice",
+			sensitive:   "期望月薪 25000 元",
+			forbidden:   "25000",
+		},
+		{
+			name:        "bank card",
+			prefixRunes: agentSkillJudgeMaxCriterionRunes - 5,
+			sensitive:   "6222 0212 3456 7890 123",
+			forbidden:   "6222",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			value := strings.Repeat("界", tt.prefixRunes) + tt.sensitive
-			got := redactAndBoundAgentSkillJudgeText(value, tt.maxRunes, tt.sensitiveValues...)
+			got := redactAndBoundAgentSkillJudgeText(value, agentSkillJudgeMaxCriterionRunes, tt.sensitiveValues...)
 			if strings.Contains(got, tt.forbidden) || strings.Contains(got, tt.sensitive) {
 				t.Fatalf("boundary-crossing PII survived redaction: %q", got)
 			}
-			if count := len([]rune(got)); count > tt.maxRunes {
-				t.Fatalf("redacted rune count = %d, want <= %d", count, tt.maxRunes)
+			if count := len([]rune(got)); count > agentSkillJudgeMaxCriterionRunes {
+				t.Fatalf("redacted rune count = %d, want <= %d", count, agentSkillJudgeMaxCriterionRunes)
 			}
 		})
 	}

@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildApplicationAnalysisMessage,
   buildApplicationAnalysisRunRequest,
+  exactAgentSkillConfirmationVersionIds,
   isInsufficientCreditsFailure,
   normalizeSuggestedQuestions,
   resolveApplicationAnalysisMessage,
@@ -213,6 +214,16 @@ describe('AIChatView quota guard', () => {
 })
 
 describe('AIChatView confirmation submission guard', () => {
+  it('preserves the server-signed Agent Skill version order and rejects malformed snapshots', () => {
+    const exact = [22, 11]
+    const resolved = exactAgentSkillConfirmationVersionIds(exact)
+    expect(resolved).toEqual([22, 11])
+    expect(resolved).not.toBe(exact)
+    expect(exactAgentSkillConfirmationVersionIds([22, 22])).toEqual([])
+    expect(exactAgentSkillConfirmationVersionIds([22, 0])).toEqual([])
+    expect(exactAgentSkillConfirmationVersionIds(undefined)).toEqual([])
+  })
+
   it('allows exactly one confirmation request while run hydration is deferred', async () => {
     let releaseHydration: (() => void) | undefined
     const hydration = new Promise<void>((resolve) => {

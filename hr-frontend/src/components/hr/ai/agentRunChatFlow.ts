@@ -118,13 +118,21 @@ const skillActivationPolicies = new Set(['auto', 'confirm', 'manual_only'])
 const skillCompositionRoles = new Set(['primary', 'supporting'])
 
 function positiveInteger(value: unknown): number {
-  const parsed = Number(value)
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 0
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : 0
 }
 
-function safeNumberList(value: unknown): number[] {
-  if (!Array.isArray(value)) return []
-  return [...new Set(value.map(positiveInteger).filter((id) => id > 0))]
+function exactPositiveIntegerList(value: unknown): number[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null
+  const exact: number[] = []
+  const seen = new Set<number>()
+  for (const item of value) {
+    if (typeof item !== 'number' || !Number.isInteger(item) || item <= 0 || seen.has(item)) {
+      return null
+    }
+    seen.add(item)
+    exact.push(item)
+  }
+  return exact
 }
 
 function asSkillCandidates(list: AgentRunSkillCandidate[] | undefined): AgentSkillSelectionCandidate[] {
@@ -133,34 +141,47 @@ function asSkillCandidates(list: AgentRunSkillCandidate[] | undefined): AgentSki
     .map((candidate) => {
       const skillId = positiveInteger(candidate.skill_id)
       const versionId = positiveInteger(candidate.version_id)
-      if (!skillId || !versionId) return null
-      const risk = skillRiskLevels.has(candidate.risk) ? candidate.risk : 'low'
-      const activationPolicy = skillActivationPolicies.has(candidate.activation_policy)
-        ? candidate.activation_policy
-        : risk === 'critical'
-          ? 'manual_only'
-          : risk === 'high'
-            ? 'confirm'
-            : 'auto'
+      const version = typeof candidate.version === 'string' ? candidate.version.trim() : ''
+      const compiledHash = typeof candidate.compiled_hash === 'string' ? candidate.compiled_hash.trim() : ''
+      const name = typeof candidate.name === 'string' ? candidate.name.trim() : ''
+      const displayName = typeof candidate.display_name === 'string' ? candidate.display_name.trim() : ''
+      const risk = candidate.risk
+      const activationPolicy = candidate.activation_policy
+      const compositionRole = candidate.composition_role
+      const coreEstimatedTokens = candidate.core_estimated_tokens
+      if (
+        !skillId
+        || !versionId
+        || !version
+        || !compiledHash
+        || (!name && !displayName)
+        || !skillRiskLevels.has(risk)
+        || !skillActivationPolicies.has(activationPolicy)
+        || !skillCompositionRoles.has(compositionRole)
+        || typeof coreEstimatedTokens !== 'number'
+        || !Number.isFinite(coreEstimatedTokens)
+        || coreEstimatedTokens < 0
+        || candidate.recommended !== true
+      ) {
+        return null
+      }
       return {
         skill_id: skillId,
         version_id: versionId,
-        version: String(candidate.version || ''),
-        compiled_hash: String(candidate.compiled_hash || ''),
-        name: String(candidate.name || ''),
-        display_name: String(candidate.display_name || candidate.name || ''),
+        version,
+        compiled_hash: compiledHash,
+        name,
+        display_name: displayName || name,
         reason: String(candidate.reason || ''),
         score: Number(candidate.score) || 0,
         priority: Number(candidate.priority) || 0,
         category: String(candidate.category || ''),
         scenario: String(candidate.scenario || ''),
-        composition_role: skillCompositionRoles.has(candidate.composition_role)
-          ? candidate.composition_role
-          : 'primary',
+        composition_role: compositionRole,
         risk,
         activation_policy: activationPolicy,
-        core_estimated_tokens: Math.max(0, Number(candidate.core_estimated_tokens) || 0),
-        recommended: Boolean(candidate.recommended),
+        core_estimated_tokens: coreEstimatedTokens,
+        recommended: true,
         vector_score: Number(candidate.vector_score) || 0,
         lexical_score: Number(candidate.lexical_score) || 0,
         metadata_score: Number(candidate.metadata_score) || 0,
@@ -191,9 +212,7 @@ export function toAgentSkillSelectionPayload(
       reason: confirmation.reason || 'Agent Skill 确认信息不完整',
       candidates: [],
       confirmation_kind: 'agent_skill',
-      recommended_agent_skill_version_ids: safeNumberList(
-        confirmation.recommended_agent_skill_version_ids,
-      ),
+      recommended_agent_skill_version_ids: [],
       ...(confirmationId ? { confirmation_id: confirmationId } : {}),
       ...(confirmation.agent_skill_confirmation_expires_at
         ? { expires_at: confirmation.agent_skill_confirmation_expires_at }
@@ -204,11 +223,21 @@ export function toAgentSkillSelectionPayload(
   if (confirmation.candidates && confirmation.candidates.length > 0) {
     const candidates = asSkillCandidates(confirmation.candidates)
     const confirmationId = String(confirmation.agent_skill_confirmation_id || '').trim()
-    if (candidates.length === 0 || !confirmationId) return cancelOnlyAgentSkillPayload()
-    const candidateVersionIDs = new Set(candidates.map((candidate) => candidate.version_id))
-    const recommendedVersionIDs = safeNumberList(
+    const recommendedVersionIDs = exactPositiveIntegerList(
       confirmation.recommended_agent_skill_version_ids,
-    ).filter((versionID) => candidateVersionIDs.has(versionID))
+    )
+    const candidateVersionIDs = candidates.map((candidate) => candidate.version_id)
+    const candidateVersionIDSet = new Set(candidateVersionIDs)
+    if (
+      !confirmationId
+      || !recommendedVersionIDs
+      || candidates.length !== confirmation.candidates.length
+      || candidateVersionIDSet.size !== candidateVersionIDs.length
+      || candidateVersionIDs.length !== recommendedVersionIDs.length
+      || recommendedVersionIDs.some((versionID) => !candidateVersionIDSet.has(versionID))
+    ) {
+      return cancelOnlyAgentSkillPayload()
+    }
     return {
       required: confirmation.required ?? true,
       reason: confirmation.reason || '请确认启用本次 Agent Skill',

@@ -168,6 +168,18 @@ describe('ChatMessageList governed Agent Skill UX', () => {
     core_estimated_tokens: 240,
     recommended: true,
   }
+  const supportingCandidate = {
+    ...candidate,
+    skill_id: 8,
+    version_id: 702,
+    version: '1.4.0',
+    compiled_hash: 'fedcba9876543210',
+    name: 'interview-rubric',
+    display_name: '面试评估',
+    reason: '补充面试评估标准',
+    composition_role: 'supporting' as const,
+    core_estimated_tokens: 180,
+  }
 
   const mountGovernedList = (interactionDisabled = false) => shallowMount(ChatMessageList, {
     props: {
@@ -177,10 +189,10 @@ describe('ChatMessageList governed Agent Skill UX', () => {
         agentSkillSelection: {
           required: true,
           reason: '高风险 Skill 需要确认',
-          candidates: [candidate],
+          candidates: [candidate, supportingCandidate],
           confirmation_kind: 'agent_skill',
           confirmation_id: 'skill-confirm-701',
-          recommended_agent_skill_version_ids: [701],
+          recommended_agent_skill_version_ids: [702, 701],
           expires_at: '2026-07-28T12:10:00Z',
         },
       }],
@@ -212,6 +224,12 @@ describe('ChatMessageList governed Agent Skill UX', () => {
     expect(wrapper.get('.skill-confirmation__meta').text()).toContain(
       'v2.1.0 · abcdef0123 · primary · high · confirm · 240 tokens',
     )
+    const exactVersions = wrapper.findAll('.skill-confirmation__option')
+    expect(exactVersions).toHaveLength(2)
+    expect(exactVersions.every((item) => item.element.tagName === 'DIV')).toBe(true)
+    expect(exactVersions.every((item) => item.attributes('role') === 'listitem')).toBe(true)
+    await exactVersions[0].trigger('click')
+    expect(wrapper.emitted('confirm-skill-selection')).toBeUndefined()
     const actions = wrapper.findAll('.skill-confirmation__actions button')
     expect(actions.map((button) => button.text())).toEqual(['拒绝 Skill', '取消运行', '确认启用'])
 
@@ -220,7 +238,29 @@ describe('ChatMessageList governed Agent Skill UX', () => {
     await actions[2].trigger('click')
     expect(wrapper.emitted('reject-skill-selection')?.[0]).toEqual([0])
     expect(wrapper.emitted('cancel-pending-run')?.[0]).toEqual([0])
-    expect(wrapper.emitted('confirm-skill-selection')?.[0]).toEqual([0, [701]])
+    expect(wrapper.emitted('confirm-skill-selection')?.[0]).toEqual([0, [702, 701]])
+  })
+
+  it('fails closed when the server did not provide exact recommended version IDs', async () => {
+    const wrapper = mountGovernedList()
+    await wrapper.setProps({
+      messages: [{
+        role: 'assistant',
+        content: '',
+        agentSkillSelection: {
+          required: true,
+          reason: '确认信息不完整',
+          candidates: [candidate],
+          confirmation_kind: 'agent_skill',
+          confirmation_id: 'skill-confirm-701',
+          recommended_agent_skill_version_ids: [],
+        },
+      }],
+    })
+    const actions = wrapper.findAll('.skill-confirmation__actions button')
+    expect(actions[2].attributes('disabled')).toBeDefined()
+    await actions[2].trigger('click')
+    expect(wrapper.emitted('confirm-skill-selection')).toBeUndefined()
   })
 
   it('blocks repeated decisions while confirmation submission is in flight', async () => {

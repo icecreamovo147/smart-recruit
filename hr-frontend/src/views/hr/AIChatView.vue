@@ -92,6 +92,13 @@ export const buildApplicationAnalysisRunRequest = (input: {
     ? { agent_skill_version_ids: [...input.agentSkillVersionIds] }
     : {}),
 })
+
+export function exactAgentSkillConfirmationVersionIds(value: number[] | undefined): number[] {
+  if (!Array.isArray(value) || value.length === 0) return []
+  if (value.some((id) => !Number.isInteger(id) || id <= 0)) return []
+  if (new Set(value).size !== value.length) return []
+  return [...value]
+}
 </script>
 
 <script setup lang="ts">
@@ -182,6 +189,7 @@ interface SkillSelectionRequest {
   confirmationId?: string
   confirmationExpiresAt?: string
   confirmationPayloadJson?: string
+  exactAgentSkillVersionIds?: number[]
 }
 
 const route = useRoute()
@@ -1393,6 +1401,13 @@ const setSkillSelectionMessage = (
       confirmationId: selection.confirmation_id,
       confirmationExpiresAt: selection.expires_at,
       confirmationPayloadJson: selection.confirmation_payload_json,
+      ...(selection.confirmation_kind === 'agent_skill'
+        ? {
+            exactAgentSkillVersionIds: exactAgentSkillConfirmationVersionIds(
+              selection.recommended_agent_skill_version_ids,
+            ),
+          }
+        : {}),
     },
   }
   loading.value = false
@@ -1508,7 +1523,7 @@ const cancelSkillSelectionRun = async (assistantIndex: number) => {
   await cancelPendingConfirmation(assistantIndex, 'rejected')
 }
 
-const submitConfirmedSkillSelection = async (assistantIndex: number, skillVersionIds: number[]) => {
+const submitConfirmedSkillSelection = async (assistantIndex: number) => {
   if (quotaExhausted.value || billingAccessLoading.value || confirmationSubmitting.value) return
   const current = messages.value[assistantIndex]
   const request = current?.skillSelectionRequest
@@ -1552,15 +1567,20 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillVersio
         ElMessage.error(t('common.not_found'))
         return
       }
+      const exactSkillVersionIds = exactAgentSkillConfirmationVersionIds(
+        request.exactAgentSkillVersionIds,
+      )
       if (
         request.confirmationKind === 'agent_skill'
-        && (!request.confirmationId || skillVersionIds.length === 0)
+        && (!request.confirmationId || exactSkillVersionIds.length === 0)
       ) {
         ElMessage.error(t('common.invalid_request'))
         return
       }
 
-      applyUserMessageSkillsBefore(assistantIndex, skillVersionIds)
+      if (request.confirmationKind === 'agent_skill') {
+        applyUserMessageSkillsBefore(assistantIndex, exactSkillVersionIds)
+      }
       messages.value[assistantIndex] = {
         role: 'assistant',
         content: '',
@@ -1583,7 +1603,7 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillVersio
               client_request_id: createClientRequestId(),
               agent_skill_confirmation_id: request.confirmationId,
               agent_skill_confirmation_decision: 'approve',
-              selected_agent_skill_version_ids: [...skillVersionIds],
+              selected_agent_skill_version_ids: exactSkillVersionIds,
             },
         makeChatUiBinder(assistantIndex),
         { isAborted: () => userAborted.value || (token !== null && !isActiveAgentRun(token)) },
