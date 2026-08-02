@@ -152,7 +152,7 @@ func TestBaselineScenarios(t *testing.T) {
 		sqlDB, _ := db.DB()
 		defer sqlDB.Close()
 
-		importDBSQL(t, sqlDB, ctx)
+		importBaselineSQL(t, sqlDB, ctx)
 		archiveRunner, err := NewRunner(db, testMigrationsFS, "archive/pre-baseline-000089")
 		if err != nil {
 			t.Fatal(err)
@@ -217,7 +217,7 @@ func TestBaselineScenarios(t *testing.T) {
 		sqlDB, _ := db.DB()
 		defer sqlDB.Close()
 
-		importDBSQL(t, sqlDB, ctx)
+		importBaselineSQL(t, sqlDB, ctx)
 		archiveRunner, err := NewRunner(db, testMigrationsFS, "archive/pre-baseline-000089")
 		if err != nil {
 			t.Fatal(err)
@@ -248,7 +248,7 @@ func TestBaselineScenarios(t *testing.T) {
 		sqlDB, _ := db.DB()
 		defer sqlDB.Close()
 
-		importDBSQL(t, sqlDB, ctx)
+		importBaselineSQL(t, sqlDB, ctx)
 		archiveRunner, err := NewRunner(db, testMigrationsFS, "archive/pre-baseline-000089")
 		if err != nil {
 			t.Fatal(err)
@@ -321,10 +321,23 @@ func setupTestDB(t *testing.T, rootSQL *sql.DB, dbName string) func() {
 // importDBSQL reads and executes db.sql against the given database.
 func importDBSQL(t *testing.T, sqlDB *sql.DB, ctx context.Context) {
 	t.Helper()
-	dbSQLPath := filepath.Join("..", "..", "db.sql")
-	data, err := os.ReadFile(dbSQLPath)
+	importSQLFile(t, sqlDB, ctx, filepath.Join("..", "..", "db.sql"))
+}
+
+// importBaselineSQL reads and executes the immutable v89 baseline snapshot.
+// Adoption scenarios must use the schema for the version being adopted rather
+// than the latest db.sql snapshot, which may include active post-baseline
+// migrations.
+func importBaselineSQL(t *testing.T, sqlDB *sql.DB, ctx context.Context) {
+	t.Helper()
+	importSQLFile(t, sqlDB, ctx, filepath.Join("..", "migrations", "000089_schema_baseline.sql"))
+}
+
+func importSQLFile(t *testing.T, sqlDB *sql.DB, ctx context.Context, sqlPath string) {
+	t.Helper()
+	data, err := os.ReadFile(sqlPath)
 	if err != nil {
-		t.Fatalf("read db.sql: %v", err)
+		t.Fatalf("read %s: %v", sqlPath, err)
 	}
 	statements := splitStatements(string(data))
 	for _, stmt := range statements {
@@ -336,7 +349,7 @@ func importDBSQL(t *testing.T, sqlDB *sql.DB, ctx context.Context) {
 			continue
 		}
 		if _, err := sqlDB.ExecContext(ctx, stmt); err != nil {
-			t.Fatalf("exec db.sql stmt %q: %v", truncate(stmt, 80), err)
+			t.Fatalf("exec %s stmt %q: %v", sqlPath, truncate(stmt, 80), err)
 		}
 	}
 }
