@@ -199,7 +199,7 @@ const loadTenantOptions = async () => {
     tenants.value = response.list || []
   } catch (error) {
     console.error(error)
-    ElMessage.error('租户列表加载失败')
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     tenantLoading.value = false
   }
@@ -213,7 +213,7 @@ const loadMembershipOptions = async (tenantId: number) => {
   } catch (error) {
     console.error(error)
     memberships.value = []
-    ElMessage.error('HR 成员列表加载失败')
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     membershipLoading.value = false
   }
@@ -259,11 +259,7 @@ const runDebug = async () => {
     return
   }
   if (!ownerReady.value) {
-    ElMessage.warning(
-      form.owner_role === MEMORY_OWNER_ROLE_HR
-        ? '请选择租户和 HR Owner'
-        : '请输入候选人 Owner ID',
-    )
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   loading.value = true
