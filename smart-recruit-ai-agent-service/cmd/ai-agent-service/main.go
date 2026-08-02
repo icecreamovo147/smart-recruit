@@ -25,6 +25,7 @@ import (
 
 	appmemory "smart-recruit-ai-agent-service/internal/application/memory"
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
+	embeddingqueue "smart-recruit-ai-agent-service/internal/infrastructure/embeddingqueue"
 	aiagentpersistence "smart-recruit-ai-agent-service/internal/infrastructure/persistence"
 	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
@@ -92,7 +93,7 @@ func checkRuntime() error {
 		AgentSkill:             noopAgentSkillService{},
 		RecruitingIntelligence: noopRecruitingIntelligenceService{},
 		EmbeddingConfig:        noopEmbeddingConfigService{},
-		PlatformAIControlPlane: noopPlatformAIControlPlaneService{},
+		PlatformAIControlPlane: aiagentpersistence.NewPlatformAIControlPlaneServer(nil),
 	})
 	if err != nil {
 		return err
@@ -240,6 +241,8 @@ func serveAIAgent(addr string) error {
 		Billing:          billingClient,
 		BillingRequired:  strings.EqualFold(envOrDefault("AI_BILLING_MODE", "shadow"), "enforce"),
 		AgentRunTimeout:  cfg.AI.TotalTimeout.Duration,
+		SkillPackageV2:   boolSetting(cfg.Agent.Features.SkillPackageV2, false),
+		AgentSkillJudge:  boolSetting(cfg.Agent.Features.AgentSkillJudge, false),
 		Applications:     pb.NewApplicationOwnerServiceClient(recruitmentConn),
 		AppList:          pb.NewApplicationServiceClient(recruitmentConn),
 		Jobs:             pb.NewJobServiceClient(recruitmentConn),
@@ -247,6 +250,7 @@ func serveAIAgent(addr string) error {
 	if err != nil {
 		return err
 	}
+	defer closeAIRuntime(runtime)
 
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -284,7 +288,18 @@ func serveAIAgent(addr string) error {
 	}
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, redisClient, mqConn))
 	outboxCtx, stopOutbox := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	defer stopOutbox()
+	embeddingConsumer := embeddingqueue.NewConsumer(
+		mqConn,
+		embeddingqueue.NewStore(db),
+		embeddingService,
+		embeddingqueue.Options{Logger: log},
+	)
+	if err := embeddingConsumer.Start(outboxCtx); err != nil {
+		_ = listener.Close()
+		return fmt.Errorf("start embedding consumer: %w", err)
+	}
+	mqKeepAliveDone := startMQKeepAlive(outboxCtx, mqConn, cfg.RabbitMQ.ReconnectInterval.Duration)
+	defer stopMQKeepAlive(stopOutbox, mqKeepAliveDone)
 	go nativeStore.RunBillingSettlementOutbox(outboxCtx, billingClient)
 	go runMemoryCleanupLoop(outboxCtx, log, memoryService, memoryCfg)
 	go stopOnSignal(grpcServer)
@@ -298,6 +313,33 @@ func serveAIAgent(addr string) error {
 		return fmt.Errorf("grpc serve: %w", err)
 	}
 	return nil
+}
+
+type mqKeepAliveConnection interface {
+	KeepAlive(context.Context, time.Duration)
+}
+
+func startMQKeepAlive(ctx context.Context, conn mqKeepAliveConnection, reconnectInterval time.Duration) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		conn.KeepAlive(ctx, reconnectInterval)
+	}()
+	return done
+}
+
+func stopMQKeepAlive(stop context.CancelFunc, done <-chan struct{}) {
+	stop()
+	<-done
+}
+
+func closeAIRuntime(runtime *aiagentruntime.Runtime) {
+	if runtime == nil || runtime.AI == nil {
+		return
+	}
+	if closer, ok := runtime.AI.(interface{ Close() error }); ok {
+		_ = closer.Close()
+	}
 }
 
 func recruitingRuntimePolicy(cfg logicconfig.Config) recruitingruntime.RuntimePolicy {
@@ -537,7 +579,4 @@ type noopRecruitingIntelligenceService struct {
 }
 type noopEmbeddingConfigService struct {
 	pb.UnimplementedEmbeddingConfigServiceServer
-}
-type noopPlatformAIControlPlaneService struct {
-	pb.UnimplementedPlatformAIControlPlaneServiceServer
 }

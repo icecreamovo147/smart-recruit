@@ -160,7 +160,7 @@ func (e *ResumeProfileExtractor) Extract(ctx context.Context, source ResumeSourc
 		return primary, nil
 	}
 	kind := classifyResumeExtractionError(err)
-	if kind == ResumeExtractionPolicy || !e.policy.FallbacksEnabled() {
+	if IsStrictOutputError(err) || kind == ResumeExtractionPolicy || !e.policy.FallbacksEnabled() {
 		observeRuntimeOutcome(e.runtime, ctx, "resume_profile_extraction", AgentTypeResumeProfileExtractor, "error", "disabled", started)
 		return ResumeExtractionResult{}, err
 	}
@@ -188,6 +188,9 @@ func (e *ResumeProfileExtractor) extractPrimary(ctx context.Context, source Resu
 	}
 	profile, raw, err := decodeResumeProfile(completion.Content)
 	if err != nil {
+		if completion.StrictContractApplied {
+			return ResumeExtractionResult{}, strictDomainError(err)
+		}
 		return ResumeExtractionResult{}, err
 	}
 	return ResumeExtractionResult{

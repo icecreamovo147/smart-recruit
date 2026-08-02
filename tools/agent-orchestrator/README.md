@@ -1,6 +1,16 @@
 # Agent Orchestrator
 
-串行执行 `docs/agent-harness/tasks/` 下全部 23 个剩余任务（P0-001 已完成），按 Developer → Review → Fix(可选) → Merge 流水线自动推进。
+> **历史只读 / 不受支持。** 本工具已于 2026-07-30 原地隔离，不能作为当前 Agent 控制面执行任务。它依赖的 `docs/agent-harness/tasks/` 已不存在，分支与自动提交模型也不符合当前 `AGENTS.md` 的显式激活规则。代码、任务清单和日志仅为历史审计证据。
+
+本工具曾用于串行处理 `docs/agent-harness/tasks/` 下 23 个任务，按 Developer → Review → Fix（可选）→ Merge 推进。当前控制面由根 `AGENTS.md` 和用户明确激活的仓库技能决定；历史工具不能替代或自动启动该流程。
+
+CLI 现在只允许：
+
+```bash
+python tools/agent-orchestrator/orchestrate_serial.py --dry-run
+```
+
+该命令仅打印历史任务清单并明确说明执行已禁用。任何非 dry-run 参数都会在读取 Agent 命令、切换分支、写日志或创建提交之前返回非零退出码。`--yes`、环境变量或旧分支均不能绕过隔离。
 
 ## 目录结构
 
@@ -19,7 +29,7 @@ tools/agent-orchestrator/
     └── <task-id>-*.log     # 每个任务的 Developer/Reviewer/Fixer 输出
 ```
 
-## 使用前提
+## 历史使用前提（不再构成运行授权）
 
 1. **Python 3.10+**，已安装 PyYAML：
    ```bash
@@ -42,9 +52,9 @@ tools/agent-orchestrator/
 
    **注意**：Agent 命令必须能从 stdin 读取 prompt 文本，并将输出写到 stdout。退出码为 0 表示成功，非 0 会被记录到日志。
 
-3. **当前必须在 `integration/agent-platform` 分支**，且工作区干净（无未提交改动）。
+3. **历史实现要求**位于 `integration/agent-platform` 分支且工作区干净；当前工具在检查或切换该分支前即拒绝实际执行。
 
-4. 每个任务的 `task_file` 字段指向的 `.md` 文件必须存在，否则该任务会被标记为 BLOCKED 并停止。
+4. 每个历史 `task_file` 指向的 `.md` 文件原本必须存在；这些路径当前已缺失，因此任务清单只可用于审计。
 
 ## 环境变量
 
@@ -64,24 +74,28 @@ echo "<prompt text>" | <agent_cmd>
 export DEV_AGENT_CMD="claude -p --input-file /dev/stdin"
 ```
 
-## 使用方式
+## 历史命令记录（当前禁止执行）
 
-### Dry-Run（只预览，不执行）
+### Dry-Run（唯一保留的只读操作）
 
 ```bash
 cd tools/agent-orchestrator
 python orchestrate_serial.py --dry-run
 ```
 
-输出将要执行的任务列表、分支名、commit message。
+输出历史任务列表、分支名和 commit message；不会把清单描述为可执行计划。
 
-### 只执行一个任务
+### 旧执行参数（全部 fail closed）
+
+以下命令仅保留为历史接口说明，当前都会返回“工具已归档”的错误，不会切换分支、调用 Agent、写日志或创建提交。
+
+#### 只执行一个任务
 
 ```bash
 python orchestrate_serial.py --only P0-002
 ```
 
-### 从指定任务开始执行后续
+#### 从指定任务开始执行后续
 
 ```bash
 python orchestrate_serial.py --from-task P0-002
@@ -89,7 +103,7 @@ python orchestrate_serial.py --from-task P0-002
 
 从 P0-002 开始，依次执行到最后一个任务。
 
-### 限制一次最多执行几个
+#### 限制一次最多执行几个
 
 ```bash
 python orchestrate_serial.py --max-tasks 3
@@ -104,7 +118,7 @@ python orchestrate_serial.py --from-task P0-005 --max-tasks 3
 
 从 P0-005 开始，最多执行 3 个任务。
 
-### 不自动合并
+#### 不自动合并
 
 ```bash
 python orchestrate_serial.py --no-merge
@@ -112,7 +126,7 @@ python orchestrate_serial.py --no-merge
 
 Review PASS 后任务分支保留在原地，不 squash-merge 到 `integration/agent-platform`，方便手动检查后再合并。
 
-### 跳过人工确认
+#### 跳过人工确认
 
 ```bash
 python orchestrate_serial.py --yes
@@ -120,7 +134,7 @@ python orchestrate_serial.py --yes
 
 不弹出 `Proceed? [y/N]` 提示，直接开始执行。
 
-### 失败后继续
+#### 失败后继续
 
 ```bash
 python orchestrate_serial.py --continue-on-failure
@@ -128,7 +142,7 @@ python orchestrate_serial.py --continue-on-failure
 
 某个任务 BLOCKED 或失败后不停止，继续执行后续任务。
 
-### 组合使用
+#### 组合使用
 
 ```bash
 python orchestrate_serial.py \
@@ -139,7 +153,7 @@ python orchestrate_serial.py \
   --continue-on-failure
 ```
 
-## 执行流程（每个任务）
+## 历史执行流程（当前已禁用）
 
 ```
 1. git checkout integration/agent-platform
@@ -173,7 +187,7 @@ cat tools/agent-orchestrator/logs/P0-002-review-1.log
 cat tools/agent-orchestrator/logs/P0-002-fix-1.log
 ```
 
-## BLOCKED 后如何处理
+## 历史 BLOCKED 处理记录
 
 任务被 BLOCKED 时，脚本会保留任务分支（不会删除）。处理步骤：
 
@@ -202,6 +216,7 @@ cat tools/agent-orchestrator/logs/P0-002-fix-1.log
 
 ## 安全规则
 
+- **任何非 `--dry-run` 调用都会在发生 Git 或 Agent 副作用之前拒绝**
 - **不会自动 push**
 - **不会合并 main**
 - **不会处理远程分支**

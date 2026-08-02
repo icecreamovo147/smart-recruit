@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Close, Position } from '@element-plus/icons-vue'
+import { computed, ref, watch } from 'vue'
+import { Box, Close, Position } from '@element-plus/icons-vue'
 import type { Session, ContextUsageInfo } from '@/types/ai'
 import type { LlmModel } from '@shared/types/llm'
 import type { CapabilityInfo } from '@shared/types/agent'
@@ -42,18 +42,18 @@ const props = defineProps<{
   contextPreviewing: boolean
   dataSource: string
   currentSession: Session | null
-  skillCapabilities: CapabilityInfo[]
-  selectedSkillKeys: string[]
+  capabilities: CapabilityInfo[]
+  selectedCapabilityKeys: string[]
   agentSkills: AvailableAgentSkill[]
-  selectedAgentSkillIds: number[]
+  selectedAgentSkillVersionIds: number[]
   disabled?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'update:input', value: string): void
   (e: 'update:selectedModelId', value: number | null): void
-  (e: 'update:selectedSkillKeys', value: string[]): void
-  (e: 'update:selectedAgentSkillIds', value: number[]): void
+  (e: 'update:selectedCapabilityKeys', value: string[]): void
+  (e: 'update:selectedAgentSkillVersionIds', value: number[]): void
   (e: 'submit'): void
   (e: 'stop'): void
 }>()
@@ -81,53 +81,76 @@ const slashQuery = computed(() => {
   return props.input.slice(activeSlashIndex.value + 1).trim().toLowerCase()
 })
 
-const skillMenuVisible = computed(() =>
+const selectionMenuVisible = computed(() =>
   !props.disabled && !props.streaming && activeSlashIndex.value >= 0,
 )
 
-const filteredSkillCapabilities = computed(() => {
-  const query = slashQuery.value
-  if (!query) return props.skillCapabilities
-  return props.skillCapabilities.filter((cap) => {
-    const haystack = [
-      cap.display_name,
-      cap.name,
-      cap.key,
-      cap.description,
-      cap.skill_name,
-    ].filter(Boolean).join(' ').toLowerCase()
-    return haystack.includes(query)
-  })
-})
-
 const filteredAgentSkills = computed(() => {
   const query = slashQuery.value
-  if (!query) return props.agentSkills
-  return props.agentSkills.filter((skill) => {
+  const selectable = props.agentSkills.filter((skill) => Boolean(skill.current_version?.version_id))
+  if (!query) return selectable
+  return selectable.filter((skill) => {
     const haystack = [
       skill.display_name,
       skill.name,
       skill.description,
-      ...(skill.trigger_keywords || []),
+      skill.current_version?.version,
+      skill.current_version?.category,
+      skill.current_version?.scenario,
     ].filter(Boolean).join(' ').toLowerCase()
     return haystack.includes(query)
   })
 })
 
-const selectedSkillCapabilities = computed(() =>
-  props.selectedSkillKeys
-    .map((key) => props.skillCapabilities.find((cap) => cap.key === key))
+const highlightedSkillIndex = ref(0)
+
+watch(
+  [selectionMenuVisible, slashQuery, () => filteredAgentSkills.value.length],
+  () => {
+    highlightedSkillIndex.value = 0
+  },
+)
+
+const selectedCapabilities = computed(() =>
+  props.selectedCapabilityKeys
+    .map((key) => props.capabilities.find((cap) => cap.key === key))
     .filter((cap): cap is CapabilityInfo => Boolean(cap)),
 )
 
 const selectedAgentSkills = computed(() =>
-  props.selectedAgentSkillIds
-    .map((id) => props.agentSkills.find((skill) => skill.id === id))
+  props.selectedAgentSkillVersionIds
+    .map((versionId) => props.agentSkills.find(
+      (skill) => skill.current_version?.version_id === versionId,
+    ))
     .filter((skill): skill is AvailableAgentSkill => Boolean(skill)),
 )
 
-const skillLabel = (cap: CapabilityInfo) => cap.display_name || cap.name || cap.key
+const capabilityLabel = (cap: CapabilityInfo) => cap.display_name || cap.name || cap.key
 const agentSkillLabel = (skill: AvailableAgentSkill) => skill.display_name || skill.name
+const agentSkillDescription = (skill: AvailableAgentSkill): string => {
+  const label = agentSkillLabel(skill).trim()
+  const description = skill.description?.trim() || ''
+  return description && description !== label ? description : ''
+}
+const agentSkillVersionId = (skill: AvailableAgentSkill): number =>
+  Number(skill.current_version?.version_id) || 0
+const agentSkillMeta = (skill: AvailableAgentSkill): string => {
+  const version = skill.current_version
+  if (!version) return '不可用'
+  const role = version.composition_role === 'supporting' ? '辅助技能' : '主技能'
+  const risk = {
+    low: '低风险',
+    medium: '中风险',
+    high: '高风险',
+    critical: '极高风险',
+  }[version.risk] || '低风险'
+  return [
+    `v${version.version}`,
+    role,
+    risk,
+    `${version.core_estimated_tokens} Tokens`,
+  ].join(' · ')
+}
 
 const clearSlashToken = () => {
   const index = activeSlashIndex.value
@@ -137,30 +160,78 @@ const clearSlashToken = () => {
   emit('update:input', nextInput)
 }
 
-const selectSkill = (cap: CapabilityInfo) => {
-  if (props.disabled) return
-  if (!props.selectedSkillKeys.includes(cap.key)) {
-    emit('update:selectedSkillKeys', [...props.selectedSkillKeys, cap.key])
-  }
-  clearSlashToken()
-}
-
 const selectAgentSkill = (skill: AvailableAgentSkill) => {
   if (props.disabled) return
-  if (!props.selectedAgentSkillIds.includes(skill.id)) {
-    emit('update:selectedAgentSkillIds', [...props.selectedAgentSkillIds, skill.id])
+  const versionId = agentSkillVersionId(skill)
+  const selected = selectedAgentSkills.value
+  const role = skill.current_version?.composition_role === 'supporting' ? 'supporting' : 'primary'
+  const roleAlreadySelected = selected.some(
+    (item) => (item.current_version?.composition_role === 'supporting' ? 'supporting' : 'primary') === role,
+  )
+  const supportingWithoutPrimary = role === 'supporting' && !selected.some(
+    (item) => item.current_version?.composition_role !== 'supporting',
+  )
+  if (
+    versionId > 0
+    && selected.length < 2
+    && !roleAlreadySelected
+    && !supportingWithoutPrimary
+    && !props.selectedAgentSkillVersionIds.includes(versionId)
+  ) {
+    emit('update:selectedAgentSkillVersionIds', [...props.selectedAgentSkillVersionIds, versionId])
   }
   clearSlashToken()
 }
 
-const removeSkill = (key: string) => {
-  if (props.disabled) return
-  emit('update:selectedSkillKeys', props.selectedSkillKeys.filter((item) => item !== key))
+const handleComposerKeydown = (event: KeyboardEvent) => {
+  if (selectionMenuVisible.value) {
+    const skillCount = filteredAgentSkills.value.length
+    if (event.key === 'ArrowDown' && skillCount > 0) {
+      event.preventDefault()
+      highlightedSkillIndex.value = (highlightedSkillIndex.value + 1) % skillCount
+      return
+    }
+    if (event.key === 'ArrowUp' && skillCount > 0) {
+      event.preventDefault()
+      highlightedSkillIndex.value = (highlightedSkillIndex.value - 1 + skillCount) % skillCount
+      return
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      const highlightedSkill = filteredAgentSkills.value[highlightedSkillIndex.value]
+      if (highlightedSkill) selectAgentSkill(highlightedSkill)
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      clearSlashToken()
+      return
+    }
+  }
+
+  if (
+    event.key === 'Enter'
+    && !event.shiftKey
+    && !event.altKey
+    && !event.ctrlKey
+    && !event.metaKey
+  ) {
+    event.preventDefault()
+    if (!props.streaming && !props.contextPreviewing && !props.disabled) emit('submit')
+  }
 }
 
-const removeAgentSkill = (id: number) => {
+const removeCapability = (key: string) => {
   if (props.disabled) return
-  emit('update:selectedAgentSkillIds', props.selectedAgentSkillIds.filter((item) => item !== id))
+  emit('update:selectedCapabilityKeys', props.selectedCapabilityKeys.filter((item) => item !== key))
+}
+
+const removeAgentSkill = (versionId: number) => {
+  if (props.disabled) return
+  emit(
+    'update:selectedAgentSkillVersionIds',
+    props.selectedAgentSkillVersionIds.filter((item) => item !== versionId),
+  )
 }
 
 const selectedModel = computed(() => props.selectedModelId == null
@@ -218,63 +289,65 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
 <template>
   <div class="chat-composer" :class="{ 'chat-composer--disabled': disabled }">
     <Transition name="chat-composer-skill-menu">
-      <div v-if="skillMenuVisible" class="chat-composer__skill-menu">
-        <template v-if="skillCapabilities.length > 0">
-          <button
-            v-for="skill in filteredSkillCapabilities"
-            :key="skill.key"
-            type="button"
-            class="chat-composer__skill-option"
-            :class="{ 'chat-composer__skill-option--selected': selectedSkillKeys.includes(skill.key) }"
-            @click="selectSkill(skill)"
-          >
-            <span class="chat-composer__skill-name">{{ skillLabel(skill) }}</span>
-            <span class="chat-composer__skill-meta">{{ skill.runtime_type || 'skill' }}</span>
-          </button>
-        </template>
-        <div v-if="skillCapabilities.length > 0 && filteredSkillCapabilities.length === 0" class="chat-composer__skill-empty">
-          暂无匹配 Tool Skill
-        </div>
+      <div
+        v-if="selectionMenuVisible"
+        class="chat-composer__skill-menu"
+        role="listbox"
+        aria-label="可用 Agent Skills"
+      >
         <button
-          v-for="skill in filteredAgentSkills"
-          :key="`agent-${skill.id}`"
+          v-for="(skill, index) in filteredAgentSkills"
+          :key="`agent-version-${agentSkillVersionId(skill)}`"
           type="button"
           class="chat-composer__skill-option"
-          :class="{ 'chat-composer__skill-option--selected': selectedAgentSkillIds.includes(skill.id) }"
+          :class="{
+            'chat-composer__skill-option--highlighted': highlightedSkillIndex === index,
+            'chat-composer__skill-option--selected': selectedAgentSkillVersionIds.includes(agentSkillVersionId(skill)),
+          }"
+          role="option"
+          :aria-selected="selectedAgentSkillVersionIds.includes(agentSkillVersionId(skill))"
+          :title="agentSkillMeta(skill)"
+          @mouseenter="highlightedSkillIndex = index"
           @click="selectAgentSkill(skill)"
         >
-          <span class="chat-composer__skill-name">{{ agentSkillLabel(skill) }}</span>
-          <span class="chat-composer__skill-meta">Skill</span>
+          <el-icon class="chat-composer__skill-icon"><Box /></el-icon>
+          <span class="chat-composer__skill-content">
+            <strong class="chat-composer__skill-name">{{ agentSkillLabel(skill) }}</strong>
+            <span v-if="agentSkillDescription(skill)" class="chat-composer__skill-description">
+              {{ agentSkillDescription(skill) }}
+            </span>
+          </span>
+          <span class="chat-composer__skill-source">smart-recruit</span>
         </button>
         <div v-if="filteredAgentSkills.length === 0" class="chat-composer__skill-empty">
-          暂无匹配 Skill
+          暂无匹配的 Skill
         </div>
       </div>
     </Transition>
     <div
-      v-if="selectedSkillCapabilities.length > 0 || selectedAgentSkills.length > 0"
+      v-if="selectedCapabilities.length > 0 || selectedAgentSkills.length > 0"
       class="chat-composer__selected-skills"
     >
       <button
-        v-for="skill in selectedSkillCapabilities"
-        :key="skill.key"
+        v-for="capability in selectedCapabilities"
+        :key="capability.key"
         type="button"
         class="chat-composer__skill-badge"
         :disabled="disabled"
-        @click="removeSkill(skill.key)"
+        @click="removeCapability(capability.key)"
       >
-        <span>/{{ skillLabel(skill) }}</span>
+        <span>/{{ capabilityLabel(capability) }}</span>
         <el-icon class="chat-composer__skill-close"><Close /></el-icon>
       </button>
       <button
         v-for="skill in selectedAgentSkills"
-        :key="skill.id"
+        :key="agentSkillVersionId(skill)"
         type="button"
         class="chat-composer__skill-badge"
         :disabled="disabled"
-        @click="removeAgentSkill(skill.id)"
+        @click="removeAgentSkill(agentSkillVersionId(skill))"
       >
-        <span>/{{ agentSkillLabel(skill) }}</span>
+        <span>/{{ agentSkillLabel(skill) }} v{{ skill.current_version?.version }}</span>
         <el-icon class="chat-composer__skill-close"><Close /></el-icon>
       </button>
     </div>
@@ -287,7 +360,7 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
         :autosize="{ minRows: 2, maxRows: 6 }"
         resize="none"
         class="chat-composer__text-input"
-        @keydown.enter.exact.prevent="streaming || contextPreviewing || disabled ? undefined : emit('submit')"
+        @keydown="handleComposerKeydown"
         @update:model-value="(val: string) => emit('update:input', val)"
       />
     </div>
@@ -488,15 +561,19 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
   position: absolute;
   left: 0;
   right: 0;
-  bottom: calc(100% + 8px);
+  bottom: calc(100% + 10px);
   z-index: 10;
+  width: auto;
   max-height: 240px;
+  box-sizing: border-box;
   overflow: auto;
-  padding: 6px;
+  padding: 5px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+  border-radius: 14px;
+  box-shadow:
+    0 14px 36px rgba(15, 23, 42, 0.11),
+    0 2px 6px rgba(15, 23, 42, 0.04);
 }
 
 .chat-composer-skill-menu-enter-active,
@@ -521,44 +598,81 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
 
 .chat-composer__skill-option {
   width: 100%;
-  min-height: 38px;
+  min-height: 42px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 10px;
   background: transparent;
   color: var(--text-primary);
-  display: flex;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 10px;
+  gap: 9px;
+  padding: 7px 10px;
   cursor: pointer;
   text-align: left;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
 }
 
 .chat-composer__skill-option:hover,
+.chat-composer__skill-option--highlighted,
 .chat-composer__skill-option--selected {
   background: var(--surface-muted);
 }
 
+.chat-composer__skill-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--text-secondary);
+  font-size: 17px;
+}
+
+.chat-composer__skill-content {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 9px;
+}
+
 .chat-composer__skill-name {
+  flex: 0 0 auto;
+  max-width: 38%;
+  overflow: hidden;
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 600;
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.chat-composer__skill-meta {
+.chat-composer__skill-description {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-composer__skill-source {
   flex-shrink: 0;
-  font-size: 11px;
   color: var(--text-faint);
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.chat-composer__skill-option--selected .chat-composer__skill-source {
+  color: var(--text-muted);
 }
 
 .chat-composer__skill-empty {
-  padding: 10px;
+  padding: 14px 12px;
   color: var(--text-faint);
   font-size: 13px;
+  text-align: center;
 }
 
 .chat-composer__selected-skills {
@@ -884,6 +998,24 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
   .chat-composer {
     padding: 10px 12px 12px;
   }
+
+  .chat-composer__skill-menu {
+    max-height: 220px;
+    border-radius: 12px;
+  }
+
+  .chat-composer__skill-option {
+    grid-template-columns: 22px minmax(0, 1fr);
+    padding: 7px 9px;
+  }
+
+  .chat-composer__skill-content {
+    display: grid;
+    gap: 2px;
+  }
+
+  .chat-composer__skill-name { max-width: 100%; }
+  .chat-composer__skill-source { display: none; }
 
   .chat-composer__toolbar {
     align-items: flex-end;

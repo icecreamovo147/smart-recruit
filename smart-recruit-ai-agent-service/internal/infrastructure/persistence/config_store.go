@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	domainagentskill "smart-recruit-ai-agent-service/internal/domain/agentskill"
 	domainmemory "smart-recruit-ai-agent-service/internal/domain/memory"
 	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	commonsai "smart-recruit-commons/ai"
@@ -1025,52 +1026,253 @@ func (s *NativeStore) UpdateEmbeddingTestStatus(ctx context.Context, modelID int
 	return s.db.WithContext(ctx).Model(&embeddingModelRecord{}).Where("id = ?", modelID).Updates(updates).Error
 }
 
-func (s *NativeStore) ListAgentSkillEmbeddingDocuments(ctx context.Context, objectID int64, limit int) ([]embeddinginfra.AgentSkillEmbeddingDocument, error) {
-	if limit <= 0 || limit > 200 {
+func (s *NativeStore) ListAgentSkillVersionEmbeddingDocuments(ctx context.Context, versionIDs []int64, limit int) ([]embeddinginfra.AgentSkillVersionEmbeddingDocument, error) {
+	if s == nil || s.db == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	versionIDs = positiveInt64s(versionIDs)
+	if limit <= 0 || limit > 500 {
 		limit = 100
 	}
-	type row struct {
-		agentSkillRecord
-		BodyMarkdown sql.NullString `gorm:"column:body_markdown"`
-		SkillMD      sql.NullString `gorm:"column:skill_md"`
+	type versionDocumentRow struct {
+		ID                int64  `gorm:"column:id"`
+		SkillID           int64  `gorm:"column:skill_id"`
+		Version           string `gorm:"column:version"`
+		CompiledHash      string `gorm:"column:compiled_hash"`
+		ManifestJSON      string `gorm:"column:manifest_json"`
+		CoreMarkdown      string `gorm:"column:core_markdown"`
+		RegistryName      string `gorm:"column:registry_name"`
+		RegistryLabel     string `gorm:"column:registry_label"`
+		IsEnabled         bool   `gorm:"column:is_enabled"`
+		IsManualInvocable bool   `gorm:"column:is_manual_invocable"`
 	}
-	query := s.db.WithContext(ctx).Table("agent_skills s").
-		Select("s.*, v.body_markdown, v.skill_md").
-		Joins("LEFT JOIN agent_skill_versions v ON v.id = s.current_version_id").
-		Where("s.is_enabled = ? AND s.current_version_id IS NOT NULL", true)
-	if objectID > 0 {
-		query = query.Where("s.id = ?", objectID)
+	query := s.db.WithContext(ctx).
+		Table("agent_skill_versions AS v").
+		Select(`v.id, v.skill_id, v.version, v.compiled_hash, v.manifest_json, v.core_markdown,
+			s.name AS registry_name, s.display_name AS registry_label, s.is_enabled, s.is_manual_invocable`).
+		Joins("JOIN agent_skills AS s ON s.id = v.skill_id").
+		Where("s.is_enabled = ?", true)
+	if len(versionIDs) > 0 {
+		query = query.Where("v.id IN ?", versionIDs)
 	}
-	var rows []row
-	if err := query.Order("s.priority DESC, s.id ASC").Limit(limit).Scan(&rows).Error; err != nil {
+	var rows []versionDocumentRow
+	query = query.Order("v.id ASC")
+	if len(versionIDs) == 0 {
+		query = query.Limit(limit)
+	}
+	if err := query.Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	docs := make([]embeddinginfra.AgentSkillEmbeddingDocument, 0, len(rows))
-	for _, item := range rows {
-		body := nullString(item.BodyMarkdown)
-		if strings.TrimSpace(body) == "" {
-			body = nullString(item.SkillMD)
+	out := make([]embeddinginfra.AgentSkillVersionEmbeddingDocument, 0, len(rows))
+	for _, row := range rows {
+		var manifest domainagentskill.Manifest
+		if err := json.Unmarshal([]byte(row.ManifestJSON), &manifest); err != nil {
+			return nil, fmt.Errorf("decode agent skill version %d manifest: %w", row.ID, err)
 		}
-		docs = append(docs, embeddinginfra.AgentSkillEmbeddingDocument{
-			ID:                   item.ID,
-			Name:                 item.Name,
-			DisplayName:          item.DisplayName,
-			Description:          nullString(item.Description),
-			AgentType:            item.AgentType,
-			Category:             item.Category,
-			Scenario:             item.Scenario,
-			Priority:             item.Priority,
-			RiskLevel:            item.RiskLevel,
-			TriggerKeywords:      jsonStringList(item.TriggerKeywords),
-			RequiredCapabilities: jsonStringList(item.RequiredCapabilities),
-			EvaluationCriteria:   jsonStringList(item.EvaluationCriteria),
-			SemanticTags:         jsonStringList(item.SemanticTags),
-			OutputSchema:         nullString(item.OutputSchema),
-			BodyMarkdown:         body,
-			Enabled:              item.IsEnabled,
+		out = append(out, embeddinginfra.AgentSkillVersionEmbeddingDocument{
+			ID:              row.ID,
+			SkillID:         row.SkillID,
+			Version:         row.Version,
+			CompiledHash:    row.CompiledHash,
+			Manifest:        manifest,
+			CoreMarkdown:    row.CoreMarkdown,
+			RegistryName:    row.RegistryName,
+			RegistryLabel:   row.RegistryLabel,
+			Enabled:         row.IsEnabled,
+			ManualInvocable: row.IsManualInvocable,
 		})
 	}
-	return docs, nil
+	return out, nil
+}
+
+func (s *NativeStore) LoadAgentSkillRuntimePackages(ctx context.Context, versionIDs []int64) ([]embeddinginfra.AgentSkillRuntimePackage, error) {
+	if s == nil || s.db == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	versionIDs = positiveInt64s(versionIDs)
+	if len(versionIDs) == 0 {
+		return []embeddinginfra.AgentSkillRuntimePackage{}, nil
+	}
+	type packageRow struct {
+		ID                  int64  `gorm:"column:id"`
+		SkillID             int64  `gorm:"column:skill_id"`
+		Version             string `gorm:"column:version"`
+		ManifestJSON        string `gorm:"column:manifest_json"`
+		CoreMarkdown        string `gorm:"column:core_markdown"`
+		CompiledMarkdown    string `gorm:"column:compiled_markdown"`
+		CompiledHash        string `gorm:"column:compiled_hash"`
+		CoreEstimatedTokens int    `gorm:"column:core_estimated_tokens"`
+		IsEnabled           bool   `gorm:"column:is_enabled"`
+		IsManualInvocable   bool   `gorm:"column:is_manual_invocable"`
+	}
+	var rows []packageRow
+	if err := s.db.WithContext(ctx).
+		Table("agent_skill_versions AS v").
+		Select(`v.id, v.skill_id, v.version, v.manifest_json, v.core_markdown,
+			v.compiled_markdown, v.compiled_hash, v.core_estimated_tokens,
+			s.is_enabled, s.is_manual_invocable`).
+		Joins("JOIN agent_skills AS s ON s.id = v.skill_id").
+		Where("v.id IN ?", versionIDs).
+		Order("v.id ASC").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	sectionsByVersion, err := s.loadAgentSkillVersionSections(ctx, versionIDs)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]embeddinginfra.AgentSkillRuntimePackage, 0, len(rows))
+	for _, row := range rows {
+		sections := sectionsByVersion[row.ID]
+		runtimeSections := make([]embeddinginfra.AgentSkillRuntimeSection, 0, len(sections))
+		for _, section := range sections {
+			triggerTerms, err := decodeStringList(section.TriggerTermsJSON)
+			if err != nil {
+				return nil, fmt.Errorf("decode agent skill section %d trigger terms: %w", section.ID, err)
+			}
+			semanticTags, err := decodeStringList(section.SemanticTagsJSON)
+			if err != nil {
+				return nil, fmt.Errorf("decode agent skill section %d semantic tags: %w", section.ID, err)
+			}
+			plannerIntents, err := decodeStringList(section.PlannerIntentsJSON)
+			if err != nil {
+				return nil, fmt.Errorf("decode agent skill section %d planner intents: %w", section.ID, err)
+			}
+			runtimeSections = append(runtimeSections, embeddinginfra.AgentSkillRuntimeSection{
+				ID:              section.ID,
+				SectionKey:      section.SectionKey,
+				Title:           section.Title,
+				Description:     nullString(section.Description),
+				ContentMarkdown: section.ContentMarkdown,
+				TriggerTerms:    triggerTerms,
+				SemanticTags:    semanticTags,
+				PlannerIntents:  plannerIntents,
+				Priority:        section.Priority,
+				Ordinal:         section.Ordinal,
+				EstimatedTokens: section.EstimatedTokens,
+				ContentHash:     section.ContentHash,
+			})
+		}
+		result = append(result, embeddinginfra.AgentSkillRuntimePackage{
+			ID:                  row.ID,
+			SkillID:             row.SkillID,
+			Version:             row.Version,
+			ManifestJSON:        row.ManifestJSON,
+			CoreMarkdown:        row.CoreMarkdown,
+			CompiledMarkdown:    row.CompiledMarkdown,
+			CompiledHash:        row.CompiledHash,
+			CoreEstimatedTokens: row.CoreEstimatedTokens,
+			Enabled:             row.IsEnabled,
+			ManualInvocable:     row.IsManualInvocable,
+			Sections:            runtimeSections,
+		})
+	}
+	return result, nil
+}
+
+func (s *NativeStore) ListAgentSkillSectionEmbeddingDocuments(ctx context.Context, sectionID int64, versionIDs []int64, limit int) ([]embeddinginfra.AgentSkillSectionEmbeddingDocument, error) {
+	if s == nil || s.db == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	type sectionDocumentRow struct {
+		ID                 int64          `gorm:"column:id"`
+		SkillID            int64          `gorm:"column:skill_id"`
+		VersionID          int64          `gorm:"column:version_id"`
+		Version            string         `gorm:"column:version"`
+		CompiledHash       string         `gorm:"column:compiled_hash"`
+		SectionKey         string         `gorm:"column:section_key"`
+		Title              string         `gorm:"column:title"`
+		Description        sql.NullString `gorm:"column:description"`
+		ContentMarkdown    string         `gorm:"column:content_markdown"`
+		TriggerTermsJSON   sql.NullString `gorm:"column:trigger_terms_json"`
+		SemanticTagsJSON   sql.NullString `gorm:"column:semantic_tags_json"`
+		PlannerIntentsJSON sql.NullString `gorm:"column:planner_intents_json"`
+		Priority           int            `gorm:"column:priority"`
+		EstimatedTokens    int            `gorm:"column:estimated_tokens"`
+		ContentHash        string         `gorm:"column:content_hash"`
+	}
+	query := s.db.WithContext(ctx).
+		Table("agent_skill_version_sections AS sec").
+		Select(`sec.id, v.skill_id, v.id AS version_id, v.version, v.compiled_hash,
+			sec.section_key, sec.title, sec.description, sec.content_markdown,
+			sec.trigger_terms_json, sec.semantic_tags_json, sec.planner_intents_json, sec.priority,
+			sec.estimated_tokens, sec.content_hash`).
+		Joins("JOIN agent_skill_versions AS v ON v.id = sec.skill_version_id").
+		Joins("JOIN agent_skills AS s ON s.id = v.skill_id").
+		Where("s.is_enabled = ?", true)
+	if sectionID > 0 {
+		query = query.Where("sec.id = ?", sectionID)
+	}
+	if versionIDs = positiveInt64s(versionIDs); len(versionIDs) > 0 {
+		query = query.Where("v.id IN ?", versionIDs)
+	}
+	var rows []sectionDocumentRow
+	if err := query.Order("v.id ASC, sec.ordinal ASC, sec.id ASC").Limit(limit).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]embeddinginfra.AgentSkillSectionEmbeddingDocument, 0, len(rows))
+	for _, row := range rows {
+		triggerTerms, err := decodeStringList(row.TriggerTermsJSON)
+		if err != nil {
+			return nil, fmt.Errorf("decode agent skill section %d trigger terms: %w", row.ID, err)
+		}
+		semanticTags, err := decodeStringList(row.SemanticTagsJSON)
+		if err != nil {
+			return nil, fmt.Errorf("decode agent skill section %d semantic tags: %w", row.ID, err)
+		}
+		plannerIntents, err := decodeStringList(row.PlannerIntentsJSON)
+		if err != nil {
+			return nil, fmt.Errorf("decode agent skill section %d planner intents: %w", row.ID, err)
+		}
+		out = append(out, embeddinginfra.AgentSkillSectionEmbeddingDocument{
+			ID:              row.ID,
+			SkillID:         row.SkillID,
+			VersionID:       row.VersionID,
+			Version:         row.Version,
+			CompiledHash:    row.CompiledHash,
+			SectionKey:      row.SectionKey,
+			Title:           row.Title,
+			Description:     nullString(row.Description),
+			ContentMarkdown: row.ContentMarkdown,
+			TriggerTerms:    triggerTerms,
+			SemanticTags:    semanticTags,
+			PlannerIntents:  plannerIntents,
+			Priority:        row.Priority,
+			EstimatedTokens: row.EstimatedTokens,
+			ContentHash:     row.ContentHash,
+		})
+	}
+	return out, nil
+}
+
+func decodeStringList(raw sql.NullString) ([]string, error) {
+	if !raw.Valid || strings.TrimSpace(raw.String) == "" {
+		return nil, nil
+	}
+	var values []string
+	if err := json.Unmarshal([]byte(raw.String), &values); err != nil {
+		return nil, err
+	}
+	return values, nil
+}
+
+func positiveInt64s(values []int64) []int64 {
+	seen := make(map[int64]struct{}, len(values))
+	out := make([]int64, 0, len(values))
+	for _, value := range values {
+		if value <= 0 {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
 }
 
 func (s *NativeStore) ListMemoryEmbeddingDocuments(ctx context.Context, objectID int64, limit int) ([]embeddinginfra.MemoryEmbeddingDocument, error) {
@@ -1154,8 +1356,67 @@ func (s *NativeStore) ListAIEmbeddings(ctx context.Context, objectType, modelNam
 		limit = 500
 	}
 	var rows []aiEmbeddingRecord
-	query := s.db.WithContext(ctx).Where("object_type = ? AND embedding_model = ? AND status = ?", strings.TrimSpace(objectType), strings.TrimSpace(modelName), "ready")
+	query := s.db.WithContext(ctx).
+		Where("tenant_id IS NULL").
+		Where("object_type = ? AND embedding_model = ? AND status = ?", strings.TrimSpace(objectType), strings.TrimSpace(modelName), "ready")
 	if err := query.Order("updated_at DESC, id DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]embeddinginfra.AIEmbeddingRecord, 0, len(rows))
+	for _, row := range rows {
+		var vector []float64
+		if row.VectorJSON.Valid {
+			_ = json.Unmarshal([]byte(row.VectorJSON.String), &vector)
+		}
+		var metadata map[string]any
+		if row.MetadataJSON.Valid {
+			_ = json.Unmarshal([]byte(row.MetadataJSON.String), &metadata)
+		}
+		out = append(out, embeddinginfra.AIEmbeddingRecord{
+			ObjectType:     row.ObjectType,
+			ObjectID:       row.ObjectID,
+			ScopeType:      row.ScopeType,
+			ScopeID:        row.ScopeID,
+			TextHash:       row.TextHash,
+			EmbeddingModel: row.EmbeddingModel,
+			EmbeddingDim:   row.EmbeddingDim,
+			Vector:         vector,
+			Metadata:       metadata,
+			Status:         row.Status,
+			LastError:      nullString(row.LastError),
+		})
+	}
+	return out, nil
+}
+
+func (s *NativeStore) ListAIEmbeddingsByScopeIDs(ctx context.Context, objectType, modelName, scopeType string, scopeIDs []int64, limit int) ([]embeddinginfra.AIEmbeddingRecord, error) {
+	if s == nil || s.db == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	scopeIDs = positiveInt64s(scopeIDs)
+	if len(scopeIDs) == 0 {
+		return []embeddinginfra.AIEmbeddingRecord{}, nil
+	}
+	scopedAll := limit <= 0
+	if limit > 1000 {
+		limit = 1000
+	}
+	var rows []aiEmbeddingRecord
+	query := s.db.WithContext(ctx).
+		Where("tenant_id IS NULL").
+		Where(
+			"object_type = ? AND embedding_model = ? AND scope_type = ? AND scope_id IN ? AND status = ?",
+			strings.TrimSpace(objectType),
+			strings.TrimSpace(modelName),
+			strings.TrimSpace(scopeType),
+			scopeIDs,
+			"ready",
+		)
+	query = query.Order("scope_id ASC, object_id ASC, id DESC")
+	if !scopedAll {
+		query = query.Limit(limit)
+	}
+	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	out := make([]embeddinginfra.AIEmbeddingRecord, 0, len(rows))

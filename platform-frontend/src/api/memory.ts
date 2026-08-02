@@ -12,6 +12,7 @@ export const listPlatformMemories = async (
 ): Promise<MemoryListResult> => {
   const res: any = await request.get('/api/v1/platform/ai/memories', {
     params: {
+      ...(params.tenant_id ? { tenant_id: params.tenant_id } : {}),
       owner_role: params.owner_role,
       owner_id: params.owner_id,
       page: params.page ?? 1,

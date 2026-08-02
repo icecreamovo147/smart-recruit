@@ -3,8 +3,6 @@ package profile
 import (
 	"strings"
 	"testing"
-
-	"smart-recruit-proto/recruitment/pb"
 )
 
 func TestEvaluateResumeFillRefresh(t *testing.T) {
@@ -151,8 +149,8 @@ func TestBuildProfileFillDiffsEducationsEnrich(t *testing.T) {
 	bundle := Bundle{
 		Educations: []EducationInput{{School: "三峡大学", Degree: "本科"}},
 	}
-	draft := &pb.CandidateProfile{
-		Educations: []*pb.CandidateEducationInfo{
+	draft := ProfileFillDraft{
+		Educations: []EducationInput{
 			{School: "三峡大学", Degree: "本科", Major: "计算机", StartDate: "2020-09-01", EndDate: "2024-06-01"},
 			{School: "中国地质大学（武汉）", Degree: "硕士", Major: "电子信息", StartDate: "2024-09-01", EndDate: "2027-06-01"},
 		},
@@ -161,13 +159,12 @@ func TestBuildProfileFillDiffsEducationsEnrich(t *testing.T) {
 	assertDiffAction(t, diffs, "educations", FillActionFill)
 }
 
-
-func assertDiffAction(t *testing.T, diffs []*pb.ProfileFillFieldDiff, field, action string) {
+func assertDiffAction(t *testing.T, diffs []ProfileFillFieldDiff, field, action string) {
 	t.Helper()
 	for _, diff := range diffs {
-		if diff.GetField() == field {
-			if diff.GetAction() != action {
-				t.Fatalf("field %s action = %q, want %q", field, diff.GetAction(), action)
+		if diff.Field == field {
+			if diff.Action != action {
+				t.Fatalf("field %s action = %q, want %q", field, diff.Action, action)
 			}
 			return
 		}

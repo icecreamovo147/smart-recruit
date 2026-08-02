@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"smart-recruit-proto/recruitment/pb"
 )
 
 const (
@@ -15,12 +13,32 @@ const (
 	FillActionUnsupported = "unsupported"
 )
 
+// ProfileFillDraft is the transport-independent profile data proposed by resume parsing.
+type ProfileFillDraft struct {
+	RealName          string
+	Phone             string
+	City              string
+	ExpectedPosition  string
+	Summary           string
+	YearsOfExperience float64
+	Skills            []string
+	Educations        []EducationInput
+	Experiences       []ExperienceInput
+}
+
+// ProfileFillFieldDiff describes one merge decision without binding the domain
+// package to a transport schema.
+type ProfileFillFieldDiff struct {
+	Field  string
+	Label  string
+	Action string
+	Before string
+	After  string
+}
+
 // BuildProfileFillDiffs compares existing profile with draft under merge rules.
-func BuildProfileFillDiffs(existing Bundle, draft *pb.CandidateProfile, overwrite bool, projectCount int) []*pb.ProfileFillFieldDiff {
-	if draft == nil {
-		draft = &pb.CandidateProfile{}
-	}
-	diffs := make([]*pb.ProfileFillFieldDiff, 0, 16)
+func BuildProfileFillDiffs(existing Bundle, draft ProfileFillDraft, overwrite bool, projectCount int) []ProfileFillFieldDiff {
+	diffs := make([]ProfileFillFieldDiff, 0, 16)
 	addString := func(field, label, before, after string) {
 		after = strings.TrimSpace(after)
 		before = strings.TrimSpace(before)
@@ -40,7 +58,7 @@ func BuildProfileFillDiffs(existing Bundle, draft *pb.CandidateProfile, overwrit
 		default:
 			action = FillActionSkip
 		}
-		diffs = append(diffs, &pb.ProfileFillFieldDiff{
+		diffs = append(diffs, ProfileFillFieldDiff{
 			Field: field, Label: label, Action: action, Before: before, After: after,
 		})
 	}
@@ -63,7 +81,7 @@ func BuildProfileFillDiffs(existing Bundle, draft *pb.CandidateProfile, overwrit
 		} else if overwrite && before != after {
 			action = FillActionOverwrite
 		}
-		diffs = append(diffs, &pb.ProfileFillFieldDiff{
+		diffs = append(diffs, ProfileFillFieldDiff{
 			Field: "years_of_experience", Label: "工作年限", Action: action, Before: before, After: after,
 		})
 	}
@@ -71,8 +89,7 @@ func BuildProfileFillDiffs(existing Bundle, draft *pb.CandidateProfile, overwrit
 	skillsAfter := strings.Join(draft.Skills, ",")
 	addString("skills", "核心技能", existing.Profile.Skills, skillsAfter)
 
-	eduDraft := EducationsFromPB(draft.Educations)
-	eduMerged := MergeEducations(existing.Educations, eduDraft, overwrite)
+	eduMerged := MergeEducations(existing.Educations, draft.Educations, overwrite)
 	eduBefore := summarizeEducations(existing.Educations)
 	eduAfter := summarizeEducations(eduMerged)
 	if eduAfter != "" && eduAfter != eduBefore {
@@ -80,13 +97,12 @@ func BuildProfileFillDiffs(existing Bundle, draft *pb.CandidateProfile, overwrit
 		if overwrite && len(existing.Educations) > 0 {
 			action = FillActionOverwrite
 		}
-		diffs = append(diffs, &pb.ProfileFillFieldDiff{
+		diffs = append(diffs, ProfileFillFieldDiff{
 			Field: "educations", Label: "教育经历", Action: action, Before: eduBefore, After: eduAfter,
 		})
 	}
 
-	expDraft := ExperiencesFromPB(draft.Experiences)
-	expMerged := MergeExperiences(existing.Experiences, expDraft, overwrite)
+	expMerged := MergeExperiences(existing.Experiences, draft.Experiences, overwrite)
 	expBefore := summarizeExperiences(existing.Experiences)
 	expAfter := summarizeExperiences(expMerged)
 	if expAfter != "" && expAfter != expBefore {
@@ -94,13 +110,13 @@ func BuildProfileFillDiffs(existing Bundle, draft *pb.CandidateProfile, overwrit
 		if overwrite && len(existing.Experiences) > 0 {
 			action = FillActionOverwrite
 		}
-		diffs = append(diffs, &pb.ProfileFillFieldDiff{
+		diffs = append(diffs, ProfileFillFieldDiff{
 			Field: "experiences", Label: "工作经历", Action: action, Before: expBefore, After: expAfter,
 		})
 	}
 
 	if projectCount > 0 {
-		diffs = append(diffs, &pb.ProfileFillFieldDiff{
+		diffs = append(diffs, ProfileFillFieldDiff{
 			Field:  "projects",
 			Label:  "项目经历",
 			Action: FillActionUnsupported,
@@ -137,10 +153,6 @@ func summarizeEducations(items []EducationInput) string {
 	return strings.Join(parts, "；")
 }
 
-func summarizeEducationsPB(items []*pb.CandidateEducationInfo) string {
-	return summarizeEducations(EducationsFromPB(items))
-}
-
 func summarizeExperiences(items []ExperienceInput) string {
 	if len(items) == 0 {
 		return ""
@@ -162,41 +174,6 @@ func summarizeExperiences(items []ExperienceInput) string {
 		}
 	}
 	return strings.Join(parts, "；")
-}
-
-func summarizeExperiencesPB(items []*pb.CandidateExperienceInfo) string {
-	return summarizeExperiences(ExperiencesFromPB(items))
-}
-
-// EducationsFromPB converts protobuf education rows into domain inputs.
-func EducationsFromPB(items []*pb.CandidateEducationInfo) []EducationInput {
-	out := make([]EducationInput, 0, len(items))
-	for _, item := range items {
-		if item == nil {
-			continue
-		}
-		out = append(out, EducationInput{
-			School: item.School, Degree: item.Degree, Major: item.Major,
-			StartDate: item.StartDate, EndDate: item.EndDate, Description: item.Description, SortOrder: item.SortOrder,
-		})
-	}
-	return out
-}
-
-// ExperiencesFromPB converts protobuf experience rows into domain inputs.
-func ExperiencesFromPB(items []*pb.CandidateExperienceInfo) []ExperienceInput {
-	out := make([]ExperienceInput, 0, len(items))
-	for _, item := range items {
-		if item == nil {
-			continue
-		}
-		out = append(out, ExperienceInput{
-			Company: item.Company, Title: item.Title, Location: item.Location,
-			StartDate: item.StartDate, EndDate: item.EndDate, IsCurrent: item.IsCurrent,
-			Description: item.Description, SortOrder: item.SortOrder,
-		})
-	}
-	return out
 }
 
 func trimFloat(value float64) string {

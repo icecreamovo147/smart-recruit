@@ -6,8 +6,6 @@ import (
 	"errors"
 	"testing"
 
-	gogrpc "google.golang.org/grpc"
-
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -19,7 +17,7 @@ type fakeJobClient struct {
 	detailID   int64
 }
 
-func (f *fakeJobClient) ListHRJobs(context.Context, *pb.ListHRJobsRequest, ...gogrpc.CallOption) (*pb.ListJobsResponse, error) {
+func (f *fakeJobClient) ListHRJobs(context.Context, *pb.ListHRJobsRequest) (*pb.ListJobsResponse, error) {
 	f.listCalls++
 	if f.listResp != nil {
 		return f.listResp, nil
@@ -27,7 +25,7 @@ func (f *fakeJobClient) ListHRJobs(context.Context, *pb.ListHRJobsRequest, ...go
 	return &pb.ListJobsResponse{Code: errs.OK}, nil
 }
 
-func (f *fakeJobClient) GetJobDetail(_ context.Context, req *pb.GetJobDetailRequest, _ ...gogrpc.CallOption) (*pb.GetJobDetailResponse, error) {
+func (f *fakeJobClient) GetJobDetail(_ context.Context, req *pb.GetJobDetailRequest) (*pb.GetJobDetailResponse, error) {
 	f.detailID = req.GetJobId()
 	if f.detailResp != nil {
 		return f.detailResp, nil

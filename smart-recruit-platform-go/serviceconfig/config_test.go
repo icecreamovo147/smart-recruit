@@ -19,6 +19,8 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("AGENT_FEATURE_PLANNER", "false")
 	t.Setenv("AGENT_FEATURE_CANDIDATE_MATCH_SEMANTIC", "false")
 	t.Setenv("AGENT_FEATURE_CANDIDATE_MATCH_SHADOW", "true")
+	t.Setenv("AGENT_FEATURE_SKILL_PACKAGE_V2", "true")
+	t.Setenv("AGENT_FEATURE_AGENT_SKILL_JUDGE", "true")
 	t.Setenv("AGENT_FEATURE_SEMANTIC_RETRIEVAL", "false")
 	t.Setenv("AGENT_RESUME_PARSE_TIMEOUT", "7s")
 	t.Setenv("AGENT_CANDIDATE_MATCH_TIMEOUT", "8s")
@@ -64,6 +66,12 @@ func TestApplyEnvOverrides(t *testing.T) {
 	if cfg.Agent.Features.CandidateMatchShadow == nil || !*cfg.Agent.Features.CandidateMatchShadow {
 		t.Fatalf("expected candidate match shadow feature override true, got %v", cfg.Agent.Features.CandidateMatchShadow)
 	}
+	if cfg.Agent.Features.SkillPackageV2 == nil || !*cfg.Agent.Features.SkillPackageV2 {
+		t.Fatalf("expected Agent Skill Package v2 feature override true, got %v", cfg.Agent.Features.SkillPackageV2)
+	}
+	if cfg.Agent.Features.AgentSkillJudge == nil || !*cfg.Agent.Features.AgentSkillJudge {
+		t.Fatalf("expected Agent Skill judge feature override true, got %v", cfg.Agent.Features.AgentSkillJudge)
+	}
 	if cfg.Agent.Features.SemanticRetrieval == nil || *cfg.Agent.Features.SemanticRetrieval {
 		t.Fatalf("expected semantic retrieval feature override false, got %v", cfg.Agent.Features.SemanticRetrieval)
 	}
@@ -86,6 +94,17 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 	if cfg.MCP.BlockPrivateNetwork == nil || *cfg.MCP.BlockPrivateNetwork {
 		t.Fatalf("expected mcp block private network false, got %v", cfg.MCP.BlockPrivateNetwork)
+	}
+}
+
+func TestAgentSkillPackageFeaturesDefaultDisabled(t *testing.T) {
+	cfg := Config{}
+	applyAgentFeatureDefaults(&cfg)
+	if cfg.Agent.Features.SkillPackageV2 == nil || *cfg.Agent.Features.SkillPackageV2 {
+		t.Fatalf("skill_package_v2 default = %v, want false", cfg.Agent.Features.SkillPackageV2)
+	}
+	if cfg.Agent.Features.AgentSkillJudge == nil || *cfg.Agent.Features.AgentSkillJudge {
+		t.Fatalf("agent_skill_judge default = %v, want false", cfg.Agent.Features.AgentSkillJudge)
 	}
 }
 

@@ -24,6 +24,7 @@ export interface MemoryInfo {
 }
 
 export interface MemoryListParams {
+  tenant_id?: number
   owner_role?: number
   owner_id?: number
   scope_type?: string
@@ -40,6 +41,7 @@ export interface MemoryListResult {
 }
 
 export interface CreateMemoryPayload {
+  tenant_id?: number
   owner_role?: number
   owner_id?: number
   scope_type: string
@@ -54,6 +56,7 @@ export interface CreateMemoryPayload {
 }
 
 export interface RevokeMemoryPayload {
+  tenant_id?: number
   owner_role?: number
   owner_id?: number
   revoke_reason?: string

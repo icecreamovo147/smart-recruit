@@ -18,6 +18,7 @@ Read this file after `AGENTS.md`, the active feature contract, and `.knowledge/R
 | Agent runtime | `architecture/agent-runtime.md` |
 | AI platform governance | `domains/ai-configuration-governance.md`, `domains/mcp-tool-governance.md`, `runbooks/debug-ai-configuration.md`, `pitfalls/mcp-policy-audit.md` |
 | Skill, Memory, or Embedding | `architecture/semantic-retrieval.md`, `domains/agent-skill.md`, `domains/memory-and-context.md`, `domains/ai-configuration-governance.md` |
+| Agent Skill embedding generation and publication readiness | `domains/agent-skill.md`, `architecture/semantic-retrieval.md`, `domains/ai-configuration-governance.md`, `runbooks/debug-ai-configuration.md`, `domains/notification-outbox.md`, `runbooks/event-replay-dead-letter.md` |
 | Recruitment workflows | `domains/recruitment.md`, `domains/recruitment-lifecycle.md`, `runbooks/debug-recruitment-lifecycle.md` |
 | Notification and outbox | `domains/notification-outbox.md`, `pitfalls/status-notification-drift.md` |
 | Event replay and dead-letter repair | `runbooks/event-replay-dead-letter.md`, `domains/notification-outbox.md` |
@@ -29,6 +30,7 @@ Read this file after `AGENTS.md`, the active feature contract, and `.knowledge/R
 | Embedding fallback | `pitfalls/embedding-fallback.md` |
 | HR admin pages | `pitfalls/frontend-menu-consistency.md` |
 | Agent workflow and knowledge protocol | `runbooks/knowledge-coverage-audit.md` |
+| Historical Agent Orchestrator lifecycle | `runbooks/knowledge-coverage-audit.md` |
 | Knowledge coverage maintenance | `runbooks/knowledge-coverage-audit.md` |
 
 Some routed documents are created by later TASKs. Until a path exists, use the current code, active `.spec` contract, and tests as the authority.

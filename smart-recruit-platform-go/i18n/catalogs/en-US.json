@@ -22,6 +22,7 @@
   "ai.too_many_requests": "AI requests are too frequent. Please try again later.",
   "ai.stream_failed": "The AI streaming request failed.",
   "ai.stream_timeout": "The AI service timed out. Please try again later.",
+  "ai.model_fallback": "The requested model is unavailable. Switched automatically to {model}.",
   "ai.connection_interrupted": "The AI service connection was interrupted. Please try again later.",
   "ai.invalid_response": "The AI service returned an invalid response.",
   "ai.stream_unavailable": "The AI streaming response is unavailable.",
@@ -31,6 +32,13 @@
   "ai.context_config_invalid": "The AI context configuration is invalid.",
   "ai.context_budget_exceeded": "The AI context exceeds the model capacity.",
   "ai.provider_unavailable": "The AI model provider is currently unavailable.",
+  "ai.agent_skill_package_invalid": "The Agent Skill package is invalid. Check it and try again.",
+  "ai.agent_skill_core_budget_exceeded": "The Agent Skill core instructions exceed the context budget.",
+  "ai.agent_skill_section_invalid": "An Agent Skill reference section is invalid. Check it and try again.",
+  "ai.agent_skill_composition_conflict": "The Agent Skill composition roles conflict. Adjust them and try again.",
+  "ai.agent_skill_confirmation_required": "Confirm whether to enable the recommended Agent Skill for this request.",
+  "ai.agent_skill_confirmation_expired": "The Agent Skill confirmation has expired. Start a new request.",
+  "ai.agent_skill_strict_output_unsupported": "This request cannot use the Agent Skill strict structured-output contract.",
   "ai.event.completed": "Processing completed.",
   "ai.event.planning": "Planning the recruiting context.",
   "ai.event.evidence_gate_blocked": "Model generation was blocked because live-data evidence was insufficient.",
@@ -93,5 +101,6 @@
   "frontend.save_failed": "Failed to save",
   "frontend.delete_failed": "Failed to delete",
   "frontend.copy_failed": "Failed to copy",
-  "frontend.subscribe_failed": "Subscription failed"
+  "frontend.subscribe_failed": "Subscription failed",
+  "platform.plan_capability_release_required": "Select a published capability version for {capability}"
 }

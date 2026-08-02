@@ -26,10 +26,32 @@ func ConfigFromService(cfg logicconfig.Config) Config {
 		InjectEnabled:    boolOrDefault(cfg.Agent.Memory.InjectEnabled, true),
 		MaxMemories:      cfg.Agent.MaxMemories,
 		MaxMemoryChars:   cfg.Agent.MaxMemoryChars,
-		Ranking:          domainmemory.RankingConfigFromService(cfg.Ranking),
+		Ranking:          rankingConfigFromService(cfg.Ranking),
 		CleanupInterval:  cfg.Agent.Memory.CleanupInterval.Duration,
 		CleanupTimeout:   cfg.Agent.Memory.CleanupTimeout.Duration,
 		RevokedRetention: cfg.Agent.Memory.RevokedRetention.Duration,
+	}
+}
+
+func rankingConfigFromService(cfg logicconfig.Ranking) domainmemory.RankingConfig {
+	out := domainmemory.DefaultRankingConfig()
+	applyPositiveRankingFloat(&out.WeightVector, cfg.WeightVector)
+	applyPositiveRankingFloat(&out.WeightLexical, cfg.WeightLexical)
+	applyPositiveRankingFloat(&out.WeightMetadata, cfg.WeightMetadata)
+	applyPositiveRankingFloat(&out.BusinessBoostMax, cfg.BusinessBoostMax)
+	applyPositiveRankingFloat(&out.PriorityNorm, cfg.PriorityNorm)
+	applyPositiveRankingFloat(&out.BoostAlpha, cfg.BoostAlpha)
+	applyPositiveRankingFloat(&out.BoostBeta, cfg.BoostBeta)
+	applyPositiveRankingFloat(&out.BoostGamma, cfg.BoostGamma)
+	applyPositiveRankingFloat(&out.RelevanceGate, cfg.RelevanceGate)
+	applyPositiveRankingFloat(&out.GapHigh, cfg.GapHigh)
+	applyPositiveRankingFloat(&out.GapMedium, cfg.GapMedium)
+	return out
+}
+
+func applyPositiveRankingFloat(target *float64, value float64) {
+	if value > 0 {
+		*target = value
 	}
 }
 

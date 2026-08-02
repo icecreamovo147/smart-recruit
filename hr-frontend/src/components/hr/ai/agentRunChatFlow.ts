@@ -39,6 +39,65 @@ export interface DurableChatUiBinder {
 
 export const insufficientCreditsMessage = 'AI 套餐额度不足，请购买套餐或加量包后重试'
 
+export function streamTimeoutMessage(): string {
+  return t('ai.stream_timeout')
+}
+
+export function modelFallbackMessage(effectiveModelName: string): string {
+  return t('ai.model_fallback', { model: effectiveModelName.trim() })
+}
+
+export function hasPendingRunConfirmation(
+  runStatus: string,
+  messages: Array<{
+    agentSkillSelection?: { required?: boolean }
+    skillSelectionRequest?: unknown
+  }>,
+): boolean {
+  return runStatus === 'waiting_confirmation'
+    || messages.some((message) =>
+      Boolean(message.agentSkillSelection?.required && message.skillSelectionRequest),
+    )
+}
+
+export function isMCPConfirmationExpired(
+  confirmationPayloadJSON: string | undefined,
+  nowMs = Date.now(),
+): boolean {
+  if (!confirmationPayloadJSON) return false
+  try {
+    const payload = JSON.parse(confirmationPayloadJSON) as Record<string, unknown>
+    if (payload.type !== 'mcp_tool' || typeof payload.expires_at !== 'string') return false
+    const expiresAt = Date.parse(payload.expires_at)
+    return Number.isFinite(expiresAt) && expiresAt <= nowMs
+  } catch {
+    return false
+  }
+}
+
+export function isAgentSkillConfirmationExpired(
+  expiresAt: string | undefined,
+  nowMs = Date.now(),
+): boolean {
+  if (!expiresAt) return false
+  const parsed = Date.parse(expiresAt)
+  return Number.isFinite(parsed) && parsed <= nowMs
+}
+
+export async function cancelPendingAgentRun(
+  runtime: UseHrAgentRunReturn,
+  expectedRunId: number,
+  clientRequestId = createClientRequestId(),
+): Promise<HrAgentRunState> {
+  if (!Number.isFinite(expectedRunId) || expectedRunId <= 0) {
+    throw new Error(t('common.invalid_request'))
+  }
+  if (runtime.state.value.runId !== expectedRunId) {
+    await runtime.hydrateFromRunId(expectedRunId, { autoSubscribe: false })
+  }
+  return runtime.cancel({ client_request_id: clientRequestId })
+}
+
 export function friendlyDurableRunErrorMessage(errorType = '', errorMessage = ''): string {
   const combined = `${errorType} ${errorMessage}`.toLowerCase()
   if (combined.includes('insufficient_credits')) {
@@ -54,113 +113,180 @@ export function createClientRequestId(): string {
   return `hars-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
 }
 
+const skillRiskLevels = new Set(['low', 'medium', 'high', 'critical'])
+const skillActivationPolicies = new Set(['auto', 'confirm', 'manual_only'])
+const skillCompositionRoles = new Set(['primary', 'supporting'])
+
+function positiveInteger(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : 0
+}
+
+function exactPositiveIntegerList(value: unknown): number[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null
+  const exact: number[] = []
+  const seen = new Set<number>()
+  for (const item of value) {
+    if (typeof item !== 'number' || !Number.isInteger(item) || item <= 0 || seen.has(item)) {
+      return null
+    }
+    seen.add(item)
+    exact.push(item)
+  }
+  return exact
+}
+
 function asSkillCandidates(list: AgentRunSkillCandidate[] | undefined): AgentSkillSelectionCandidate[] {
   if (!Array.isArray(list)) return []
-  return list.map((candidate) => ({
-    id: Number(candidate.id) || 0,
-    name: candidate.name || '',
-    display_name: candidate.display_name || candidate.name || '',
-    reason: candidate.reason || '',
-    score: Number(candidate.score) || 0,
-    priority: Number(candidate.priority) || 0,
-    category: candidate.category || '',
-    scenario: candidate.scenario || '',
-    risk_level: candidate.risk_level || '',
-    recommended: Boolean(candidate.recommended),
-    vector_score: Number(candidate.vector_score) || 0,
-    lexical_score: Number(candidate.lexical_score) || 0,
-    metadata_score: Number(candidate.metadata_score) || 0,
-    relevance_score: Number(candidate.relevance_score) || 0,
-    business_boost: Number(candidate.business_boost) || 0,
-    final_rank_score: Number(candidate.final_rank_score) || 0,
-    relevance_mode: candidate.relevance_mode || '',
-    pool_rank: Number(candidate.pool_rank) || 0,
-    ranking_confidence: candidate.ranking_confidence || '',
-  }))
+  return list
+    .map((candidate) => {
+      const skillId = positiveInteger(candidate.skill_id)
+      const versionId = positiveInteger(candidate.version_id)
+      const version = typeof candidate.version === 'string' ? candidate.version.trim() : ''
+      const compiledHash = typeof candidate.compiled_hash === 'string' ? candidate.compiled_hash.trim() : ''
+      const name = typeof candidate.name === 'string' ? candidate.name.trim() : ''
+      const displayName = typeof candidate.display_name === 'string' ? candidate.display_name.trim() : ''
+      const risk = candidate.risk
+      const activationPolicy = candidate.activation_policy
+      const compositionRole = candidate.composition_role
+      const coreEstimatedTokens = candidate.core_estimated_tokens
+      if (
+        !skillId
+        || !versionId
+        || !version
+        || !compiledHash
+        || (!name && !displayName)
+        || !skillRiskLevels.has(risk)
+        || !skillActivationPolicies.has(activationPolicy)
+        || !skillCompositionRoles.has(compositionRole)
+        || typeof coreEstimatedTokens !== 'number'
+        || !Number.isFinite(coreEstimatedTokens)
+        || coreEstimatedTokens < 0
+        || candidate.recommended !== true
+      ) {
+        return null
+      }
+      return {
+        skill_id: skillId,
+        version_id: versionId,
+        version,
+        compiled_hash: compiledHash,
+        name,
+        display_name: displayName || name,
+        reason: String(candidate.reason || ''),
+        score: Number(candidate.score) || 0,
+        priority: Number(candidate.priority) || 0,
+        category: String(candidate.category || ''),
+        scenario: String(candidate.scenario || ''),
+        composition_role: compositionRole,
+        risk,
+        activation_policy: activationPolicy,
+        core_estimated_tokens: coreEstimatedTokens,
+        recommended: true,
+        vector_score: Number(candidate.vector_score) || 0,
+        lexical_score: Number(candidate.lexical_score) || 0,
+        metadata_score: Number(candidate.metadata_score) || 0,
+        relevance_score: Number(candidate.relevance_score) || 0,
+        business_boost: Number(candidate.business_boost) || 0,
+        final_rank_score: Number(candidate.final_rank_score) || 0,
+        relevance_mode: String(candidate.relevance_mode || ''),
+        pool_rank: Number(candidate.pool_rank) || 0,
+        ranking_confidence: String(candidate.ranking_confidence || ''),
+      } as AgentSkillSelectionCandidate
+    })
+    .filter((candidate): candidate is AgentSkillSelectionCandidate => Boolean(candidate))
 }
 
 /**
- * Normalize durable confirmation payloads into the existing skill-selection UI shape.
- * Backend may nest selection under `agent_skill_selection` inside raw JSON.
+ * Normalize durable confirmation payloads into the governed Package v2 UI shape.
+ * Agent Skill confirmation uses typed fields. MCP remains an independent opaque payload.
  */
 export function toAgentSkillSelectionPayload(
   confirmation: AgentRunConfirmation | null | undefined,
 ): AgentSkillSelectionPayload | null {
   if (!confirmation) return null
 
-  const fromNested = (raw: unknown): AgentSkillSelectionPayload | null => {
-    if (!raw || typeof raw !== 'object') return null
-    const obj = raw as Record<string, unknown>
-    const nested = (obj.agent_skill_selection || obj) as Record<string, unknown>
-    const candidates = asSkillCandidates(
-      (nested.candidates || obj.candidates) as AgentRunSkillCandidate[] | undefined,
-    )
-    if (candidates.length === 0 && !obj.required && !nested.required) {
-      return null
-    }
-    const recommended =
-      (nested.recommended_agent_skill_ids as number[] | undefined) ||
-      (obj.recommended_agent_skill_ids as number[] | undefined) ||
-      []
-    const userMessageId =
-      Number(nested.user_message_id ?? obj.user_message_id) || undefined
-    return {
-      required: Boolean(nested.required ?? obj.required ?? true),
-      reason: String(nested.reason || obj.reason || '请确认本次要调用的 Skill'),
-      candidates,
-      recommended_agent_skill_ids: recommended.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
-      ...(userMessageId ? { user_message_id: userMessageId } : {}),
-    }
-  }
-
-  if (confirmation.candidates && confirmation.candidates.length > 0) {
+  const cancelOnlyAgentSkillPayload = (): AgentSkillSelectionPayload => {
+    const confirmationId = String(confirmation.agent_skill_confirmation_id || '').trim()
     return {
       required: confirmation.required ?? true,
-      reason: confirmation.reason || '请确认本次要调用的 Skill',
-      candidates: asSkillCandidates(confirmation.candidates),
-      recommended_agent_skill_ids: (confirmation.recommended_agent_skill_ids || [])
-        .map((id) => Number(id))
-        .filter((id) => Number.isFinite(id)),
-      ...(confirmation.user_message_id
-        ? { user_message_id: Number(confirmation.user_message_id) }
+      reason: confirmation.reason || 'Agent Skill 确认信息不完整',
+      candidates: [],
+      confirmation_kind: 'agent_skill',
+      recommended_agent_skill_version_ids: [],
+      ...(confirmationId ? { confirmation_id: confirmationId } : {}),
+      ...(confirmation.agent_skill_confirmation_expires_at
+        ? { expires_at: confirmation.agent_skill_confirmation_expires_at }
         : {}),
     }
   }
 
-  const loose = confirmation as AgentRunConfirmation & {
-    agent_skill_selection?: unknown
-  }
-  if (loose.agent_skill_selection) {
-    const mapped = fromNested({
-      ...loose,
-      agent_skill_selection: loose.agent_skill_selection,
-    })
-    if (mapped) return mapped
+  if (confirmation.candidates && confirmation.candidates.length > 0) {
+    const candidates = asSkillCandidates(confirmation.candidates)
+    const confirmationId = String(confirmation.agent_skill_confirmation_id || '').trim()
+    const recommendedVersionIDs = exactPositiveIntegerList(
+      confirmation.recommended_agent_skill_version_ids,
+    )
+    const candidateVersionIDs = candidates.map((candidate) => candidate.version_id)
+    const candidateVersionIDSet = new Set(candidateVersionIDs)
+    if (
+      !confirmationId
+      || !recommendedVersionIDs
+      || candidates.length !== confirmation.candidates.length
+      || candidateVersionIDSet.size !== candidateVersionIDs.length
+      || candidateVersionIDs.length !== recommendedVersionIDs.length
+      || recommendedVersionIDs.some((versionID) => !candidateVersionIDSet.has(versionID))
+    ) {
+      return cancelOnlyAgentSkillPayload()
+    }
+    return {
+      required: confirmation.required ?? true,
+      reason: confirmation.reason || '请确认启用本次 Agent Skill',
+      candidates,
+      confirmation_kind: 'agent_skill',
+      confirmation_id: confirmationId,
+      recommended_agent_skill_version_ids: recommendedVersionIDs,
+      ...(confirmation.agent_skill_confirmation_expires_at
+        ? { expires_at: confirmation.agent_skill_confirmation_expires_at }
+        : {}),
+    }
   }
 
   if (confirmation.raw_json) {
     try {
       const parsed = JSON.parse(confirmation.raw_json) as unknown
-      const mapped = fromNested(parsed)
-      if (mapped) return mapped
+      if (parsed && typeof parsed === 'object') {
+        const mcp = parsed as Record<string, unknown>
+        if (
+          mcp.type === 'mcp_tool' &&
+          typeof mcp.confirmation_id === 'string' &&
+          typeof mcp.capability_key === 'string' &&
+          typeof mcp.arguments_hash === 'string'
+        ) {
+          return {
+            required: true,
+            reason: confirmation.reason || `请确认执行 MCP 能力 ${mcp.capability_key}`,
+            candidates: [],
+            confirmation_kind: 'mcp_tool',
+            recommended_agent_skill_version_ids: [],
+            confirmation_payload_json: JSON.stringify({
+              type: 'mcp_tool',
+              confirmation_id: mcp.confirmation_id,
+              capability_key: mcp.capability_key,
+              arguments_hash: mcp.arguments_hash,
+              ...(typeof mcp.expires_at === 'string' ? { expires_at: mcp.expires_at } : {}),
+              approved: true,
+            }),
+          }
+        }
+      }
     } catch {
       // fall through
     }
   }
 
-  // Minimal parking signal without candidate cards.
+  // Preserve a cancel path for a malformed or partially restored confirmation.
   if (confirmation.required || confirmation.reason) {
-    return {
-      required: confirmation.required ?? true,
-      reason: confirmation.reason || '请确认本次要调用的 Skill',
-      candidates: [],
-      recommended_agent_skill_ids: (confirmation.recommended_agent_skill_ids || [])
-        .map((id) => Number(id))
-        .filter((id) => Number.isFinite(id)),
-      ...(confirmation.user_message_id
-        ? { user_message_id: Number(confirmation.user_message_id) }
-        : {}),
-    }
+    return cancelOnlyAgentSkillPayload()
   }
 
   return null
@@ -336,8 +462,6 @@ export async function executeConfirmChatRun(
     const request: ConfirmAgentRunRequest = {
       ...payload,
       client_request_id: payload.client_request_id || createClientRequestId(),
-      agent_skill_selection_confirmed:
-        payload.agent_skill_selection_confirmed !== false,
     }
     const confirmed = await runtime.confirm(request)
     if (opts.isAborted()) {

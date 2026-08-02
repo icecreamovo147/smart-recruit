@@ -10,9 +10,9 @@ import (
 
 	"gorm.io/gorm"
 
+	"smart-recruit-proto/recruitment/pb"
 	"smart-recruit-recruitment-service/internal/domain/model"
 	profilepkg "smart-recruit-recruitment-service/internal/domain/profile"
-	"smart-recruit-proto/recruitment/pb"
 )
 
 type candidateEducationRecord struct {
@@ -203,9 +203,9 @@ func (s *nativeStore) backfillLegacyStructuredRows(ctx context.Context, userID i
 	}
 	if eduCount == 0 && strings.TrimSpace(profile.School) != "" {
 		if err := s.db.WithContext(ctx).Create(&candidateEducationRecord{
-			UserID: userID,
-			School: strings.TrimSpace(profile.School),
-			Degree: nullableSQLString(profile.Education),
+			UserID:    userID,
+			School:    strings.TrimSpace(profile.School),
+			Degree:    nullableSQLString(profile.Education),
 			SortOrder: 0,
 		}).Error; err != nil {
 			return err
@@ -387,14 +387,75 @@ func (s *nativeStore) buildFillDraftFromResumeProfile(ctx context.Context, userI
 	if err != nil {
 		return nil, err
 	}
-	diffs := profilepkg.BuildProfileFillDiffs(existing, draft, overwrite, int(projectCount))
+	diffs := profilepkg.BuildProfileFillDiffs(existing, profileFillDraftFromPB(draft), overwrite, int(projectCount))
 	return &pb.ProfileFillDraft{
 		Draft:         draft,
 		RefreshReason: profilepkg.RefreshReasonReused,
-		FieldDiffs:    diffs,
+		FieldDiffs:    profileFillDiffsToPB(diffs),
 		Warnings:      uniqueStrings(warnings),
 		ResumeId:      resume.ID,
 	}, nil
+}
+
+func profileFillDraftFromPB(draft *pb.CandidateProfile) profilepkg.ProfileFillDraft {
+	if draft == nil {
+		return profilepkg.ProfileFillDraft{}
+	}
+	out := profilepkg.ProfileFillDraft{
+		RealName:          draft.GetRealName(),
+		Phone:             draft.GetPhone(),
+		City:              draft.GetCity(),
+		ExpectedPosition:  draft.GetExpectedPosition(),
+		Summary:           draft.GetSummary(),
+		YearsOfExperience: draft.GetYearsOfExperience(),
+		Skills:            append([]string(nil), draft.GetSkills()...),
+		Educations:        make([]profilepkg.EducationInput, 0, len(draft.GetEducations())),
+		Experiences:       make([]profilepkg.ExperienceInput, 0, len(draft.GetExperiences())),
+	}
+	for _, item := range draft.GetEducations() {
+		if item == nil {
+			continue
+		}
+		out.Educations = append(out.Educations, profilepkg.EducationInput{
+			School:      item.GetSchool(),
+			Degree:      item.GetDegree(),
+			Major:       item.GetMajor(),
+			StartDate:   item.GetStartDate(),
+			EndDate:     item.GetEndDate(),
+			Description: item.GetDescription(),
+			SortOrder:   item.GetSortOrder(),
+		})
+	}
+	for _, item := range draft.GetExperiences() {
+		if item == nil {
+			continue
+		}
+		out.Experiences = append(out.Experiences, profilepkg.ExperienceInput{
+			Company:     item.GetCompany(),
+			Title:       item.GetTitle(),
+			Location:    item.GetLocation(),
+			StartDate:   item.GetStartDate(),
+			EndDate:     item.GetEndDate(),
+			IsCurrent:   item.GetIsCurrent(),
+			Description: item.GetDescription(),
+			SortOrder:   item.GetSortOrder(),
+		})
+	}
+	return out
+}
+
+func profileFillDiffsToPB(diffs []profilepkg.ProfileFillFieldDiff) []*pb.ProfileFillFieldDiff {
+	out := make([]*pb.ProfileFillFieldDiff, 0, len(diffs))
+	for _, diff := range diffs {
+		out = append(out, &pb.ProfileFillFieldDiff{
+			Field:  diff.Field,
+			Label:  diff.Label,
+			Action: diff.Action,
+			Before: diff.Before,
+			After:  diff.After,
+		})
+	}
+	return out
 }
 
 var (

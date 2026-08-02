@@ -162,16 +162,35 @@ describe('useHrAgentRun', () => {
     wrapper.unmount()
   })
 
-  it('hydrateFromActive restores snapshot and resumes subscribe', async () => {
+  it('hydrateFromActive restores exact pending Skill confirmation and resumes subscribe', async () => {
     getActiveAgentRun.mockResolvedValue({
       has_active_run: true,
       run: snapshot({
         run_id: 200,
         session_id: 8,
-        status: 'running',
+        status: 'waiting_confirmation',
         assistant_text: 'restored',
         process_text: 'trace',
         last_event_seq: 9,
+        confirmation_request: {
+          required: true,
+          reason: 'confirm high risk skill',
+          agent_skill_confirmation_id: 'skill-confirm-200',
+          recommended_agent_skill_version_ids: [701],
+          agent_skill_confirmation_expires_at: '2026-07-28T12:10:00Z',
+          candidates: [{
+            skill_id: 7,
+            version_id: 701,
+            version: '2.1.0',
+            compiled_hash: 'abcdef0123456789',
+            name: 'resume-review',
+            display_name: '简历复核',
+            composition_role: 'primary',
+            risk: 'high',
+            activation_policy: 'confirm',
+            core_estimated_tokens: 240,
+          }],
+        },
       }),
     })
     subscribeAgentRunEvents.mockImplementation(async () => {})
@@ -181,6 +200,9 @@ describe('useHrAgentRun', () => {
     expect(next?.assistantText).toBe('restored')
     expect(api.state.value.processText).toBe('trace')
     expect(api.state.value.lastEventSeq).toBe(9)
+    expect(api.state.value.status).toBe('waiting_confirmation')
+    expect(api.state.value.confirmation?.agent_skill_confirmation_id).toBe('skill-confirm-200')
+    expect(api.state.value.confirmation?.recommended_agent_skill_version_ids).toEqual([701])
 
     await nextTick()
     await Promise.resolve()
@@ -237,12 +259,14 @@ describe('useHrAgentRun', () => {
     }
 
     await api.confirm({
-      agent_skill_ids: [1, 2],
-      agent_skill_selection_confirmed: true,
+      agent_skill_confirmation_id: 'skill-confirm-33',
+      agent_skill_confirmation_decision: 'approve',
+      selected_agent_skill_version_ids: [11, 22],
     })
     expect(confirmAgentRun).toHaveBeenCalledWith(33, {
-      agent_skill_ids: [1, 2],
-      agent_skill_selection_confirmed: true,
+      agent_skill_confirmation_id: 'skill-confirm-33',
+      agent_skill_confirmation_decision: 'approve',
+      selected_agent_skill_version_ids: [11, 22],
     })
     await nextTick()
     await Promise.resolve()

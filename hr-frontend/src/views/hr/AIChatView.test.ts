@@ -3,13 +3,15 @@
  * Full view mount is heavy (router, many APIs); composable tests cover reconnect/cancel.
  * Here we exercise message-slot seeding rules used by restoreActiveRunForSession.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   buildApplicationAnalysisMessage,
   buildApplicationAnalysisRunRequest,
+  exactAgentSkillConfirmationVersionIds,
   isInsufficientCreditsFailure,
   normalizeSuggestedQuestions,
   resolveApplicationAnalysisMessage,
+  runExclusiveConfirmationSubmission,
   suggestedQuestionsFromProcessContent,
 } from './AIChatView.vue'
 import { sanitizeAssistantProcessText } from '@/utils/hrAssistantProcess'
@@ -174,12 +176,12 @@ describe('AIChatView application analysis message', () => {
       applicationId: 22,
       clientRequestId: 'route-request',
       modelId: 33,
-      skillCapabilityKeys: ['candidate.match'],
+      capabilityKeys: ['candidate.match'],
     })
     expect(payload.message).toBe('后端返回的匹配评估指令')
     expect(payload.action_type).toBe('analyze_application')
     expect(payload.application_id).toBe(22)
-    expect(payload.skill_capability_keys).toEqual(['candidate.match'])
+    expect(payload.capability_keys).toEqual(['candidate.match'])
   })
 
   it('in-chat analysis submits the planner-recognizable fallback for legacy empty messages', () => {
@@ -208,5 +210,45 @@ describe('AIChatView quota guard', () => {
     expect(isInsufficientCreditsFailure('insufficient_credits')).toBe(true)
     expect(isInsufficientCreditsFailure('AI 套餐额度不足，请购买套餐后重试')).toBe(true)
     expect(isInsufficientCreditsFailure('timeout')).toBe(false)
+  })
+})
+
+describe('AIChatView confirmation submission guard', () => {
+  it('preserves the server-signed Agent Skill version order and rejects malformed snapshots', () => {
+    const exact = [22, 11]
+    const resolved = exactAgentSkillConfirmationVersionIds(exact)
+    expect(resolved).toEqual([22, 11])
+    expect(resolved).not.toBe(exact)
+    expect(exactAgentSkillConfirmationVersionIds([22, 22])).toEqual([])
+    expect(exactAgentSkillConfirmationVersionIds([22, 0])).toEqual([])
+    expect(exactAgentSkillConfirmationVersionIds(undefined)).toEqual([])
+  })
+
+  it('allows exactly one confirmation request while run hydration is deferred', async () => {
+    let releaseHydration: (() => void) | undefined
+    const hydration = new Promise<void>((resolve) => {
+      releaseHydration = resolve
+    })
+    const hydrateFromRunId = vi.fn(() => hydration)
+    const confirmAgentRun = vi.fn(async () => {})
+    const lock = { value: false }
+    const submit = () => runExclusiveConfirmationSubmission(lock, async () => {
+      await hydrateFromRunId()
+      await confirmAgentRun()
+    })
+
+    const first = submit()
+    const second = submit()
+
+    expect(lock.value).toBe(true)
+    expect(hydrateFromRunId).toHaveBeenCalledTimes(1)
+    expect(confirmAgentRun).not.toHaveBeenCalled()
+    await expect(second).resolves.toBeUndefined()
+
+    releaseHydration?.()
+    await first
+
+    expect(confirmAgentRun).toHaveBeenCalledTimes(1)
+    expect(lock.value).toBe(false)
   })
 })

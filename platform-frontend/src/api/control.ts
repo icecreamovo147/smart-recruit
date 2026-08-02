@@ -6,7 +6,36 @@ export interface BillingProductAdmin { id: number; product_key: string; name: st
 export interface AIRateCardAdmin { id: number; provider_key: string; model_key: string; version: number; currency: string; input_micros_per_1k_tokens: number; output_micros_per_1k_tokens: number; cached_input_micros_per_1k_tokens: number; credit_micros: number; status: string; effective_at_unix_ms: number }
 export interface BillingRefundAdmin { refund_no: string; order_no: string; owner_type: string; owner_id: number; amount_fen: number; status: string; review_mode: string; reason: string; requested_by: number; reviewed_by: number; created_at_unix_ms: number; last_error: string }
 
-export const listPlans = (status = '') => http.get<never, { list: PlatformPlan[] }>('/api/v1/platform/plans', { params: { status } })
+const numericID = (value: unknown): number => {
+  const normalized = Number(value)
+  return Number.isSafeInteger(normalized) && normalized > 0 ? normalized : 0
+}
+
+const normalizePlanVersion = (version: PlatformPlanVersion): PlatformPlanVersion => ({
+  ...version,
+  id: numericID(version.id),
+  plan_id: numericID(version.plan_id),
+  version: Number(version.version) || 0,
+})
+
+const normalizePlan = (plan: PlatformPlan): PlatformPlan => ({
+  ...plan,
+  id: numericID(plan.id),
+  versions: (plan.versions || []).map(normalizePlanVersion),
+})
+
+const normalizeSubscription = (subscription: TenantSubscription): TenantSubscription => ({
+  ...subscription,
+  id: numericID(subscription.id),
+  tenant_id: numericID(subscription.tenant_id),
+  plan_version_id: numericID(subscription.plan_version_id),
+  plan_version: Number(subscription.plan_version) || 0,
+})
+
+export const listPlans = async (status = '') => {
+  const result = await http.get<never, { list: PlatformPlan[] }>('/api/v1/platform/plans', { params: { status } })
+  return { ...result, list: (result.list || []).map(normalizePlan) }
+}
 
 export const savePlanVersion = (planId: number, payload: { version_id?: number; change_note: string; entitlements: PlatformEntitlement[] }) =>
   http.post<never, { version: PlatformPlanVersion }>(`/api/v1/platform/plans/${planId}/versions`, payload)
@@ -21,11 +50,21 @@ export const saveAIRateCard = (payload: Omit<AIRateCardAdmin, 'id' | 'version' |
 export const listBillingRefunds = () => http.get<never, { refunds: BillingRefundAdmin[]; total: number }>('/api/v1/platform/billing/refunds?page_size=100')
 export const reviewBillingRefund = (refundNo: string, action: 'approve' | 'reject', reason = '') => http.post(`/api/v1/platform/billing/refunds/${refundNo}/review`, { action, reason })
 
-export const getTenantSubscription = (tenantId: number) =>
-  http.get<never, { subscription?: TenantSubscription }>(`/api/v1/platform/tenants/${tenantId}/subscription`)
+export const getTenantSubscription = async (tenantId: number) => {
+  const result = await http.get<never, { subscription?: TenantSubscription }>(`/api/v1/platform/tenants/${tenantId}/subscription`)
+  return {
+    ...result,
+    subscription: result.subscription ? normalizeSubscription(result.subscription) : undefined,
+  }
+}
 
-export const updateTenantSubscription = (tenantId: number, payload: { plan_version_id: number; starts_at: string; ends_at?: string; reason: string }) =>
-  http.put<never, { subscription: TenantSubscription }>(`/api/v1/platform/tenants/${tenantId}/subscription`, payload)
+export const updateTenantSubscription = async (tenantId: number, payload: { plan_version_id: number; starts_at: string; ends_at?: string; reason: string }) => {
+  const result = await http.put<never, { subscription: TenantSubscription }>(`/api/v1/platform/tenants/${tenantId}/subscription`, {
+    ...payload,
+    plan_version_id: numericID(payload.plan_version_id),
+  })
+  return { ...result, subscription: normalizeSubscription(result.subscription) }
+}
 
 export const updateTenantEntitlementOverride = (
   tenantId: number,

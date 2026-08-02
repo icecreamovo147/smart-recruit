@@ -60,3 +60,32 @@ func TestKeyForCode(t *testing.T) {
 		}
 	}
 }
+
+func TestAgentSkillMessageKeysAreLocalized(t *testing.T) {
+	keys := []string{
+		"ai.agent_skill_package_invalid",
+		"ai.agent_skill_core_budget_exceeded",
+		"ai.agent_skill_section_invalid",
+		"ai.agent_skill_composition_conflict",
+		"ai.agent_skill_confirmation_required",
+		"ai.agent_skill_confirmation_expired",
+		"ai.agent_skill_strict_output_unsupported",
+	}
+
+	for _, key := range keys {
+		t.Run(key, func(t *testing.T) {
+			zh := Render(LocaleZhCN, key, nil)
+			en := Render(LocaleEnUS, key, nil)
+			if zh == "" || en == "" {
+				t.Fatalf("localized message is empty: zh=%q en=%q", zh, en)
+			}
+			if zh == catalogs[LocaleZhCN]["common.unknown_error"] ||
+				en == catalogs[LocaleEnUS]["common.unknown_error"] {
+				t.Fatalf("message key %q fell back to unknown error", key)
+			}
+			if zh == en {
+				t.Fatalf("message key %q is not localized: %q", key, zh)
+			}
+		})
+	}
+}

@@ -39,8 +39,8 @@ const (
 )
 
 // RecruitingPlan is the deterministic, rule-based planner output passed to
-// ADK before execution. It intentionally carries placeholders for future
-// skill and memory selectors without persisting planner state.
+// ADK before execution. Agent Skill selection is owned by the Package v2
+// runtime and is represented by exact version IDs outside this planner.
 type RecruitingPlan struct {
 	Intent                  string                  `json:"intent"`
 	Domain                  string                  `json:"domain"`
@@ -54,7 +54,6 @@ type RecruitingPlan struct {
 	RequiredToolGroups      []RecruitingToolGroup   `json:"required_tool_groups"`
 	DisplaySteps            []RecruitingDisplayStep `json:"display_steps"`
 	MissingInputs           []string                `json:"missing_inputs"`
-	SelectedSkills          []string                `json:"selected_skills"`
 	SelectedMemories        []string                `json:"selected_memories"`
 	OutputSchema            map[string]any          `json:"output_schema"`
 	ConfirmationRequirement ConfirmationRequirement `json:"confirmation_requirement"`
@@ -118,7 +117,6 @@ func (RecruitingPlanner) Plan(input RecruitingPlannerInput) RecruitingPlan {
 		KeywordHints:           classification.KeywordHints,
 		PossibleIntents:        classification.PossibleIntents,
 		ClassificationSource:   classification.Source,
-		SelectedSkills:         []string{},
 		SelectedMemories:       []string{},
 		RequiredToolGroups:     []RecruitingToolGroup{},
 		MissingInputs:          []string{},

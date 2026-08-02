@@ -82,12 +82,149 @@ const renderList = (block) => {
   return `<${tag}>${items}</${tag}>`
 }
 
-const renderMermaid = (source) => [
-  '<div class="mermaid-container">',
-  `<pre class="mermaid-source" style="display:none">${esc(source)}</pre>`,
-  '<p>加载图表中...</p>',
-  '</div>',
-].join('')
+let diagramSequence = 0
+
+const parseMermaidNode = (token) => {
+  const match = String(token || '').trim().match(/^([A-Za-z][A-Za-z0-9_-]*)(?:\[(.*)\]|\((.*)\)|\{(.*)\})?$/)
+  if (!match) return null
+  const rawLabel = match[2] ?? match[3] ?? match[4] ?? match[1]
+  return {
+    id: match[1],
+    label: String(rawLabel).trim().replace(/^["']|["']$/g, ''),
+  }
+}
+
+const parseOfflineFlowchart = (source) => {
+  const lines = String(source || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/;$/, ''))
+    .filter(Boolean)
+  const header = lines.shift()?.match(/^(?:flowchart|graph)\s+(TD|TB|LR|RL)$/i)
+  if (!header) return null
+
+  const direction = header[1].toUpperCase()
+  const nodes = new Map()
+  const edges = []
+  const mergeNode = (node) => {
+    const current = nodes.get(node.id)
+    if (!current || (current.label === current.id && node.label !== node.id)) {
+      nodes.set(node.id, node)
+    }
+  }
+  for (const line of lines) {
+    const edge = line.match(/^(.+?)\s*(-->|==>|-\.->)\s*(.+)$/)
+    if (!edge) return null
+    const from = parseMermaidNode(edge[1])
+    const to = parseMermaidNode(edge[3])
+    if (!from || !to) return null
+    mergeNode(from)
+    mergeNode(to)
+    edges.push({ from: from.id, to: to.id })
+  }
+  if (!nodes.size || !edges.length) return null
+  return { direction, nodes, edges }
+}
+
+const renderOfflineFlowchart = (source) => {
+  const graph = parseOfflineFlowchart(source)
+  if (!graph) return null
+
+  const outgoing = new Map([...graph.nodes.keys()].map((id) => [id, []]))
+  const indegree = new Map([...graph.nodes.keys()].map((id) => [id, 0]))
+  for (const edge of graph.edges) {
+    outgoing.get(edge.from).push(edge.to)
+    indegree.set(edge.to, (indegree.get(edge.to) || 0) + 1)
+  }
+
+  const layers = new Map()
+  const queue = [...graph.nodes.keys()].filter((id) => indegree.get(id) === 0)
+  if (!queue.length) return null
+  for (const id of queue) layers.set(id, 0)
+  for (let index = 0; index < queue.length; index += 1) {
+    const id = queue[index]
+    for (const target of outgoing.get(id) || []) {
+      layers.set(target, Math.max(layers.get(target) || 0, (layers.get(id) || 0) + 1))
+      indegree.set(target, (indegree.get(target) || 0) - 1)
+      if (indegree.get(target) === 0) queue.push(target)
+    }
+  }
+  if (layers.size !== graph.nodes.size) return null
+
+  const grouped = []
+  for (const id of graph.nodes.keys()) {
+    const layer = layers.get(id) || 0
+    grouped[layer] ||= []
+    grouped[layer].push(id)
+  }
+
+  const nodeWidth = 190
+  const nodeHeight = 54
+  const layerGap = 72
+  const nodeGap = 42
+  const padding = 28
+  const horizontal = graph.direction === 'LR' || graph.direction === 'RL'
+  const maxLayerSize = Math.max(...grouped.map((items) => items.length))
+  const primarySize = padding * 2 + grouped.length * (horizontal ? nodeWidth : nodeHeight) + Math.max(0, grouped.length - 1) * layerGap
+  const secondarySize = padding * 2 + maxLayerSize * (horizontal ? nodeHeight : nodeWidth) + Math.max(0, maxLayerSize - 1) * nodeGap
+  const width = horizontal ? primarySize : secondarySize
+  const height = horizontal ? secondarySize : primarySize
+  const positions = new Map()
+
+  grouped.forEach((ids, layer) => {
+    const layerSpan = ids.length * (horizontal ? nodeHeight : nodeWidth) + Math.max(0, ids.length - 1) * nodeGap
+    ids.forEach((id, index) => {
+      const primary = padding + layer * ((horizontal ? nodeWidth : nodeHeight) + layerGap)
+      const secondary = (secondarySize - layerSpan) / 2 + index * ((horizontal ? nodeHeight : nodeWidth) + nodeGap)
+      positions.set(id, horizontal
+        ? { x: primary, y: secondary }
+        : { x: secondary, y: primary })
+    })
+  })
+
+  const reverse = graph.direction === 'RL'
+  if (reverse) {
+    for (const position of positions.values()) {
+      position.x = width - padding - nodeWidth - (position.x - padding)
+    }
+  }
+
+  const markerId = `offline-flow-arrow-${++diagramSequence}`
+  const edgeSVG = graph.edges.map((edge) => {
+    const from = positions.get(edge.from)
+    const to = positions.get(edge.to)
+    const coords = horizontal
+      ? [from.x + nodeWidth, from.y + nodeHeight / 2, to.x, to.y + nodeHeight / 2]
+      : [from.x + nodeWidth / 2, from.y + nodeHeight, to.x + nodeWidth / 2, to.y]
+    return `<line x1="${coords[0]}" y1="${coords[1]}" x2="${coords[2]}" y2="${coords[3]}" marker-end="url(#${markerId})"/>`
+  }).join('')
+  const nodeSVG = [...graph.nodes.values()].map((node) => {
+    const position = positions.get(node.id)
+    const label = node.label.length > 26 ? `${node.label.slice(0, 25)}…` : node.label
+    return `<g><rect x="${position.x}" y="${position.y}" width="${nodeWidth}" height="${nodeHeight}" rx="8"/>`
+      + `<text x="${position.x + nodeWidth / 2}" y="${position.y + nodeHeight / 2}" dominant-baseline="middle" text-anchor="middle">${esc(label)}</text></g>`
+  }).join('')
+
+  return `<svg class="offline-flowchart" viewBox="0 0 ${width} ${height}" role="img" aria-label="离线流程图">`
+    + `<defs><marker id="${markerId}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z"/></marker></defs>`
+    + `<g class="offline-flowchart__edges">${edgeSVG}</g><g class="offline-flowchart__nodes">${nodeSVG}</g></svg>`
+}
+
+const renderMermaid = (source) => {
+  const diagram = renderOfflineFlowchart(source)
+  const status = diagram
+    ? '<p class="diagram-note">离线静态流程图</p>'
+    : '<p class="diagram-note diagram-note--fallback">当前 Mermaid 语法超出离线渲染子集，以下源码保持完整可读。</p>'
+  return [
+    '<figure class="mermaid-container">',
+    status,
+    diagram || '',
+    '<details class="mermaid-source-details">',
+    '<summary>查看 Mermaid 源码</summary>',
+    `<pre class="mermaid-source">${esc(source)}</pre>`,
+    '</details>',
+    '</figure>',
+  ].join('')
+}
 
 const renderFindings = (items) => {
   if (!items?.length) return '<p><span class="badge badge-compliant">未发现阻塞性问题</span></p>'
@@ -161,6 +298,7 @@ const samplePayload = () => ({
       blocks: [{
         type: 'findings',
         items: [{
+          id: 'F-001',
           priority: 'P1',
           title: '缺少权限校验',
           file: 'server/api.ts',
@@ -172,7 +310,374 @@ const samplePayload = () => ({
       }],
     },
   ],
+  remediation: {
+    strategy: [
+      '先修复阻塞合入的权限校验缺口',
+      '补充负向回归测试后重新审查',
+    ],
+    tasks: [{
+      id: 'CR-001',
+      finding_ids: ['F-001'],
+      priority: 'P1',
+      title: '为写入 API 增加认证中间件',
+      objective: '未登录请求不能触发写入路径。',
+      rationale: '审查确认 handler 缺少认证，存在未授权写入风险。',
+      status: 'PENDING',
+      dependencies: [],
+      parallel_safe: false,
+      human_confirmation_required: false,
+      scope: {
+        allowed_paths: ['server/api.ts', 'server/api.test.ts'],
+        excluded_paths: [],
+      },
+      source_evidence: ['server/api.ts:42'],
+      steps: [
+        '复现未登录可写入的问题路径',
+        '在 handler 入口增加认证中间件',
+        '补充负向回归测试',
+        '运行相关测试确认通过',
+      ],
+      acceptance_criteria: [
+        '未登录请求被拒绝',
+        '已登录合法请求行为不变',
+        '相关测试通过',
+      ],
+      tests: ['node --test server/api.test.ts'],
+      rollback: '通过 git 恢复本任务引入的变更',
+      deliverables: ['代码修复', '回归测试', '验证证据'],
+    }],
+  },
 })
+
+const PRIORITY_RANK = { P0: 0, P1: 1, P2: 2, P3: 3 }
+
+const asList = (value) => (Array.isArray(value) ? value : [])
+
+const collectFindings = (data) => {
+  const items = []
+  for (const section of asList(data?.sections)) {
+    for (const block of asList(section?.blocks)) {
+      if (block?.type !== 'findings') continue
+      for (const item of asList(block.items)) {
+        if (item && (item.title || item.detail || item.file || item.recommendation)) items.push(item)
+      }
+    }
+  }
+  return items
+}
+
+const normalizeFinding = (item, index) => {
+  const id = String(item.id || item.finding_id || `F-${String(index + 1).padStart(3, '0')}`)
+  return {
+    id,
+    title: String(item.title || '未命名问题'),
+    priority: String(item.priority || 'P2').toUpperCase(),
+    risk: String(item.risk || 'medium'),
+    file: item.file ? String(item.file) : '',
+    line: item.line == null || item.line === '' ? null : Number(item.line) || String(item.line),
+    detail: String(item.detail || ''),
+    recommendation: String(item.recommendation || ''),
+    status: String(item.status || 'OPEN'),
+  }
+}
+
+const findingToTask = (finding, index) => {
+  const loc = finding.file ? `${finding.file}${finding.line != null ? `:${finding.line}` : ''}` : ''
+  const priority = ['P0', 'P1', 'P2', 'P3'].includes(finding.priority) ? finding.priority : 'P2'
+  return {
+    id: `CR-${String(index + 1).padStart(3, '0')}`,
+    finding_ids: [finding.id],
+    priority,
+    title: finding.title,
+    objective: finding.recommendation || finding.detail || finding.title,
+    rationale: finding.detail || finding.title,
+    status: 'PENDING',
+    dependencies: [],
+    parallel_safe: false,
+    human_confirmation_required: priority === 'P0',
+    scope: {
+      allowed_paths: finding.file ? [finding.file] : [],
+      excluded_paths: [],
+    },
+    source_evidence: loc ? [loc] : [],
+    steps: [
+      `复现并确认问题：${finding.title}`,
+      finding.recommendation || '按审查建议完成根因修复',
+      '补充或更新回归测试',
+      '运行相关验证并确认原问题不再复现',
+    ],
+    acceptance_criteria: [
+      '原问题在当前证据下不再复现',
+      '相关测试或检查通过',
+      '未引入超出任务范围的无关改动',
+    ],
+    tests: [],
+    rollback: '通过 git 恢复本任务引入的变更',
+    deliverables: ['代码修复', '验证证据'],
+  }
+}
+
+const normalizeTask = (task, index) => {
+  const id = String(task.id || `CR-${String(index + 1).padStart(3, '0')}`)
+  const priority = String(task.priority || 'P2').toUpperCase()
+  return {
+    id,
+    finding_ids: asList(task.finding_ids).map(String),
+    priority: ['P0', 'P1', 'P2', 'P3'].includes(priority) ? priority : 'P2',
+    title: String(task.title || '未命名修复任务'),
+    objective: String(task.objective || ''),
+    rationale: String(task.rationale || ''),
+    status: String(task.status || 'PENDING'),
+    dependencies: asList(task.dependencies).map(String),
+    parallel_safe: Boolean(task.parallel_safe),
+    human_confirmation_required: Boolean(task.human_confirmation_required),
+    scope: {
+      allowed_paths: asList(task.scope?.allowed_paths).map(String),
+      excluded_paths: asList(task.scope?.excluded_paths).map(String),
+    },
+    source_evidence: asList(task.source_evidence).map(String),
+    steps: asList(task.steps).map(String),
+    acceptance_criteria: asList(task.acceptance_criteria).map(String),
+    tests: asList(task.tests).map(String),
+    rollback: String(task.rollback || '通过 git 恢复本任务引入的变更'),
+    deliverables: asList(task.deliverables).map(String),
+  }
+}
+
+const orderTasks = (tasks) => [...tasks].sort((left, right) => {
+  const rank = (PRIORITY_RANK[left.priority] ?? 99) - (PRIORITY_RANK[right.priority] ?? 99)
+  if (rank !== 0) return rank
+  return String(left.id).localeCompare(String(right.id))
+})
+
+const buildRemediation = (data) => {
+  const findings = collectFindings(data).map(normalizeFinding)
+  const providedTasks = asList(data?.remediation?.tasks).map(normalizeTask)
+  const tasks = providedTasks.length
+    ? providedTasks
+    : findings.map((finding, index) => findingToTask(finding, index))
+  if (!tasks.length) return null
+  const findingById = new Map(findings.map((item) => [item.id, item]))
+  for (const task of tasks) {
+    for (const findingId of task.finding_ids) {
+      if (!findingById.has(findingId)) {
+        findingById.set(findingId, {
+          id: findingId,
+          title: task.title,
+          priority: task.priority,
+          risk: 'medium',
+          file: '',
+          line: null,
+          detail: task.rationale,
+          recommendation: task.objective,
+          status: 'OPEN',
+        })
+      }
+    }
+  }
+  return {
+    strategy: asList(data?.remediation?.strategy).map(String),
+    findings: [...findingById.values()],
+    tasks: orderTasks(tasks),
+  }
+}
+
+const joinText = (values) => (asList(values).length ? asList(values).join('、') : '无')
+
+const code = (value) => `\`${String(value ?? '')}\``
+
+const reviewManifest = (data, reportPaths = {}) => ({
+  title: data.title || DEFAULT_TITLE,
+  repo: data.repo || '',
+  branch: data.branch || '',
+  scope: data.scope || '',
+  scope_type: data.scope_type || '',
+  reviewed_commit: data.reviewed_commit || '',
+  verdict: data.verdict || '',
+  risk_level: data.risk_level || '',
+  generated_at: data.generated_at || '',
+  html_report: reportPaths.html || '',
+  markdown_report: reportPaths.markdown || '',
+})
+
+const sddDocument = (data, remediation, reportPaths = {}) => {
+  const tasks = remediation.tasks
+  const findings = remediation.findings
+  const manifest = {
+    schema_version: 1,
+    review: reviewManifest(data, reportPaths),
+    findings: findings.map((finding) => ({
+      id: finding.id,
+      title: finding.title,
+      priority: finding.priority,
+      risk: finding.risk,
+      status: finding.status,
+      file: finding.file,
+      line: finding.line,
+    })),
+    strategy: remediation.strategy,
+    tasks,
+  }
+  const lines = [
+    '# Code Review SDD — 审查修复计划',
+    '',
+    '> 本计划由 Code Review Leader 在发现可行动问题时生成，供 `code-review-sdd` skill 串行修复。它不自动授权扩大范围、修改公共契约、提交或推送。',
+    '',
+    '## 审查关联',
+    '',
+    '| 项目 | 值 |',
+    '|---|---|',
+    `| 合入建议 | ${mdEsc(data.verdict || '')} |`,
+    `| 整体风险 | ${mdEsc(data.risk_level || '')} |`,
+    `| 仓库 | ${mdEsc(data.repo || '')} |`,
+    `| 分支 | ${mdEsc(data.branch || '')} |`,
+    `| 范围 | ${mdEsc(data.scope || '')} |`,
+    `| 范围类型 | ${mdEsc(data.scope_type || '')} |`,
+    `| 审查 commit | ${mdEsc(data.reviewed_commit || '')} |`,
+    `| 生成时间 | ${mdEsc(data.generated_at || '')} |`,
+    `| HTML 报告 | ${mdEsc(reportPaths.html || '')} |`,
+    `| Markdown 报告 | ${mdEsc(reportPaths.markdown || '')} |`,
+    '',
+    '## 执行规则与非目标',
+    '',
+    '- 按依赖顺序，再按 P0 → P1 → P2 → P3 串行推进；仅在任务明确标记 `parallel_safe: true` 时并行。',
+    '- 每个任务开始前重新核对源证据与当前代码；保留用户已有工作树修改。',
+    '- 只修复本计划中的已确认问题；不要顺手重构无关代码。',
+    '- 公共 API / schema / 全局配置 / 锁文件变更，若任务未授权则暂停并请求确认。',
+    '- 不要提交、推送、开 PR，除非用户另行要求。',
+    '- 本计划不要求也不自动启动 `spec-harness`。',
+    '',
+    '## 修复策略',
+    '',
+    ...(remediation.strategy.length ? remediation.strategy.map((item) => `- ${item}`) : ['- 按优先级修复审查发现的问题，并补齐回归验证']),
+    '',
+    '## 任务顺序',
+    '',
+    '| 任务 | 优先级 | Findings | 依赖 | 人工确认 | 可并行 |',
+    '|---|---|---|---|---|---|',
+    ...tasks.map((task) => `| ${mdEsc(task.id)} ${mdEsc(task.title)} | ${mdEsc(task.priority)} | ${mdEsc(joinText(task.finding_ids))} | ${mdEsc(joinText(task.dependencies))} | ${task.human_confirmation_required ? '是' : '否'} | ${task.parallel_safe ? '是' : '否'} |`),
+    '',
+  ]
+  for (const task of tasks) {
+    lines.push(
+      `## ${task.id} — ${task.title}`,
+      '',
+      `- 优先级/状态：${code(task.priority)} / ${code(task.status)}`,
+      `- Findings：${joinText(task.finding_ids)}`,
+      `- 依赖：${joinText(task.dependencies)}`,
+      `- 可并行：${task.parallel_safe ? '是' : '否'}`,
+      `- 需要人工确认：${task.human_confirmation_required ? '是' : '否'}`,
+      '',
+      '### 目标',
+      '',
+      task.objective || '无',
+      '',
+      '### 理由',
+      '',
+      task.rationale || '无',
+      '',
+      '### 允许范围',
+      '',
+      ...(task.scope.allowed_paths.length ? task.scope.allowed_paths.map((item) => `- ${code(item)}`) : ['- 无（修复前需根据证据补齐允许路径）']),
+      '',
+      '### 排除范围',
+      '',
+      ...(task.scope.excluded_paths.length ? task.scope.excluded_paths.map((item) => `- ${code(item)}`) : ['- 无']),
+      '',
+      '### 源证据',
+      '',
+      ...(task.source_evidence.length ? task.source_evidence.map((item) => `- ${code(item)}`) : ['- 无']),
+      '',
+      '### 执行步骤',
+      '',
+      ...(task.steps.length ? task.steps.map((item, index) => `${index + 1}. ${item}`) : ['1. 根据审查建议完成根因修复']),
+      '',
+      '### 验收标准',
+      '',
+      ...(task.acceptance_criteria.length ? task.acceptance_criteria.map((item) => `- [ ] ${item}`) : ['- [ ] 原问题不再复现']),
+      '',
+      '### 验证命令',
+      '',
+      ...(task.tests.length ? task.tests.map((item) => `- ${code(item)}`) : ['- （未指定；按改动模块运行对应测试/typecheck）']),
+      '',
+      '### 回滚/撤销',
+      '',
+      task.rollback,
+      '',
+      '### 交付物',
+      '',
+      ...(task.deliverables.length ? task.deliverables.map((item) => `- ${item}`) : ['- 代码修复', '- 验证证据']),
+      '',
+    )
+  }
+  const traceability = findings.map((finding) => ({
+    finding,
+    tasks: tasks.filter((task) => task.finding_ids.includes(finding.id)),
+  }))
+  lines.push(
+    '## Finding—任务追踪矩阵',
+    '',
+    '| Finding | 状态 | 优先级 | 风险 | 任务 |',
+    '|---|---|---|---|---|',
+    ...traceability.map(({ finding, tasks: linked }) => `| ${mdEsc(finding.id)} ${mdEsc(finding.title)} | ${mdEsc(finding.status)} | ${mdEsc(finding.priority)} | ${mdEsc(finding.risk)} | ${mdEsc(linked.map((task) => task.id).join('、') || '无')} |`),
+    '',
+    '## 最终累计验证门禁',
+    '',
+    '- [ ] 所有 P0/P1 任务已完成，或由用户明确接受残留风险',
+    '- [ ] 每个已修复 finding 在当前证据下不再复现',
+    '- [ ] 相关单元/集成/类型检查通过',
+    '- [ ] 改动未超出各任务允许范围',
+    '- [ ] 建议重新运行 `code-review-leader` 做复核',
+    '',
+    '## Agent 执行清单',
+    '',
+    '```code-review-sdd-manifest',
+    JSON.stringify(manifest, null, 2),
+    '```',
+    '',
+  )
+  return `${lines.join('\n').trimEnd()}\n`
+}
+
+const noActionSddDocument = (data, reportPaths = {}) => {
+  const manifest = {
+    schema_version: 1,
+    no_action: true,
+    review: reviewManifest(data, reportPaths),
+    findings: [],
+    strategy: [],
+    tasks: [],
+  }
+  return [
+    '# Code Review SDD — 无待修复事项',
+    '',
+    '> 最新 Code Review Leader 审查未发现可行动问题。此 canonical marker 会使旧修复计划失效，不得回退执行历史 timestamped SDD。',
+    '',
+    `- 合入建议：${data.verdict || ''}`,
+    `- 整体风险：${data.risk_level || ''}`,
+    `- HTML 报告：${reportPaths.html || ''}`,
+    `- Markdown 报告：${reportPaths.markdown || ''}`,
+    '',
+    '```code-review-sdd-manifest',
+    JSON.stringify(manifest, null, 2),
+    '```',
+    '',
+  ].join('\n')
+}
+
+const writeFileAtomic = (target, content) => {
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  const temporary = path.join(
+    path.dirname(target),
+    `.${path.basename(target)}.${process.pid}.${Date.now()}.tmp`,
+  )
+  try {
+    fs.writeFileSync(temporary, content, 'utf8')
+    fs.renameSync(temporary, target)
+  } finally {
+    if (fs.existsSync(temporary)) fs.rmSync(temporary, { force: true })
+  }
+}
 
 const htmlDocument = (data) => {
   const title = esc(data.title || DEFAULT_TITLE)
@@ -219,6 +724,16 @@ h1 { font-size:24px; margin-bottom:8px; text-align:center; }
 .section-body.hidden { display:none; }
 .mermaid-container { background:#fafbfc; border:1px solid var(--border); border-radius:6px; padding:16px; margin:12px 0; text-align:center; position:relative; }
 .mermaid-container svg { max-width:100%; }
+.diagram-note { color:var(--text-secondary); font-size:12px; margin:0 0 10px; }
+.diagram-note--fallback { color:#D48806; text-align:left; }
+.offline-flowchart { width:100%; min-height:120px; }
+.offline-flowchart__edges line { stroke:#86909c; stroke-width:1.6; }
+.offline-flowchart__edges marker path { fill:#86909c; }
+.offline-flowchart__nodes rect { fill:#fff; stroke:#4E83FD; stroke-width:1.5; }
+.offline-flowchart__nodes text { fill:#1d2129; font-size:13px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; }
+.mermaid-source-details { margin-top:10px; text-align:left; }
+.mermaid-source-details summary { cursor:pointer; color:var(--text-secondary); font-size:12px; }
+.mermaid-source { margin-top:8px; padding:12px; overflow:auto; background:#f2f3f5; border-radius:4px; font:12px/1.5 Consolas,monospace; white-space:pre; }
 table { width:100%; border-collapse:collapse; margin:12px 0; font-size:14px; }
 th,td { padding:10px 12px; text-align:left; border-bottom:1px solid var(--border); word-break:break-word; overflow-wrap:break-word; }
 td:first-child { max-width:280px; word-break:break-all; }
@@ -254,23 +769,7 @@ ${renderSummary(data.summary || [])}
 ${renderSections(data.sections || [])}
 </div>
 <button class="back-to-top" id="back-to-top" title="回到顶部">↑</button>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script>
-mermaid.initialize({ startOnLoad:false, securityLevel:'loose', theme:'default' });
-async function renderAll() {
-  const els = document.querySelectorAll('.mermaid-source');
-  for (let i = 0; i < els.length; i++) {
-    const src = els[i].textContent || '';
-    const container = els[i].closest('.mermaid-container');
-    try {
-      const out = await mermaid.render('mermaid-' + i, src);
-      container.innerHTML = out.svg;
-      container.classList.add('rendered');
-    } catch (e) {
-      container.innerHTML = '<pre>' + src.replace(/[&<>]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[s])) + '</pre>';
-    }
-  }
-}
 document.querySelectorAll('.section-header').forEach(function(header, idx) {
   const body = header.nextElementSibling;
   const toggle = header.querySelector('.toggle');
@@ -308,7 +807,6 @@ document.querySelectorAll('th[data-sortable]').forEach(function(th) {
     th.dataset.asc = String(asc);
   });
 });
-renderAll();
 </script>
 </body>
 </html>
@@ -387,16 +885,19 @@ const markdownDocument = (data) => {
 }
 
 const parseArgs = (argv) => {
-  const args = { sample: false }
+  const args = { sample: false, noSdd: false }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--sample') args.sample = true
+    else if (arg === '--no-sdd') args.noSdd = true
     else if (arg === '--input') args.input = argv[++i]
     else if (arg === '--output') args.output = argv[++i]
     else if (arg === '--markdown-output') args.markdownOutput = argv[++i]
+    else if (arg === '--sdd-output') args.sddOutput = argv[++i]
     else if (arg === '--help' || arg === '-h') {
-      console.log('Usage: node render_review_report.mjs --input report.json [--output report.html] [--markdown-output report.md]')
-      console.log('       node render_review_report.mjs --sample [--output sample.html] [--markdown-output sample.md]')
+      console.log('Usage: node render_review_report.mjs --input report.json [--output report.html] [--markdown-output report.md] [--sdd-output code-review-sdd.md]')
+      console.log('       node render_review_report.mjs --sample [--output sample.html] [--markdown-output sample.md] [--sdd-output sample-sdd.md]')
+      console.log('Flags: --no-sdd  skip writing the repair SDD even when findings exist')
       process.exit(0)
     } else {
       throw new Error(`Unknown argument: ${arg}`)
@@ -411,9 +912,32 @@ const data = args.sample ? samplePayload() : JSON.parse(fs.readFileSync(args.inp
 const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-')
 args.output ||= path.join(DEFAULT_OUTPUT_DIR, `code-review-leader-${timestamp}.html`)
 args.markdownOutput ||= args.output.replace(/\.html?$/i, '.md')
+const html = htmlDocument(data)
+if (/<(?:script|link|img|source|video|audio|iframe)\b[^>]*(?:src|href)=["']https?:\/\//i.test(html)) {
+  throw new Error('self-contained HTML must not reference external resources')
+}
 fs.mkdirSync(path.dirname(args.output), { recursive: true })
-fs.writeFileSync(args.output, htmlDocument(data), 'utf8')
-console.log(args.output)
+fs.writeFileSync(args.output, html, 'utf8')
+console.log(`html_report: ${args.output}`)
 fs.mkdirSync(path.dirname(args.markdownOutput), { recursive: true })
 fs.writeFileSync(args.markdownOutput, markdownDocument(data), 'utf8')
-console.log(args.markdownOutput)
+console.log(`markdown_report: ${args.markdownOutput}`)
+
+const remediation = buildRemediation(data)
+if (!args.noSdd && remediation) {
+  const archiveSdd = args.output.replace(/\.html?$/i, '-sdd.md')
+  args.sddOutput ||= path.join(DEFAULT_OUTPUT_DIR, 'code-review-sdd.md')
+  const reportPaths = { html: args.output, markdown: args.markdownOutput }
+  const sddBody = sddDocument(data, remediation, reportPaths)
+  for (const target of [...new Set([args.sddOutput, archiveSdd])]) {
+    writeFileAtomic(target, sddBody)
+    console.log(`code_review_sdd: ${target}`)
+  }
+  console.log(`code_review_sdd_tasks: ${remediation.tasks.length}`)
+} else if (!args.noSdd) {
+  args.sddOutput ||= path.join(DEFAULT_OUTPUT_DIR, 'code-review-sdd.md')
+  const reportPaths = { html: args.output, markdown: args.markdownOutput }
+  writeFileAtomic(args.sddOutput, noActionSddDocument(data, reportPaths))
+  console.log(`code_review_sdd: ${args.sddOutput}`)
+  console.log('code_review_sdd_tasks: 0 (no_action)')
+}

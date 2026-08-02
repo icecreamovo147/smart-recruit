@@ -1,4 +1,4 @@
-package grpc_test
+package persistence_test
 
 import (
 	"context"

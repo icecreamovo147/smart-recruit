@@ -3,8 +3,6 @@ package memory
 import (
 	"math"
 	"strings"
-
-	logicconfig "smart-recruit-platform-go/serviceconfig"
 )
 
 type RankingConfig struct {
@@ -52,31 +50,6 @@ func DefaultRankingConfig() RankingConfig {
 		RelevanceGate:    0.15,
 		GapHigh:          0.10,
 		GapMedium:        0.03,
-	}
-}
-
-func RankingConfigFromService(cfg logicconfig.Ranking) RankingConfig {
-	defaults := DefaultRankingConfig()
-	out := defaults
-	applyRankingFloat(&out.WeightVector, cfg.WeightVector, defaults.WeightVector)
-	applyRankingFloat(&out.WeightLexical, cfg.WeightLexical, defaults.WeightLexical)
-	applyRankingFloat(&out.WeightMetadata, cfg.WeightMetadata, defaults.WeightMetadata)
-	applyRankingFloat(&out.BusinessBoostMax, cfg.BusinessBoostMax, defaults.BusinessBoostMax)
-	applyRankingFloat(&out.PriorityNorm, cfg.PriorityNorm, defaults.PriorityNorm)
-	applyRankingFloat(&out.BoostAlpha, cfg.BoostAlpha, defaults.BoostAlpha)
-	applyRankingFloat(&out.BoostBeta, cfg.BoostBeta, defaults.BoostBeta)
-	applyRankingFloat(&out.BoostGamma, cfg.BoostGamma, defaults.BoostGamma)
-	applyRankingFloat(&out.RelevanceGate, cfg.RelevanceGate, defaults.RelevanceGate)
-	applyRankingFloat(&out.GapHigh, cfg.GapHigh, defaults.GapHigh)
-	applyRankingFloat(&out.GapMedium, cfg.GapMedium, defaults.GapMedium)
-	return out
-}
-
-func applyRankingFloat(target *float64, value, fallback float64) {
-	if value > 0 {
-		*target = value
-	} else {
-		*target = fallback
 	}
 }
 
@@ -209,9 +182,9 @@ func ScoreMemoryRankingSignals(cfg RankingConfig, memory Memory, input RecallQue
 }
 
 type RankedMemory struct {
-	Memory Memory
-	Score  float64
-	Reason string
+	Memory  Memory
+	Score   float64
+	Reason  string
 	Signals RankingSignals
 }
 

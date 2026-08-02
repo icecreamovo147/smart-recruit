@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { AgentSkillSelectionPayload, CandidateOption, ChatMessageSkill } from '@/types/ai'
+import type { AgentSkillRuntimeEvidence } from '@shared/types/agentRun'
 
 interface MessageItem {
   role: string
@@ -23,6 +24,7 @@ interface MessageItem {
   processContent?: string
   candidateOptions?: CandidateOption[]
   agentSkillSelection?: AgentSkillSelectionPayload
+  agent_skill_runtime_evidence?: AgentSkillRuntimeEvidence[]
 }
 
 const props = defineProps<{
@@ -39,6 +41,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'retry', index: number): void
   (e: 'confirm-skill-selection', index: number, skillIds: number[]): void
+  (e: 'reject-skill-selection', index: number): void
+  (e: 'cancel-pending-run', index: number): void
 }>()
 
 defineExpose({ scrollToBottom })
@@ -64,18 +68,18 @@ const messageSkills = (message: MessageItem): ChatMessageSkill[] => {
   }]
 }
 
-const skillBadgeText = (skill: ChatMessageSkill): string =>
-  skill.command || (skill.name ? `/${skill.name}` : '')
+const skillBadgeText = (skill: ChatMessageSkill): string => {
+  const label = skill.command || (skill.name ? `/${skill.name}` : '')
+  return skill.version ? `${label} v${skill.version}` : label
+}
 
 const messageSkillBadges = (message: MessageItem): string[] =>
   messageSkills(message)
     .map(skillBadgeText)
     .filter(Boolean)
 
-const selectedSkillIds = ref<Record<number, number[]>>({})
-
 const skillSelectionLabel = (candidate: AgentSkillSelectionPayload['candidates'][number]): string =>
-  candidate.display_name || candidate.name || `Skill #${candidate.id}`
+  candidate.display_name || candidate.name || `Skill #${candidate.skill_id}`
 
 const skillSelectionReason = (candidate: AgentSkillSelectionPayload['candidates'][number]): string => {
   if (candidate.reason) return candidate.reason
@@ -83,31 +87,75 @@ const skillSelectionReason = (candidate: AgentSkillSelectionPayload['candidates'
   return '系统推荐候选 Skill'
 }
 
-const defaultSelectionIds = (selection: AgentSkillSelectionPayload): number[] =>
-  selection.recommended_agent_skill_ids?.length
-    ? selection.recommended_agent_skill_ids
-    : selection.candidates.filter((candidate) => candidate.recommended).map((candidate) => candidate.id)
+const isMCPConfirmation = (selection: AgentSkillSelectionPayload): boolean =>
+  selection.confirmation_kind === 'mcp_tool'
 
-const selectionIds = (index: number, selection: AgentSkillSelectionPayload): number[] =>
-  selectedSkillIds.value[index] ?? defaultSelectionIds(selection)
-
-const toggleSkillSelection = (index: number, selection: AgentSkillSelectionPayload, id: number) => {
-  if (props.interactionDisabled) return
-  const current = selectionIds(index, selection)
-  const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
-  selectedSkillIds.value = { ...selectedSkillIds.value, [index]: next }
+const confirmationTitle = (selection: AgentSkillSelectionPayload): string => {
+  if (isMCPConfirmation(selection)) return '确认执行 MCP 工具'
+  return selection.candidates.length ? '确认启用 Agent Skill' : 'Agent Skill 确认信息异常'
 }
+
+const confirmationDescription = (selection: AgentSkillSelectionPayload): string => {
+  if (isMCPConfirmation(selection)) {
+    return selection.reason && selection.reason !== 'confirmation_required'
+      ? selection.reason
+      : '该工具需要你的明确授权。拒绝后本次运行将安全取消。'
+  }
+  return selection.candidates.length
+    ? '以下确认仅授权列出的精确 Skill 版本，不会授权 MCP 工具。'
+    : '未能读取精确 Skill 版本，请取消本次运行后重试。'
+}
+
+const exactSelectionIds = (selection: AgentSkillSelectionPayload): number[] =>
+  isMCPConfirmation(selection)
+    ? []
+    : Array.isArray(selection.recommended_agent_skill_version_ids)
+      ? [...selection.recommended_agent_skill_version_ids]
+      : []
 
 const confirmSkillSelection = (index: number, selection: AgentSkillSelectionPayload) => {
   if (props.interactionDisabled) return
-  emit('confirm-skill-selection', index, selectionIds(index, selection))
+  emit('confirm-skill-selection', index, exactSelectionIds(selection))
 }
 
-const skipSkillSelection = (index: number) => {
+const rejectSkillSelection = (index: number) => {
   if (props.interactionDisabled) return
-  selectedSkillIds.value = { ...selectedSkillIds.value, [index]: [] }
-  emit('confirm-skill-selection', index, [])
+  emit('reject-skill-selection', index)
 }
+
+const cancelPendingRun = (index: number) => {
+  if (props.interactionDisabled) return
+  emit('cancel-pending-run', index)
+}
+
+const shortHash = (hash: string | undefined): string => {
+  const normalized = String(hash || '').trim()
+  return normalized ? normalized.slice(0, 10) : '—'
+}
+
+const candidateMeta = (
+  candidate: AgentSkillSelectionPayload['candidates'][number],
+): string => [
+  `v${candidate.version || '—'}`,
+  shortHash(candidate.compiled_hash),
+  candidate.composition_role,
+  candidate.risk,
+  candidate.activation_policy,
+  `${Math.max(0, Number(candidate.core_estimated_tokens) || 0)} tokens`,
+].join(' · ')
+
+const runtimeEvidence = (message: MessageItem): AgentSkillRuntimeEvidence[] =>
+  Array.isArray(message.agent_skill_runtime_evidence)
+    ? message.agent_skill_runtime_evidence.filter(
+        (item): item is AgentSkillRuntimeEvidence =>
+          Boolean(item && Number.isFinite(Number(item.version_id)) && Number(item.version_id) > 0),
+      )
+    : []
+
+const evidenceSections = (evidence: AgentSkillRuntimeEvidence) =>
+  Array.isArray(evidence?.sections)
+    ? evidence.sections.filter((section) => Boolean(section?.section_key))
+    : []
 
 const quickHints = [
   '今天后端岗位投递了多少人？',
@@ -169,39 +217,100 @@ const quickHints = [
             <div class="skill-confirmation__header">
               <div>
                 <div class="skill-confirmation__title">
-                  {{ message.agentSkillSelection.candidates.length ? '确认本次要调用的 Skill' : 'Skill 候选加载异常' }}
+                  {{ confirmationTitle(message.agentSkillSelection) }}
                 </div>
                 <div class="skill-confirmation__desc">
-                  {{ message.agentSkillSelection.candidates.length ? '系统匹配到多个候选，请选择后继续生成回答。' : '未能读取到可选候选，可跳过 Skill 继续生成回答。' }}
+                  {{ confirmationDescription(message.agentSkillSelection) }}
                 </div>
               </div>
               <el-tag size="small" effect="plain">待确认</el-tag>
             </div>
-            <div class="skill-confirmation__list">
-              <button
+            <div class="skill-confirmation__list" role="list" aria-label="本次精确授权的 Agent Skill 版本">
+              <div
                 v-for="candidate in message.agentSkillSelection.candidates"
-                :key="candidate.id"
+                :key="candidate.version_id"
                 class="skill-confirmation__option"
-                :class="{ 'skill-confirmation__option--selected': selectionIds(index, message.agentSkillSelection).includes(candidate.id) }"
-                type="button"
-                :disabled="interactionDisabled"
-                @click="toggleSkillSelection(index, message.agentSkillSelection, candidate.id)"
+                :class="{ 'skill-confirmation__option--selected': exactSelectionIds(message.agentSkillSelection).includes(candidate.version_id) }"
+                role="listitem"
               >
                 <span class="skill-confirmation__check">
-                  {{ selectionIds(index, message.agentSkillSelection).includes(candidate.id) ? '✓' : '' }}
+                  {{ exactSelectionIds(message.agentSkillSelection).includes(candidate.version_id) ? '✓' : '' }}
                 </span>
                 <span class="skill-confirmation__body">
                   <span class="skill-confirmation__name">
                     {{ skillSelectionLabel(candidate) }}
                     <em v-if="candidate.recommended">推荐</em>
                   </span>
+                  <span class="skill-confirmation__meta">{{ candidateMeta(candidate) }}</span>
                   <span class="skill-confirmation__reason">{{ skillSelectionReason(candidate) }}</span>
                 </span>
-              </button>
+              </div>
             </div>
             <div class="skill-confirmation__actions">
-              <el-button size="small" :disabled="interactionDisabled" @click="skipSkillSelection(index)">不使用 Skill</el-button>
-              <el-button type="primary" size="small" :disabled="interactionDisabled" @click="confirmSkillSelection(index, message.agentSkillSelection)">继续</el-button>
+              <el-button
+                v-if="isMCPConfirmation(message.agentSkillSelection)"
+                size="small"
+                :disabled="interactionDisabled"
+                @click="rejectSkillSelection(index)"
+              >
+                拒绝并取消
+              </el-button>
+              <el-button
+                v-else
+                size="small"
+                :disabled="interactionDisabled"
+                @click="rejectSkillSelection(index)"
+              >
+                拒绝 Skill
+              </el-button>
+              <el-button
+                v-if="!isMCPConfirmation(message.agentSkillSelection)"
+                size="small"
+                :disabled="interactionDisabled"
+                @click="cancelPendingRun(index)"
+              >
+                取消运行
+              </el-button>
+              <el-button
+                type="primary"
+                size="small"
+                :disabled="interactionDisabled || (!isMCPConfirmation(message.agentSkillSelection) && exactSelectionIds(message.agentSkillSelection).length === 0)"
+                @click="confirmSkillSelection(index, message.agentSkillSelection)"
+              >
+                {{ message.agentSkillSelection.confirmation_kind === 'mcp_tool' ? '确认执行' : '确认启用' }}
+              </el-button>
+            </div>
+          </div>
+
+          <div
+            v-if="runtimeEvidence(message).length > 0"
+            class="agent-skill-evidence"
+            aria-label="Agent Skill 运行证据"
+          >
+            <div class="agent-skill-evidence__title">已应用 Agent Skill</div>
+            <div
+              v-for="evidence in runtimeEvidence(message)"
+              :key="evidence.version_id"
+              class="agent-skill-evidence__item"
+            >
+              <div class="agent-skill-evidence__header">
+                <strong>{{ evidence.display_name || evidence.skill_name }}</strong>
+                <span>v{{ evidence.version }} · {{ shortHash(evidence.compiled_hash) }}</span>
+              </div>
+              <div class="agent-skill-evidence__meta">
+                {{ evidence.composition_role }} · {{ evidence.risk }} ·
+                {{ evidence.activation_policy }} · {{ evidence.loaded_tokens }} tokens
+              </div>
+              <div class="agent-skill-evidence__reason">{{ evidence.decision_reason }}</div>
+              <div v-if="evidenceSections(evidence).length > 0" class="agent-skill-evidence__sections">
+                <span
+                  v-for="section in evidenceSections(evidence)"
+                  :key="section.section_id"
+                  :class="{ 'agent-skill-evidence__section--dropped': !section.included }"
+                >
+                  {{ section.section_key }} · {{ section.estimated_tokens }} tokens · {{ section.decision_reason }}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -396,12 +505,10 @@ const quickHints = [
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-secondary);
-  cursor: pointer;
+  cursor: default;
   text-align: left;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.skill-confirmation__option:hover,
 .skill-confirmation__option--selected {
   border-color: color-mix(in srgb, var(--brand) 52%, var(--border));
   background: var(--brand-soft);
@@ -458,11 +565,78 @@ const quickHints = [
   white-space: nowrap;
 }
 
+.skill-confirmation__meta {
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .skill-confirmation__actions {
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.agent-skill-evidence {
+  width: min(560px, 100%);
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.agent-skill-evidence__title {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.agent-skill-evidence__item {
+  display: grid;
+  gap: 3px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.agent-skill-evidence__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.agent-skill-evidence__header span,
+.agent-skill-evidence__meta {
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.agent-skill-evidence__reason {
+  overflow-wrap: anywhere;
+}
+
+.agent-skill-evidence__sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.agent-skill-evidence__sections span {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+}
+
+.agent-skill-evidence__section--dropped {
+  opacity: 0.62;
+  text-decoration: line-through;
 }
 
 .assistant-process {

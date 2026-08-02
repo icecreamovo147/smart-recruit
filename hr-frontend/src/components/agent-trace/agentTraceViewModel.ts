@@ -6,6 +6,7 @@ import type {
   AgentRunStepItem,
   ToolTraceItem,
 } from '@/types/ai'
+import { localizedBackendText } from '@shared/i18n'
 
 // ---- Status / type categories ----
 
@@ -688,10 +689,10 @@ export function extractRiskFlags(run: AgentRunItem, plan: AgentRunRecruitingPlan
 }
 
 export function runModelDisplayName(run: AgentRunItem, plan: AgentRunPlanJSON | null): string {
-  const fromRun = String(run.model_name || '').trim()
-  if (fromRun) return fromRun
   const fromPlan = typeof plan?.model === 'string' ? plan.model.trim() : ''
   if (fromPlan) return fromPlan
+  const fromRun = String(run.model_name || '').trim()
+  if (fromRun) return fromRun
   return run.model_id > 0 ? `模型 #${run.model_id}` : '默认模型'
 }
 
@@ -719,13 +720,14 @@ export function buildStepVM(step: AgentRunStepItem, runId: number): TraceStepVM 
   const title = stepTitle(step)
   const issues: TraceIssueItem[] = []
   const anchorKey = `step-${runId}-${step.id}`
+  const localizedError = localizedBackendText(step.error_message)
 
   if (statusCategory === 'failed' || step.error_message) {
     issues.push({
       id: `step-error-${step.id}`,
       severity: 'error',
       label: `步骤失败: ${title}`,
-      detail: step.error_message || statusLabels[step.status] || step.status || '失败',
+      detail: localizedError || statusLabels[step.status] || step.status || '失败',
       sourceKind: 'step',
       runId,
       stepId: step.id,
@@ -753,6 +755,7 @@ export function buildStepVM(step: AgentRunStepItem, runId: number): TraceStepVM 
     step.capability_source,
     step.status,
     step.error_message,
+    localizedError,
     policyDecision?.decision,
     policyDecision?.reason,
     policyDecision?.label,
@@ -786,6 +789,9 @@ export function buildRunVM(run: AgentRunItem): TraceRunVM {
   const riskFlags = extractRiskFlags(run, recruitingPlan)
   const decisionEntries = extractDecisionEntries(decision)
   const steps = (run.steps || []).map((step) => buildStepVM(step, run.id))
+  const runtimeEvidence = Array.isArray(run.result_metadata?.agent_skill_runtime_evidence)
+    ? run.result_metadata.agent_skill_runtime_evidence
+    : []
   const statusCategory = classifyStatus(run.status)
   const durationMs = computeDurationMs(run.started_at, run.completed_at)
   const intentRaw = recruitingPlan?.intent || decision?.intent || ''
@@ -800,13 +806,14 @@ export function buildRunVM(run: AgentRunItem): TraceRunVM {
   )
   const anchorKey = `run-${run.id}`
   const issues: TraceIssueItem[] = []
+  const localizedError = localizedBackendText(run.error_message)
 
   if (statusCategory === 'failed' || run.error_message) {
     issues.push({
       id: `run-error-${run.id}`,
       severity: 'error',
       label: `运行失败: ${labelFrom(agentLabels, agentName)}`,
-      detail: run.error_message || run.error_type || statusLabels[run.status] || run.status,
+      detail: localizedError || run.error_type || statusLabels[run.status] || run.status,
       sourceKind: 'run',
       runId: run.id,
       anchorKey,
@@ -871,8 +878,31 @@ export function buildRunVM(run: AgentRunItem): TraceRunVM {
     run.model_name,
     run.status,
     run.error_message,
+    localizedError,
     run.error_type,
     run.final_answer,
+    ...runtimeEvidence.flatMap((evidence) => [
+      evidence.display_name,
+      evidence.skill_name,
+      evidence.version,
+      evidence.version_id,
+      evidence.compiled_hash,
+      evidence.selection_mode,
+      evidence.relevance_mode,
+      evidence.decision_reason,
+      evidence.core_estimated_tokens,
+      evidence.loaded_tokens,
+      ...(evidence.sections || []).flatMap((section) => [
+        section.section_key,
+        section.content_hash,
+        section.estimated_tokens,
+        section.decision_reason,
+      ]),
+    ]),
+    run.result_metadata?.context_usage?.prompt_tokens_estimated,
+    run.result_metadata?.context_usage?.prompt_tokens_actual,
+    run.result_metadata?.context_usage?.completion_tokens_actual,
+    run.result_metadata?.context_usage?.breakdown?.skill_tokens,
     intentRaw,
     runtimeRaw,
     ...riskFlags,
@@ -882,7 +912,7 @@ export function buildRunVM(run: AgentRunItem): TraceRunVM {
 
   const hasStructuredPlan = Boolean(
     recruitingPlan
-    || normalizeNumberList(plan?.selected_agent_skill_ids).length > 0
+    || normalizeNumberList(plan?.selected_agent_skill_version_ids).length > 0
     || normalizeNumberList(plan?.selected_memory_ids).length > 0
     || decisionEntries.length > 0,
   )
@@ -926,13 +956,14 @@ export function buildLegacyVM(trace: ToolTraceItem): TraceLegacyVM {
     : policyDecision?.label || '成功'
   const anchorKey = `legacy-${trace.id}`
   const issues: TraceIssueItem[] = []
+  const localizedError = localizedBackendText(trace.error_msg)
 
   if (hasError) {
     issues.push({
       id: `legacy-error-${trace.id}`,
       severity: 'error',
       label: `历史工具失败: ${trace.tool_name}`,
-      detail: trace.error_msg,
+      detail: localizedError,
       sourceKind: 'legacy',
       traceId: trace.id,
       anchorKey,
@@ -953,6 +984,7 @@ export function buildLegacyVM(trace: ToolTraceItem): TraceLegacyVM {
   const searchableText = joinSearchParts([
     trace.tool_name,
     trace.error_msg,
+    localizedError,
     policyDecision?.decision,
     policyDecision?.reason,
     policyDecision?.label,

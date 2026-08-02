@@ -4,7 +4,11 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listAIRateCards, listBillingProducts, listBillingRefunds, listPlans, publishPlanVersion, reviewBillingRefund, saveAIRateCard, saveBillingPrice, savePlanVersion, type AIRateCardAdmin, type BillingProductAdmin, type BillingRefundAdmin } from '@/api/control'
 import { listModels, listProviders } from '@/api/llm'
-import { listPlatformAICapabilities, type PlatformAICapability } from '@/api/platformAI'
+import {
+  listPlatformAICapabilities,
+  listPlatformAICapabilityVersions,
+  type PlatformAICapability,
+} from '@/api/platformAI'
 import { PageHeader, PagePanel } from '@/components/admin-console'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/auth'
@@ -12,6 +16,17 @@ import type { PlatformEntitlement, PlatformPlan, PlatformPlanVersion } from '@/t
 import type { LlmModel, LlmProvider } from '@shared/types/llm'
 import { formatShanghaiDateTime, toShanghaiRFC3339 } from '@shared/utils/format'
 import { enabledRateModelsForProvider, enabledRateProviders, isEnabledRateTarget } from './rateCardCatalog'
+import {
+  capabilityReleaseEntitlements,
+  initializeCapabilityReleaseSelections,
+  type CapabilityReleaseVersions,
+} from './planCapabilityReleases'
+import {
+  currentPlanVersions,
+  displayedPlans,
+  planEntitlementSections,
+  resolveDisplayedPlanID,
+} from './planVersionDisplay'
 
 const auth = useAuthStore()
 const loading = ref(false)
@@ -25,9 +40,15 @@ const rateModels = ref<LlmModel[]>([])
 const rateTargetsLoaded = ref(false)
 const refunds = ref<BillingRefundAdmin[]>([])
 const aiCapabilities = ref<PlatformAICapability[]>([])
+const aiCapabilityVersions = ref<CapabilityReleaseVersions>({})
+const selectedCapabilityReleaseIDs = reactive<Record<string, number>>({})
+const displayedPlanID = ref<number | null>(null)
+const showTechnicalFields = ref(false)
+const expandedCapabilitySections = ref<string[]>([])
 const paymentEnvironment = ref('sandbox')
 const canManage = computed(() => auth.can(PLATFORM_PERMISSIONS.PLAN_MANAGE))
 const canPublish = computed(() => auth.can(PLATFORM_PERMISSIONS.PLAN_PUBLISH))
+const visiblePlans = computed(() => displayedPlans(plans.value, displayedPlanID.value))
 const canReviewRefund = computed(() => auth.can(PLATFORM_PERMISSIONS.BILLING_REFUND_REVIEW))
 const catalogSections = computed(() => {
   const items: Array<{ name: CatalogSection; label: string }> = [
@@ -81,6 +102,22 @@ const entitlementLabels: Record<string, string> = {
   'ai.single_run.max_credits': '单次任务额度上限',
 }
 
+const entitlementUnits: Record<string, string> = {
+  'members.max': '人',
+  'jobs.published.max': '个岗位',
+  'applications.monthly.max': '次/月',
+  'resumes.storage.max': '份简历',
+  'ai.credits.monthly': '额度/月',
+  'ai.concurrent_runs.max': '个任务',
+  'ai.single_run.max_credits': '额度',
+}
+
+const planVersionStatusLabels: Record<string, string> = {
+  published: '已发布',
+  draft: '草稿',
+  retired: '已退役',
+}
+
 const refundStatusLabels: Record<string, string> = {
   waiting_usage: '等待在途用量',
   reviewing: '待人工审核',
@@ -99,7 +136,14 @@ const load = async (section: CatalogSection = activeSection.value) => {
     if (section === 'plans') {
       const [planResult, capabilityResult] = await Promise.all([listPlans(), listPlatformAICapabilities()])
       plans.value = planResult.list || []
+      displayedPlanID.value = resolveDisplayedPlanID(plans.value, displayedPlanID.value)
       aiCapabilities.value = (capabilityResult.list || []).filter((item) => item.audience === 'tenant_hr')
+      const versionEntries = await Promise.all(aiCapabilities.value.map(async (capability) => {
+        const result = await listPlatformAICapabilityVersions(capability.id)
+        const versions = (result.list || []).filter((version) => version.status === 'published')
+        return [capability.capability_key, versions] as const
+      }))
+      aiCapabilityVersions.value = Object.fromEntries(versionEntries)
     } else if (section === 'products') {
       const billingResult = await listBillingProducts()
       billingProducts.value = billingResult.products || []
@@ -215,6 +259,15 @@ const openEditor = (plan: PlatformPlan, version?: PlatformPlanVersion) => {
   form.aiMonthlyCredits = valueOf(version, 'ai.credits.monthly') || 100
   form.aiConcurrentRuns = valueOf(version, 'ai.concurrent_runs.max') || 1
   form.aiSingleRunCredits = valueOf(version, 'ai.single_run.max_credits') || 20
+  const releaseSelections = initializeCapabilityReleaseSelections(
+    aiCapabilities.value,
+    aiCapabilityVersions.value,
+    version?.entitlements,
+  )
+  for (const key of Object.keys(selectedCapabilityReleaseIDs)) {
+    delete selectedCapabilityReleaseIDs[key]
+  }
+  Object.assign(selectedCapabilityReleaseIDs, releaseSelections)
   editorVisible.value = true
 }
 
@@ -230,22 +283,64 @@ const entitlements = (): PlatformEntitlement[] => {
     ['ai.resume_parse.enabled', form.aiResumeParse], ['ai.match_evaluation.enabled', form.aiMatchEvaluation],
     ['ai.application_analysis.enabled', form.aiApplicationAnalysis], ['ai.agent_run.enabled', form.aiAgentRun],
   ]
-  const releases: Array<[string, number]> = aiCapabilities.value
-    .filter((item) => item.current_published_version_id > 0)
-    .map((item) => [`${item.capability_key}.release_version_id`, item.current_published_version_id])
   return [
     ...integers.map(([key, value]) => ({ key, value_type: 'integer' as const, value_json: String(value), enforcement_mode: 'hard' as const })),
     ...booleans.map(([key, value]) => ({ key, value_type: 'boolean' as const, value_json: String(value), enforcement_mode: 'hard' as const })),
-    ...releases.map(([key, value]) => ({ key, value_type: 'integer' as const, value_json: String(value), enforcement_mode: 'hard' as const })),
+    ...capabilityReleaseEntitlements(aiCapabilities.value, selectedCapabilityReleaseIDs),
   ]
 }
 
-const displayValue = (item: PlatformEntitlement) => item.value_type === 'boolean'
-  ? (item.value_json === 'true' ? '已启用' : '未启用')
-  : Number(item.value_json).toLocaleString()
+const primaryEntitlementSections = (items: PlatformEntitlement[]) => (
+  planEntitlementSections(items).filter((section) => section.key !== 'capability_versions')
+)
+
+const capabilityEntitlementSections = (items: PlatformEntitlement[]) => (
+  planEntitlementSections(items).filter((section) => section.key === 'capability_versions')
+)
+
+const displayValue = (item: PlatformEntitlement) => {
+  if (item.value_type === 'boolean') {
+    return item.value_json === 'true' ? '已启用' : '未启用'
+  }
+  const value = Number(item.value_json)
+  if (item.key.endsWith('.release_version_id')) {
+    const capabilityKey = item.key.slice(0, -'.release_version_id'.length)
+    const release = aiCapabilityVersions.value[capabilityKey]?.find((version) => version.id === value)
+    return release ? `V${release.version}` : `发布版本 #${item.value_json}`
+  }
+  const formattedValue = Number.isFinite(value) ? value.toLocaleString() : item.value_json
+  const unit = entitlementUnits[item.key]
+  return unit ? `${formattedValue} ${unit}` : formattedValue
+}
+
+const versionStatusLabel = (status: string) => planVersionStatusLabels[status] || status
+
+const enforcementLabel = (mode: string) => mode === 'hard'
+  ? '硬限制'
+  : mode === 'soft'
+    ? '软限制'
+    : mode
+
+const capabilityEnabled = (capabilityKey: string) => ({
+  'ai.chat': form.aiChat,
+  'ai.resume_parse': form.aiResumeParse,
+  'ai.match_evaluation': form.aiMatchEvaluation,
+  'ai.application_analysis': form.aiApplicationAnalysis,
+  'ai.agent_run': form.aiAgentRun,
+}[capabilityKey] ?? true)
 
 const submitDraft = async () => {
   if (!selectedPlan.value || !form.change_note.trim()) { ElMessage.warning(t('common.invalid_request')); return }
+  const missingRelease = aiCapabilities.value.find(
+    (capability) => capabilityEnabled(capability.capability_key)
+      && !selectedCapabilityReleaseIDs[capability.capability_key],
+  )
+  if (missingRelease) {
+    ElMessage.warning(t('platform.plan_capability_release_required', {
+      capability: missingRelease.name,
+    }))
+    return
+  }
   await savePlanVersion(selectedPlan.value.id, { version_id: form.version_id || undefined, change_note: form.change_note.trim(), entitlements: entitlements() })
   editorVisible.value = false
   ElMessage.success(t('common.success'))
@@ -293,19 +388,178 @@ onMounted(load)
         </button>
       </nav>
 
-      <div v-if="activeSection === 'plans'" class="plan-grid catalog-panel__body">
-        <article v-for="plan in plans" :key="plan.id" class="surface-card plan-card">
-          <header><div><span class="plan-key">{{ plan.plan_key }}</span><h2>{{ plan.name }}</h2><p>{{ plan.description }}</p></div><el-tag :type="plan.status === 'active' ? 'success' : 'info'">{{ plan.status === 'active' ? '启用' : '已退役' }}</el-tag></header>
-          <div class="plan-version-list">
-            <section v-for="version in plan.versions" :key="version.id" class="plan-version">
-              <div class="plan-version__heading"><div><strong>版本 V{{ version.version }}</strong><small>{{ version.change_note || '暂无版本说明' }}</small></div><el-tag :type="version.status === 'published' ? 'success' : version.status === 'draft' ? 'warning' : 'info'" size="small">{{ version.status }}</el-tag></div>
-              <div class="entitlement-grid"><div v-for="item in version.entitlements" :key="item.key"><span>{{ entitlementLabels[item.key] || item.key }}</span><strong>{{ displayValue(item) }}</strong><small>{{ item.enforcement_mode === 'hard' ? '硬限制' : item.enforcement_mode }}</small></div></div>
-              <footer><span>{{ version.status === 'published' ? `生效：${formatTime(version.effective_at)}` : `更新：${formatTime(version.updated_at)}` }}</span><div><el-button v-if="canManage && version.status === 'draft'" link type="primary" @click="openEditor(plan, version)">编辑草稿</el-button><el-button v-if="canPublish && version.status === 'draft'" link type="success" @click="openPublish(plan, version)">发布</el-button></div></footer>
+      <section v-if="activeSection === 'plans'" class="plans-catalog">
+        <div v-if="plans.length" class="plan-selector">
+          <strong>当前展示套餐</strong>
+          <el-select
+            v-model="displayedPlanID"
+            aria-label="选择当前展示套餐"
+            placeholder="请选择套餐"
+            class="plan-selector__control"
+          >
+            <el-option
+              v-for="plan in plans"
+              :key="plan.id"
+              :label="`${plan.name}（${plan.plan_key}）`"
+              :value="plan.id"
+            />
+          </el-select>
+        </div>
+        <div class="plan-grid catalog-panel__body">
+          <article v-for="plan in visiblePlans" :key="plan.id" class="surface-card plan-card">
+            <section
+              v-for="version in currentPlanVersions(plan)"
+              :key="version.id"
+              class="plan-current"
+            >
+              <header class="plan-summary">
+                <div class="plan-summary__identity">
+                  <span class="plan-key">{{ plan.plan_key }}</span>
+                  <h2>{{ plan.name }}</h2>
+                  <p>{{ plan.description }}</p>
+                </div>
+                <div class="plan-summary__meta">
+                  <div class="plan-summary__badges">
+                    <el-tag :type="plan.status === 'active' ? 'success' : 'info'" effect="plain">
+                      {{ plan.status === 'active' ? '套餐启用' : '套餐已退役' }}
+                    </el-tag>
+                    <el-tag
+                      :type="version.status === 'published' ? 'success' : version.status === 'draft' ? 'warning' : 'info'"
+                      effect="plain"
+                    >
+                      {{ versionStatusLabel(version.status) }}
+                    </el-tag>
+                  </div>
+                  <div class="plan-summary__version">
+                    <span>当前版本</span>
+                    <strong>V{{ version.version }}</strong>
+                    <small>{{ version.change_note || '暂无版本说明' }}</small>
+                  </div>
+                  <div v-if="canManage || canPublish" class="plan-summary__actions">
+                    <el-button
+                      v-if="canManage && version.status === 'draft'"
+                      @click="openEditor(plan, version)"
+                    >
+                      编辑草稿
+                    </el-button>
+                    <el-button
+                      v-if="canPublish && version.status === 'draft'"
+                      type="primary"
+                      @click="openPublish(plan, version)"
+                    >
+                      发布版本
+                    </el-button>
+                    <el-button
+                      v-if="canManage && version.status !== 'draft'"
+                      type="primary"
+                      @click="openEditor(plan)"
+                    >
+                      创建新版本
+                    </el-button>
+                  </div>
+                </div>
+              </header>
+
+              <div class="plan-entitlement-content">
+                <div class="plan-entitlement-toolbar">
+                  <div>
+                    <strong>权益配置</strong>
+                    <span>当前版本生效的套餐能力与使用上限</span>
+                  </div>
+                  <label class="technical-fields-toggle">
+                    <span>显示技术字段</span>
+                    <el-switch v-model="showTechnicalFields" aria-label="显示技术字段" />
+                  </label>
+                </div>
+
+                <div class="plan-entitlement-form" aria-label="套餐权益详情">
+                  <section
+                    v-for="section in primaryEntitlementSections(version.entitlements)"
+                    :key="section.key"
+                    class="plan-entitlement-form__section"
+                  >
+                    <div class="plan-entitlement-form__heading">
+                      <h3>{{ section.title }}</h3>
+                      <span>{{ section.items.length }} 项</span>
+                    </div>
+                    <dl class="plan-entitlement-form__grid">
+                      <div
+                        v-for="item in section.items"
+                        :key="item.key"
+                        class="plan-entitlement-field"
+                      >
+                        <dt>
+                          <span>{{ entitlementLabels[item.key] || item.key }}</span>
+                          <small v-if="showTechnicalFields">{{ item.key }}</small>
+                        </dt>
+                        <dd>
+                          <el-tag
+                            v-if="item.value_type === 'boolean'"
+                            :type="item.value_json === 'true' ? 'success' : 'info'"
+                            effect="plain"
+                            size="small"
+                          >
+                            {{ displayValue(item) }}
+                          </el-tag>
+                          <strong v-else>{{ displayValue(item) }}</strong>
+                          <small>{{ enforcementLabel(item.enforcement_mode) }}</small>
+                        </dd>
+                      </div>
+                    </dl>
+                  </section>
+
+                  <el-collapse
+                    v-model="expandedCapabilitySections"
+                    class="capability-version-collapse"
+                  >
+                    <el-collapse-item
+                      v-for="section in capabilityEntitlementSections(version.entitlements)"
+                      :key="section.key"
+                      :name="`${plan.id}:${version.id}:${section.key}`"
+                    >
+                      <template #title>
+                        <span class="capability-version-collapse__title">
+                          <strong>{{ section.title }}</strong>
+                          <small>技术配置 · {{ section.items.length }} 项</small>
+                        </span>
+                      </template>
+                      <dl class="plan-entitlement-form__grid">
+                        <div
+                          v-for="item in section.items"
+                          :key="item.key"
+                          class="plan-entitlement-field"
+                        >
+                          <dt>
+                            <span>{{ entitlementLabels[item.key] || item.key }}</span>
+                            <small v-if="showTechnicalFields">{{ item.key }}</small>
+                          </dt>
+                          <dd>
+                            <strong>{{ displayValue(item) }}</strong>
+                            <small>{{ enforcementLabel(item.enforcement_mode) }}</small>
+                          </dd>
+                        </div>
+                      </dl>
+                    </el-collapse-item>
+                  </el-collapse>
+                </div>
+              </div>
+
+              <footer class="plan-current__footer">
+                {{ version.status === 'published' ? `生效时间：${formatTime(version.effective_at)}` : `最后更新：${formatTime(version.updated_at)}` }}
+              </footer>
             </section>
-          </div>
-          <el-button v-if="canManage" class="plan-new-version" plain @click="openEditor(plan)">创建新版本草稿</el-button>
-        </article>
-      </div>
+            <el-empty
+              v-if="!currentPlanVersions(plan).length"
+              description="该套餐尚未创建版本"
+            >
+              <el-button v-if="canManage" type="primary" @click="openEditor(plan)">
+                创建首个版本
+              </el-button>
+            </el-empty>
+          </article>
+          <el-empty v-if="!plans.length" description="尚未创建套餐" />
+        </div>
+      </section>
 
       <section v-if="activeSection === 'products'" class="surface-card billing-catalog catalog-panel__body"><header><div><h2>AI 计费商品与价格</h2><p>发布后会进入 HR 或候选人购买页；已发布价格不可修改，只能创建新版本。</p></div><el-tag type="warning">{{ paymentEnvironment === 'sandbox' ? '支付宝沙箱' : paymentEnvironment }}</el-tag></header><div class="billing-product-grid"><article v-for="product in billingProducts" :key="product.id"><div><strong>{{ product.name }}</strong><small>{{ product.product_key }} · {{ product.product_type }}</small></div><div v-if="product.prices[0]"><strong>¥{{ (product.prices[0].amount_fen / 100).toFixed(2) }}</strong><small>{{ product.prices[0].included_credits.toLocaleString() }} 额度 · V{{ product.prices[0].version }}</small></div><span v-else>尚未配置价格</span><el-button v-if="canManage && product.product_key !== 'candidate_free'" link type="primary" @click="openPriceEditor(product)">配置价格</el-button></article><el-empty v-if="!billingProducts.length" description="尚未创建计费商品" /></div></section>
 
@@ -316,7 +570,7 @@ onMounted(load)
 
     <el-dialog v-model="editorVisible" :title="`${selectedPlan?.name || ''} · ${form.version_id ? '编辑草稿' : '新建版本'}`" width="680px">
       <el-alert title="已发布版本不可修改；保存新草稿不会立即影响任何租户。" type="info" :closable="false" show-icon />
-      <el-form class="dialog-form" label-position="top"><el-form-item label="版本变更说明" required><el-input v-model="form.change_note" maxlength="500" show-word-limit placeholder="说明本版本权益调整背景" /></el-form-item><div class="two-columns"><el-form-item label="有效成员上限"><el-input-number v-model="form.members" :min="1" :max="1000000" controls-position="right" /></el-form-item><el-form-item label="在线岗位上限"><el-input-number v-model="form.jobs" :min="1" :max="1000000" controls-position="right" /></el-form-item><el-form-item label="月投递上限"><el-input-number v-model="form.applications" :min="1" :max="100000000" controls-position="right" /></el-form-item><el-form-item label="简历存储上限"><el-input-number v-model="form.resumes" :min="1" :max="100000000" controls-position="right" /></el-form-item></div><el-divider content-position="left">AI 权益</el-divider><div class="two-columns"><el-form-item label="HR AI 总开关"><el-switch v-model="form.aiHr" /></el-form-item><el-form-item label="AI 对话"><el-switch v-model="form.aiChat" /></el-form-item><el-form-item label="简历解析"><el-switch v-model="form.aiResumeParse" /></el-form-item><el-form-item label="匹配评估"><el-switch v-model="form.aiMatchEvaluation" /></el-form-item><el-form-item label="申请分析"><el-switch v-model="form.aiApplicationAnalysis" /></el-form-item><el-form-item label="Agent 任务"><el-switch v-model="form.aiAgentRun" /></el-form-item><el-form-item label="每月 AI 额度"><el-input-number v-model="form.aiMonthlyCredits" :min="1" :max="100000000" controls-position="right" /></el-form-item><el-form-item label="AI 并发任务"><el-input-number v-model="form.aiConcurrentRuns" :min="1" :max="1000" controls-position="right" /></el-form-item><el-form-item label="单次任务额度上限"><el-input-number v-model="form.aiSingleRunCredits" :min="1" :max="100000000" controls-position="right" /></el-form-item></div></el-form>
+      <el-form class="dialog-form" label-position="top"><el-form-item label="版本变更说明" required><el-input v-model="form.change_note" maxlength="500" show-word-limit placeholder="说明本版本权益调整背景" /></el-form-item><div class="two-columns"><el-form-item label="有效成员上限"><el-input-number v-model="form.members" :min="1" :max="1000000" controls-position="right" /></el-form-item><el-form-item label="在线岗位上限"><el-input-number v-model="form.jobs" :min="1" :max="1000000" controls-position="right" /></el-form-item><el-form-item label="月投递上限"><el-input-number v-model="form.applications" :min="1" :max="100000000" controls-position="right" /></el-form-item><el-form-item label="简历存储上限"><el-input-number v-model="form.resumes" :min="1" :max="100000000" controls-position="right" /></el-form-item></div><el-divider content-position="left">AI 权益</el-divider><div class="two-columns"><el-form-item label="HR AI 总开关"><el-switch v-model="form.aiHr" /></el-form-item><el-form-item label="AI 对话"><el-switch v-model="form.aiChat" /></el-form-item><el-form-item label="简历解析"><el-switch v-model="form.aiResumeParse" /></el-form-item><el-form-item label="匹配评估"><el-switch v-model="form.aiMatchEvaluation" /></el-form-item><el-form-item label="申请分析"><el-switch v-model="form.aiApplicationAnalysis" /></el-form-item><el-form-item label="Agent 任务"><el-switch v-model="form.aiAgentRun" /></el-form-item><el-form-item label="每月 AI 额度"><el-input-number v-model="form.aiMonthlyCredits" :min="1" :max="100000000" controls-position="right" /></el-form-item><el-form-item label="AI 并发任务"><el-input-number v-model="form.aiConcurrentRuns" :min="1" :max="1000" controls-position="right" /></el-form-item><el-form-item label="单次任务额度上限"><el-input-number v-model="form.aiSingleRunCredits" :min="1" :max="100000000" controls-position="right" /></el-form-item></div><el-divider content-position="left">AI 能力版本</el-divider><el-alert title="每个套餐版本会固定引用明确的能力发布版本；后续发布新的能力版本不会自动改变已保存的套餐草稿。" type="info" :closable="false" show-icon /><div class="two-columns capability-release-grid"><el-form-item v-for="capability in aiCapabilities" :key="capability.id" :label="capability.name" :required="capabilityEnabled(capability.capability_key)"><el-select v-model="selectedCapabilityReleaseIDs[capability.capability_key]" placeholder="请选择已发布能力版本" filterable clearable style="width:100%"><el-option v-for="release in aiCapabilityVersions[capability.capability_key] || []" :key="release.id" :label="`V${release.version} · ${release.change_note || '无变更说明'}${release.id === capability.current_published_version_id ? '（当前）' : ''}`" :value="release.id" /></el-select><small class="capability-release-hint">{{ capability.capability_key }}.release_version_id</small></el-form-item></div></el-form>
       <template #footer><el-button @click="editorVisible = false">取消</el-button><el-button type="primary" @click="submitDraft">保存草稿</el-button></template>
     </el-dialog>
 
@@ -342,17 +596,249 @@ onMounted(load)
   overflow-x: auto;
 }
 .catalog-panel__body.plan-grid {
+  grid-template-columns: minmax(0, 1fr);
   border-top: 0;
   border-bottom: 0;
   padding: 0;
 }
+.plan-selector {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 64px;
+  padding: 10px var(--page-inset);
+  border-bottom: 1px solid var(--surface-soft-border);
+  background: var(--surface-solid-bg);
+}
+.plan-selector > strong {
+  flex: 0 0 auto;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.plan-selector__control {
+  flex: 0 1 340px;
+  width: 340px;
+  max-width: 100%;
+}
 .catalog-panel__body :deep(.plan-card) {
-  padding: var(--page-inset);
+  padding: 0;
+  border-right: 0;
+}
+.plan-current { min-width: 0; }
+.plan-summary {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 32px;
+  align-items: center;
+  padding: 22px var(--page-inset);
+  border-bottom: 1px solid var(--surface-soft-border);
+}
+.plan-summary__identity { min-width: 0; }
+.plan-summary__identity h2 {
+  margin: 5px 0 4px;
+  color: var(--text-primary);
+  font-size: 22px;
+}
+.plan-summary__identity p {
+  min-height: 0;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.plan-summary__meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+}
+.plan-summary__badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.plan-summary__version {
+  display: grid;
+  min-width: 150px;
+  padding-left: 20px;
+  border-left: 1px solid var(--surface-soft-border);
+}
+.plan-summary__version > span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.plan-summary__version > strong {
+  margin-top: 1px;
+  color: var(--text-primary);
+  font-size: 19px;
+}
+.plan-summary__version > small {
+  max-width: 240px;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-summary__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+.plan-entitlement-content {
+  width: min(100%, 1480px);
+  margin: 0 auto;
+  padding: 20px var(--page-inset) 8px;
+}
+.plan-entitlement-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.plan-entitlement-toolbar > div {
+  display: grid;
+  gap: 3px;
+}
+.plan-entitlement-toolbar strong {
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 700;
+}
+.plan-entitlement-toolbar > div > span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.technical-fields-toggle {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+}
+.plan-entitlement-form { margin: 0; }
+.plan-entitlement-form__section + .plan-entitlement-form__section { margin-top: 24px; }
+.plan-entitlement-form__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.plan-entitlement-form__heading h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.plan-entitlement-form__heading span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.plan-entitlement-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  padding: 1px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--surface-soft-border);
+}
+.plan-entitlement-field {
+  display: grid;
+  grid-template-columns: minmax(140px, .9fr) minmax(140px, 1.1fr);
+  gap: 16px;
+  align-items: center;
+  min-height: 66px;
+  padding: 12px 16px;
+  background: var(--surface-solid-bg);
+}
+.plan-entitlement-field dt {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+.plan-entitlement-field dt small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-entitlement-field dd {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+}
+.plan-entitlement-field dd > strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-entitlement-field dd > small {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.capability-version-collapse {
+  margin-top: 24px;
+  border-color: var(--surface-soft-border);
+}
+.capability-version-collapse :deep(.el-collapse-item__header) {
+  height: 52px;
+  padding: 0 4px;
+  background: transparent;
+  border-color: var(--surface-soft-border);
+}
+.capability-version-collapse :deep(.el-collapse-item__wrap) {
+  background: transparent;
+  border-color: var(--surface-soft-border);
+}
+.capability-version-collapse :deep(.el-collapse-item__content) {
+  padding: 4px 0 18px;
+}
+.capability-version-collapse__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.capability-version-collapse__title strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.capability-version-collapse__title small {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+.plan-current__footer {
+  padding: 10px var(--page-inset) 14px;
+  border-top: 1px solid var(--surface-soft-border);
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: right;
 }
 .catalog-panel__body :deep(.plan-card:first-child),
 .catalog-panel__body :deep(.plan-card:last-child) {
-  padding-left: var(--page-inset);
-  padding-right: var(--page-inset);
+  padding: 0;
 }
 .billing-catalog {
   padding: var(--page-inset);
@@ -379,8 +865,50 @@ onMounted(load)
 .billing-product-grid small,
 .billing-product-grid span { color: var(--text-muted); }
 .rate-option-meta { float: right; margin-left: 16px; color: var(--text-muted); }
+.capability-release-grid { margin-top: 18px; }
+.capability-release-hint { color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 @media (max-width: 760px) {
+  .plan-selector {
+    gap: 10px;
+  }
+  .plan-selector__control {
+    flex: 1 1 220px;
+    width: auto;
+  }
+  .plan-summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  .plan-summary__meta {
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .plan-summary__badges { justify-content: flex-start; }
+  .plan-summary__version {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .plan-summary__actions { flex: 1 1 100%; }
+  .plan-summary__actions :deep(.el-button) { flex: 1 1 auto; }
+  .plan-entitlement-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .plan-entitlement-form__grid { grid-template-columns: minmax(0, 1fr); }
+  .plan-entitlement-field {
+    grid-template-columns: minmax(120px, .9fr) minmax(120px, 1.1fr);
+  }
   .billing-product-grid article { grid-template-columns: 1fr; }
   .billing-catalog > header { flex-direction: column; }
+}
+@media (min-width: 761px) and (max-width: 1180px) {
+  .plan-summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  .plan-summary__meta { justify-content: flex-start; }
+  .plan-summary__badges { justify-content: flex-start; }
 }
 </style>

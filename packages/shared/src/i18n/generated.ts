@@ -24,6 +24,7 @@ export const catalogs = {
     "ai.too_many_requests": "AI 请求太频繁，请稍后再试",
     "ai.stream_failed": "AI 流式请求失败",
     "ai.stream_timeout": "AI 服务响应超时，请稍后重试",
+    "ai.model_fallback": "请求的模型不可用，已自动切换至 {model}",
     "ai.connection_interrupted": "AI 服务连接已中断，请稍后重试",
     "ai.invalid_response": "AI 服务响应数据格式异常",
     "ai.stream_unavailable": "AI 流式响应不可用",
@@ -33,6 +34,13 @@ export const catalogs = {
     "ai.context_config_invalid": "AI 上下文配置无效",
     "ai.context_budget_exceeded": "AI 上下文已超过模型容量限制",
     "ai.provider_unavailable": "AI 模型服务当前不可用",
+    "ai.agent_skill_package_invalid": "Agent Skill 包格式无效，请检查后重试",
+    "ai.agent_skill_core_budget_exceeded": "Agent Skill 核心指令超出上下文预算限制",
+    "ai.agent_skill_section_invalid": "Agent Skill 参考章节格式无效，请检查后重试",
+    "ai.agent_skill_composition_conflict": "Agent Skill 组合角色冲突，请调整后重试",
+    "ai.agent_skill_confirmation_required": "请确认是否启用本次推荐的 Agent Skill",
+    "ai.agent_skill_confirmation_expired": "Agent Skill 确认已过期，请重新发起请求",
+    "ai.agent_skill_strict_output_unsupported": "当前请求无法使用 Agent Skill 的严格结构化输出约束",
     "ai.event.completed": "处理完成",
     "ai.event.planning": "正在规划招聘上下文",
     "ai.event.evidence_gate_blocked": "实时数据证据不足，已阻止模型生成",
@@ -95,7 +103,8 @@ export const catalogs = {
     "frontend.save_failed": "保存失败",
     "frontend.delete_failed": "删除失败",
     "frontend.copy_failed": "复制失败",
-    "frontend.subscribe_failed": "订阅失败"
+    "frontend.subscribe_failed": "订阅失败",
+    "platform.plan_capability_release_required": "请为 {capability} 选择已发布的能力版本"
   },
   "en-US": {
     "common.success": "Success",
@@ -121,6 +130,7 @@ export const catalogs = {
     "ai.too_many_requests": "AI requests are too frequent. Please try again later.",
     "ai.stream_failed": "The AI streaming request failed.",
     "ai.stream_timeout": "The AI service timed out. Please try again later.",
+    "ai.model_fallback": "The requested model is unavailable. Switched automatically to {model}.",
     "ai.connection_interrupted": "The AI service connection was interrupted. Please try again later.",
     "ai.invalid_response": "The AI service returned an invalid response.",
     "ai.stream_unavailable": "The AI streaming response is unavailable.",
@@ -130,6 +140,13 @@ export const catalogs = {
     "ai.context_config_invalid": "The AI context configuration is invalid.",
     "ai.context_budget_exceeded": "The AI context exceeds the model capacity.",
     "ai.provider_unavailable": "The AI model provider is currently unavailable.",
+    "ai.agent_skill_package_invalid": "The Agent Skill package is invalid. Check it and try again.",
+    "ai.agent_skill_core_budget_exceeded": "The Agent Skill core instructions exceed the context budget.",
+    "ai.agent_skill_section_invalid": "An Agent Skill reference section is invalid. Check it and try again.",
+    "ai.agent_skill_composition_conflict": "The Agent Skill composition roles conflict. Adjust them and try again.",
+    "ai.agent_skill_confirmation_required": "Confirm whether to enable the recommended Agent Skill for this request.",
+    "ai.agent_skill_confirmation_expired": "The Agent Skill confirmation has expired. Start a new request.",
+    "ai.agent_skill_strict_output_unsupported": "This request cannot use the Agent Skill strict structured-output contract.",
     "ai.event.completed": "Processing completed.",
     "ai.event.planning": "Planning the recruiting context.",
     "ai.event.evidence_gate_blocked": "Model generation was blocked because live-data evidence was insufficient.",
@@ -192,7 +209,8 @@ export const catalogs = {
     "frontend.save_failed": "Failed to save",
     "frontend.delete_failed": "Failed to delete",
     "frontend.copy_failed": "Failed to copy",
-    "frontend.subscribe_failed": "Subscription failed"
+    "frontend.subscribe_failed": "Subscription failed",
+    "platform.plan_capability_release_required": "Select a published capability version for {capability}"
   }
 } as const
 

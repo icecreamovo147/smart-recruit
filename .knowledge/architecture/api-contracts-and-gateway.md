@@ -26,6 +26,8 @@ source_refs:
   - smart-recruit-gateway/middleware/ratelimit.go
   - smart-recruit-gateway/middleware/observability.go
   - smart-recruit-gateway/handler/hr/ai.go
+  - smart-recruit-gateway/handler/hr/agent_skill.go
+  - smart-recruit-gateway/router/contract_baseline_test.go
   - smart-recruit-gateway/cmd/gateway/main.go
   - smart-recruit-platform-go/businessclock/clock.go
   - smart-recruit-platform-go/i18n/i18n.go
@@ -36,7 +38,10 @@ source_refs:
   - hr-frontend/src/api/ai.ts
   - hr-frontend/src/types/ai.ts
   - hr-frontend/src/utils/hrAgentRunReducer.ts
-last_verified: 2026-07-27
+  - packages/shared/src/types/agentRun.ts
+  - packages/shared/src/types/agentSkill.ts
+  - scripts/check-agent-skill-v2-cutover.mjs
+last_verified: 2026-07-28
 review_after: 2026-10-21
 ---
 
@@ -58,6 +63,15 @@ AI daily and burst quota accounting distinguishes admission from an attempted HT
 
 The HR durable Agent Run endpoint requires a positive session ID and a non-empty trimmed message. It rejects blank input before invoking the AI gRPC client, while the AI service repeats the validation as a defense-in-depth boundary. Application-analysis session responses use the existing repeated `messages` field; no wire-shape change is needed to return the canonical seeded analysis message.
 
+Agent Skill Package v2 is a direct-cutover contract:
+
+- `ChatRequest`, `CreateAgentRunRequest`, and the HR HTTP payload use `agent_skill_version_ids` for exact immutable Package versions. Old `agent_skill_ids` and boolean/message Skill-confirmation fields are reserved in Proto and rejected as inbound JSON.
+- Per-message data/Tool selection is `capability_keys`. The active discovery endpoint is `GET /api/v1/hr/ai/capabilities`; the old `skill_capability_keys` field and `/api/v1/hr/ai/skill-capabilities` route have no alias.
+- Agent Skill approval uses dedicated confirmation ID/decision/exact selected version IDs and message identity/expiry fields. `confirmation_payload_json` remains the independent opaque MCP Tool channel.
+- Agent Skill admin and preview payloads contain schema-v2 manifest/Core/sections. Retired `skill_md`, `flow_json`, `frontmatter_json`, and `body_markdown` names are reserved and never emitted as active Package data.
+
+The route baseline and repository cutover scanner enforce absence of retired routes/symbols while allowing reserved descriptors, destructive migration/down SQL, archives, and explicit negative tests.
+
 HR AI chat JSON and Agent Run event JSON now forward two additive contract fields that must stay aligned across Proto, AI Agent, Gateway, and HR frontend:
 
 - `suggested_questions` (`ChatResponse` field 13, `ChatStreamResponse` field 14, `AgentRunResultMetadata` field 8): optional repeated strings. Gateway chat handlers copy `resp.GetSuggestedQuestions()` into the HTTP body; Agent Run result metadata includes the same key. Treat absence or empty arrays as “no suggestions,” never as an error.
@@ -73,6 +87,8 @@ The platform business timezone is fixed at `Asia/Shanghai`. RFC3339 response str
 
 ## Verification
 
-Verified against `recruitment.proto` ChatResponse/AgentRunEvent fields, Gateway
-response and runtime-config handlers, canonical i18n catalogs, Gateway HR AI
-handlers, and frontend runtime initialization on 2026-07-27.
+Verified against current `recruitment.proto` Package v2/reserved fields,
+Gateway HR AI and Agent Skill handlers, registered/removed route baselines,
+shared/HR exact-version types and payloads, cutover scanner, ChatResponse and
+AgentRunEvent fields, runtime-config handlers, canonical i18n catalogs, and
+frontend runtime initialization on 2026-07-28.

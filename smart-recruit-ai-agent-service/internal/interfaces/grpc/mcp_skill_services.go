@@ -57,6 +57,10 @@ type agentSkillGovernanceStore interface {
 	DebugSemanticRetrieval(context.Context, *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error)
 }
 
+type semanticDebugAgentSkillScopeResolver interface {
+	ResolveSemanticDebugAgentSkillVersionIDs(context.Context, string) ([]int64, int64, error)
+}
+
 func (s nativeMCPService) CreateMCPServer(ctx context.Context, req *pb.CreateMCPServerRequest) (*pb.MCPServerResponse, error) {
 	store, ok := s.store.(mcpGovernanceStore)
 	if !ok {
@@ -361,9 +365,7 @@ func (s nativeAgentSkillService) CreateAgentSkill(ctx context.Context, req *pb.C
 	if !ok {
 		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
-	resp, err := store.CreateAgentSkill(ctx, req)
-	s.syncAgentSkillEmbedding(ctx, resp)
-	return resp, err
+	return store.CreateAgentSkill(ctx, req)
 }
 
 func (s nativeAgentSkillService) UpdateAgentSkill(ctx context.Context, req *pb.UpdateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
@@ -371,9 +373,7 @@ func (s nativeAgentSkillService) UpdateAgentSkill(ctx context.Context, req *pb.U
 	if !ok {
 		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
-	resp, err := store.UpdateAgentSkill(ctx, req)
-	s.syncAgentSkillEmbedding(ctx, resp)
-	return resp, err
+	return store.UpdateAgentSkill(ctx, req)
 }
 
 func (s nativeAgentSkillService) CreateAgentSkillVersion(ctx context.Context, req *pb.CreateAgentSkillVersionRequest) (*pb.AgentSkillVersionResponse, error) {
@@ -381,14 +381,7 @@ func (s nativeAgentSkillService) CreateAgentSkillVersion(ctx context.Context, re
 	if !ok {
 		return &pb.AgentSkillVersionResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
-	resp, err := store.CreateAgentSkillVersion(ctx, req)
-	if err == nil && req.GetActivate() && resp != nil && resp.GetCode() == 0 {
-		skillResp, getErr := store.GetAgentSkill(ctx, &pb.GetAgentSkillRequest{Id: req.GetSkillId()})
-		if getErr == nil {
-			s.syncAgentSkillEmbedding(ctx, skillResp)
-		}
-	}
-	return resp, err
+	return store.CreateAgentSkillVersion(ctx, req)
 }
 
 func (s nativeAgentSkillService) ListAgentSkillVersions(ctx context.Context, req *pb.ListAgentSkillVersionsRequest) (*pb.ListAgentSkillVersionsResponse, error) {
@@ -404,9 +397,7 @@ func (s nativeAgentSkillService) ActivateAgentSkillVersion(ctx context.Context, 
 	if !ok {
 		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
-	resp, err := store.ActivateAgentSkillVersion(ctx, req)
-	s.syncAgentSkillEmbedding(ctx, resp)
-	return resp, err
+	return store.ActivateAgentSkillVersion(ctx, req)
 }
 
 func (s nativeAgentSkillService) UpdateAgentSkillStatus(ctx context.Context, req *pb.UpdateAgentSkillStatusRequest) (*pb.AgentSkillResponse, error) {
@@ -414,9 +405,7 @@ func (s nativeAgentSkillService) UpdateAgentSkillStatus(ctx context.Context, req
 	if !ok {
 		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
-	resp, err := store.UpdateAgentSkillStatus(ctx, req)
-	s.syncAgentSkillEmbedding(ctx, resp)
-	return resp, err
+	return store.UpdateAgentSkillStatus(ctx, req)
 }
 
 func (s nativeAgentSkillService) PreviewAgentSkill(ctx context.Context, req *pb.PreviewAgentSkillRequest) (*pb.PreviewAgentSkillResponse, error) {
@@ -440,23 +429,29 @@ func (s nativeAgentSkillService) DebugSemanticRetrieval(ctx context.Context, req
 		}
 	}
 	if s.embedding != nil {
-		return s.embedding.DebugSemanticRetrieval(ctx, req)
+		resolver, ok := s.store.(semanticDebugAgentSkillScopeResolver)
+		if !ok {
+			return &pb.DebugSemanticRetrievalResponse{
+				Code:               configCodeUnavailable,
+				Msg:                "common.operation_failed",
+				EmbeddingAvailable: false,
+				FallbackReason:     "runtime Agent Skill release scope is unavailable",
+			}, nil
+		}
+		versionIDs, _, err := resolver.ResolveSemanticDebugAgentSkillVersionIDs(ctx, req.GetAgentType())
+		if err != nil {
+			response, memoryErr := s.embedding.DebugSemanticRetrievalForVersions(ctx, req, nil)
+			if memoryErr != nil {
+				return nil, memoryErr
+			}
+			response.FallbackReason = "runtime Agent Skill release scope is unavailable: " + err.Error()
+			return response, nil
+		}
+		return s.embedding.DebugSemanticRetrievalForVersions(ctx, req, versionIDs)
 	}
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {
 		return &pb.DebugSemanticRetrievalResponse{Code: configCodeUnavailable, Msg: "common.operation_failed", EmbeddingAvailable: false, FallbackReason: "store is not configured"}, nil
 	}
 	return store.DebugSemanticRetrieval(ctx, req)
-}
-
-func (s nativeAgentSkillService) syncAgentSkillEmbedding(ctx context.Context, resp *pb.AgentSkillResponse) {
-	if s.embedding == nil || resp == nil || resp.GetCode() != 0 || resp.GetSkill() == nil {
-		return
-	}
-	skill := resp.GetSkill()
-	if skill.GetIsEnabled() && skill.GetCurrentVersionId() > 0 {
-		_ = s.embedding.UpsertAgentSkill(ctx, skill.GetId())
-		return
-	}
-	_ = s.embedding.InvalidateAgentSkill(ctx, skill.GetId())
 }

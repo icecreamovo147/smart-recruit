@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { t } from '@shared/i18n'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { EditPen, Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { debugSemanticRetrieval } from '@/api/agentSkill'
 import { createPlatformMemory, listPlatformMemories, revokePlatformMemory } from '@/api/memory'
+import { listMemberships, listTenants } from '@/api/tenant'
 import { PagePanel } from '@/components/admin-console'
 import type {
   SemanticMemoryDebugItem,
@@ -16,6 +17,7 @@ import {
   MEMORY_OWNER_ROLE_HR,
   type MemoryInfo,
 } from '@shared/types/memory'
+import type { Membership, Tenant } from '@/types'
 
 const AGENT_TYPE_OPTIONS = [
   { value: 'hr_recruiting_agent', label: 'HR 招聘助手' },
@@ -75,10 +77,15 @@ const correctionLoading = ref(false)
 const correctionSaving = ref(false)
 const correctionRows = ref<MemoryInfo[]>([])
 const correctionTotal = ref(0)
+const tenantLoading = ref(false)
+const membershipLoading = ref(false)
+const tenants = ref<Tenant[]>([])
+const memberships = ref<Membership[]>([])
 
 const form = reactive({
   query: '',
   agent_type: 'hr_recruiting_agent',
+  tenant_id: undefined as number | undefined,
   job_id: undefined as number | undefined,
   application_id: undefined as number | undefined,
   limit: 5,
@@ -113,6 +120,7 @@ function formatBreakdownScore(value: number | undefined, digits = 2): string {
   return typeof value === 'number' ? value.toFixed(digits) : '-'
 }
 const selectedAgentLabel = computed(() => AGENT_TYPE_OPTIONS.find((item) => item.value === form.agent_type)?.label || form.agent_type)
+const selectedTenant = computed(() => tenants.value.find((item) => item.id === form.tenant_id))
 const runStatusText = computed(() => {
   if (loading.value) return '运行中'
   if (result.value) return '已完成'
@@ -153,7 +161,7 @@ const formatScore = (value?: number) => (typeof value === 'number' ? value.toFix
 const embeddingScore = (item: SemanticSkillDebugItem | SemanticMemoryDebugItem) => item.vector_score
 const finalRankScore = (item: SemanticSkillDebugItem | SemanticMemoryDebugItem) => item.final_rank_score ?? item.score
 const formatDuration = (value: number | null) => (typeof value === 'number' ? `${value}ms` : '-')
-const skillTitle = (item: SemanticSkillDebugItem) => item.display_name || item.name || `Skill #${item.id}`
+const skillTitle = (item: SemanticSkillDebugItem) => item.display_name || item.name || `Skill #${item.skill_id}`
 const memoryScopeText = (item: SemanticMemoryDebugItem) => `${item.scope_type || '-'} #${item.scope_id || '-'}`
 const isSkillExpanded = (id: number) => expandedSkillIds.value.includes(id)
 const isMemoryExpanded = (id: number) => expandedMemoryIds.value.includes(id)
@@ -184,7 +192,65 @@ watch(() => form.agent_type, (agentType) => {
   }
 })
 
-const ownerReady = computed(() => Boolean(form.owner_id && form.owner_id > 0))
+const loadTenantOptions = async () => {
+  tenantLoading.value = true
+  try {
+    const response = await listTenants({ page: 1, page_size: 100, status: 'active' })
+    tenants.value = response.list || []
+  } catch (error) {
+    console.error(error)
+    ElMessage.error(t('frontend.operation_failed'))
+  } finally {
+    tenantLoading.value = false
+  }
+}
+
+const loadMembershipOptions = async (tenantId: number) => {
+  membershipLoading.value = true
+  try {
+    const response = await listMemberships(tenantId, { page: 1, page_size: 100 })
+    memberships.value = (response.list || []).filter((item) => item.membership_status === 'active')
+  } catch (error) {
+    console.error(error)
+    memberships.value = []
+    ElMessage.error(t('frontend.operation_failed'))
+  } finally {
+    membershipLoading.value = false
+  }
+}
+
+watch(() => form.owner_role, (ownerRole) => {
+  form.owner_id = undefined
+  if (ownerRole === MEMORY_OWNER_ROLE_CANDIDATE) {
+    form.tenant_id = undefined
+    memberships.value = []
+  }
+})
+
+watch(() => form.tenant_id, (tenantId) => {
+  form.owner_id = undefined
+  memberships.value = []
+  if (form.owner_role === MEMORY_OWNER_ROLE_HR && tenantId && tenantId > 0) {
+    void loadMembershipOptions(tenantId)
+  }
+})
+
+const tenantIDForOwner = computed(() => (
+  form.owner_role === MEMORY_OWNER_ROLE_HR ? form.tenant_id : undefined
+))
+const ownerReady = computed(() => Boolean(
+  form.owner_id
+  && form.owner_id > 0
+  && (form.owner_role !== MEMORY_OWNER_ROLE_HR || (form.tenant_id && form.tenant_id > 0)),
+))
+const ownerContextText = computed(() => {
+  if (form.owner_role === MEMORY_OWNER_ROLE_CANDIDATE) {
+    return `${selectedOwnerLabel.value} #${form.owner_id || '—'}`
+  }
+  const tenant = selectedTenant.value
+  const tenantText = tenant ? `${tenant.name}（#${tenant.id}）` : '未选择租户'
+  return `${tenantText} · ${selectedOwnerLabel.value} #${form.owner_id || '—'}`
+})
 
 const runDebug = async () => {
   const query = form.query.trim()
@@ -202,6 +268,7 @@ const runDebug = async () => {
     result.value = await debugSemanticRetrieval({
       query,
       agent_type: form.agent_type,
+      tenant_id: tenantIDForOwner.value,
       job_id: form.job_id,
       application_id: form.application_id,
       limit: form.limit,
@@ -223,6 +290,7 @@ const runDebug = async () => {
 const reset = () => {
   form.query = ''
   form.agent_type = 'hr_recruiting_agent'
+  form.tenant_id = undefined
   form.job_id = undefined
   form.application_id = undefined
   form.limit = 5
@@ -242,6 +310,7 @@ const loadCorrectionMemories = async () => {
   correctionLoading.value = true
   try {
     const res = await listPlatformMemories({
+      tenant_id: tenantIDForOwner.value,
       owner_role: form.owner_role,
       owner_id: form.owner_id,
       page: 1,
@@ -278,6 +347,7 @@ const revokeCorrectionMemory = async (row: MemoryInfo) => {
   }
   try {
     await revokePlatformMemory(row.id, {
+      tenant_id: tenantIDForOwner.value,
       owner_role: form.owner_role,
       owner_id: form.owner_id,
       revoke_reason: 'platform_correction',
@@ -303,6 +373,7 @@ const submitCorrectionMemory = async () => {
   correctionSaving.value = true
   try {
     await createPlatformMemory({
+      tenant_id: tenantIDForOwner.value,
       owner_role: form.owner_role,
       owner_id: form.owner_id,
       scope_type: correctionForm.scope_type,
@@ -323,6 +394,8 @@ const submitCorrectionMemory = async () => {
     correctionSaving.value = false
   }
 }
+
+onMounted(loadTenantOptions)
 </script>
 
 <template>
@@ -389,17 +462,55 @@ const submitCorrectionMemory = async () => {
                     <el-option v-for="item in AGENT_TYPE_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>
                 </el-form-item>
+                <el-form-item v-if="form.owner_role === MEMORY_OWNER_ROLE_HR" label="租户">
+                  <el-select
+                    v-model="form.tenant_id"
+                    :loading="tenantLoading"
+                    filterable
+                    clearable
+                    placeholder="选择要诊断的企业租户"
+                  >
+                    <el-option
+                      v-for="tenant in tenants"
+                      :key="tenant.id"
+                      :label="`${tenant.name}（#${tenant.id}）`"
+                      :value="tenant.id"
+                    />
+                  </el-select>
+                </el-form-item>
                 <div class="debug-params-grid">
                   <el-form-item label="Owner 角色">
                     <el-select v-model="form.owner_role" placeholder="Owner 角色">
                       <el-option v-for="item in OWNER_ROLE_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                   </el-form-item>
-                  <el-form-item label="Owner ID">
-                    <el-input-number v-model="form.owner_id" :min="1" :controls="false" placeholder="必填" />
+                  <el-form-item :label="form.owner_role === MEMORY_OWNER_ROLE_HR ? 'HR Owner' : '候选人 Owner ID'">
+                    <el-select
+                      v-if="form.owner_role === MEMORY_OWNER_ROLE_HR"
+                      v-model="form.owner_id"
+                      :loading="membershipLoading"
+                      :disabled="!form.tenant_id"
+                      filterable
+                      clearable
+                      placeholder="选择租户内的 HR 成员"
+                    >
+                      <el-option
+                        v-for="membership in memberships"
+                        :key="membership.membership_id"
+                        :label="`${membership.username}（User #${membership.user_id}）`"
+                        :value="membership.user_id"
+                      />
+                    </el-select>
+                    <el-input-number
+                      v-else
+                      v-model="form.owner_id"
+                      :min="1"
+                      :controls="false"
+                      placeholder="必填"
+                    />
                   </el-form-item>
                 </div>
-                <p class="debug-owner-hint">当前调试 Owner：{{ selectedOwnerLabel }} #{{ form.owner_id || '—' }}</p>
+                <p class="debug-owner-hint">当前调试 Owner：{{ ownerContextText }}</p>
                 <div class="debug-params-grid">
                   <el-form-item label="岗位 ID">
                     <el-input-number v-model="form.job_id" :min="0" :controls="false" placeholder="可选" />
@@ -508,17 +619,17 @@ const submitCorrectionMemory = async () => {
             <div class="console-card__head">
               <div>
                 <h3 class="console-card__title">Agent Skill 召回</h3>
-                <p class="console-card__desc">展示匹配到的数据库版 SKILL.md、分类、分数和触发原因。</p>
+                <p class="console-card__desc">展示匹配到的 Agent Skill Package 版本、分类、分数和触发原因。</p>
               </div>
               <el-tag size="small" type="info">{{ skillRows.length }} 条</el-tag>
             </div>
             <div class="debug-card-body">
               <div v-if="skillRows.length" class="debug-result-list">
-                <article v-for="item in skillRows" :key="item.id" class="debug-result-item">
+                <article v-for="item in skillRows" :key="item.version_id" class="debug-result-item">
                   <div class="debug-result-item__top">
                     <div>
                       <h4>{{ skillTitle(item) }}</h4>
-                      <p>#{{ item.id }} · {{ item.name }}</p>
+                      <p>Skill #{{ item.skill_id }} · Version #{{ item.version_id }} · {{ item.version }}</p>
                     </div>
                     <div class="debug-score-pill-group">
                       <span
@@ -542,17 +653,19 @@ const submitCorrectionMemory = async () => {
                   <div v-if="item.semantic_tags?.length" class="debug-tag-row">
                     <el-tag v-for="tag in item.semantic_tags" :key="tag" size="small" effect="plain">{{ tag }}</el-tag>
                   </div>
-                  <button type="button" class="debug-detail-toggle" @click="toggleSkill(item.id)">
-                    {{ isSkillExpanded(item.id) ? '收起详情' : '查看详情' }}
+                  <button type="button" class="debug-detail-toggle" @click="toggleSkill(item.version_id)">
+                    {{ isSkillExpanded(item.version_id) ? '收起详情' : '查看详情' }}
                   </button>
-                  <div v-if="isSkillExpanded(item.id)" class="debug-detail-block">
-                    <div><span>Skill ID</span><strong>{{ item.id }}</strong></div>
+                  <div v-if="isSkillExpanded(item.version_id)" class="debug-detail-block">
+                    <div><span>Skill ID</span><strong>{{ item.skill_id }}</strong></div>
+                    <div><span>Version ID</span><strong>{{ item.version_id }}</strong></div>
+                    <div><span>Compiled Hash</span><strong>{{ item.compiled_hash || '-' }}</strong></div>
                     <div><span>Embedding 分数</span><strong>{{ formatScore(embeddingScore(item)) }}</strong></div>
                     <div><span>最终排序分</span><strong>{{ formatScore(finalRankScore(item)) }}</strong></div>
                     <div><span>召回原因</span><strong>{{ item.reason || '-' }}</strong></div>
                   </div>
                   <!-- TASK-FU-003：breakdown 展开区 -->
-                  <div v-if="isSkillExpanded(item.id)" class="debug-breakdown">
+                  <div v-if="isSkillExpanded(item.version_id)" class="debug-breakdown">
                     <h5 class="debug-breakdown__title">混合打分 breakdown</h5>
                     <div class="debug-breakdown__grid">
                       <div>

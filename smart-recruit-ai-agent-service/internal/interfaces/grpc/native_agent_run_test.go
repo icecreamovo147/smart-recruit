@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -23,6 +24,25 @@ func TestCreateAgentRunRejectsBlankMessageBeforeDispatch(t *testing.T) {
 	_, err := service.CreateAgentRun(context.Background(), &pb.CreateAgentRunRequest{HrId: 77, SessionId: 101, Message: " \n\t "})
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("error code = %v, want %v; err=%v", status.Code(err), codes.InvalidArgument, err)
+	}
+}
+
+func TestAgentRunDurablePayloadUsesCapabilityKeys(t *testing.T) {
+	payload := agentRunPayloadFromCreateRequest(&pb.CreateAgentRunRequest{
+		Message:        "screen candidates",
+		CapabilityKeys: []string{"candidate.match"},
+	})
+	planJSON := agentRunPlanJSON(payload)
+	if !strings.Contains(planJSON, `"capability_keys":["candidate.match"]`) {
+		t.Fatalf("PlanJSON = %s, want capability_keys", planJSON)
+	}
+	if strings.Contains(planJSON, "skill_capability_keys") {
+		t.Fatalf("PlanJSON contains retired skill capability alias: %s", planJSON)
+	}
+
+	roundTrip := agentRunPayloadFromRow(AgentRunRow{PlanJSON: planJSON})
+	if len(roundTrip.CapabilityKeys) != 1 || roundTrip.CapabilityKeys[0] != "candidate.match" {
+		t.Fatalf("round-trip capability keys = %#v", roundTrip.CapabilityKeys)
 	}
 }
 
@@ -629,24 +649,22 @@ func TestCancelAgentRunQueuedWorkFinishesCanceledWithoutActiveWorker(t *testing.
 func TestConfirmAgentRunWaitingConfirmationRedispatchesAndCompletes(t *testing.T) {
 	store := newAgentRunTestStore()
 	store.seedChatSession(ownerRoleHR, 77, 101, "hr run session")
-	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: 77, SessionID: 101, Role: "user", Content: "user asks", ModelID: 123})
+	userMessage := store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: 77, SessionID: 101, Role: "user", Content: "user asks", ModelID: 123})
 	provider := newBlockingAgentRunProvider("assistant after confirmation")
 	service := &nativeAIService{store: store, provider: provider}
 	run := fallbackAgentRun(77, 101, "confirm-waiting", agentRunDurablePayload{Message: "user asks", ModelID: 123})
 	run.Status = "waiting_confirmation"
+	run.MessageID = userMessage.ID
 	created, _, err := store.CreateAgentRun(context.Background(), run)
 	if err != nil {
 		t.Fatalf("CreateAgentRun seed returned error: %v", err)
 	}
 
 	resp, err := service.ConfirmAgentRun(context.Background(), &pb.ConfirmAgentRunRequest{
-		HrId:                         77,
-		RunId:                        created.ID,
-		ClientRequestId:              "confirm-1",
-		AgentSkillIds:                []int64{7001, 7002},
-		AgentSkillSelectionConfirmed: true,
-		AgentSkillSelectionMessageId: 9001,
-		ConfirmationPayloadJson:      `{"approved":true}`,
+		HrId:                    77,
+		RunId:                   created.ID,
+		ClientRequestId:         "confirm-1",
+		ConfirmationPayloadJson: `{"approved":true}`,
 	})
 	if err != nil {
 		t.Fatalf("ConfirmAgentRun returned error: %v", err)
@@ -678,14 +696,11 @@ func TestConfirmAgentRunWaitingConfirmationRedispatchesAndCompletes(t *testing.T
 	if err := json.Unmarshal([]byte(finalRun.PlanJSON), &durable); err != nil {
 		t.Fatalf("PlanJSON = %q, want durable request JSON: %v", finalRun.PlanJSON, err)
 	}
-	if got := durable.DurableRequest.AgentSkillIDs; len(got) != 2 || got[0] != 7001 || got[1] != 7002 {
-		t.Fatalf("durable AgentSkillIDs = %v, want [7001 7002]", got)
+	if durable.DurableRequest.ConfirmationPayloadJSON != `{"approved":true}` {
+		t.Fatalf("durable confirmation fields = %#v, want opaque confirmation metadata", durable.DurableRequest)
 	}
-	if !durable.DurableRequest.AgentSkillSelectionConfirmed || durable.DurableRequest.AgentSkillSelectionMessageID != 9001 || durable.DurableRequest.ConfirmationPayloadJSON != `{"approved":true}` {
-		t.Fatalf("durable confirmation fields = %#v, want confirmed selection metadata", durable.DurableRequest)
-	}
-	if prompts := provider.promptsSnapshot(); len(prompts) != 1 || !strings.Contains(prompts[0], "agent_skill_ids") || !strings.Contains(prompts[0], "7001") {
-		t.Fatalf("provider prompts = %#v, want resumed runtime to use confirmed durable selection", prompts)
+	if prompts := provider.promptsSnapshot(); len(prompts) != 1 {
+		t.Fatalf("provider prompts = %#v, want one resumed provider invocation", prompts)
 	}
 	eventTypes := store.eventTypes(created.ID)
 	if !containsString(eventTypes, "confirmation.accepted") {
@@ -697,11 +712,124 @@ func TestConfirmAgentRunWaitingConfirmationRedispatchesAndCompletes(t *testing.T
 	if count := store.countStatusUpdates("running"); count != 1 {
 		t.Fatalf("running status updates = %d, want 1", count)
 	}
-	confirmationEvent := store.lastEvent(created.ID, "confirmation.accepted")
-	mapped := mapAgentRunEvent(confirmationEvent)
-	if got := mapped.GetConfirmation().GetRecommendedAgentSkillIds(); len(got) != 2 || got[0] != 7001 || got[1] != 7002 {
-		t.Fatalf("confirmation event = %#v, want confirmed skill ids", mapped.GetConfirmation())
+}
+
+func TestValidateAgentRunMCPConfirmationBindsApprovalToPendingCall(t *testing.T) {
+	now := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
+	pending := agentRunMCPConfirmation{
+		ID:            "confirmation-1",
+		CapabilityKey: "7:search",
+		ArgumentsHash: "args-hash",
+		ExpiresAt:     now.Add(time.Minute).Format(time.RFC3339Nano),
 	}
+	valid := `{"type":"mcp_tool","confirmation_id":"confirmation-1","capability_key":"7:search","arguments_hash":"args-hash","approved":true}`
+	approval, err := validateAgentRunMCPConfirmation(valid, pending, now)
+	if err != nil {
+		t.Fatalf("valid confirmation returned error: %v", err)
+	}
+	if approval.ConfirmationID != pending.ID || approval.CapabilityKey != pending.CapabilityKey || approval.ArgumentsHash != pending.ArgumentsHash {
+		t.Fatalf("approval = %#v, want exact pending call binding", approval)
+	}
+	approvedAt, err := time.Parse(time.RFC3339Nano, approval.ApprovedAt)
+	if err != nil {
+		t.Fatalf("approved_at = %q, want RFC3339 timestamp: %v", approval.ApprovedAt, err)
+	}
+	expiresAt, err := time.Parse(time.RFC3339Nano, pending.ExpiresAt)
+	if err != nil || !approvedAt.Before(expiresAt) {
+		t.Fatalf("approved_at = %s, expires_at = %s, want approval before expiry (parse err=%v)", approvedAt, expiresAt, err)
+	}
+	if _, offset := approvedAt.Zone(); offset != 8*60*60 {
+		t.Fatalf("approved_at offset = %d, want Asia/Shanghai +08:00", offset)
+	}
+
+	for name, raw := range map[string]string{
+		"missing payload":    "",
+		"skill confirmation": `{"approved":true}`,
+		"wrong capability":   `{"type":"mcp_tool","confirmation_id":"confirmation-1","capability_key":"8:write","arguments_hash":"args-hash","approved":true}`,
+		"wrong arguments":    `{"type":"mcp_tool","confirmation_id":"confirmation-1","capability_key":"7:search","arguments_hash":"other-hash","approved":true}`,
+		"not approved":       `{"type":"mcp_tool","confirmation_id":"confirmation-1","capability_key":"7:search","arguments_hash":"args-hash","approved":false}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := validateAgentRunMCPConfirmation(raw, pending, now); !errors.Is(err, errInvalidMCPConfirmation) {
+				t.Fatalf("error = %v, want errInvalidMCPConfirmation", err)
+			}
+		})
+	}
+
+	expired := pending
+	expired.ExpiresAt = now.Add(-time.Second).Format(time.RFC3339Nano)
+	if _, err := validateAgentRunMCPConfirmation(valid, expired, now); !errors.Is(err, errInvalidMCPConfirmation) {
+		t.Fatalf("expired error = %v, want errInvalidMCPConfirmation", err)
+	}
+}
+
+func TestNewAgentRunMCPConfirmationUsesParseableBusinessTimestamp(t *testing.T) {
+	before := time.Now()
+	confirmation := newAgentRunMCPConfirmation("7:search", "args-hash", "approval required")
+	after := time.Now()
+
+	expiresAt, err := time.Parse(time.RFC3339Nano, confirmation.ExpiresAt)
+	if err != nil {
+		t.Fatalf("expires_at = %q, want RFC3339 timestamp: %v", confirmation.ExpiresAt, err)
+	}
+	if expiresAt.Before(before.Add(9*time.Minute+59*time.Second)) || expiresAt.After(after.Add(10*time.Minute)) {
+		t.Fatalf("expires_at = %s, want approximately ten minutes after creation", expiresAt)
+	}
+	if _, offset := expiresAt.Zone(); offset != 8*60*60 {
+		t.Fatalf("expires_at offset = %d, want Asia/Shanghai +08:00", offset)
+	}
+}
+
+func TestConfirmAgentRunPersistsBoundMCPApprovalBeforeRedispatch(t *testing.T) {
+	store := newAgentRunTestStore()
+	store.seedChatSession(ownerRoleHR, 77, 101, "mcp confirmation")
+	userMessage := store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: 77, SessionID: 101, Role: "user", Content: "find Alice", ModelID: 123})
+	provider := newBlockingAgentRunProvider("approved reply")
+	service := &nativeAIService{store: store, provider: provider}
+	pending := &agentRunMCPConfirmation{
+		ID:            "confirmation-1",
+		CapabilityKey: "7:search",
+		ArgumentsHash: "args-hash",
+		ExpiresAt:     formatTime(time.Now().Add(time.Minute)),
+	}
+	run := fallbackAgentRun(77, 101, "confirm-mcp", agentRunDurablePayload{Message: "find Alice", ModelID: 123, PendingMCPConfirmation: pending})
+	run.Status = agentRunStatusWaitingConfirmation
+	run.MessageID = userMessage.ID
+	created, _, err := store.CreateAgentRun(context.Background(), run)
+	if err != nil {
+		t.Fatalf("CreateAgentRun returned error: %v", err)
+	}
+	confirmationJSON := `{"type":"mcp_tool","confirmation_id":"confirmation-1","capability_key":"7:search","arguments_hash":"args-hash","approved":true}`
+
+	resp, err := service.ConfirmAgentRun(context.Background(), &pb.ConfirmAgentRunRequest{
+		HrId:                    77,
+		RunId:                   created.ID,
+		ConfirmationPayloadJson: confirmationJSON,
+	})
+	if err != nil || resp.GetCode() != 0 || resp.GetRun().GetStatus() != agentRunStatusRunning {
+		t.Fatalf("ConfirmAgentRun response=%#v err=%v", resp, err)
+	}
+	select {
+	case <-provider.started:
+	case <-time.After(time.Second):
+		t.Fatal("provider was not redispatched")
+	}
+	current, found := store.runSnapshot(created.ID)
+	if !found {
+		t.Fatal("confirmed run not found")
+	}
+	payload := agentRunPayloadFromRow(current)
+	if payload.PendingMCPConfirmation != nil || payload.MCPApproval == nil ||
+		payload.MCPApproval.ConfirmationID != pending.ID ||
+		payload.MCPApproval.CapabilityKey != pending.CapabilityKey ||
+		payload.MCPApproval.ArgumentsHash != pending.ArgumentsHash {
+		t.Fatalf("durable payload = %#v, want consumed pending request and exact approval", payload)
+	}
+	close(provider.release)
+	waitUntilAgentRunTest(t, time.Second, func() bool {
+		final, ok := store.runSnapshot(created.ID)
+		return ok && final.Status == agentRunStatusSucceeded
+	})
 }
 
 func TestConfirmAgentRunNonWaitingStatusesDoNotJump(t *testing.T) {
@@ -803,7 +931,7 @@ func TestSubscribeAgentRunEventsReplaysStructuredMetadata(t *testing.T) {
 	if _, err := store.AppendAgentRunEvent(context.Background(), run.ID, "run.result", `{"status":"succeeded","result_metadata":{"application_id":42,"candidate_name":"Ada","job_title":"Engineer","status":3,"context_usage":{"model_id":123,"prompt_tokens_estimated":88,"usage_ratio":0.25,"estimated":true,"source":"estimate","stage":"hr_chat"}}}`); err != nil {
 		t.Fatalf("AppendAgentRunEvent result seed returned error: %v", err)
 	}
-	if _, err := store.AppendAgentRunEvent(context.Background(), run.ID, "confirmation.required", `{"status":"waiting_confirmation","confirmation":{"required":true,"reason":"skill confirmation","recommended_agent_skill_ids":[7,8],"user_message_id":2001}}`); err != nil {
+	if _, err := store.AppendAgentRunEvent(context.Background(), run.ID, "confirmation.required", `{"status":"waiting_confirmation","confirmation":{"required":true,"reason":"skill confirmation","recommended_agent_skill_version_ids":[7,8],"agent_skill_user_message_id":2001}}`); err != nil {
 		t.Fatalf("AppendAgentRunEvent confirmation seed returned error: %v", err)
 	}
 
@@ -826,8 +954,8 @@ func TestSubscribeAgentRunEventsReplaysStructuredMetadata(t *testing.T) {
 	if !confirmationEvent.GetConfirmation().GetRequired() || confirmationEvent.GetConfirmation().GetReason() != "skill confirmation" {
 		t.Fatalf("confirmation = %#v, want replayed structured confirmation", confirmationEvent.GetConfirmation())
 	}
-	if got := confirmationEvent.GetConfirmation().GetRecommendedAgentSkillIds(); len(got) != 2 || got[0] != 7 || got[1] != 8 {
-		t.Fatalf("recommended skill ids = %v, want [7 8]", got)
+	if got := confirmationEvent.GetConfirmation().GetRecommendedAgentSkillVersionIds(); len(got) != 2 || got[0] != 7 || got[1] != 8 {
+		t.Fatalf("recommended skill version ids = %v, want [7 8]", got)
 	}
 
 	cancel()
@@ -838,6 +966,37 @@ func TestSubscribeAgentRunEventsReplaysStructuredMetadata(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("SubscribeAgentRunEvents did not exit after stream context cancel")
+	}
+}
+
+func TestMapAgentRunItemIncludesPersistedResultMetadata(t *testing.T) {
+	item := mapAgentRunItem(AgentRunRow{
+		ID:        190,
+		SessionID: 133,
+		Status:    agentRunStatusSucceeded,
+		ResultMetadataJSON: `{
+			"context_usage":{"prompt_tokens_estimated":5312,"breakdown":{"skill_tokens":69}},
+			"agent_skill_runtime_evidence":[{
+				"version_id":1,
+				"version":"1.0.0",
+				"loaded_tokens":69,
+				"included":true,
+				"decision_reason":"core_included",
+				"sections":[{"section_id":1,"section_key":"evidence_rules","estimated_tokens":37,"decision_reason":"section_not_relevant"}]
+			}]
+		}`,
+	})
+
+	metadata := item.GetResultMetadata()
+	if metadata.GetContextUsage().GetPromptTokensEstimated() != 5312 ||
+		metadata.GetContextUsage().GetBreakdown().GetSkillTokens() != 69 {
+		t.Fatalf("context usage = %#v", metadata.GetContextUsage())
+	}
+	evidence := metadata.GetAgentSkillRuntimeEvidence()
+	if len(evidence) != 1 || evidence[0].GetVersion() != "1.0.0" ||
+		evidence[0].GetLoadedTokens() != 69 || len(evidence[0].GetSections()) != 1 ||
+		evidence[0].GetSections()[0].GetDecisionReason() != "section_not_relevant" {
+		t.Fatalf("runtime evidence = %#v", evidence)
 	}
 }
 
@@ -1092,7 +1251,199 @@ func (s *agentRunTestStore) UpdateAgentRunPlan(_ context.Context, ownerID, runID
 	return run, true, nil
 }
 
-func (s *agentRunTestStore) CompleteAgentRun(_ context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage string) (AgentRunRow, bool, error) {
+func (s *agentRunTestStore) UpdateAgentRunPlanForSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	planJSON string,
+	optionContextJSON string,
+) (AgentRunRow, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	if !ok || run.OwnerID != ownerID || run.Status != agentRunStatusRunning ||
+		agentRunTestSkillLease(run) != leaseID {
+		return AgentRunRow{}, false, nil
+	}
+	next := run
+	next.PlanJSON = planJSON
+	next.OptionContextJSON = optionContextJSON
+	next.UpdatedAt = time.Now()
+	if agentRunTestSkillLease(next) != leaseID {
+		return AgentRunRow{}, false, nil
+	}
+	s.runs[runID] = next
+	return next, true, nil
+}
+
+func (s *agentRunTestStore) VerifyAgentRunSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	return ok &&
+		run.OwnerID == ownerID &&
+		run.Status == agentRunStatusRunning &&
+		agentRunTestSkillLease(run) == leaseID, nil
+}
+
+func (s *agentRunTestStore) AppendAgentRunToolTraceForSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	step AgentRunStepRow,
+	trace ToolTraceRow,
+) (AgentRunStepRow, ToolTraceRow, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	if !ok || run.OwnerID != ownerID || run.Status != agentRunStatusRunning ||
+		agentRunTestSkillLease(run) != leaseID ||
+		step.RunID != runID || trace.AgentRunID != runID {
+		return AgentRunStepRow{}, ToolTraceRow{}, false, nil
+	}
+	if s.runSteps == nil {
+		s.runSteps = map[int64][]AgentRunStepRow{}
+	}
+	step.ID = int64(len(s.runSteps[runID]) + 1)
+	if step.StepIndex <= 0 {
+		step.StepIndex = int32(len(s.runSteps[runID]) + 1)
+	}
+	s.runSteps[runID] = append(s.runSteps[runID], step)
+	trace.ID = int64(len(s.toolTraces) + 1)
+	trace.AgentRunStepID = step.ID
+	s.toolTraces = append(s.toolTraces, trace)
+	return step, trace, true, nil
+}
+
+func (s *agentRunTestStore) UpdateAgentRunRuntimeGovernanceForSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	model RuntimeModelInfo,
+) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	if !ok || run.OwnerID != ownerID || run.Status != agentRunStatusRunning ||
+		agentRunTestSkillLease(run) != leaseID {
+		return false, nil
+	}
+	run.ModelID = model.ID
+	run.ModelName = model.Name
+	run.UpdatedAt = time.Now()
+	s.runs[runID] = run
+	return true, nil
+}
+
+func (s *agentRunTestStore) AppendAgentRunEventForSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	eventType string,
+	payload string,
+) (AgentRunEventRow, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	statusAllowed := run.Status == agentRunStatusRunning ||
+		((eventType == "run.completed" || eventType == "run.canceled") && isTerminalAgentRunStatus(run.Status))
+	if !ok || run.OwnerID != ownerID || !statusAllowed ||
+		agentRunTestSkillLease(run) != leaseID {
+		return AgentRunEventRow{}, false, nil
+	}
+	s.runEventSeq[runID]++
+	event := AgentRunEventRow{
+		RunID:       runID,
+		Seq:         s.runEventSeq[runID],
+		EventType:   eventType,
+		PayloadJSON: payload,
+		CreatedAt:   time.Now(),
+	}
+	s.runEvents[runID] = append(s.runEvents[runID], event)
+	run.LastEventSeq = event.Seq
+	run.UpdatedAt = event.CreatedAt
+	s.runs[runID] = run
+	return event, true, nil
+}
+
+func (s *agentRunTestStore) AppendAgentRunAssistantMessageForSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	message ChatMessageRow,
+) (ChatMessageRow, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	if !ok || run.OwnerID != ownerID || run.Status != agentRunStatusRunning ||
+		agentRunTestSkillLease(run) != leaseID ||
+		message.OwnerID != ownerID || message.SessionID != run.SessionID || message.Role != "assistant" {
+		return ChatMessageRow{}, false, nil
+	}
+	s.nextMessageID++
+	message.ID = s.nextMessageID
+	if message.CreatedAt.IsZero() {
+		message.CreatedAt = time.Now()
+	}
+	s.messages = append(s.messages, message)
+	return message, true, nil
+}
+
+func (s *agentRunTestStore) CompleteAgentRunForSkillLease(
+	_ context.Context,
+	ownerID int64,
+	runID int64,
+	leaseID string,
+	assistantText string,
+	status string,
+	errorType string,
+	errorMessage string,
+	resultMetadataJSON string,
+) (AgentRunRow, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	statusAllowed := run.Status == agentRunStatusRunning ||
+		(run.Status == agentRunStatusCancelRequested && status == agentRunStatusCanceled)
+	if !ok || run.OwnerID != ownerID || !statusAllowed ||
+		agentRunTestSkillLease(run) != leaseID {
+		return AgentRunRow{}, false, nil
+	}
+	now := time.Now()
+	run.Status = status
+	run.AssistantText = assistantText
+	run.ErrorType = errorType
+	run.ErrorMessage = errorMessage
+	run.ResultMetadataJSON = resultMetadataJSON
+	run.CompletedAt = &now
+	if status == agentRunStatusCanceled {
+		run.CanceledAt = &now
+	}
+	run.UpdatedAt = now
+	s.runs[runID] = run
+	return run, true, nil
+}
+
+func agentRunTestSkillLease(run AgentRunRow) string {
+	payload := agentRunPayloadFromRow(run)
+	if !validAgentRunSkillApprovalMarker(run, payload.AgentSkillApproval) ||
+		payload.AgentSkillApproval.DispatchState != agentSkillDispatchClaimed {
+		return ""
+	}
+	return payload.AgentSkillApproval.DispatchLeaseID
+}
+
+func (s *agentRunTestStore) CompleteAgentRun(_ context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage, resultMetadataJSON string) (AgentRunRow, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	run, ok := s.runs[runID]
@@ -1104,6 +1455,7 @@ func (s *agentRunTestStore) CompleteAgentRun(_ context.Context, ownerID, runID i
 	run.AssistantText = assistantText
 	run.ErrorType = errorType
 	run.ErrorMessage = errorMessage
+	run.ResultMetadataJSON = resultMetadataJSON
 	run.CompletedAt = &now
 	if status == "canceled" {
 		run.CanceledAt = &now
