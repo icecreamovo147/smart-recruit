@@ -31,6 +31,7 @@ import (
 	offerruntime "smart-recruit-offer-service/internal/runtime"
 	"smart-recruit-platform-go/businessclock"
 	platformconfig "smart-recruit-platform-go/config"
+	"smart-recruit-platform-go/i18n"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/mysqltime"
 	"smart-recruit-platform-go/nacos"
@@ -45,6 +46,10 @@ import (
 const nacosServiceName = "offer"
 
 func main() {
+	if err := i18n.ConfigureFromEnv(); err != nil {
+		logger.L().Error("log.service.config_failed", zap.String("cause", err.Error()))
+		os.Exit(2)
+	}
 	businessclock.Configure()
 	check := flag.Bool("check", false, "validate Offer service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start Offer gRPC runtime")
@@ -53,20 +58,20 @@ func main() {
 
 	if *check {
 		if err := checkRuntime(); err != nil {
-			fmt.Fprintf(os.Stderr, "offer-service check failed: %v\n", err)
+			logger.L().Error("log.service.check_failed", zap.String("service", "offer-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
-		fmt.Fprintln(os.Stdout, "offer-service runtime check passed")
+		logger.L().Info("log.service.check_passed", zap.String("service", "offer-service"))
 		return
 	}
 	if *serve {
 		if err := serveOffer(*addr); err != nil {
-			fmt.Fprintf(os.Stderr, "offer-service failed: %v\n", err)
+			logger.L().Error("log.service.serve_failed", zap.String("service", "offer-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
 		return
 	}
-	fmt.Fprintln(os.Stderr, "offer-service requires --check or --serve")
+	logger.L().Error("log.service.arguments_required", zap.String("service", "offer-service"))
 	os.Exit(2)
 }
 
@@ -202,7 +207,7 @@ func serveOffer(addr string) error {
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, redisClient, nil))
 	go stopOnSignal(grpcServer)
 
-	log.Info("offer grpc server listening",
+	log.Info("log.service.listening",
 		zap.String("addr", listener.Addr().String()),
 		zap.String("nacos_service", instance.ServiceName),
 		zap.String("env", bootstrap.ServiceEnv),

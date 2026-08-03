@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -95,7 +96,7 @@ const openMemberStatus = (membership: Membership, status: Membership['membership
 }
 
 const submitStatus = async () => {
-  if (!statusTarget.value || !reason.value.trim()) { ElMessage.warning('请填写变更原因'); return }
+  if (!statusTarget.value || !reason.value.trim()) { ElMessage.warning(t('common.invalid_request')); return }
   if (statusTarget.value.kind === 'tenant') {
     await updateTenantStatus(tenantId, statusTarget.value.status, reason.value.trim())
     await loadTenant()
@@ -105,7 +106,7 @@ const submitStatus = async () => {
   }
   await loadAudit()
   statusVisible.value = false
-  ElMessage.success('状态已更新')
+  ElMessage.success(t('common.success'))
 }
 
 const statusMeta = (status: string) => ({
@@ -126,7 +127,7 @@ const actionLabel = (action: string) => ({
 const formatTime = (value?: string) => formatShanghaiDateTime(value)
 
 const openSubscription = () => {
-  subscriptionForm.plan_version_id = subscription.value?.plan_version_id || 0
+  subscriptionForm.plan_version_id = Number(subscription.value?.plan_version_id) || 0
   subscriptionForm.starts_at = toShanghaiRFC3339(new Date())
   subscriptionForm.ends_at = ''
   subscriptionForm.reason = ''
@@ -134,11 +135,12 @@ const openSubscription = () => {
 }
 
 const submitSubscription = async () => {
-  if (!subscriptionForm.plan_version_id || !subscriptionForm.reason.trim()) { ElMessage.warning('请选择套餐版本并填写变更原因'); return }
-  if (new Date(subscriptionForm.starts_at).getTime() > Date.now()) { ElMessage.warning('第一、二阶段仅支持立即生效或回溯生效，请勿选择未来时间'); return }
-  await updateTenantSubscription(tenantId, { plan_version_id: subscriptionForm.plan_version_id, starts_at: toShanghaiRFC3339(subscriptionForm.starts_at), ends_at: subscriptionForm.ends_at ? toShanghaiRFC3339(subscriptionForm.ends_at) : undefined, reason: subscriptionForm.reason.trim() })
+  const planVersionID = Number(subscriptionForm.plan_version_id)
+  if (!Number.isSafeInteger(planVersionID) || planVersionID <= 0 || !subscriptionForm.reason.trim()) { ElMessage.warning(t('common.invalid_request')); return }
+  if (new Date(subscriptionForm.starts_at).getTime() > Date.now()) { ElMessage.warning(t('common.invalid_request')); return }
+  await updateTenantSubscription(tenantId, { plan_version_id: planVersionID, starts_at: toShanghaiRFC3339(subscriptionForm.starts_at), ends_at: subscriptionForm.ends_at ? toShanghaiRFC3339(subscriptionForm.ends_at) : undefined, reason: subscriptionForm.reason.trim() })
   subscriptionVisible.value = false
-  ElMessage.success('租户订阅已更新')
+  ElMessage.success(t('common.success'))
   await Promise.all([loadCommercial(), loadAudit()])
 }
 
@@ -152,7 +154,7 @@ const openOverride = (metric: TenantUsageMetric) => {
 
 const submitOverride = async () => {
   if (!overrideForm.entitlement_key || !Number.isInteger(overrideForm.quota_value) || overrideForm.quota_value <= 0 || !overrideForm.reason.trim()) {
-    ElMessage.warning('请填写有效的正整数配额和变更原因')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   await updateTenantEntitlementOverride(tenantId, {
@@ -163,7 +165,7 @@ const submitOverride = async () => {
     reason: overrideForm.reason.trim(),
   })
   overrideVisible.value = false
-  ElMessage.success('租户专属配额已更新')
+  ElMessage.success(t('common.success'))
   await Promise.all([loadCommercial(), loadAudit()])
 }
 

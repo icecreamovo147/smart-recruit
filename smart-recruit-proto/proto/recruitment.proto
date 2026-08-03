@@ -1126,10 +1126,10 @@ message ChatRequest {
   int64 application_id = 3;
   int64 session_id = 4;
   int64 model_id = 5;               // Optional: user-selected model override
-  repeated string skill_capability_keys = 6; // Optional: per-message SKILL capabilities selected by the user
-  repeated int64 agent_skill_ids = 7; // Optional: database-backed Agent Skills selected by the user
-  bool agent_skill_selection_confirmed = 8; // Optional: user confirmed automatic Agent Skill selection, including selecting none
-  int64 agent_skill_selection_message_id = 9; // Optional: user message ID associated with the confirmed Agent Skill selection
+  repeated string capability_keys = 6; // Optional: per-message data/Tool capabilities selected by the user
+  reserved 7 to 9;
+  reserved "agent_skill_ids", "agent_skill_selection_confirmed", "agent_skill_selection_message_id";
+  repeated int64 agent_skill_version_ids = 10; // Exact Package v2 versions selected by the user
 }
 
 message ContextUsageBreakdown {
@@ -1188,10 +1188,12 @@ message ChatResponse {
   int64 session_id = 11;
   ContextUsageInfo context_usage = 12;
   repeated string suggested_questions = 13;
+  repeated AgentSkillRuntimeEvidence agent_skill_runtime_evidence = 14;
 }
 
 message AgentSkillSelectionCandidate {
-  int64 id = 1;
+  reserved 1, 9;
+  reserved "id", "risk_level";
   string name = 2;
   string display_name = 3;
   string reason = 4;
@@ -1199,7 +1201,6 @@ message AgentSkillSelectionCandidate {
   int32 priority = 6;
   string category = 7;
   string scenario = 8;
-  string risk_level = 9;
   bool recommended = 10;
   double vector_score = 11;
   double lexical_score = 12;
@@ -1210,14 +1211,24 @@ message AgentSkillSelectionCandidate {
   string relevance_mode = 17;
   int32 pool_rank = 18;
   string ranking_confidence = 19;
+  int64 skill_id = 20;
+  int64 version_id = 21;
+  string version = 22;
+  string compiled_hash = 23;
+  AgentSkillCompositionRole composition_role = 24;
+  int32 core_estimated_tokens = 25;
+  AgentSkillRiskLevel risk = 26;
+  AgentSkillActivationPolicy activation_policy = 27;
 }
 
 message AgentSkillSelection {
   bool required = 1;
   string reason = 2;
   repeated AgentSkillSelectionCandidate candidates = 3;
-  repeated int64 recommended_agent_skill_ids = 4;
+  reserved 4;
+  reserved "recommended_agent_skill_ids";
   int64 user_message_id = 5;
+  repeated int64 recommended_agent_skill_version_ids = 6;
 }
 
 message ChatStreamResponse {
@@ -1247,6 +1258,7 @@ message ChatStreamResponse {
   ContextUsageInfo context_usage = 19;
   // agent_skill_selection carries candidate metadata when event_type == "agent_skill_selection_required".
   AgentSkillSelection agent_skill_selection = 20;
+  repeated AgentSkillRuntimeEvidence agent_skill_runtime_evidence = 21;
 }
 
 message ChatHistoryRequest {
@@ -1261,10 +1273,13 @@ message ChatMessage {
   string created_at = 3;
   int64 model_id = 4;
   string model_name = 5;
-  repeated int64 agent_skill_ids = 6;
+  reserved 6;
+  reserved "agent_skill_ids";
   repeated string agent_skill_names = 7;
   string process_content = 8;
   ContextUsageInfo context_usage = 9;
+  repeated int64 agent_skill_version_ids = 10;
+  repeated AgentSkillRuntimeEvidence agent_skill_runtime_evidence = 11;
 }
 
 message ChatHistoryResponse {
@@ -1482,6 +1497,7 @@ message AgentRunItem {
   string completed_at = 17;
   string created_at = 18;
   repeated AgentRunStepItem steps = 19;
+  AgentRunResultMetadata result_metadata = 20;
 }
 
 message GetAgentRunsResponse {
@@ -1511,15 +1527,20 @@ message AgentRunResultMetadata {
   string error_type = 10;
   string error_message = 11;
   string raw_json = 12; // Optional opaque extension payload
+  repeated AgentSkillRuntimeEvidence agent_skill_runtime_evidence = 13;
 }
 
 message AgentRunConfirmationPayload {
   bool required = 1;
   string reason = 2;
   repeated AgentSkillSelectionCandidate candidates = 3;
-  repeated int64 recommended_agent_skill_ids = 4;
-  int64 user_message_id = 5;
-  string raw_json = 6; // Optional opaque extension payload
+  reserved 4, 5;
+  reserved "recommended_agent_skill_ids", "user_message_id";
+  string raw_json = 6; // Optional opaque MCP Tool confirmation payload; never approves Agent Skills
+  string agent_skill_confirmation_id = 7;
+  repeated int64 recommended_agent_skill_version_ids = 8;
+  int64 agent_skill_user_message_id = 9;
+  string agent_skill_confirmation_expires_at = 10;
 }
 
 message AgentRunSnapshot {
@@ -1576,10 +1597,10 @@ message CreateAgentRunRequest {
   string action_payload_json = 6;    // Optional structured action payload
   int64 application_id = 7;
   int64 model_id = 8;
-  repeated string skill_capability_keys = 9;
-  repeated int64 agent_skill_ids = 10;
-  bool agent_skill_selection_confirmed = 11;
-  int64 agent_skill_selection_message_id = 12;
+  repeated string capability_keys = 9;
+  reserved 10 to 12;
+  reserved "agent_skill_ids", "agent_skill_selection_confirmed", "agent_skill_selection_message_id";
+  repeated int64 agent_skill_version_ids = 13;
 }
 
 message CreateAgentRunResponse {
@@ -1634,10 +1655,12 @@ message ConfirmAgentRunRequest {
   int64 hr_id = 1;
   int64 run_id = 2;
   string client_request_id = 3; // Optional idempotency key for confirm
-  repeated int64 agent_skill_ids = 4;
-  bool agent_skill_selection_confirmed = 5;
-  int64 agent_skill_selection_message_id = 6;
-  string confirmation_payload_json = 7; // Optional opaque confirmation payload
+  reserved 4 to 6;
+  reserved "agent_skill_ids", "agent_skill_selection_confirmed", "agent_skill_selection_message_id";
+  string confirmation_payload_json = 7; // Optional opaque MCP Tool confirmation payload
+  string agent_skill_confirmation_id = 8;
+  AgentSkillConfirmationDecision agent_skill_confirmation_decision = 9;
+  repeated int64 selected_agent_skill_version_ids = 10;
 }
 
 message ConfirmAgentRunResponse {
@@ -4047,8 +4070,166 @@ message GetAgentConfigResponse {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// Agent SKILL.md Management
+// Agent Skill Package v2 Management
 // ══════════════════════════════════════════════════════════════════════
+
+enum AgentSkillRiskLevel {
+  AGENT_SKILL_RISK_LEVEL_UNSPECIFIED = 0;
+  AGENT_SKILL_RISK_LEVEL_LOW = 1;
+  AGENT_SKILL_RISK_LEVEL_MEDIUM = 2;
+  AGENT_SKILL_RISK_LEVEL_HIGH = 3;
+  AGENT_SKILL_RISK_LEVEL_CRITICAL = 4;
+}
+
+enum AgentSkillActivationPolicy {
+  AGENT_SKILL_ACTIVATION_POLICY_UNSPECIFIED = 0;
+  AGENT_SKILL_ACTIVATION_POLICY_AUTO = 1;
+  AGENT_SKILL_ACTIVATION_POLICY_CONFIRM = 2;
+  AGENT_SKILL_ACTIVATION_POLICY_MANUAL_ONLY = 3;
+}
+
+enum AgentSkillCompositionRole {
+  AGENT_SKILL_COMPOSITION_ROLE_UNSPECIFIED = 0;
+  AGENT_SKILL_COMPOSITION_ROLE_PRIMARY = 1;
+  AGENT_SKILL_COMPOSITION_ROLE_SUPPORTING = 2;
+}
+
+enum AgentSkillOutputMode {
+  AGENT_SKILL_OUTPUT_MODE_UNSPECIFIED = 0;
+  AGENT_SKILL_OUTPUT_MODE_NONE = 1;
+  AGENT_SKILL_OUTPUT_MODE_ADVISORY = 2;
+  AGENT_SKILL_OUTPUT_MODE_STRICT = 3;
+}
+
+enum AgentSkillConfirmationDecision {
+  AGENT_SKILL_CONFIRMATION_DECISION_UNSPECIFIED = 0;
+  AGENT_SKILL_CONFIRMATION_DECISION_APPROVE = 1;
+  AGENT_SKILL_CONFIRMATION_DECISION_REJECT = 2;
+}
+
+message AgentSkillComposition {
+  AgentSkillCompositionRole role = 1;
+}
+
+message AgentSkillOutputContract {
+  AgentSkillOutputMode mode = 1;
+  string schema_id = 2;
+  string schema_json = 3;
+}
+
+message AgentSkillManifest {
+  int32 schema_version = 1;
+  string skill_name = 2;
+  string display_name = 3;
+  string description = 4;
+  string agent_type = 5;
+  string category = 6;
+  string scenario = 7;
+  int32 priority = 8;
+  AgentSkillRiskLevel risk = 9;
+  AgentSkillActivationPolicy activation_policy = 10; // Derived from risk by the canonical compiler
+  repeated string required_capabilities = 11;
+  repeated string trigger_keywords = 12;
+  repeated string semantic_tags = 13;
+  AgentSkillComposition composition = 14;
+  AgentSkillOutputContract output_contract = 15;
+  repeated string evaluation_criteria = 16;
+}
+
+message AgentSkillSectionDraft {
+  string section_key = 1;
+  string title = 2;
+  string description = 3;
+  string content_markdown = 4;
+  repeated string trigger_terms = 5;
+  repeated string semantic_tags = 6;
+  repeated string planner_intents = 7;
+  int32 priority = 8;
+  int32 ordinal = 9;
+}
+
+message AgentSkillSectionInfo {
+  int64 id = 1;
+  string section_key = 2;
+  string title = 3;
+  string description = 4;
+  string content_markdown = 5;
+  repeated string trigger_terms = 6;
+  repeated string semantic_tags = 7;
+  repeated string planner_intents = 8;
+  int32 priority = 9;
+  int32 ordinal = 10;
+  int32 estimated_tokens = 11;
+  string content_hash = 12;
+}
+
+message AgentSkillPackageDraft {
+  AgentSkillManifest manifest = 1;
+  string core_markdown = 2;
+  repeated AgentSkillSectionDraft sections = 3;
+  string authoring_json = 4; // Editor-only state; never interpreted by runtime
+}
+
+message AgentSkillPackageInfo {
+  AgentSkillManifest manifest = 1;
+  string core_markdown = 2;
+  repeated AgentSkillSectionInfo sections = 3;
+  string compiled_markdown = 4;
+  string authoring_json = 5;
+  string compiled_hash = 6;
+  int32 core_estimated_tokens = 7;
+  int32 package_estimated_tokens = 8;
+}
+
+message AgentSkillVersionSummary {
+  int64 version_id = 1;
+  string version = 2;
+  string compiled_hash = 3;
+  string agent_type = 4;
+  string category = 5;
+  string scenario = 6;
+  int32 priority = 7;
+  AgentSkillRiskLevel risk = 8;
+  AgentSkillActivationPolicy activation_policy = 9;
+  AgentSkillCompositionRole composition_role = 10;
+  int32 core_estimated_tokens = 11;
+  int32 package_estimated_tokens = 12;
+}
+
+message AgentSkillSectionRuntimeEvidence {
+  int64 section_id = 1;
+  string section_key = 2;
+  string content_hash = 3;
+  int32 estimated_tokens = 4;
+  double final_rank_score = 5;
+  bool included = 6;
+  string decision_reason = 7;
+}
+
+message AgentSkillRuntimeEvidence {
+  int64 skill_id = 1;
+  int64 version_id = 2;
+  string version = 3;
+  string compiled_hash = 4;
+  string skill_name = 5;
+  string display_name = 6;
+  AgentSkillCompositionRole composition_role = 7;
+  AgentSkillRiskLevel risk = 8;
+  AgentSkillActivationPolicy activation_policy = 9;
+  string selection_mode = 10;
+  string relevance_mode = 11;
+  int32 core_estimated_tokens = 12;
+  int32 loaded_tokens = 13;
+  repeated AgentSkillSectionRuntimeEvidence sections = 14;
+  bool included = 15;
+  string decision_reason = 16;
+  double vector_score = 17;
+  double lexical_score = 18;
+  double metadata_score = 19;
+  double relevance_score = 20;
+  double business_boost = 21;
+  double final_rank_score = 22;
+}
 
 service AgentSkillService {
   rpc ListAgentSkills(ListAgentSkillsRequest) returns (ListAgentSkillsResponse);
@@ -4072,32 +4253,24 @@ message AgentSkillInfo {
   int64 current_version_id = 5;
   bool is_enabled = 6;
   bool is_manual_invocable = 7;
-  repeated string trigger_keywords = 8;
+  reserved 8, 11 to 21;
+  reserved "trigger_keywords", "agent_type", "category", "scenario", "priority", "risk_level",
+    "required_capabilities", "output_schema", "evaluation_criteria", "semantic_tags",
+    "unavailable_capabilities", "validation_warnings";
   string created_at = 9;
   string updated_at = 10;
-  string agent_type = 11;
-  string category = 12;
-  string scenario = 13;
-  int32 priority = 14;
-  string risk_level = 15;
-  repeated string required_capabilities = 16;
-  string output_schema = 17;
-  repeated string evaluation_criteria = 18;
-  repeated string semantic_tags = 19;
-  repeated string unavailable_capabilities = 20;
-  repeated string validation_warnings = 21;
+  AgentSkillVersionSummary current_version = 22;
 }
 
 message AgentSkillVersionInfo {
   int64 id = 1;
   int64 skill_id = 2;
   string version = 3;
-  string flow_json = 4;
-  string skill_md = 5;
-  string frontmatter_json = 6;
-  string body_markdown = 7;
+  reserved 4 to 7;
+  reserved "flow_json", "skill_md", "frontmatter_json", "body_markdown";
   string change_note = 8;
   string created_at = 9;
+  AgentSkillPackageInfo package = 10;
 }
 
 message ListAgentSkillsRequest {
@@ -4124,29 +4297,19 @@ message GetAgentSkillRequest {
 }
 
 message CreateAgentSkillRequest {
-  string name = 1;
-  string display_name = 2;
-  string description = 3;
+  reserved 1 to 3, 8, 11, 14 to 23;
+  reserved "name", "display_name", "description", "trigger_keywords", "flow_json", "skill_md",
+    "agent_type", "category", "scenario", "priority", "risk_level", "required_capabilities",
+    "output_schema", "evaluation_criteria", "semantic_tags";
   bool is_enabled = 4;
   bool is_enabled_set = 5;
   bool is_manual_invocable = 6;
   bool is_manual_invocable_set = 7;
-  repeated string trigger_keywords = 8;
   int64 actor_user_id = 9;
   string version = 10;
-  string flow_json = 11;
   string change_note = 12;
   bool activate = 13;
-  string skill_md = 14;
-  string agent_type = 15;
-  string category = 16;
-  string scenario = 17;
-  int32 priority = 18;
-  string risk_level = 19;
-  repeated string required_capabilities = 20;
-  string output_schema = 21;
-  repeated string evaluation_criteria = 22;
-  repeated string semantic_tags = 23;
+  AgentSkillPackageDraft package = 24;
 }
 
 message UpdateAgentSkillRequest {
@@ -4157,29 +4320,15 @@ message UpdateAgentSkillRequest {
   bool is_enabled_set = 5;
   bool is_manual_invocable = 6;
   bool is_manual_invocable_set = 7;
-  repeated string trigger_keywords = 8;
-  bool trigger_keywords_set = 9;
+  reserved 8, 9, 13 to 30;
+  reserved "trigger_keywords", "trigger_keywords_set", "agent_type", "agent_type_set",
+    "category", "category_set", "scenario", "scenario_set", "priority", "priority_set",
+    "risk_level", "risk_level_set", "required_capabilities", "required_capabilities_set",
+    "output_schema", "output_schema_set", "evaluation_criteria", "evaluation_criteria_set",
+    "semantic_tags", "semantic_tags_set";
   int64 actor_user_id = 10;
   bool display_name_set = 11;
   bool description_set = 12;
-  string agent_type = 13;
-  bool agent_type_set = 14;
-  string category = 15;
-  bool category_set = 16;
-  string scenario = 17;
-  bool scenario_set = 18;
-  int32 priority = 19;
-  bool priority_set = 20;
-  string risk_level = 21;
-  bool risk_level_set = 22;
-  repeated string required_capabilities = 23;
-  bool required_capabilities_set = 24;
-  string output_schema = 25;
-  bool output_schema_set = 26;
-  repeated string evaluation_criteria = 27;
-  bool evaluation_criteria_set = 28;
-  repeated string semantic_tags = 29;
-  bool semantic_tags_set = 30;
 }
 
 message AgentSkillResponse {
@@ -4191,11 +4340,12 @@ message AgentSkillResponse {
 message CreateAgentSkillVersionRequest {
   int64 skill_id = 1;
   string version = 2;
-  string flow_json = 3;
+  reserved 3, 7;
+  reserved "flow_json", "skill_md";
   string change_note = 4;
   bool activate = 5;
   int64 actor_user_id = 6;
-  string skill_md = 7;
+  AgentSkillPackageDraft package = 8;
 }
 
 message AgentSkillVersionResponse {
@@ -4227,17 +4377,17 @@ message UpdateAgentSkillStatusRequest {
 }
 
 message PreviewAgentSkillRequest {
-  string name = 1;
-  string description = 2;
-  string flow_json = 3;
+  reserved 1 to 3;
+  reserved "name", "description", "flow_json";
+  AgentSkillPackageDraft package = 4;
 }
 
 message PreviewAgentSkillResponse {
   int32 code = 1;
   string msg = 2;
-  string skill_md = 3;
-  string frontmatter_json = 4;
-  string body_markdown = 5;
+  reserved 3 to 5;
+  reserved "skill_md", "frontmatter_json", "body_markdown";
+  AgentSkillPackageInfo package = 6;
 }
 
 message DebugSemanticRetrievalRequest {
@@ -4253,7 +4403,8 @@ message DebugSemanticRetrievalRequest {
 }
 
 message SemanticSkillDebugItem {
-  int64 id = 1;
+  reserved 1;
+  reserved "id";
   string name = 2;
   string display_name = 3;
   string category = 4;
@@ -4270,6 +4421,12 @@ message SemanticSkillDebugItem {
   double final_rank_score = 15;
   string relevance_mode = 16;
   int32 pool_rank = 17;
+  int64 skill_id = 18;
+  int64 version_id = 19;
+  string version = 20;
+  string compiled_hash = 21;
+  AgentSkillCompositionRole composition_role = 22;
+  AgentSkillRiskLevel risk = 23;
 }
 
 message SemanticMemoryDebugItem {
@@ -4721,8 +4878,10 @@ message PreviewChatContextRequest {
   int64 hr_id = 1;
   int64 session_id = 2;
   int64 model_id = 3; // Requested model; 0 follows the current default model.
-  repeated string skill_capability_keys = 4;
-  repeated int64 agent_skill_ids = 5;
+  repeated string capability_keys = 4;
+  reserved 5;
+  reserved "agent_skill_ids";
+  repeated int64 agent_skill_version_ids = 6;
 }
 
 message PreviewChatContextResponse {

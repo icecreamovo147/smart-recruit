@@ -111,6 +111,7 @@ func (s *nativeAIService) resolveCapabilityRuntimeModel(ctx context.Context, kin
 		CapabilityVersionID:    resolved.CapabilityVersionID,
 		CapabilitySnapshotHash: resolved.CapabilitySnapshotHash,
 		ConfigurationRefs:      resolved.ConfigurationRefs,
+		SkillRuntimePolicy:     resolved.SkillRuntimePolicy,
 	}, nil
 }
 

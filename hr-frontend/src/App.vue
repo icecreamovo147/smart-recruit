@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown, Briefcase, Calendar, ChatDotRound, Collection, DataAnalysis, Expand, Fold, Key, Menu, Monitor, Moon, OfficeBuilding, Operation, Sunny, UserFilled } from '@element-plus/icons-vue'
@@ -69,11 +70,12 @@ const logout = async () => {
     // Clear httpOnly cookie server-side first; only clean local state on success.
     await request.post('/api/v1/auth/logout')
   } catch {
-    ElMessage.error('退出登录失败，请稍后重试')
+    ElMessage.error(t('frontend.operation_failed'))
     return
   }
   auth.logout()
-  router.push('/login')
+  await router.push('/login')
+  ElMessage.success(t('auth.logout_success'))
 }
 
 const handleUserCommand = (command: string) => {
@@ -89,10 +91,10 @@ const handleTenantChange = async (tenantId: number) => {
   switchingTenant.value = true
   try {
     await auth.switchTenant(tenantId)
-    ElMessage.success(`已切换至${auth.activeTenant?.name || '目标企业'}`)
+    ElMessage.success(t('common.success'))
     window.location.assign(homePath.value)
   } catch {
-    ElMessage.error('企业切换失败，请重新登录后重试')
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     switchingTenant.value = false
   }
@@ -117,7 +119,7 @@ watch(
 const handleEmailSaved = async (email: string) => {
   try {
     await updateEmail(email)
-    ElMessage.success('邮箱设置成功')
+    ElMessage.success(t('common.success'))
     showEmailSetup.value = false
     await auth.restoreSession()
   } catch {

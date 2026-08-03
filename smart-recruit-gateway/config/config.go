@@ -7,9 +7,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"smart-recruit-platform-go/i18n"
 )
 
 type Config struct {
+	AppLocale                 i18n.Locale
 	HTTPPort                  string
 	GRPCAddr                  string
 	NotificationGRPCAddr      string
@@ -84,6 +87,13 @@ type RateLimitConfig struct {
 }
 
 func Load() (Config, error) {
+	appLocale, err := i18n.ParseLocale(os.Getenv(i18n.EnvLocale))
+	if err != nil {
+		return Config{}, err
+	}
+	if err := i18n.Configure(string(appLocale)); err != nil {
+		return Config{}, err
+	}
 	secret := jwtSecret()
 	if err := validateJWTSecret(secret); err != nil {
 		return Config{}, err
@@ -135,6 +145,7 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	return Config{
+		AppLocale:                 appLocale,
 		HTTPPort:                  env("HTTP_PORT", "8080"),
 		GRPCAddr:                  env("GRPC_ADDR", "127.0.0.1:50062"),
 		NotificationGRPCAddr:      notificationGRPCAddr,

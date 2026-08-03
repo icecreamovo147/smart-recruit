@@ -8,7 +8,7 @@ import (
 var global *zap.Logger
 
 func init() {
-	global, _ = zap.NewProduction()
+	global = New("info")
 }
 
 // New creates a production logger (JSON format, info level and above).
@@ -27,7 +27,7 @@ func New(level string) *zap.Logger {
 	default:
 		cfg.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
 	}
-	l, _ := cfg.Build()
+	l, _ := cfg.Build(zap.WrapCore(localizeCore))
 	return l
 }
 
@@ -36,7 +36,7 @@ func NewConsole() *zap.Logger {
 	cfg := zap.NewDevelopmentConfig()
 	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05")
-	l, _ := cfg.Build()
+	l, _ := cfg.Build(zap.WrapCore(localizeCore))
 	return l
 }
 

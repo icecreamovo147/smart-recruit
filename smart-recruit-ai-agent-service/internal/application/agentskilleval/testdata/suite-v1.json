@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "suite_version": "agent-skill-package-v2.1",
+  "compile_cases": [
+    {
+      "id": "compile-canonical-hash",
+      "fixture": "canonical_equivalence",
+      "expected_pass": true,
+      "expected_compiled_hash": "824b50adba48718664d02dd81c9f2dc891dac05150d2668a44b2d7ecaca30d1b"
+    },
+    {
+      "id": "compile-core-budget",
+      "fixture": "core_over_budget",
+      "expected_pass": false,
+      "expected_error_code": "AGENT_SKILL_CORE_BUDGET_EXCEEDED"
+    },
+    {
+      "id": "compile-section-budget",
+      "fixture": "section_over_budget",
+      "expected_pass": false,
+      "expected_error_code": "AGENT_SKILL_SECTION_INVALID"
+    },
+    {
+      "id": "compile-package-budget",
+      "fixture": "package_over_budget",
+      "expected_pass": false,
+      "expected_error_code": "AGENT_SKILL_PACKAGE_INVALID"
+    }
+  ],
+  "ranking_cases": [
+    {
+      "id": "ranking-hybrid",
+      "query": "resume screening",
+      "candidates": [
+        {
+          "object_id": 2,
+          "version_id": 2,
+          "lexical_text": ["general workflow"],
+          "metadata_terms": ["general"],
+          "priority": 1000,
+          "vector_score": 0.1,
+          "embedding_available": true
+        },
+        {
+          "object_id": 1,
+          "version_id": 1,
+          "lexical_text": ["resume screening workflow"],
+          "metadata_terms": ["resume screening"],
+          "priority": 100,
+          "vector_score": 0.5,
+          "embedding_available": true
+        }
+      ],
+      "expected_object_ids": [1],
+      "expected_modes": ["hybrid"]
+    },
+    {
+      "id": "ranking-lexical-fallback",
+      "query": "candidate",
+      "candidates": [
+        {
+          "object_id": 3,
+          "version_id": 3,
+          "lexical_text": ["candidate review"],
+          "priority": -5000,
+          "vector_score": 1,
+          "embedding_available": false
+        }
+      ],
+      "expected_object_ids": [3],
+      "expected_modes": ["lexical_metadata"]
+    },
+    {
+      "id": "ranking-gate-before-boost",
+      "query": "resume",
+      "candidates": [
+        {
+          "object_id": 4,
+          "version_id": 4,
+          "lexical_text": ["unrelated"],
+          "priority": 1000,
+          "vector_score": 0.2,
+          "embedding_available": true
+        }
+      ],
+      "expected_object_ids": [],
+      "expected_modes": []
+    },
+    {
+      "id": "ranking-stable-ties",
+      "query": "resume",
+      "candidates": [
+        {
+          "object_id": 30,
+          "version_id": 2,
+          "section_id": 5,
+          "lexical_text": ["resume"],
+          "embedding_available": false
+        },
+        {
+          "object_id": 20,
+          "version_id": 1,
+          "section_id": 9,
+          "lexical_text": ["resume"],
+          "embedding_available": false
+        },
+        {
+          "object_id": 10,
+          "version_id": 1,
+          "section_id": 3,
+          "lexical_text": ["resume"],
+          "embedding_available": false
+        }
+      ],
+      "expected_object_ids": [10, 20, 30],
+      "expected_modes": ["lexical_metadata", "lexical_metadata", "lexical_metadata"]
+    }
+  ],
+  "composition_cases": [
+    {
+      "id": "composition-primary-supporting",
+      "packages": [
+        {
+          "agent_type": "hr_recruiting_agent",
+          "scenario": "candidate_screening",
+          "role": "primary"
+        },
+        {
+          "agent_type": "hr_recruiting_agent",
+          "scenario": "candidate_screening",
+          "role": "supporting"
+        }
+      ],
+      "expected_pass": true
+    },
+    {
+      "id": "composition-supporting-alone",
+      "packages": [
+        {
+          "agent_type": "hr_recruiting_agent",
+          "scenario": "candidate_screening",
+          "role": "supporting"
+        }
+      ],
+      "expected_pass": false
+    },
+    {
+      "id": "composition-two-primary",
+      "packages": [
+        {
+          "agent_type": "hr_recruiting_agent",
+          "scenario": "candidate_screening",
+          "role": "primary"
+        },
+        {
+          "agent_type": "hr_recruiting_agent",
+          "scenario": "candidate_screening",
+          "role": "primary"
+        }
+      ],
+      "expected_pass": false
+    },
+    {
+      "id": "composition-structured-single-primary",
+      "packages": [
+        {
+          "agent_type": "resume_profile_extractor",
+          "scenario": "resume_parse",
+          "role": "primary"
+        },
+        {
+          "agent_type": "resume_profile_extractor",
+          "scenario": "resume_enrichment",
+          "role": "primary"
+        }
+      ],
+      "expected_pass": false
+    }
+  ]
+}

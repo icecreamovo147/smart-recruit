@@ -76,28 +76,28 @@ var discoveryStrategies = map[string]modelDiscoveryStrategy{
 // credentials to the browser. Results are cached briefly unless refresh=true.
 func (s *NativeStore) DiscoverLlmProviderModels(ctx context.Context, req *pb.DiscoverProviderModelsRequest) (*pb.DiscoverProviderModelsResponse, error) {
 	if req.GetProviderId() <= 0 {
-		return &pb.DiscoverProviderModelsResponse{Code: configBadRequest, Msg: "provider_id is required"}, nil
+		return &pb.DiscoverProviderModelsResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	var provider llmProviderRecord
 	if err := s.db.WithContext(ctx).First(&provider, req.GetProviderId()).Error; err != nil {
-		return &pb.DiscoverProviderModelsResponse{Code: configNotFound, Msg: "provider not found"}, nil
+		return &pb.DiscoverProviderModelsResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 	}
 	if !provider.IsEnabled {
-		return &pb.DiscoverProviderModelsResponse{Code: configUnavailable, Msg: "provider is disabled"}, nil
+		return &pb.DiscoverProviderModelsResponse{Code: configUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	profile, err := commonsai.ResolveProviderProfile(provider.ProviderType, provider.ProtocolType, provider.AuthType)
 	if err != nil {
-		return &pb.DiscoverProviderModelsResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		return &pb.DiscoverProviderModelsResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	strategy := discoveryStrategies[profile.DiscoveryType]
 	if strategy == nil {
-		return &pb.DiscoverProviderModelsResponse{Code: configUnsupported, Msg: "model discovery is not supported for this provider"}, nil
+		return &pb.DiscoverProviderModelsResponse{Code: configUnsupported, Msg: "common.operation_failed"}, nil
 	}
 	apiKey := ""
 	if profile.AuthType != commonsai.AuthNone {
 		apiKey, err = s.decryptAPIKey(provider.APIKeyEncrypted)
 		if err != nil {
-			return &pb.DiscoverProviderModelsResponse{Code: configUnavailable, Msg: "provider credential is unavailable"}, nil
+			return &pb.DiscoverProviderModelsResponse{Code: configUnavailable, Msg: "common.operation_failed"}, nil
 		}
 	}
 	cacheKey := fmt.Sprintf("%d|%s|%s|%s", provider.ID, provider.UpdatedAt.UTC().Format(time.RFC3339Nano), provider.BaseURL, nullString(provider.DiscoveryURL))
@@ -109,7 +109,7 @@ func (s *NativeStore) DiscoverLlmProviderModels(ctx context.Context, req *pb.Dis
 		defer cancel()
 		models, err = strategy.Discover(discoveryCtx, discoveryRequest{Provider: provider, APIKey: apiKey, Client: client})
 		if err != nil {
-			return &pb.DiscoverProviderModelsResponse{Code: configUnavailable, Msg: sanitizeDiscoveryError(err)}, nil
+			return &pb.DiscoverProviderModelsResponse{Code: configUnavailable, Msg: "common.operation_failed"}, nil
 		}
 		fetchedAt = time.Now()
 		models = annotateProviderModels(models, metadataSourceProviderAPI, discoverySourceRef(provider), fetchedAt)
@@ -136,7 +136,7 @@ func (s *NativeStore) DiscoverLlmProviderModels(ctx context.Context, req *pb.Dis
 		item.AlreadyConfigured = configured[model.ModelName]
 		items = append(items, item)
 	}
-	return &pb.DiscoverProviderModelsResponse{Code: configOK, Msg: "success", List: items, Source: profile.DiscoveryType, FetchedAt: formatTime(fetchedAt)}, nil
+	return &pb.DiscoverProviderModelsResponse{Code: configOK, Msg: "common.success", List: items, Source: profile.DiscoveryType, FetchedAt: formatTime(fetchedAt)}, nil
 }
 
 // GetLlmProviderModelPreset enriches one catalog item. Ollama exposes detailed
@@ -144,15 +144,15 @@ func (s *NativeStore) DiscoverLlmProviderModels(ctx context.Context, req *pb.Dis
 // after the user selects a model instead of multiplying list requests.
 func (s *NativeStore) GetLlmProviderModelPreset(ctx context.Context, req *pb.GetProviderModelPresetRequest) (*pb.GetProviderModelPresetResponse, error) {
 	if req.GetProviderId() <= 0 || strings.TrimSpace(req.GetModelName()) == "" {
-		return &pb.GetProviderModelPresetResponse{Code: configBadRequest, Msg: "provider_id and model_name are required"}, nil
+		return &pb.GetProviderModelPresetResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	var provider llmProviderRecord
 	if err := s.db.WithContext(ctx).First(&provider, req.GetProviderId()).Error; err != nil {
-		return &pb.GetProviderModelPresetResponse{Code: configNotFound, Msg: "provider not found"}, nil
+		return &pb.GetProviderModelPresetResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 	}
 	profile, err := commonsai.ResolveProviderProfile(provider.ProviderType, provider.ProtocolType, provider.AuthType)
 	if err != nil {
-		return &pb.GetProviderModelPresetResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		return &pb.GetProviderModelPresetResponse{Code: configBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	if profile.DiscoveryType != "ollama" {
 		catalog, err := s.DiscoverLlmProviderModels(ctx, &pb.DiscoverProviderModelsRequest{ProviderId: provider.ID})
@@ -160,14 +160,14 @@ func (s *NativeStore) GetLlmProviderModelPreset(ctx context.Context, req *pb.Get
 			return nil, err
 		}
 		if catalog.Code != configOK {
-			return &pb.GetProviderModelPresetResponse{Code: catalog.Code, Msg: catalog.Msg}, nil
+			return &pb.GetProviderModelPresetResponse{Code: catalog.Code, Msg: "common.operation_failed"}, nil
 		}
 		for _, item := range catalog.List {
 			if item.GetModelName() == req.GetModelName() {
-				return &pb.GetProviderModelPresetResponse{Code: configOK, Msg: "success", Model: item, Source: catalog.Source, FetchedAt: catalog.FetchedAt}, nil
+				return &pb.GetProviderModelPresetResponse{Code: configOK, Msg: "common.success", Model: item, Source: catalog.Source, FetchedAt: catalog.FetchedAt}, nil
 			}
 		}
-		return &pb.GetProviderModelPresetResponse{Code: configNotFound, Msg: "model not found in provider catalog"}, nil
+		return &pb.GetProviderModelPresetResponse{Code: configNotFound, Msg: "common.not_found"}, nil
 	}
 	client := discoveryHTTPClient(provider, profile.AuthType, "", true)
 	endpoint := strings.TrimSpace(nullString(provider.DiscoveryURL))
@@ -179,7 +179,7 @@ func (s *NativeStore) GetLlmProviderModelPreset(ctx context.Context, req *pb.Get
 	}
 	model, err := inspectOllamaModel(ctx, client, endpoint, strings.TrimSpace(req.GetModelName()))
 	if err != nil {
-		return &pb.GetProviderModelPresetResponse{Code: configUnavailable, Msg: sanitizeDiscoveryError(err)}, nil
+		return &pb.GetProviderModelPresetResponse{Code: configUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	var count int64
 	if err := s.db.WithContext(ctx).Model(&llmModelRecord{}).Where("provider_id = ? AND model_name = ?", provider.ID, model.ModelName).Count(&count).Error; err != nil {
@@ -196,7 +196,7 @@ func (s *NativeStore) GetLlmProviderModelPreset(ctx context.Context, req *pb.Get
 	}
 	item := discoveredModelToPB(enriched[0])
 	item.AlreadyConfigured = count > 0
-	return &pb.GetProviderModelPresetResponse{Code: configOK, Msg: "success", Model: item, Source: "merged", FetchedAt: formatTime(fetchedAt)}, nil
+	return &pb.GetProviderModelPresetResponse{Code: configOK, Msg: "common.success", Model: item, Source: "merged", FetchedAt: formatTime(fetchedAt)}, nil
 }
 
 func inspectOllamaModel(ctx context.Context, client *http.Client, endpoint, modelName string) (discoveredModel, error) {

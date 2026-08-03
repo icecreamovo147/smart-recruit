@@ -23,6 +23,7 @@ import (
 	"smart-recruit-gateway/pkg/observability"
 	"smart-recruit-gateway/pkg/redisclient"
 	"smart-recruit-gateway/rpc"
+	"smart-recruit-platform-go/i18n"
 	pb "smart-recruit-proto/recruitment/pb"
 )
 
@@ -41,7 +42,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 			case auditCh <- entry:
 			case <-time.After(50 * time.Millisecond):
 				dropped := atomic.AddInt64(&auditDropped, 1)
-				logger.L().Warn("audit event dropped (buffer full)",
+				logger.L().Warn("log.gateway.audit_dropped",
 					zap.Int64("dropped_total", dropped),
 					zap.String("decision", entry.Decision),
 					zap.String("permission", entry.PermissionKey),
@@ -64,13 +65,13 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 				ClientIp:      entry.ClientIP,
 			})
 			if err != nil {
-				logger.L().Error("audit record gRPC call failed",
+				logger.L().Error("log.gateway.audit_rpc_failed",
 					zap.Error(err),
 					zap.Int64("actor", entry.ActorUserID),
 					zap.String("permission", entry.PermissionKey),
 				)
 			} else if resp != nil && resp.Code != 0 {
-				logger.L().Warn("audit record returned non-zero code",
+				logger.L().Warn("log.gateway.audit_rejected",
 					zap.String("msg", resp.Msg),
 					zap.Int64("actor", entry.ActorUserID),
 				)
@@ -108,6 +109,9 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 		c.String(200, observability.DefaultMetrics.Prometheus())
 	})
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.GET("/api/v1/public/runtime-config", func(c *gin.Context) {
+		handler.OK(c, "common.success", gin.H{"locale": i18n.Current()})
+	})
 
 	authHandler := handler.NewAuthHandler(clients, cfg.AuthCookieName, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieSecure, cfg.JWTSecret, rdb)
 	platformTenantHandler := handler.NewPlatformTenantHandler(clients)
@@ -355,7 +359,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.PUT("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.UpdateSession)
 	staffGroup.DELETE("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.DeleteSession)
 	staffGroup.GET("/ai/models", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), llmConfigHandler.ListAvailableModels)
-	staffGroup.GET("/ai/skill-capabilities", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ListSkillCapabilities)
+	staffGroup.GET("/ai/capabilities", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ListCapabilities)
 	staffGroup.GET("/agent-skills/available", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), agentSkillHandler.ListAvailable)
 	staffGroup.POST("/ai/application-analysis-sessions", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.CreateApplicationAnalysisSession)
 	staffGroup.POST("/ai/chat", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.Chat)
@@ -520,7 +524,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	platformAIGroup.GET("/mcp-servers/:id/logs", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIDiagnosticsRead), mcpHandler.ListMCPToolLogs)
 	platformAIGroup.POST("/mcp-servers/:id/call-tool", mcpTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformAIDiagnosticsExec), mcpHandler.CallMCPTool)
 
-	// Agent SKILL.md management — requires AI business permission
+	// Agent Skill Package v2 management — requires AI business permission
 	platformAIGroup.GET("/agent-skills", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIConfigRead), agentSkillHandler.List)
 	platformAIGroup.GET("/agent-skills/semantic-debug", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIDiagnosticsRead), agentSkillHandler.DebugSemanticRetrieval)
 	platformAIGroup.GET("/memories", normalTimeout, middleware.RequirePermission(authz.PermPlatformAIDiagnosticsRead), memoryHandler.PlatformList)

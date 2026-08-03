@@ -37,7 +37,7 @@ func (a *ReportingAPI) GetDashboardReport(ctx context.Context, req *pb.GetDashbo
 	}
 	return &pb.GetDashboardReportResponse{
 		Code:                errs.OK,
-		Msg:                 "success",
+		Msg:                 "common.success",
 		OnlineJobs:          report.OnlineJobs,
 		OfflineJobs:         report.OfflineJobs,
 		TotalApplications:   report.TotalApplications,
@@ -64,7 +64,7 @@ func (a *ReportingAPI) GetFunnelReport(ctx context.Context, req *pb.GetFunnelRep
 	}
 	return &pb.GetFunnelReportResponse{
 		Code:   errs.OK,
-		Msg:    "success",
+		Msg:    "common.success",
 		Stages: funnelStagesToProto(report.Stages),
 	}, nil
 }
@@ -84,7 +84,7 @@ func (a *ReportingAPI) GetTimeInStageReport(ctx context.Context, req *pb.GetTime
 	}
 	return &pb.GetTimeInStageReportResponse{
 		Code:      errs.OK,
-		Msg:       "success",
+		Msg:       "common.success",
 		Durations: durationsToProto(report.Durations),
 	}, nil
 }
@@ -105,7 +105,7 @@ func (a *ReportingAPI) GetInterviewOfferMetrics(ctx context.Context, req *pb.Get
 	metrics := report.Metrics
 	return &pb.GetInterviewOfferMetricsResponse{
 		Code:                errs.OK,
-		Msg:                 "success",
+		Msg:                 "common.success",
 		TotalInterviews:     metrics.TotalInterviews,
 		CompletedInterviews: metrics.CompletedInterviews,
 		PositiveFeedbacks:   metrics.PositiveFeedbacks,
@@ -119,34 +119,34 @@ func (a *ReportingAPI) GetInterviewOfferMetrics(ctx context.Context, req *pb.Get
 
 func dashboardError(err error) (*pb.GetDashboardReportResponse, error) {
 	if isForbidden(err) {
-		return &pb.GetDashboardReportResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+		return &pb.GetDashboardReportResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	logger.L().Error("analytics: dashboard query failed", zap.Error(err))
-	return &pb.GetDashboardReportResponse{Code: errs.ErrInternal, Msg: "查询工作台数据失败"}, nil
+	return &pb.GetDashboardReportResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 }
 
 func funnelError(err error) (*pb.GetFunnelReportResponse, error) {
 	if isForbidden(err) {
-		return &pb.GetFunnelReportResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+		return &pb.GetFunnelReportResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	logger.L().Error("analytics: funnel query failed", zap.Error(err))
-	return &pb.GetFunnelReportResponse{Code: errs.ErrInternal, Msg: "查询漏斗数据失败"}, nil
+	return &pb.GetFunnelReportResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 }
 
 func timeInStageError(err error) (*pb.GetTimeInStageReportResponse, error) {
 	if isForbidden(err) {
-		return &pb.GetTimeInStageReportResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+		return &pb.GetTimeInStageReportResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	logger.L().Error("analytics: time-in-stage query failed", zap.Error(err))
-	return &pb.GetTimeInStageReportResponse{Code: errs.ErrInternal, Msg: "查询阶段耗时失败"}, nil
+	return &pb.GetTimeInStageReportResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 }
 
 func interviewOfferError(err error) (*pb.GetInterviewOfferMetricsResponse, error) {
 	if isForbidden(err) {
-		return &pb.GetInterviewOfferMetricsResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+		return &pb.GetInterviewOfferMetricsResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	logger.L().Error("analytics: interview-offer metrics query failed", zap.Error(err))
-	return &pb.GetInterviewOfferMetricsResponse{Code: errs.ErrInternal, Msg: "查询面试指标失败"}, nil
+	return &pb.GetInterviewOfferMetricsResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 }
 
 func isForbidden(err error) bool {

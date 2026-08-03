@@ -8,8 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	gogrpc "google.golang.org/grpc"
-
 	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/errs"
@@ -18,12 +16,12 @@ import (
 
 // ApplicationListClient is the subset of ApplicationService used by HR tools.
 type ApplicationListClient interface {
-	ListJobApplications(ctx context.Context, in *pb.ListJobApplicationsRequest, opts ...gogrpc.CallOption) (*pb.ListJobApplicationsResponse, error)
+	ListJobApplications(ctx context.Context, in *pb.ListJobApplicationsRequest) (*pb.ListJobApplicationsResponse, error)
 }
 
 // SnapshotClient loads application snapshots for candidate detail tools.
 type SnapshotClient interface {
-	GetApplicationSnapshot(ctx context.Context, in *pb.GetApplicationSnapshotRequest, opts ...gogrpc.CallOption) (*pb.GetApplicationSnapshotResponse, error)
+	GetApplicationSnapshot(ctx context.Context, in *pb.GetApplicationSnapshotRequest) (*pb.GetApplicationSnapshotResponse, error)
 }
 
 const (

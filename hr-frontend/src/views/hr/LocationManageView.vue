@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, MoreFilled, Plus, Refresh, Search } from '@element-plus/icons-vue'
@@ -26,7 +27,7 @@ const load = async () => {
     const res = await listLocations()
     list.value = (res.list || []).map(l => ({ ...l, id: toNum(l.id) }))
   } catch {
-    ElMessage.error('加载地点数据失败')
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     loading.value = false
   }
@@ -50,7 +51,7 @@ const openEdit = (row: LocationOption) => {
 
 const saveLoc = async () => {
   if (!form.name.trim()) {
-    ElMessage.warning('请输入地点名称')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   try {
@@ -60,14 +61,14 @@ const saveLoc = async () => {
         code: form.code,
         sort_order: form.sort_order,
       })
-      ElMessage.success('地点已更新')
+      ElMessage.success(t('common.success'))
     } else {
       await createLocation({
         name: form.name,
         code: form.code,
         sort_order: form.sort_order,
       })
-      ElMessage.success('地点已创建')
+      ElMessage.success(t('common.success'))
     }
     dialogVisible.value = false
     load()
@@ -90,7 +91,7 @@ const remove = async (row: LocationOption) => {
     return
   }
   await deleteLocation(row.id)
-  ElMessage.success('地点已删除')
+  ElMessage.success(t('common.success'))
   load()
 }
 

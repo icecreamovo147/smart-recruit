@@ -26,7 +26,7 @@ func TestReportingAPIMapsDashboardResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDashboardReport returned error: %v", err)
 	}
-	if resp.Code != errs.OK || resp.Msg != "success" {
+	if resp.Code != errs.OK || resp.Msg != "common.success" {
 		t.Fatalf("response code/msg = %d/%q", resp.Code, resp.Msg)
 	}
 	if resp.OnlineJobs != 2 || resp.UnreadNotifications != 5 || resp.Trend[0].Applications != 3 {

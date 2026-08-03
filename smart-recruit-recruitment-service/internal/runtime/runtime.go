@@ -267,14 +267,14 @@ type applicationOwnerServer struct {
 
 func (s applicationOwnerServer) GetApplicationSnapshot(ctx context.Context, req *pb.GetApplicationSnapshotRequest) (*pb.GetApplicationSnapshotResponse, error) {
 	if s.owner == nil {
-		return &pb.GetApplicationSnapshotResponse{Code: errs.ErrInternal, Msg: "application owner contract not configured"}, nil
+		return &pb.GetApplicationSnapshotResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	return s.owner.GetApplicationSnapshot(ctx, req)
 }
 
 func (s applicationOwnerServer) ApplyApplicationLifecycleTransition(ctx context.Context, req *pb.ApplyApplicationLifecycleTransitionRequest) (*pb.ApplyApplicationLifecycleTransitionResponse, error) {
 	if s.owner == nil {
-		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrInternal, Msg: "application owner contract not configured"}, nil
+		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 	}
 	return s.owner.ApplyApplicationLifecycleTransition(ctx, req)
 }

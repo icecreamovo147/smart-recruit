@@ -34,6 +34,7 @@ import (
 	notificationruntime "smart-recruit-notification-service/internal/runtime"
 	"smart-recruit-platform-go/businessclock"
 	platformconfig "smart-recruit-platform-go/config"
+	"smart-recruit-platform-go/i18n"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/mysqltime"
 	"smart-recruit-platform-go/nacos"
@@ -48,6 +49,10 @@ import (
 const nacosServiceName = "notification"
 
 func main() {
+	if err := i18n.ConfigureFromEnv(); err != nil {
+		logger.L().Error("log.service.config_failed", zap.String("cause", err.Error()))
+		os.Exit(2)
+	}
 	businessclock.Configure()
 	check := flag.Bool("check", false, "validate Notification service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start Notification gRPC runtime")
@@ -56,20 +61,20 @@ func main() {
 
 	if *check {
 		if err := checkRuntime(); err != nil {
-			fmt.Fprintf(os.Stderr, "notification-service check failed: %v\n", err)
+			logger.L().Error("log.service.check_failed", zap.String("service", "notification-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
-		fmt.Fprintln(os.Stdout, "notification-service runtime check passed")
+		logger.L().Info("log.service.check_passed", zap.String("service", "notification-service"))
 		return
 	}
 	if *serve {
 		if err := serveNotification(*addr); err != nil {
-			fmt.Fprintf(os.Stderr, "notification-service failed: %v\n", err)
+			logger.L().Error("log.service.serve_failed", zap.String("service", "notification-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
 		return
 	}
-	fmt.Fprintln(os.Stderr, "notification-service requires --check or --serve")
+	logger.L().Error("log.service.arguments_required", zap.String("service", "notification-service"))
 	os.Exit(2)
 }
 
@@ -205,7 +210,7 @@ func serveNotification(addr string) error {
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, redisClient, mqConn))
 	go stopOnSignal(grpcServer)
 
-	log.Info("notification grpc server listening",
+	log.Info("log.service.listening",
 		zap.String("addr", listener.Addr().String()),
 		zap.String("nacos_service", instance.ServiceName),
 		zap.String("env", bootstrap.ServiceEnv),

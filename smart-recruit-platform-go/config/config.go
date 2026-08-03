@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"smart-recruit-platform-go/i18n"
 )
 
 type Bootstrap struct {
@@ -27,6 +29,7 @@ type Bootstrap struct {
 	OTLPEndpoint      string
 	StaticFallback    bool
 	RequestTimeout    time.Duration
+	AppLocale         i18n.Locale
 }
 
 type LookupFunc func(string) string
@@ -38,6 +41,13 @@ func Load() (Bootstrap, error) {
 func LoadWithLookup(lookup LookupFunc) (Bootstrap, error) {
 	if lookup == nil {
 		return Bootstrap{}, errors.New("config lookup is nil")
+	}
+	appLocale, err := i18n.ParseLocale(lookup(i18n.EnvLocale))
+	if err != nil {
+		return Bootstrap{}, err
+	}
+	if err := i18n.Configure(string(appLocale)); err != nil {
+		return Bootstrap{}, err
 	}
 	cfg := Bootstrap{
 		ServiceName:       strings.TrimSpace(lookup("SERVICE_NAME")),
@@ -57,6 +67,7 @@ func LoadWithLookup(lookup LookupFunc) (Bootstrap, error) {
 		OTLPEndpoint:      strings.TrimSpace(lookup("OTEL_EXPORTER_OTLP_ENDPOINT")),
 		StaticFallback:    parseBool(lookup("STATIC_FALLBACK")),
 		RequestTimeout:    defaultDuration(lookup("REQUEST_TIMEOUT"), 10*time.Second),
+		AppLocale:         appLocale,
 	}
 	if err := cfg.Validate(); err != nil {
 		return Bootstrap{}, err

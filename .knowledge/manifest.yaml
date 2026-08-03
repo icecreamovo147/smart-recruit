@@ -53,6 +53,46 @@ routes:
       - configuration-changed
 
   - match:
+      - tools/agent-orchestrator/**
+    documents:
+      - knowledge-coverage-audit
+    triggers:
+      - covered-path-changed
+      - configuration-changed
+
+  - match:
+      - scripts/check-agent-skill-v2-cutover.mjs
+      - scripts/check-agent-skill-v2-cutover.test.mjs
+    documents:
+      - agent-skill
+      - api-contracts-and-gateway
+      - protobuf-synchronization
+    triggers:
+      - covered-path-changed
+      - public-api-changed
+
+  - match:
+      - scripts/check-backend-boundaries.mjs
+    documents:
+      - service-boundaries
+    triggers:
+      - covered-path-changed
+      - service-boundary-changed
+
+  - match:
+      - scripts/check-migration-baseline.mjs
+      - scripts/check-mysql-table-ownership.mjs
+    documents:
+      - persistence-and-migrations
+      - migration-model-drift
+      - protobuf-and-migration-change
+      - service-boundaries
+    triggers:
+      - covered-path-changed
+      - database-schema-changed
+      - service-boundary-changed
+
+  - match:
       - AGENTS.md
       - CLAUDE.md
       - .claude/CLAUDE.md
@@ -158,6 +198,34 @@ routes:
       - fallback-behavior-changed
       - authorization-changed
       - sensitive-data-flow-changed
+
+  - match:
+      - smart-recruit-ai-agent-service/internal/infrastructure/persistence/embedding_outbox.go
+      - smart-recruit-ai-agent-service/internal/infrastructure/persistence/platform_ai_embedding_readiness.go
+      - smart-recruit-ai-agent-service/internal/infrastructure/embeddingqueue/**
+    documents:
+      - agent-skill
+      - ai-configuration-governance
+      - semantic-retrieval
+      - debug-ai-configuration
+      - notification-outbox
+      - event-replay-dead-letter
+    triggers:
+      - covered-path-changed
+      - configuration-changed
+      - retrieval-behavior-changed
+      - fallback-behavior-changed
+
+  - match:
+      - smart-recruit-commons/mq/**
+      - smart-recruit-worker-service/internal/outbox/**
+    documents:
+      - notification-outbox
+      - event-replay-dead-letter
+    triggers:
+      - covered-path-changed
+      - configuration-changed
+      - service-boundary-changed
 
   - match:
       - smart-recruit-gateway/handler/hr/llm_config.go

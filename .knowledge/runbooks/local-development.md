@@ -14,6 +14,8 @@ tags:
 applies_to:
   - README.md
   - start-dev.sh
+  - docs/i18n.md
+  - smart-recruit-platform-go/i18n/i18n.go
   - stop-dev.sh
   - scripts/dev-build-fingerprint.go
   - dev-log-viewer/**
@@ -55,7 +57,7 @@ source_refs:
   - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json
   - scripts/backend-load-test.mjs
   - scripts/backend-final-readiness-audit.mjs
-last_verified: 2026-07-23
+last_verified: 2026-07-27
 review_after: 2026-10-21
 ---
 
@@ -78,6 +80,9 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 ## Standard Flow
 
 1. Start infrastructure from `docker/` or use `./start-dev.sh` when the script matches the task.
+   Set `APP_LOCALE=zh-CN` or `APP_LOCALE=en-US` before invoking the script when
+   testing localized system messages. The value is deployment-wide and must not
+   differ between services; omission defaults to `zh-CN`.
 2. When any backend target is selected, `start-dev.sh` prepares `smart-recruit-commons/cmd/migrate`, verifies MySQL/Redis/RabbitMQ availability, and applies `smart-recruit-commons/migrations/` before starting services. Migration failure stops startup.
 3. Start the independent backend services before `smart-recruit-gateway` because the gateway depends on generated gRPC clients. The full `./start-dev.sh` target performs this ordering automatically.
 4. Start only the frontend package needed for the task:
@@ -129,4 +134,6 @@ Mark this document stale if startup scripts, frontend package commands, Docker s
 
 ## Verification
 
-Verified against `start-dev.sh`, `pnpm-workspace.yaml`, the incremental fingerprint helper, the Commons migration command and runner, current workspace frontend ports/commands, Docker Compose assets, `interviewer-frontend/README.md`, and dev-log-viewer scripts on 2026-07-23.
+Verified against `start-dev.sh`, `docs/i18n.md`, the canonical i18n runtime,
+current workspace frontend commands, Docker Compose assets, and dev-log-viewer
+scripts on 2026-07-27.

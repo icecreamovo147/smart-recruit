@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { scheduleInterview } from '@/api/interview'
@@ -62,7 +63,7 @@ const handleInterviewerSelect = (user: StaffUserInfo) => {
 
 const handleSubmit = async () => {
   if (!form.interviewer_id) {
-    ElMessage.warning('请选择面试官')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   loading.value = true
@@ -80,7 +81,7 @@ const handleSubmit = async () => {
       internal_note: form.internal_note || undefined,
       scheduled_at: form.scheduled_at ? toShanghaiRFC3339(form.scheduled_at) : undefined,
     })
-    ElMessage.success('面试安排成功')
+    ElMessage.success(t('common.success'))
     emit('success')
     emit('update:visible', false)
     resetForm()

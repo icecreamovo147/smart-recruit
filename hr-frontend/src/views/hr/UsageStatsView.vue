@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
@@ -176,7 +177,7 @@ const loadStats = async () => {
       estimated_cost: toNum(p?.estimated_cost ?? p?.estimatedCost),
     }))
   } catch {
-    ElMessage.error('加载统计数据失败')
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     statsLoading.value = false
   }
@@ -206,7 +207,7 @@ const reloadTrend = async () => {
     })
     trendPoints.value = trendResp.list || []
   } catch {
-    ElMessage.error('加载趋势数据失败')
+    ElMessage.error(t('frontend.operation_failed'))
   }
 }
 

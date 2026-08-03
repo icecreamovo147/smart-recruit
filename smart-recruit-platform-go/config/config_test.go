@@ -4,7 +4,38 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"smart-recruit-platform-go/i18n"
 )
+
+func TestLoadLocaleDefaultsAndValidation(t *testing.T) {
+	cfg, err := LoadWithLookup(func(key string) string {
+		if key == "SERVICE_NAME" {
+			return "test-service"
+		}
+		return ""
+	})
+	if err != nil {
+		t.Fatalf("LoadWithLookup: %v", err)
+	}
+	if cfg.AppLocale != i18n.LocaleZhCN {
+		t.Fatalf("AppLocale = %q", cfg.AppLocale)
+	}
+
+	_, err = LoadWithLookup(func(key string) string {
+		switch key {
+		case "SERVICE_NAME":
+			return "test-service"
+		case i18n.EnvLocale:
+			return "fr-FR"
+		default:
+			return ""
+		}
+	})
+	if err == nil {
+		t.Fatal("expected unsupported APP_LOCALE error")
+	}
+}
 
 func TestLoadWithLookupDefaultsAndValidates(t *testing.T) {
 	cfg, err := LoadWithLookup(func(key string) string {

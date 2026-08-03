@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-Serial Agent Orchestrator — executes agent-harness tasks one by one.
+Archived Serial Agent Orchestrator — historical inventory only.
+
+The executable workflow was isolated on 2026-07-30. Only --dry-run remains
+available for auditing the historical task list. All mutating modes fail closed
+before reading Agent commands or changing Git state.
 
 Workflow per task:
   1. Checkout integration/agent-platform
@@ -45,6 +49,10 @@ FIX_PROMPT_TEMPLATE = PROMPTS_DIR / "fixer.md"
 
 STATUS_FILE = LOGS_DIR / "status.jsonl"
 INTEGRATION_BRANCH = "integration/agent-platform"
+ARCHIVED_MESSAGE = (
+    "agent-orchestrator is archived and read-only; only --dry-run is allowed. "
+    "Use AGENTS.md and an explicitly activated current repository skill instead."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +188,10 @@ def step_squash_merge(branch_name: str, commit_message: str) -> None:
 # ---------------------------------------------------------------------------
 
 def orchestrate(args: argparse.Namespace) -> int:
+    if not args.dry_run:
+        print(f"ERROR: {ARCHIVED_MESSAGE}")
+        return 2
+
     # --- load tasks ---
     all_tasks = load_yaml_tasks(TASKS_YAML)
     enabled_tasks = [t for t in all_tasks if t.get("enabled", True)]
@@ -209,7 +221,8 @@ def orchestrate(args: argparse.Namespace) -> int:
 
     # --- dry-run ---
     if args.dry_run:
-        print(f"DRY-RUN: would execute {len(enabled_tasks)} task(s):")
+        print(f"ARCHIVED DRY-RUN: historical inventory contains {len(enabled_tasks)} task(s).")
+        print("Execution is disabled; missing task_file paths are retained as historical evidence.")
         for t in enabled_tasks:
             print(f"  {t['id']}  {t['name']}")
             print(f"    branch: {t['branch']}")
@@ -438,19 +451,19 @@ def _print_summary(stats: dict, blocked_tasks: list[str]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Serial Agent Orchestrator — run agent-harness tasks one by one.",
+        description="Archived Serial Agent Orchestrator — inspect historical tasks only.",
     )
-    parser.add_argument("--dry-run", action="store_true", help="Print tasks without executing.")
-    parser.add_argument("--only", type=str, metavar="TASK_ID", help="Run only one specific task.")
+    parser.add_argument("--dry-run", action="store_true", help="Print the historical task inventory without executing.")
+    parser.add_argument("--only", type=str, metavar="TASK_ID", help="Historical option; execution is disabled.")
     parser.add_argument("--from-task", type=str, metavar="TASK_ID", dest="from_task",
-                        help="Start execution from this task (inclusive).")
+                        help="Historical option; execution is disabled.")
     parser.add_argument("--max-tasks", type=int, metavar="N", dest="max_tasks",
-                        help="Execute at most N tasks.")
+                        help="Historical option; execution is disabled.")
     parser.add_argument("--no-merge", action="store_true", dest="no_merge",
-                        help="Do not squash-merge after PASS; leave branch intact.")
-    parser.add_argument("--yes", action="store_true", help="Skip confirmation prompt.")
+                        help="Historical option; execution is disabled.")
+    parser.add_argument("--yes", action="store_true", help="Historical option; cannot bypass archive isolation.")
     parser.add_argument("--continue-on-failure", action="store_true", dest="continue_on_failure",
-                        help="Continue to next task even if current one fails / is BLOCKED.")
+                        help="Historical option; execution is disabled.")
 
     args = parser.parse_args()
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { formatShanghaiDateTime } from '@shared/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -153,15 +154,15 @@ const openEditProvider = (row: LlmProvider) => {
 
 const saveProvider = async () => {
   if (!providerForm.name) {
-    ElMessage.warning('请输入 Provider 名称')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (!providerForm.base_url) {
-    ElMessage.warning('请输入 Base URL')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (!isEditingProvider.value && providerForm.auth_type !== 'none' && !providerForm.api_key) {
-    ElMessage.warning('请输入 API Key')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   providerSaving.value = true
@@ -188,7 +189,7 @@ const saveProvider = async () => {
         payload.extra_headers_set = true
       }
       await updateProvider(editingProviderId.value, payload)
-      ElMessage.success('Provider 已更新')
+      ElMessage.success(t('common.success'))
     } else {
       const payload: CreateProviderPayload = {
         name: providerForm.name,
@@ -204,7 +205,7 @@ const saveProvider = async () => {
         payload.extra_headers_json = providerForm.extra_headers_json
       }
       await createProvider(payload)
-      ElMessage.success('Provider 已创建')
+      ElMessage.success(t('common.success'))
     }
     providerDrawerVisible.value = false
     await loadProviders()
@@ -225,7 +226,7 @@ const handleDeleteProvider = async (row: LlmProvider) => {
   }
   try {
     await deleteProvider(row.id)
-    ElMessage.success('Provider 已删除')
+    ElMessage.success(t('common.success'))
     await loadProviders()
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string }).message || '删除失败')
@@ -360,11 +361,11 @@ const openEditModel = (row: LlmModel) => {
 
 const saveModel = async () => {
   if (!modelForm.model_name) {
-    ElMessage.warning('请输入模型名称')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (!modelForm.provider_id) {
-    ElMessage.warning('请选择 Provider')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   modelSaving.value = true
@@ -407,7 +408,7 @@ const saveModel = async () => {
         is_default_set: true,
       }
       await updateModel(editingModelId.value, payload)
-      ElMessage.success('Model 已更新')
+      ElMessage.success(t('common.success'))
     } else {
       const payload: CreateModelPayload = {
         provider_id: modelForm.provider_id,
@@ -435,7 +436,7 @@ const saveModel = async () => {
         is_default: modelForm.is_default,
       }
       await createModel(payload)
-      ElMessage.success('Model 已创建')
+      ElMessage.success(t('common.success'))
     }
     modelDrawerVisible.value = false
     await loadModels()
@@ -506,7 +507,7 @@ watch(() => filteredDiscoveredModels.value.length, () => {
 
 const handleDiscoverModels = async (refresh = false) => {
   if (!modelForm.provider_id) {
-    ElMessage.warning('请先选择 Provider')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   discoveryLoading.value = true
@@ -516,7 +517,7 @@ const handleDiscoverModels = async (refresh = false) => {
     discoveryFetchedAt.value = result.fetched_at || ''
     discoveryCollapsed.value = true
     await updateDiscoveryListExpandable()
-    if (discoveredModels.value.length === 0) ElMessage.info('供应商没有返回可用模型')
+    if (discoveredModels.value.length === 0) ElMessage.info(t('common.operation_failed'))
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string }).message || '获取模型列表失败')
   } finally {
@@ -574,7 +575,7 @@ const applyDiscoveredModel = async (item: DiscoveredLlmModel) => {
     if (collapseAfterApply) discoveryCollapsed.value = true
   } catch {
     applyDiscoveredModelValues(item)
-    ElMessage.warning('已应用模型列表信息，但未能读取 Ollama /api/show 详细预设')
+    ElMessage.warning(t('common.invalid_request'))
     if (collapseAfterApply) discoveryCollapsed.value = true
   } finally {
     discoveryLoading.value = false
@@ -610,7 +611,7 @@ const handleDeleteModel = async (row: LlmModel) => {
   }
   try {
     await deleteModel(row.id)
-    ElMessage.success('Model 已删除')
+    ElMessage.success(t('common.success'))
     await loadModels()
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string }).message || '删除失败')
@@ -643,9 +644,9 @@ const handleTestModel = async (row: LlmModel) => {
       testedAt: new Date().toISOString(),
     }
     if (result.success) {
-      ElMessage.success(`「${row.display_name || row.model_name}」连接测试成功`)
+      ElMessage.success(t('common.success'))
     } else {
-      ElMessage.error(`「${row.display_name || row.model_name}」连接测试失败：${result.detail || '未知错误'}`)
+      ElMessage.error(t('frontend.operation_failed'))
     }
   } catch (e: unknown) {
     const detail = (e as { message?: string }).message || '连接测试失败'
@@ -654,7 +655,7 @@ const handleTestModel = async (row: LlmModel) => {
       detail,
       testedAt: new Date().toISOString(),
     }
-    ElMessage.error(`「${row.display_name || row.model_name}」${detail}`)
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     markModelTesting(row.id, false)
   }

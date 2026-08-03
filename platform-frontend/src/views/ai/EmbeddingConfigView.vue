@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { formatShanghaiDateTime } from '@shared/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -114,9 +115,9 @@ const openEditProvider = (row: EmbeddingProvider) => {
 }
 
 const saveProvider = async () => {
-  if (!providerForm.name) { ElMessage.warning('请输入 Provider 名称'); return }
-  if (!providerForm.endpoint) { ElMessage.warning('请输入 Endpoint'); return }
-  if (!isEditingProvider.value && !providerForm.api_key) { ElMessage.warning('请输入 API Key'); return }
+  if (!providerForm.name) { ElMessage.warning(t('common.invalid_request')); return }
+  if (!providerForm.endpoint) { ElMessage.warning(t('common.invalid_request')); return }
+  if (!isEditingProvider.value && !providerForm.api_key) { ElMessage.warning(t('common.invalid_request')); return }
   providerSaving.value = true
   try {
     if (isEditingProvider.value) {
@@ -133,7 +134,7 @@ const saveProvider = async () => {
         payload.extra_headers_set = true
       }
       await updateEmbeddingProvider(editingProviderId.value, payload)
-      ElMessage.success('Provider 已更新')
+      ElMessage.success(t('common.success'))
     } else {
       await createEmbeddingProvider({
         name: providerForm.name,
@@ -142,7 +143,7 @@ const saveProvider = async () => {
         api_key: providerForm.api_key,
         extra_headers_json: providerForm.extra_headers_json || undefined,
       })
-      ElMessage.success('Provider 已创建')
+      ElMessage.success(t('common.success'))
     }
     providerDrawerVisible.value = false
     await loadProviders()
@@ -157,7 +158,7 @@ const handleDeleteProvider = async (row: EmbeddingProvider) => {
   } catch { return }
   try {
     await deleteEmbeddingProvider(row.id)
-    ElMessage.success('Provider 已删除')
+    ElMessage.success(t('common.success'))
     await loadProviders()
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string }).message || '删除失败')
@@ -250,8 +251,8 @@ const openEditModel = (row: EmbeddingModel) => {
 }
 
 const saveModel = async () => {
-  if (!modelForm.model_name) { ElMessage.warning('请输入 Model 名称'); return }
-  if (!modelForm.provider_id) { ElMessage.warning('请选择 Provider'); return }
+  if (!modelForm.model_name) { ElMessage.warning(t('common.invalid_request')); return }
+  if (!modelForm.provider_id) { ElMessage.warning(t('common.invalid_request')); return }
   modelSaving.value = true
   try {
     if (isEditingModel.value) {
@@ -273,7 +274,7 @@ const saveModel = async () => {
         is_default: modelForm.is_default,
         is_default_set: true,
       })
-      ElMessage.success('Model 已更新')
+      ElMessage.success(t('common.success'))
     } else {
       await createEmbeddingModel({
         provider_id: modelForm.provider_id,
@@ -286,7 +287,7 @@ const saveModel = async () => {
         max_retries: modelForm.max_retries,
         is_default: modelForm.is_default,
       })
-      ElMessage.success('Model 已创建')
+      ElMessage.success(t('common.success'))
     }
     modelDrawerVisible.value = false
     await loadModels()
@@ -298,7 +299,7 @@ const saveModel = async () => {
 const handleSetDefault = async (row: EmbeddingModel) => {
   try {
     await setDefaultEmbeddingModel(row.id)
-    ElMessage.success(`已设置「${row.model_name}」为默认模型`)
+    ElMessage.success(t('common.success'))
     await loadModels()
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string }).message || '设置默认模型失败')
@@ -311,7 +312,7 @@ const handleDeleteModel = async (row: EmbeddingModel) => {
   } catch { return }
   try {
     await deleteEmbeddingProvider(row.id)
-    ElMessage.success('Model 已删除')
+    ElMessage.success(t('common.success'))
     await loadModels()
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string }).message || '删除失败')
@@ -338,13 +339,13 @@ const handleTestModel = async (row: EmbeddingModel) => {
   try {
     const result = await testEmbeddingModel({ provider_id: row.provider_id, model_id: row.id })
     if (result.success) {
-      ElMessage.success(`「${row.display_name || row.model_name}」测试成功：维度 ${result.dimension}，耗时 ${result.latency_ms}ms`)
+      ElMessage.success(t('common.success'))
     } else {
-      ElMessage.error(`「${row.display_name || row.model_name}」测试失败：${result.detail || '未知错误'}`)
+      ElMessage.error(t('frontend.operation_failed'))
     }
     await loadModels()
   } catch (e: unknown) {
-    ElMessage.error(`「${row.display_name || row.model_name}」${(e as { message?: string }).message || '测试连接失败'}`)
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     markModelTesting(row.id, false)
   }

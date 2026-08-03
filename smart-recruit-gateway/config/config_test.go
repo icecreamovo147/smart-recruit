@@ -32,6 +32,28 @@ func TestLoadAuthCookieSecure(t *testing.T) {
 	}
 }
 
+func TestLoadAppLocale(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", testJWTSecret())
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("APP_LOCALE", "en-US")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.AppLocale != "en-US" {
+		t.Fatalf("AppLocale = %q", cfg.AppLocale)
+	}
+}
+
+func TestLoadRejectsUnsupportedAppLocale(t *testing.T) {
+	t.Setenv("APP_LOCALE", "fr-FR")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected unsupported APP_LOCALE error")
+	}
+}
+
 func TestLoadBillingReturnURLDefaultsMatchFrontendRoutes(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("JWT_SECRET", testJWTSecret())

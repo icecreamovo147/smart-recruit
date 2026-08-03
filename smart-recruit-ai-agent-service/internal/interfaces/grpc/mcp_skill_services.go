@@ -57,10 +57,14 @@ type agentSkillGovernanceStore interface {
 	DebugSemanticRetrieval(context.Context, *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error)
 }
 
+type semanticDebugAgentSkillScopeResolver interface {
+	ResolveSemanticDebugAgentSkillVersionIDs(context.Context, string) ([]int64, int64, error)
+}
+
 func (s nativeMCPService) CreateMCPServer(ctx context.Context, req *pb.CreateMCPServerRequest) (*pb.MCPServerResponse, error) {
 	store, ok := s.store.(mcpGovernanceStore)
 	if !ok {
-		return &pb.MCPServerResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.MCPServerResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	return store.CreateMCPServer(ctx, req)
 }
@@ -68,7 +72,7 @@ func (s nativeMCPService) CreateMCPServer(ctx context.Context, req *pb.CreateMCP
 func (s nativeMCPService) UpdateMCPServer(ctx context.Context, req *pb.UpdateMCPServerRequest) (*pb.MCPServerResponse, error) {
 	store, ok := s.store.(mcpGovernanceStore)
 	if !ok {
-		return &pb.MCPServerResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.MCPServerResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	return store.UpdateMCPServer(ctx, req)
 }
@@ -76,7 +80,7 @@ func (s nativeMCPService) UpdateMCPServer(ctx context.Context, req *pb.UpdateMCP
 func (s nativeMCPService) DeleteMCPServer(ctx context.Context, req *pb.DeleteMCPServerRequest) (*pb.CommonResponse, error) {
 	store, ok := s.store.(mcpGovernanceStore)
 	if !ok {
-		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	return store.DeleteMCPServer(ctx, req)
 }
@@ -84,7 +88,7 @@ func (s nativeMCPService) DeleteMCPServer(ctx context.Context, req *pb.DeleteMCP
 func (s nativeMCPService) CreateMCPToolPolicy(ctx context.Context, req *pb.CreateMCPToolPolicyRequest) (*pb.MCPToolPolicyResponse, error) {
 	store, ok := s.store.(mcpGovernanceStore)
 	if !ok {
-		return &pb.MCPToolPolicyResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.MCPToolPolicyResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	return store.CreateMCPToolPolicy(ctx, req)
 }
@@ -92,7 +96,7 @@ func (s nativeMCPService) CreateMCPToolPolicy(ctx context.Context, req *pb.Creat
 func (s nativeMCPService) UpdateMCPToolPolicy(ctx context.Context, req *pb.UpdateMCPToolPolicyRequest) (*pb.MCPToolPolicyResponse, error) {
 	store, ok := s.store.(mcpGovernanceStore)
 	if !ok {
-		return &pb.MCPToolPolicyResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.MCPToolPolicyResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	return store.UpdateMCPToolPolicy(ctx, req)
 }
@@ -100,7 +104,7 @@ func (s nativeMCPService) UpdateMCPToolPolicy(ctx context.Context, req *pb.Updat
 func (s nativeMCPService) DeleteMCPToolPolicy(ctx context.Context, req *pb.DeleteMCPToolPolicyRequest) (*pb.CommonResponse, error) {
 	store, ok := s.store.(mcpGovernanceStore)
 	if !ok {
-		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	return store.DeleteMCPToolPolicy(ctx, req)
 }
@@ -108,73 +112,73 @@ func (s nativeMCPService) DeleteMCPToolPolicy(ctx context.Context, req *pb.Delet
 func (s nativeMCPService) TestMCPConnection(ctx context.Context, req *pb.TestMCPConnectionRequest) (*pb.TestMCPConnectionResponse, error) {
 	store, ok := s.store.(mcpRuntimeStore)
 	if !ok {
-		return &pb.TestMCPConnectionResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured", Success: false}, nil
+		return &pb.TestMCPConnectionResponse{Code: configCodeUnavailable, Msg: "common.operation_failed", Success: false}, nil
 	}
 	runner := s.runner
 	if runner == nil {
-		return &pb.TestMCPConnectionResponse{Code: configCodeUnavailable, Msg: "mcp runner is not configured", Success: false, Detail: "native MCP runner is not bound"}, nil
+		return &pb.TestMCPConnectionResponse{Code: configCodeUnavailable, Msg: "common.operation_failed", Success: false, Detail: "native MCP runner is not bound"}, nil
 	}
 	server, found, err := store.GetMCPRuntimeServer(ctx, req.GetServerId())
 	if err != nil {
 		return nil, err
 	}
 	if !found {
-		return &pb.TestMCPConnectionResponse{Code: 404, Msg: "mcp server not found", Success: false}, nil
+		return &pb.TestMCPConnectionResponse{Code: 404, Msg: "common.operation_failed", Success: false}, nil
 	}
 	result, err := runner.Test(ctx, server)
 	if err != nil {
 		_ = store.UpdateMCPRuntimeStatus(ctx, server.ID, "error", 0, safeMCPText(err.Error()))
-		return &pb.TestMCPConnectionResponse{Code: configCodeUnavailable, Msg: "mcp connection failed", Success: false, Detail: safeMCPText(result.Detail)}, nil
+		return &pb.TestMCPConnectionResponse{Code: configCodeUnavailable, Msg: "common.operation_failed", Success: false, Detail: safeMCPText(result.Detail)}, nil
 	}
 	_ = store.UpdateMCPRuntimeStatus(ctx, server.ID, "connected", result.ToolsFound, "")
-	return &pb.TestMCPConnectionResponse{Code: 0, Msg: "success", Success: result.Success, Detail: safeMCPText(result.Detail)}, nil
+	return &pb.TestMCPConnectionResponse{Code: 0, Msg: "common.success", Success: result.Success, Detail: safeMCPText(result.Detail)}, nil
 }
 
 func (s nativeMCPService) ListMCPTools(ctx context.Context, req *pb.ListMCPToolsRequest) (*pb.ListMCPToolsResponse, error) {
 	store, ok := s.store.(mcpRuntimeStore)
 	if !ok {
-		return &pb.ListMCPToolsResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.ListMCPToolsResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	if s.runner == nil {
-		return &pb.ListMCPToolsResponse{Code: configCodeUnavailable, Msg: "mcp runner is not configured"}, nil
+		return &pb.ListMCPToolsResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	server, found, err := store.GetMCPRuntimeServer(ctx, req.GetServerId())
 	if err != nil {
 		return nil, err
 	}
 	if !found {
-		return &pb.ListMCPToolsResponse{Code: 404, Msg: "mcp server not found"}, nil
+		return &pb.ListMCPToolsResponse{Code: 404, Msg: "common.operation_failed"}, nil
 	}
 	tools, err := s.runner.ListTools(ctx, server)
 	if err != nil {
 		_ = store.UpdateMCPRuntimeStatus(ctx, server.ID, "error", 0, safeMCPText(err.Error()))
-		return &pb.ListMCPToolsResponse{Code: configCodeUnavailable, Msg: safeMCPText(err.Error())}, nil
+		return &pb.ListMCPToolsResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	_ = store.UpdateMCPRuntimeStatus(ctx, server.ID, "connected", len(tools), "")
 	items := make([]*pb.MCPToolInfo, 0, len(tools))
 	for _, tool := range tools {
 		items = append(items, &pb.MCPToolInfo{Name: tool.Name, Description: safeMCPText(tool.Description), SchemaJson: redactMCPJSON(tool.SchemaJSON, nil)})
 	}
-	return &pb.ListMCPToolsResponse{Code: 0, Msg: "success", List: items}, nil
+	return &pb.ListMCPToolsResponse{Code: 0, Msg: "common.success", List: items}, nil
 }
 
 func (s nativeMCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest) (*pb.CallMCPToolResponse, error) {
 	store, ok := s.store.(mcpRuntimeStore)
 	if !ok {
-		return &pb.CallMCPToolResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured", ErrorMsg: "store is not configured"}, nil
+		return &pb.CallMCPToolResponse{Code: configCodeUnavailable, Msg: "common.operation_failed", ErrorMsg: "store is not configured"}, nil
 	}
 	if s.runner == nil {
-		return &pb.CallMCPToolResponse{Code: configCodeUnavailable, Msg: "mcp runner is not configured", ErrorMsg: "runner is not configured"}, nil
+		return &pb.CallMCPToolResponse{Code: configCodeUnavailable, Msg: "common.operation_failed", ErrorMsg: "runner is not configured"}, nil
 	}
 	server, found, err := store.GetMCPRuntimeServer(ctx, req.GetServerId())
 	if err != nil {
 		return nil, err
 	}
 	if !found {
-		return &pb.CallMCPToolResponse{Code: 404, Msg: "mcp server not found", ErrorMsg: "mcp server not found"}, nil
+		return &pb.CallMCPToolResponse{Code: 404, Msg: "common.operation_failed", ErrorMsg: "mcp server not found"}, nil
 	}
 	if !server.Enabled {
-		resp := &pb.CallMCPToolResponse{Code: configCodeUnavailable, Msg: "mcp server is disabled", ErrorMsg: "mcp server is disabled", PolicyDecision: model.MCPPolicyDecisionDeny, PolicyReason: "server_disabled"}
+		resp := &pb.CallMCPToolResponse{Code: configCodeUnavailable, Msg: "common.operation_failed", ErrorMsg: "mcp server is disabled", PolicyDecision: model.MCPPolicyDecisionDeny, PolicyReason: "server_disabled"}
 		if err := store.AppendMCPToolLog(ctx, responseMCPLog(req, resp, 0, redactMCPJSON(req.GetArgsJson(), nil))); err != nil {
 			return nil, err
 		}
@@ -182,7 +186,7 @@ func (s nativeMCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRe
 	}
 	args, err := parseMCPArgs(req.GetArgsJson())
 	if err != nil {
-		resp := &pb.CallMCPToolResponse{Code: 400, Msg: err.Error(), ErrorMsg: err.Error(), PolicyDecision: model.MCPPolicyDecisionDeny, PolicyReason: "invalid_args_json"}
+		resp := &pb.CallMCPToolResponse{Code: 400, Msg: "common.operation_failed", ErrorMsg: err.Error(), PolicyDecision: model.MCPPolicyDecisionDeny, PolicyReason: "invalid_args_json"}
 		if logErr := store.AppendMCPToolLog(ctx, responseMCPLog(req, resp, 0, redactMCPJSON(req.GetArgsJson(), nil))); logErr != nil {
 			return nil, logErr
 		}
@@ -221,7 +225,7 @@ func (s nativeMCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRe
 		return resp, nil
 	}
 	result, err := s.runner.CallTool(ctx, server, req.GetToolName(), args)
-	resp := &pb.CallMCPToolResponse{Code: 0, Msg: "success", ResultContent: truncateMCPText(redactMCPText(result.Content)), ErrorMsg: safeMCPText(result.Error), DurationMs: result.DurationMs, PolicyDecision: eval.Decision, PolicyReason: eval.Reason, PolicyId: int64(eval.PolicyID)}
+	resp := &pb.CallMCPToolResponse{Code: 0, Msg: "common.success", ResultContent: truncateMCPText(redactMCPText(result.Content)), ErrorMsg: safeMCPText(result.Error), DurationMs: result.DurationMs, PolicyDecision: eval.Decision, PolicyReason: eval.Reason, PolicyId: int64(eval.PolicyID)}
 	if err != nil || strings.TrimSpace(result.Error) != "" {
 		resp.Code = configCodeUnavailable
 		resp.Msg = "mcp tool execution failed"
@@ -255,7 +259,7 @@ func policyDeniedMCPResponse(eval model.MCPPolicyEvaluation) *pb.CallMCPToolResp
 		code = 429
 	}
 	reason := safeMCPText(eval.Reason)
-	return &pb.CallMCPToolResponse{Code: code, Msg: reason, ErrorMsg: reason, PolicyDecision: eval.Decision, PolicyReason: reason, PolicyId: int64(eval.PolicyID)}
+	return &pb.CallMCPToolResponse{Code: code, Msg: "common.operation_failed", ErrorMsg: reason, PolicyDecision: eval.Decision, PolicyReason: reason, PolicyId: int64(eval.PolicyID)}
 }
 
 func responseMCPLog(req *pb.CallMCPToolRequest, resp *pb.CallMCPToolResponse, durationMs int64, redactedArgs string) mcpinfra.ToolLog {
@@ -351,7 +355,7 @@ func truncateMCPText(value string) string {
 func (s nativeAgentSkillService) GetAgentSkill(ctx context.Context, req *pb.GetAgentSkillRequest) (*pb.AgentSkillResponse, error) {
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {
-		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	return store.GetAgentSkill(ctx, req)
 }
@@ -359,42 +363,31 @@ func (s nativeAgentSkillService) GetAgentSkill(ctx context.Context, req *pb.GetA
 func (s nativeAgentSkillService) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {
-		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
-	resp, err := store.CreateAgentSkill(ctx, req)
-	s.syncAgentSkillEmbedding(ctx, resp)
-	return resp, err
+	return store.CreateAgentSkill(ctx, req)
 }
 
 func (s nativeAgentSkillService) UpdateAgentSkill(ctx context.Context, req *pb.UpdateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {
-		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
-	resp, err := store.UpdateAgentSkill(ctx, req)
-	s.syncAgentSkillEmbedding(ctx, resp)
-	return resp, err
+	return store.UpdateAgentSkill(ctx, req)
 }
 
 func (s nativeAgentSkillService) CreateAgentSkillVersion(ctx context.Context, req *pb.CreateAgentSkillVersionRequest) (*pb.AgentSkillVersionResponse, error) {
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {
-		return &pb.AgentSkillVersionResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.AgentSkillVersionResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
-	resp, err := store.CreateAgentSkillVersion(ctx, req)
-	if err == nil && req.GetActivate() && resp != nil && resp.GetCode() == 0 {
-		skillResp, getErr := store.GetAgentSkill(ctx, &pb.GetAgentSkillRequest{Id: req.GetSkillId()})
-		if getErr == nil {
-			s.syncAgentSkillEmbedding(ctx, skillResp)
-		}
-	}
-	return resp, err
+	return store.CreateAgentSkillVersion(ctx, req)
 }
 
 func (s nativeAgentSkillService) ListAgentSkillVersions(ctx context.Context, req *pb.ListAgentSkillVersionsRequest) (*pb.ListAgentSkillVersionsResponse, error) {
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {
-		return &pb.ListAgentSkillVersionsResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.ListAgentSkillVersionsResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	return store.ListAgentSkillVersions(ctx, req)
 }
@@ -402,27 +395,23 @@ func (s nativeAgentSkillService) ListAgentSkillVersions(ctx context.Context, req
 func (s nativeAgentSkillService) ActivateAgentSkillVersion(ctx context.Context, req *pb.ActivateAgentSkillVersionRequest) (*pb.AgentSkillResponse, error) {
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {
-		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
-	resp, err := store.ActivateAgentSkillVersion(ctx, req)
-	s.syncAgentSkillEmbedding(ctx, resp)
-	return resp, err
+	return store.ActivateAgentSkillVersion(ctx, req)
 }
 
 func (s nativeAgentSkillService) UpdateAgentSkillStatus(ctx context.Context, req *pb.UpdateAgentSkillStatusRequest) (*pb.AgentSkillResponse, error) {
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {
-		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.AgentSkillResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
-	resp, err := store.UpdateAgentSkillStatus(ctx, req)
-	s.syncAgentSkillEmbedding(ctx, resp)
-	return resp, err
+	return store.UpdateAgentSkillStatus(ctx, req)
 }
 
 func (s nativeAgentSkillService) PreviewAgentSkill(ctx context.Context, req *pb.PreviewAgentSkillRequest) (*pb.PreviewAgentSkillResponse, error) {
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {
-		return &pb.PreviewAgentSkillResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+		return &pb.PreviewAgentSkillResponse{Code: configCodeUnavailable, Msg: "common.operation_failed"}, nil
 	}
 	return store.PreviewAgentSkill(ctx, req)
 }
@@ -440,23 +429,29 @@ func (s nativeAgentSkillService) DebugSemanticRetrieval(ctx context.Context, req
 		}
 	}
 	if s.embedding != nil {
-		return s.embedding.DebugSemanticRetrieval(ctx, req)
+		resolver, ok := s.store.(semanticDebugAgentSkillScopeResolver)
+		if !ok {
+			return &pb.DebugSemanticRetrievalResponse{
+				Code:               configCodeUnavailable,
+				Msg:                "common.operation_failed",
+				EmbeddingAvailable: false,
+				FallbackReason:     "runtime Agent Skill release scope is unavailable",
+			}, nil
+		}
+		versionIDs, _, err := resolver.ResolveSemanticDebugAgentSkillVersionIDs(ctx, req.GetAgentType())
+		if err != nil {
+			response, memoryErr := s.embedding.DebugSemanticRetrievalForVersions(ctx, req, nil)
+			if memoryErr != nil {
+				return nil, memoryErr
+			}
+			response.FallbackReason = "runtime Agent Skill release scope is unavailable: " + err.Error()
+			return response, nil
+		}
+		return s.embedding.DebugSemanticRetrievalForVersions(ctx, req, versionIDs)
 	}
 	store, ok := s.store.(agentSkillGovernanceStore)
 	if !ok {
-		return &pb.DebugSemanticRetrievalResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured", EmbeddingAvailable: false, FallbackReason: "store is not configured"}, nil
+		return &pb.DebugSemanticRetrievalResponse{Code: configCodeUnavailable, Msg: "common.operation_failed", EmbeddingAvailable: false, FallbackReason: "store is not configured"}, nil
 	}
 	return store.DebugSemanticRetrieval(ctx, req)
-}
-
-func (s nativeAgentSkillService) syncAgentSkillEmbedding(ctx context.Context, resp *pb.AgentSkillResponse) {
-	if s.embedding == nil || resp == nil || resp.GetCode() != 0 || resp.GetSkill() == nil {
-		return
-	}
-	skill := resp.GetSkill()
-	if skill.GetIsEnabled() && skill.GetCurrentVersionId() > 0 {
-		_ = s.embedding.UpsertAgentSkill(ctx, skill.GetId())
-		return
-	}
-	_ = s.embedding.InvalidateAgentSkill(ctx, skill.GetId())
 }

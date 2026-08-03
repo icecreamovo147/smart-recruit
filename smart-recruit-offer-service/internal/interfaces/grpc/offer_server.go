@@ -14,6 +14,7 @@ import (
 	"smart-recruit-offer-service/internal/domain/repository"
 	"smart-recruit-offer-service/internal/interfaces/mapper"
 	"smart-recruit-platform-go/errs"
+	"smart-recruit-platform-go/i18n"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -45,7 +46,7 @@ func NewServer(offers offerUsecase) (*Server, error) {
 func (s *Server) CreateOffer(ctx context.Context, req *pb.CreateOfferRequest) (*pb.CreateOfferResponse, error) {
 	expiresAt, err := mapper.ParseOptionalRFC3339(req.GetExpiresAt())
 	if err != nil {
-		return &pb.CreateOfferResponse{Code: errs.ErrBadRequest, Msg: "过期时间格式错误，请使用 RFC 3339 格式"}, nil
+		return &pb.CreateOfferResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	offerID, err := s.offers.CreateOffer(ctx, command.CreateOffer{
 		HRID:          req.GetHrId(),
@@ -59,19 +60,19 @@ func (s *Server) CreateOffer(ctx context.Context, req *pb.CreateOfferRequest) (*
 		TermsJSON:     req.GetTermsJson(),
 	})
 	if err != nil {
-		code, msg, grpcErr := classifyError(err, "Offer 创建失败", errorMessages{})
+		code, _, grpcErr := classifyError(err, "Offer 创建失败", errorMessages{})
 		if grpcErr != nil {
 			return nil, grpcErr
 		}
-		return &pb.CreateOfferResponse{Code: code, Msg: msg}, nil
+		return &pb.CreateOfferResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 	}
-	return &pb.CreateOfferResponse{Code: errs.OK, Msg: "Offer 创建成功", OfferId: offerID}, nil
+	return &pb.CreateOfferResponse{Code: errs.OK, Msg: "common.success", OfferId: offerID}, nil
 }
 
 func (s *Server) UpdateOffer(ctx context.Context, req *pb.UpdateOfferRequest) (*pb.CommonResponse, error) {
 	expiresAt, err := mapper.ParseOptionalRFC3339(req.GetExpiresAt())
 	if err != nil {
-		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "过期时间格式错误，请使用 RFC 3339 格式"}, nil
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	err = s.offers.UpdateOffer(ctx, command.UpdateOffer{
 		HRID:         req.GetHrId(),
@@ -92,28 +93,28 @@ func (s *Server) UpdateOffer(ctx context.Context, req *pb.UpdateOfferRequest) (*
 func (s *Server) GetOffer(ctx context.Context, req *pb.GetOfferRequest) (*pb.GetOfferResponse, error) {
 	details, err := s.offers.GetOffer(ctx, query.GetOffer{UserID: req.GetUserId(), OfferID: req.GetOfferId()})
 	if err != nil {
-		code, msg, grpcErr := classifyError(err, "Offer 不存在", errorMessages{
+		code, _, grpcErr := classifyError(err, "Offer 不存在", errorMessages{
 			offerNotFound: "Offer 不存在",
 			forbidden:     "无权限查看该 Offer",
 		})
 		if grpcErr != nil {
 			return nil, grpcErr
 		}
-		return &pb.GetOfferResponse{Code: code, Msg: msg}, nil
+		return &pb.GetOfferResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 	}
-	return &pb.GetOfferResponse{Code: errs.OK, Msg: "success", Offer: mapper.ToPBOffer(*details)}, nil
+	return &pb.GetOfferResponse{Code: errs.OK, Msg: "common.success", Offer: mapper.ToPBOffer(*details)}, nil
 }
 
 func (s *Server) ListOffersByApplication(ctx context.Context, req *pb.ListOffersByApplicationRequest) (*pb.ListOffersByApplicationResponse, error) {
 	rows, err := s.offers.ListOffersByApplication(ctx, query.ListOffersByApplication{HRID: req.GetHrId(), ApplicationID: req.GetApplicationId()})
 	if err != nil {
-		code, msg, grpcErr := classifyError(err, "查询 Offer 失败", errorMessages{})
+		code, _, grpcErr := classifyError(err, "查询 Offer 失败", errorMessages{})
 		if grpcErr != nil {
 			return nil, grpcErr
 		}
-		return &pb.ListOffersByApplicationResponse{Code: code, Msg: msg}, nil
+		return &pb.ListOffersByApplicationResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 	}
-	return &pb.ListOffersByApplicationResponse{Code: errs.OK, Msg: "success", List: mapper.ToPBOffers(rows)}, nil
+	return &pb.ListOffersByApplicationResponse{Code: errs.OK, Msg: "common.success", List: mapper.ToPBOffers(rows)}, nil
 }
 
 func (s *Server) SendOffer(ctx context.Context, req *pb.SendOfferRequest) (*pb.CommonResponse, error) {
@@ -168,15 +169,15 @@ func (s *Server) RejectOffer(ctx context.Context, req *pb.RejectOfferRequest) (*
 func (s *Server) ListMyOffers(ctx context.Context, req *pb.ListMyOffersRequest) (*pb.ListMyOffersResponse, error) {
 	page, err := s.offers.ListMyOffers(ctx, query.ListMyOffers{UserID: req.GetUserId(), Cursor: req.GetCursor(), PageSize: req.GetPageSize()})
 	if err != nil {
-		code, msg, grpcErr := classifyError(err, "查询 Offer 失败", errorMessages{})
+		code, _, grpcErr := classifyError(err, "查询 Offer 失败", errorMessages{})
 		if grpcErr != nil {
 			return nil, grpcErr
 		}
-		return &pb.ListMyOffersResponse{Code: code, Msg: msg}, nil
+		return &pb.ListMyOffersResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 	}
 	return &pb.ListMyOffersResponse{
 		Code:       errs.OK,
-		Msg:        "success",
+		Msg:        "common.success",
 		Total:      page.Total,
 		List:       mapper.ToPBOffers(page.Offers),
 		NextCursor: page.NextCursor,
@@ -187,27 +188,27 @@ func (s *Server) ListMyOffers(ctx context.Context, req *pb.ListMyOffersRequest) 
 func (s *Server) ListOfferEvents(ctx context.Context, req *pb.ListOfferEventsRequest) (*pb.ListOfferEventsResponse, error) {
 	events, err := s.offers.ListOfferEvents(ctx, query.ListOfferEvents{HRID: req.GetHrId(), OfferID: req.GetOfferId()})
 	if err != nil {
-		code, msg, grpcErr := classifyError(err, "查询 Offer 事件失败", errorMessages{
+		code, _, grpcErr := classifyError(err, "查询 Offer 事件失败", errorMessages{
 			offerNotFound: "Offer 不存在",
 			forbidden:     "无权限查看该 Offer 事件",
 		})
 		if grpcErr != nil {
 			return nil, grpcErr
 		}
-		return &pb.ListOfferEventsResponse{Code: code, Msg: msg}, nil
+		return &pb.ListOfferEventsResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 	}
-	return &pb.ListOfferEventsResponse{Code: errs.OK, Msg: "success", List: mapper.ToPBOfferEvents(events)}, nil
+	return &pb.ListOfferEventsResponse{Code: errs.OK, Msg: "common.success", List: mapper.ToPBOfferEvents(events)}, nil
 }
 
 func commonResponse(err error, successMsg string, fallback string, messages errorMessages) (*pb.CommonResponse, error) {
 	if err == nil {
-		return &pb.CommonResponse{Code: errs.OK, Msg: successMsg}, nil
+		return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 	}
-	code, msg, grpcErr := classifyError(err, fallback, messages)
+	code, _, grpcErr := classifyError(err, fallback, messages)
 	if grpcErr != nil {
 		return nil, grpcErr
 	}
-	return &pb.CommonResponse{Code: code, Msg: msg}, nil
+	return &pb.CommonResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 }
 
 type errorMessages struct {

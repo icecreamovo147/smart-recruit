@@ -6,10 +6,6 @@ type MCPPolicyResult struct {
 	Evaluation model.MCPPolicyEvaluation
 }
 
-type AgentSkillSelectionResult struct {
-	Selected []model.SelectedAgentSkill
-}
-
 type SkillVersionResult struct {
 	Version        model.SkillVersion
 	VersionCreated bool

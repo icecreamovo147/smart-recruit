@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { reactive, ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { Moon, Sunny } from '@element-plus/icons-vue'
@@ -36,10 +37,11 @@ const submit = async () => {
     if (auth.accountType !== 'staff') {
       await request.post('/api/v1/auth/logout').catch(() => {})
       auth.logout()
-      ElMessage.error('请使用企业成员账号登录')
+      ElMessage.error(t('frontend.operation_failed'))
       return
     }
-    router.push(resolveStaffHomePath(auth))
+    ElMessage.success(t('auth.login_success'))
+    await router.push(resolveStaffHomePath(auth))
   } finally {
     loading.value = false
   }

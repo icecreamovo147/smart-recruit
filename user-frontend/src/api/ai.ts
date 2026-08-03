@@ -6,6 +6,7 @@ import { BusinessError } from '@/types/api'
 import type { StreamHandlers, StreamPayload, CandidateSession } from '@/types/ai'
 import request from './request'
 import { silentRefresh } from './authRefresh'
+import { t } from '@shared/i18n'
 
 export interface CandidateAISessionSource {
   session_type?: string
@@ -59,11 +60,11 @@ export const deleteSession = (sessionId: number): Promise<void> =>
   request.delete(`/api/v1/candidate/ai/sessions/${sessionId}`)
 
 const friendlyStreamMsg = (code: number, msg: string): string => {
-  if (code === 40201) return msg || 'AI 套餐额度不足，请购买套餐或加量包后重试'
-  if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
-  if (code === 42902) return msg || 'AI 请求太频繁，请稍后再试'
-  if (code === 429) return msg || '请求过于频繁，请稍后再试'
-  return msg || 'AI 服务响应错误'
+  if (code === 40201) return msg || t('ai.insufficient_credits')
+  if (code === 42901) return msg || t('ai.daily_quota_exceeded')
+  if (code === 42902) return msg || t('ai.too_many_requests')
+  if (code === 429) return msg || t('common.too_many_requests')
+  return msg || t('ai.unavailable')
 }
 
 const streamError = (code: number, msg: string): void => {
@@ -87,7 +88,7 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
   try {
     const payload: StreamPayload = JSON.parse(text)
     if (payload.code && payload.code !== 0) {
-      handlers.onError?.(String(payload.code), payload.msg || 'AI 服务响应错误', payload)
+      handlers.onError?.(String(payload.code), payload.msg || t('ai.unavailable'), payload)
       streamError(payload.code, payload.msg || '')
       return true
     }
@@ -182,7 +183,7 @@ export const sendMessageStream = async (
         await silentRefresh('candidate')
         response = await fetchStream()
       } catch {
-        reportFailure(401, '登录状态已失效，请重新登录')
+        reportFailure(401, t('common.unauthenticated'))
         return
       }
     }
@@ -192,12 +193,12 @@ export const sendMessageStream = async (
         const errorText = await response.text()
         const errorJson: StreamPayload = JSON.parse(errorText)
         if (errorJson.code) {
-          reportFailure(errorJson.code, errorJson.msg || 'AI 服务请求失败，请稍后重试', errorJson)
+          reportFailure(errorJson.code, errorJson.msg || t('ai.stream_failed'), errorJson)
         } else {
-          reportFailure(response.status, 'AI 服务请求失败，请稍后重试')
+          reportFailure(response.status, t('ai.stream_failed'))
         }
       } catch {
-        reportFailure(response.status, 'AI 服务请求失败，请稍后重试')
+        reportFailure(response.status, t('ai.stream_failed'))
       }
       return
     }
@@ -206,16 +207,16 @@ export const sendMessageStream = async (
       const text = await response.text()
       try {
         const json: StreamPayload = JSON.parse(text)
-        reportFailure(json.code || 500, json.msg || '响应数据格式异常', json)
+        reportFailure(json.code || 500, json.msg || t('ai.invalid_response'), json)
       } catch {
-        reportFailure(500, '响应数据格式异常')
+        reportFailure(500, t('ai.invalid_response'))
       }
       return
     }
 
     const reader = response.body?.getReader()
     if (!reader) {
-      reportFailure(500, '流式响应不可用')
+      reportFailure(500, t('ai.stream_unavailable'))
       return
     }
 
@@ -245,7 +246,7 @@ export const sendMessageStream = async (
     }
 
     if (!streamCompleted && !streamErrored && !wasUserAbort) {
-      const message = 'AI 服务连接已中断，请稍后重试'
+      const message = t('ai.connection_interrupted')
       reportFailure(502, message)
       throw new BusinessError(502, message)
     }
@@ -253,14 +254,14 @@ export const sendMessageStream = async (
     if (failureReported) throw error
     if (error instanceof Error && error.name === 'AbortError') {
       if (wasUserAbort) return // user-initiated abort, silent
-      reportFailure(504, 'AI 服务响应超时，请稍后重试')
-      throw new BusinessError(504, 'AI 服务响应超时，请稍后重试')
+      reportFailure(504, t('ai.stream_timeout'))
+      throw new BusinessError(504, t('ai.stream_timeout'))
     } else if (error instanceof Error) {
-      reportFailure(500, error.message || '流式请求失败')
+      reportFailure(500, error.message || t('ai.stream_failed'))
       throw error
     } else {
-      reportFailure(500, '流式请求失败')
-      throw new Error('流式请求失败')
+      reportFailure(500, t('ai.stream_failed'))
+      throw new Error(t('ai.stream_failed'))
     }
   } finally {
     clearTimeout(timeoutId)

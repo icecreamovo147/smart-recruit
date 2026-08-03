@@ -154,7 +154,7 @@ func (e *JobRequirementExtractor) Extract(ctx context.Context, source JobRequire
 		return primary, nil
 	}
 	kind := classifyJobRequirementExtractionError(err)
-	if kind == JobRequirementExtractionPolicy || !e.policy.FallbacksEnabled() {
+	if IsStrictOutputError(err) || kind == JobRequirementExtractionPolicy || !e.policy.FallbacksEnabled() {
 		observeRuntimeOutcome(e.runtime, ctx, "job_requirement_extraction", AgentTypeJobRequirementExtractor, "error", "disabled", started)
 		return JobRequirementExtractionResult{}, err
 	}
@@ -185,6 +185,9 @@ func (e *JobRequirementExtractor) extractPrimary(ctx context.Context, source Job
 	}
 	profile, raw, err := decodeJobRequirementProfile(completion.Content)
 	if err != nil {
+		if completion.StrictContractApplied {
+			return JobRequirementExtractionResult{}, strictDomainError(err)
+		}
 		return JobRequirementExtractionResult{}, err
 	}
 	return JobRequirementExtractionResult{

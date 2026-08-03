@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -57,11 +58,11 @@ const handleInterviewerSelect = (user: StaffUserInfo) => {
 
 const handleSubmit = async () => {
   if (!form.application_id) {
-    ElMessage.warning('请选择投递记录')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (!form.interviewer_id) {
-    ElMessage.warning('请选择面试官')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   loading.value = true
@@ -79,7 +80,7 @@ const handleSubmit = async () => {
       internal_note: form.internal_note || undefined,
       scheduled_at: form.scheduled_at ? toShanghaiRFC3339(form.scheduled_at) : undefined,
     })
-    ElMessage.success('面试安排成功')
+    ElMessage.success(t('common.success'))
     router.push('/hr/my-interviews')
   } catch (error: unknown) {
     ElMessage.error(error instanceof Error ? error.message : '安排面试失败')

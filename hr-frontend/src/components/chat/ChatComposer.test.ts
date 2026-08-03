@@ -49,10 +49,10 @@ const mountComposer = (contextUsage: ContextUsageInfo | null, contextPreviewing 
     contextPreviewing,
     dataSource: '招聘业务数据库',
     currentSession: null,
-    skillCapabilities: [],
-    selectedSkillKeys: [],
+    capabilities: [],
+    selectedCapabilityKeys: [],
     agentSkills: [],
-    selectedAgentSkillIds: [],
+    selectedAgentSkillVersionIds: [],
   },
   global: {
     stubs: {
@@ -70,6 +70,87 @@ const mountComposer = (contextUsage: ContextUsageInfo | null, contextPreviewing 
 })
 
 describe('ChatComposer Context indicator', () => {
+  it('selects the exact current Package v2 version and renders governed metadata', async () => {
+    const wrapper = shallowMount(ChatComposer, {
+      props: {
+        input: '/',
+        loading: false,
+        streaming: false,
+        modelList: [],
+        selectedModelId: null,
+        contextUsage: null,
+        contextPreviewing: false,
+        dataSource: '招聘业务数据库',
+        currentSession: null,
+        capabilities: [{
+          source: 'builtin',
+          key: 'parse_resume_profile',
+          name: 'parse_resume_profile',
+          display_name: 'parse_resume_profile',
+          description: 'Parse a resume profile',
+          mcp_server_id: 0,
+          mcp_server_name: '',
+          is_available: true,
+          runtime_type: 'native',
+        }],
+        selectedCapabilityKeys: [],
+        agentSkills: [{
+          id: 7,
+          name: 'resume-review',
+          display_name: '简历复核',
+          description: '复核候选人材料',
+          current_version_id: 701,
+          is_enabled: true,
+          is_manual_invocable: true,
+          created_at: '',
+          updated_at: '',
+          current_version: {
+            version_id: 701,
+            version: '2.1.0',
+            compiled_hash: 'abcdef0123456789',
+            agent_type: 'hr_recruiting_agent',
+            category: 'screening',
+            scenario: 'resume',
+            priority: 10,
+            risk: 'high',
+            activation_policy: 'confirm',
+            composition_role: 'primary',
+            core_estimated_tokens: 240,
+            package_estimated_tokens: 480,
+          },
+        }],
+        selectedAgentSkillVersionIds: [],
+      },
+      global: {
+        stubs: {
+          'el-popover': true,
+          'el-input': true,
+          'el-select': true,
+          'el-option': true,
+          'el-button': true,
+          'el-icon': true,
+          Transition: false,
+        },
+      },
+    })
+
+    const options = wrapper.findAll('.chat-composer__skill-option')
+    expect(options).toHaveLength(1)
+    const option = options[0]
+    expect(option.text()).toContain('简历复核')
+    expect(option.text()).toContain('复核候选人材料')
+    expect(option.text()).toContain('smart-recruit')
+    expect(option.attributes('title')).toBe('v2.1.0 · 主技能 · 高风险 · 240 Tokens')
+    expect(wrapper.text()).not.toContain('parse_resume_profile')
+    await option.trigger('click')
+    expect(wrapper.emitted('update:selectedAgentSkillVersionIds')?.[0]).toEqual([[701]])
+    expect(wrapper.emitted()).not.toHaveProperty('update:selectedAgentSkillIds')
+
+    const [skill] = wrapper.props().agentSkills
+    await wrapper.setProps({ agentSkills: [{ ...skill, description: '简历复核' }] })
+    expect(wrapper.find('.chat-composer__skill-description').exists()).toBe(false)
+  })
+
   it('renders current effective input with the total context window and full details', () => {
     const wrapper = mountComposer(baseUsage())
     expect(wrapper.get('.chat-composer__context-value').text()).toBe('851 / 8.2K')
@@ -119,7 +200,7 @@ describe('ChatComposer Context indicator', () => {
         input: '下一步', loading: false, streaming: false,
         modelList: [{ id: 2, provider_id: 1, model_name: 'large', display_name: 'Large', temperature: 0, top_p: 1, max_tokens: 4096, context_window_tokens: 128_000, max_concurrency: 1, timeout_seconds: 60, is_enabled: true, is_default: false, created_at: '', updated_at: '', provider_name: 'test' }],
         selectedModelId: 2, contextUsage: baseUsage(), contextPreviewing: true,
-        dataSource: '招聘业务数据库', currentSession: null, skillCapabilities: [], selectedSkillKeys: [], agentSkills: [], selectedAgentSkillIds: [],
+        dataSource: '招聘业务数据库', currentSession: null, capabilities: [], selectedCapabilityKeys: [], agentSkills: [], selectedAgentSkillVersionIds: [],
       },
       global: { stubs: { 'el-popover': { template: '<div><slot name="reference"/></div>' }, 'el-input': true, 'el-select': true, 'el-option': true, 'el-button': true, 'el-icon': true, Transition: false } },
     })

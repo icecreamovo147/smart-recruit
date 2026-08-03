@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { Bell } from '@element-plus/icons-vue'
@@ -161,7 +162,7 @@ const connectNotificationStream = () => {
 
 const readNotificationStream = async (signal: AbortSignal) => {
   const response = await openNotificationStream(signal)
-  if (!response.ok || !response.body) throw new Error('notification stream unavailable')
+  if (!response.ok || !response.body) throw new Error(t('frontend.subscribe_failed'))
   streamConnected = true
   const reader = response.body.getReader()
   const decoder = new TextDecoder()

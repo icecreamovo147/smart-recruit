@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { onMounted, reactive, ref, computed } from 'vue'
 import { formatShanghaiDateTime } from '@shared/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -237,19 +238,19 @@ const openEdit = (row: McpServerInfo) => {
 const save = async () => {
   debugLog.mcp.info('saveServer_started', { is_edit: isEditing.value, name: dialogForm.name })
   if (!dialogForm.name) {
-    ElMessage.warning('请输入 Server 名称')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (showCommandFields.value && !dialogForm.command) {
-    ElMessage.warning('请输入命令')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (showUrlFields.value && !dialogForm.url) {
-    ElMessage.warning('请输入 URL')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (dialogForm.timeout_seconds < 1 || dialogForm.timeout_seconds > 300) {
-    ElMessage.warning('超时时间请在 1-300 秒之间')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
 
@@ -286,7 +287,7 @@ const save = async () => {
         payload.url = dialogForm.url
       }
       await updateMcpServer(editingId.value, payload)
-      ElMessage.success('MCP Server 已更新')
+      ElMessage.success(t('common.success'))
     } else {
       const payload: CreateMcpServerPayload = {
         name: dialogForm.name,
@@ -302,7 +303,7 @@ const save = async () => {
         payload.url = dialogForm.url
       }
       await createMcpServer(payload)
-      ElMessage.success('MCP Server 已创建')
+      ElMessage.success(t('common.success'))
     }
     dialogVisible.value = false
     debugLog.mcp.info('saveServer_finished', { is_edit: isEditing.value })
@@ -325,10 +326,10 @@ const handleTestConnection = async (row: McpServerInfo) => {
   try {
     const result = await testMcpServerConnection(row.id)
     if (result.success) {
-      ElMessage.success(`连接测试成功（发现 ${result.tools_found} 个工具，耗时 ${result.duration_ms}ms）`)
+      ElMessage.success(t('common.success'))
       debugLog.mcp.info('handleTestConnection_succeeded', { server_id: row.id, tools_found: result.tools_found, duration_ms: result.duration_ms })
     } else {
-      ElMessage.error(`连接测试失败：${result.message}`)
+      ElMessage.error(t('frontend.operation_failed'))
       debugLog.mcp.warn('handleTestConnection_failed', { server_id: row.id, message: result.message })
     }
     await loadList()
@@ -370,7 +371,7 @@ const handleDelete = async (row: McpServerInfo) => {
   }
   try {
     await deleteMcpServer(row.id)
-    ElMessage.success('MCP Server 已删除')
+    ElMessage.success(t('common.success'))
     await loadList()
   } catch (e: unknown) {
     debugLog.mcp.error('handleDelete_failed', { server_id: row.id, error: (e as { message?: string }).message })
@@ -475,17 +476,17 @@ const parsePolicyRules = (): Record<string, unknown> | null => {
       return parsed as Record<string, unknown>
     }
   } catch { /* handled below */ }
-  ElMessage.warning('参数规则必须是 JSON 对象')
+  ElMessage.warning(t('common.invalid_request'))
   return null
 }
 
 const policyPayload = (): CreateMcpToolPolicyPayload | null => {
   if (!policyForm.server_id) {
-    ElMessage.warning('请选择 MCP Server')
+    ElMessage.warning(t('common.invalid_request'))
     return null
   }
   if (!policyForm.tool_name.trim()) {
-    ElMessage.warning('请输入工具名称')
+    ElMessage.warning(t('common.invalid_request'))
     return null
   }
   const argRules = parsePolicyRules()
@@ -585,10 +586,10 @@ const savePolicy = async () => {
   try {
     if (policyIsEditing.value) {
       await updateMcpToolPolicy(policyEditingId.value, payload)
-      ElMessage.success('工具策略已更新')
+      ElMessage.success(t('common.success'))
     } else {
       await createMcpToolPolicy(payload)
-      ElMessage.success('工具策略已创建')
+      ElMessage.success(t('common.success'))
     }
     policyDialogVisible.value = false
     debugLog.mcp.info('savePolicy_finished', { is_edit: policyIsEditing.value, policy_id: policyEditingId.value })
@@ -627,7 +628,7 @@ const deletePolicy = async (policy: McpToolPolicy) => {
   }
   try {
     await deleteMcpToolPolicy(policy.id)
-    ElMessage.success('工具策略已删除')
+    ElMessage.success(t('common.success'))
     await loadPolicies()
   } catch (e: unknown) {
     debugLog.mcp.error('deletePolicy_failed', { policy_id: policy.id, error: (e as { message?: string }).message })

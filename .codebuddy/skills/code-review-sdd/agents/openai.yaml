@@ -1,0 +1,6 @@
+interface:
+  display_name: "Code Review SDD"
+  short_description: "根据 code-review-sdd.md 串行修复 Code Review Leader 发现的问题"
+  default_prompt: "Use $code-review-sdd to parse .code-review-sdd/code-review-sdd.md and serially fix all CR-* tasks."
+policy:
+  allow_implicit_invocation: true

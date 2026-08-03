@@ -5,19 +5,19 @@ import { useAuthStore } from '@/stores/auth'
 import { BusinessError } from '@/types/api'
 import type { StreamHandlers, StreamPayload, ChatSessionListItem, ToolTraceItem, AgentRunItem, ChatMessage, ContextUsageInfo } from '@/types/ai'
 import type { CapabilityInfo } from '@shared/types/agent'
+import type { AgentSkillRuntimeEvidence } from '@shared/types/agentRun'
 import request from './request'
 import { silentRefresh } from './authRefresh'
 import { contextGuardCodeFrom, contextGuardMessage } from '@/utils/contextUsage'
+import { t } from '@shared/i18n'
 
 export interface ChatRequestPayload {
   message: string
   application_id?: number
   session_id?: number
   model_id?: number
-  skill_capability_keys?: string[]
-  agent_skill_ids?: number[]
-  agent_skill_selection_confirmed?: boolean
-  agent_skill_selection_message_id?: number
+  capability_keys?: string[]
+  agent_skill_version_ids?: number[]
 }
 
 export const sendMessage = (data: ChatRequestPayload): Promise<{
@@ -32,6 +32,7 @@ export const sendMessage = (data: ChatRequestPayload): Promise<{
   session_id?: number
   context_usage?: ContextUsageInfo | null
   suggested_questions?: string[]
+  agent_skill_runtime_evidence?: AgentSkillRuntimeEvidence[]
 }> => request.post('/api/v1/hr/ai/chat', data)
 
 export const getHistory = (params: { page: number; page_size: number }): Promise<{
@@ -62,7 +63,7 @@ export const getSessionMessages = (sessionId: number, params: { page: number; pa
 
 export const previewSessionContext = (
   sessionId: number,
-  data: { model_id: number; skill_capability_keys?: string[]; agent_skill_ids?: number[] },
+  data: { model_id: number; capability_keys?: string[]; agent_skill_version_ids?: number[] },
   signal?: AbortSignal,
 ): Promise<{ selected_model_id: number; context_usage: ContextUsageInfo }> =>
   request.put(`/api/v1/hr/ai/sessions/${sessionId}/context-model`, data, { signal })
@@ -86,18 +87,18 @@ export const getAgentRuns = (sessionId: number): Promise<{
   list: AgentRunItem[]
 }> => request.get(`/api/v1/hr/ai/sessions/${sessionId}/agent-runs`)
 
-export const listSkillCapabilities = (): Promise<{
+export const listCapabilities = (): Promise<{
   list: CapabilityInfo[]
-}> => request.get('/api/v1/hr/ai/skill-capabilities')
+}> => request.get('/api/v1/hr/ai/capabilities')
 
 export const friendlyStreamMsg = (code: number, msg: string): string => {
   const guardMessage = contextGuardMessage(contextGuardCodeFrom(msg))
   if (guardMessage) return guardMessage
-  if (code === 40201) return msg || 'AI 套餐额度不足，请购买套餐或加量包后重试'
-  if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
-  if (code === 42902) return msg || 'AI 请求太频繁，请稍后再试'
-  if (code === 429) return msg || '请求过于频繁，请稍后再试'
-  return msg || 'AI 服务响应错误'
+  if (code === 40201) return msg || t('ai.insufficient_credits')
+  if (code === 42901) return msg || t('ai.daily_quota_exceeded')
+  if (code === 42902) return msg || t('ai.too_many_requests')
+  if (code === 429) return msg || t('common.too_many_requests')
+  return msg || t('ai.unavailable')
 }
 
 const streamError = (code: number, msg: string, _requestId?: string): void => {
@@ -122,7 +123,7 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
     const payload: StreamPayload = JSON.parse(text)
     if (payload.code && payload.code !== 0) {
       const guardCode = contextGuardCodeFrom(payload.error_type, payload.msg)
-      const friendlyMessage = contextGuardMessage(guardCode) || payload.msg || 'AI 服务响应错误'
+      const friendlyMessage = contextGuardMessage(guardCode) || payload.msg || t('ai.unavailable')
       handlers.onError?.(guardCode || String(payload.code), friendlyMessage, payload)
       streamError(payload.code, friendlyMessage, payload.request_id)
       return true
@@ -198,8 +199,9 @@ export const sendMessageStream = async (
         await silentRefresh('hr')
         response = await fetchStream()
       } catch {
-        handlers.onError?.('401', '登录状态已失效，请重新登录', { code: 401, msg: '登录状态已失效，请重新登录' })
-        streamError(401, '登录状态已失效，请重新登录')
+        const message = t('common.unauthenticated')
+        handlers.onError?.('401', message, { code: 401, msg: message })
+        streamError(401, message)
         return
       }
     }
@@ -210,12 +212,12 @@ export const sendMessageStream = async (
         const errorJson: StreamPayload = JSON.parse(errorText)
         if (errorJson.code) {
           handlers.onError?.(String(errorJson.code), errorJson.msg || '', errorJson)
-          streamError(errorJson.code, errorJson.msg || 'AI 服务请求失败，请稍后重试')
+          streamError(errorJson.code, errorJson.msg || t('ai.stream_failed'))
         } else {
-          streamError(response.status, 'AI 服务请求失败，请稍后重试')
+          streamError(response.status, t('ai.stream_failed'))
         }
       } catch {
-        streamError(response.status, 'AI 服务请求失败，请稍后重试')
+        streamError(response.status, t('ai.stream_failed'))
       }
       return
     }
@@ -224,16 +226,16 @@ export const sendMessageStream = async (
       const text = await response.text()
       try {
         const json: StreamPayload = JSON.parse(text)
-        streamError(json.code || 500, json.msg || '响应数据格式异常', json.request_id)
+        streamError(json.code || 500, json.msg || t('ai.invalid_response'), json.request_id)
       } catch {
-        streamError(500, '响应数据格式异常')
+        streamError(500, t('ai.invalid_response'))
       }
       return
     }
 
     const reader = response.body?.getReader()
     if (!reader) {
-      streamError(500, '流式响应不可用')
+      streamError(500, t('ai.stream_unavailable'))
       return
     }
 
@@ -264,14 +266,14 @@ export const sendMessageStream = async (
   } catch (error: unknown) {
     if (error instanceof Error && error.name === 'AbortError') {
       if (wasUserAbort) return
-      streamError(504, 'AI 服务响应超时，请稍后重试')
-      throw new BusinessError(504, 'AI 服务响应超时，请稍后重试')
+      streamError(504, t('ai.stream_timeout'))
+      throw new BusinessError(504, t('ai.stream_timeout'))
     } else if (error instanceof Error) {
-      streamError(500, error.message || '流式请求失败')
+      streamError(500, error.message || t('ai.stream_failed'))
       throw error
     } else {
-      streamError(500, '流式请求失败')
-      throw new Error('流式请求失败')
+      streamError(500, t('ai.stream_failed'))
+      throw new Error(t('ai.stream_failed'))
     }
   } finally {
     clearTimeout(timeoutId)

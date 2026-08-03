@@ -13,7 +13,6 @@ type MCPPolicyRepository interface {
 }
 
 type SkillRepository interface {
-	ListEnabledAgentSkills(ctx context.Context) ([]model.AgentSkill, error)
 	CreateSkillVersion(ctx context.Context, version model.SkillVersion) (*model.SkillVersion, error)
 	ActivateSkillVersion(ctx context.Context, skillID uint64, version int64) error
 }

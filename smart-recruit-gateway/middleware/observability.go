@@ -14,6 +14,7 @@ import (
 	"smart-recruit-gateway/pkg/contextkeys"
 	"smart-recruit-gateway/pkg/logger"
 	"smart-recruit-gateway/pkg/observability"
+	"smart-recruit-platform-go/i18n"
 )
 
 func RequestID() gin.HandlerFunc {
@@ -60,13 +61,16 @@ func Recovery() gin.HandlerFunc {
 					route = "unmatched"
 				}
 				observability.DefaultMetrics.RecordHTTPPanic(c.Request.Method, route)
-				logger.L().Error("panic recovered",
+				logger.L().Error("log.gateway.panic_recovered",
 					zap.Any("request_id", requestID),
 					zap.String("trace_id", traceID(c)),
 					zap.Any("panic", recovered),
 					zap.String("stack", string(debug.Stack())),
 				)
-				c.AbortWithStatusJSON(http.StatusOK, gin.H{"code": 500, "msg": "服务暂时不可用，请稍后重试", "data": nil, "request_id": requestID})
+				c.AbortWithStatusJSON(http.StatusOK, gin.H{
+					"code": 500, "message_key": "common.unknown_error",
+					"msg": i18n.T("common.unknown_error"), "data": nil, "request_id": requestID,
+				})
 			}
 		}()
 		c.Next()
@@ -82,7 +86,7 @@ func AccessLog() gin.HandlerFunc {
 		if uid, ok := c.Get("user_id"); ok {
 			userID, _ = uid.(int64)
 		}
-		logger.L().Info("http",
+		logger.L().Info("log.gateway.request",
 			zap.String("request_id", requestID(c)),
 			zap.String("trace_id", traceID(c)),
 			zap.String("span_id", spanID(c)),

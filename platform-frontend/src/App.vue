@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, ref } from 'vue'
 import { ArrowDown, Bell, Connection, Cpu, DataAnalysis, DocumentChecked, Expand, Fold, Goods, MagicStick, Moon, OfficeBuilding, SetUp, Sunny, SwitchButton, Tools, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -81,7 +82,7 @@ const signOut = async () => {
   signingOut.value = true
   try {
     await auth.signOut()
-    ElMessage.success('已退出登录')
+    ElMessage.success(t('common.success'))
     await router.replace('/login')
   } catch {
     // The HTTP interceptor keeps the current session and reports the failure.

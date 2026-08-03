@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"os"
 
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/observability"
@@ -39,7 +40,7 @@ func PlatformBootstrap() (platformconfig.Bootstrap, error) {
 		case "GRPC_ADDR":
 			return "127.0.0.1:50051"
 		default:
-			return ""
+			return os.Getenv(key)
 		}
 	})
 }

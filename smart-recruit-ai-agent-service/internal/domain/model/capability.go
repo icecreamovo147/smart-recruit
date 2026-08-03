@@ -125,41 +125,6 @@ type SkillVersion struct {
 	CreatedAt  time.Time
 }
 
-type AgentSkill struct {
-	ID                   uint64
-	Name                 string
-	DisplayName          string
-	AgentType            string
-	Content              string
-	Enabled              bool
-	ManualInvocable      bool
-	Priority             int
-	RequiredCapabilities []string
-	Category             string
-	Scenario             string
-	RiskLevel            string
-	SemanticTags         []string
-}
-
-type AgentSkillSelectionRequest struct {
-	AgentType             string
-	Question              string
-	ManualIDs             []uint64
-	AvailableCapabilities map[string]bool
-	SemanticScores        map[uint64]float64
-	MaxSkills             int
-}
-
-type SelectedAgentSkill struct {
-	ID        uint64
-	Name      string
-	Manual    bool
-	Score     float64
-	Reason    string
-	PoolRank  int
-	RiskLevel string
-}
-
 type EmbeddingProviderConfig struct {
 	ID                     uint64
 	Name                   string

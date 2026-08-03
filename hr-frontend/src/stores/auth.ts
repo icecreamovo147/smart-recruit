@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n'
 import { defineStore } from 'pinia'
 import { login as loginApi, switchTenant as switchTenantApi } from '@/api/auth'
 import { silentRefresh } from '@/api/authRefresh'
@@ -84,7 +85,7 @@ export const useAuthStore = defineStore('auth', {
         available_apps: data.available_apps || [],
         memberships: normalizeTenantMemberships(data.memberships),
       })
-      if (!user) throw new Error('invalid login session')
+      if (!user) throw new Error(t('common.unauthenticated'))
       setUser(user)
       this.user = user
     },
@@ -93,7 +94,7 @@ export const useAuthStore = defineStore('auth', {
       if (!tenantId || tenantId === this.tenantId) return
       await switchTenantApi(tenantId)
       if (!await this.restoreSession()) {
-        throw new Error('tenant session restore failed')
+        throw new Error(t('common.refresh_failed'))
       }
     },
 

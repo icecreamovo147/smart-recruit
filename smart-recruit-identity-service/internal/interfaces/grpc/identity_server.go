@@ -47,16 +47,16 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 			errors.Is(err, appservice.ErrInviteInvalid),
 			errors.Is(err, appservice.ErrUsernameExists),
 			errors.Is(err, appservice.ErrTenantMemberQuota):
-			return &pb.RegisterResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+			return &pb.RegisterResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		case errors.Is(err, appservice.ErrInviteServiceUnavailable),
 			errors.Is(err, appservice.ErrRoleSeedMissing),
 			errors.Is(err, appservice.ErrAccountCreateFailed):
-			return &pb.RegisterResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+			return &pb.RegisterResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 		default:
 			return nil, err
 		}
 	}
-	return &pb.RegisterResponse{Code: errs.OK, Msg: "注册成功", UserId: result.UserID, Username: result.Username, Role: result.Role}, nil
+	return &pb.RegisterResponse{Code: errs.OK, Msg: "common.success", UserId: result.UserID, Username: result.Username, Role: result.Role}, nil
 }
 
 func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
@@ -66,13 +66,13 @@ func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 	})
 	if err != nil {
 		if errors.Is(err, appservice.ErrInvalidCredentials) {
-			return &pb.LoginResponse{Code: errs.ErrUnauthorized, Msg: "用户名或密码错误"}, nil
+			return &pb.LoginResponse{Code: errs.ErrUnauthorized, Msg: "auth.invalid_credentials"}, nil
 		}
 		return nil, err
 	}
 	return &pb.LoginResponse{
 		Code:          errs.OK,
-		Msg:           "登录成功",
+		Msg:           "common.success",
 		Token:         result.RefreshToken,
 		UserId:        result.UserID,
 		Role:          result.Role,
@@ -98,16 +98,16 @@ func (s *Server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) 
 	})
 	if err != nil {
 		if errors.Is(err, appservice.ErrRefreshTokenInvalid) {
-			return &pb.RefreshTokenResponse{Code: errs.ErrUnauthorized, Msg: "令牌无效或已过期，请重新登录"}, nil
+			return &pb.RefreshTokenResponse{Code: errs.ErrUnauthorized, Msg: "common.unauthenticated"}, nil
 		}
 		if errors.Is(err, appservice.ErrRefreshTokenReused) {
-			return &pb.RefreshTokenResponse{Code: errs.ErrUnauthorized, Msg: "会话异常，请重新登录"}, nil
+			return &pb.RefreshTokenResponse{Code: errs.ErrUnauthorized, Msg: "common.unauthenticated"}, nil
 		}
 		return nil, err
 	}
 	return &pb.RefreshTokenResponse{
 		Code:             errs.OK,
-		Msg:              "刷新成功",
+		Msg:              "common.success",
 		UserId:           result.UserID,
 		Username:         result.Username,
 		Role:             result.Role,
@@ -132,12 +132,12 @@ func (s *Server) SwitchTenant(ctx context.Context, req *pb.SwitchTenantRequest) 
 	})
 	if err != nil {
 		if errors.Is(err, appservice.ErrRefreshTokenInvalid) || errors.Is(err, appservice.ErrRefreshTokenReused) || errors.Is(err, appservice.ErrInvalidCredentials) {
-			return &pb.LoginResponse{Code: errs.ErrUnauthorized, Msg: "无权切换到该企业或会话已失效"}, nil
+			return &pb.LoginResponse{Code: errs.ErrUnauthorized, Msg: "common.unauthenticated"}, nil
 		}
 		return nil, err
 	}
 	return &pb.LoginResponse{
-		Code: errs.OK, Msg: "企业切换成功", Token: result.RefreshToken,
+		Code: errs.OK, Msg: "common.success", Token: result.RefreshToken,
 		UserId: result.UserID, Username: result.Username, Role: result.Role, AccountType: result.AccountType,
 		Roles: result.Roles, Permissions: result.Permissions, TokenVersion: result.TokenVersion,
 		TenantId: result.TenantID, MembershipId: result.MembershipID, ClientApp: result.ClientApp,
@@ -149,11 +149,11 @@ func (s *Server) RevokeRefreshToken(ctx context.Context, req *pb.RevokeRefreshTo
 	err := s.auth.RevokeRefreshToken(ctx, command.RevokeRefreshToken{RefreshToken: req.RefreshToken})
 	if err != nil {
 		if errors.Is(err, appservice.ErrRefreshTokenRequired) {
-			return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "令牌不能为空"}, nil
+			return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		return nil, err
 	}
-	return &pb.CommonResponse{Code: errs.OK, Msg: "已撤销"}, nil
+	return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 }
 
 func (s *Server) RecordAuthDecision(ctx context.Context, req *pb.AuthAuditRequest) (*pb.CommonResponse, error) {
@@ -172,7 +172,7 @@ func (s *Server) RecordAuthDecision(ctx context.Context, req *pb.AuthAuditReques
 	}); err != nil {
 		return nil, err
 	}
-	return &pb.CommonResponse{Code: errs.OK, Msg: "audited"}, nil
+	return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 }
 
 func (s *Server) GetPrincipal(ctx context.Context, req *pb.GetPrincipalRequest) (*pb.GetPrincipalResponse, error) {
@@ -181,7 +181,7 @@ func (s *Server) GetPrincipal(ctx context.Context, req *pb.GetPrincipalRequest) 
 	})
 	if err != nil {
 		if errors.Is(err, appservice.ErrAuthzRepoUnavailable) {
-			return &pb.GetPrincipalResponse{Code: errs.ErrInternal, Msg: "authz repo not configured"}, nil
+			return &pb.GetPrincipalResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 		}
 		return nil, err
 	}
@@ -194,13 +194,13 @@ func (s *Server) AuthorizeInternal(ctx context.Context, req *pb.AuthorizeInterna
 	})
 	if err != nil {
 		if errors.Is(err, appservice.ErrAuthzRepoUnavailable) {
-			return &pb.AuthorizeInternalResponse{Code: errs.ErrInternal, Msg: "authz repo not configured", Allowed: false, Reason: "authz repo not configured"}, nil
+			return &pb.AuthorizeInternalResponse{Code: errs.ErrInternal, Msg: "common.operation_failed", Allowed: false, Reason: "authz repo not configured"}, nil
 		}
 		return nil, err
 	}
 	resp := &pb.AuthorizeInternalResponse{
 		Code:      errs.OK,
-		Msg:       "success",
+		Msg:       "common.success",
 		Allowed:   true,
 		Principal: principalResponse(principal),
 	}
@@ -245,7 +245,7 @@ func (s *Server) AuthorizeInternal(ctx context.Context, req *pb.AuthorizeInterna
 
 func principalResponse(principal *securitymodel.Principal) *pb.GetPrincipalResponse {
 	if principal == nil {
-		return &pb.GetPrincipalResponse{Code: errs.ErrBadRequest, Msg: "principal not found"}
+		return &pb.GetPrincipalResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}
 	}
 	scopes := make([]*pb.ScopeAssignment, 0, len(principal.DataScopes))
 	for _, scope := range principal.DataScopes {
@@ -257,7 +257,7 @@ func principalResponse(principal *securitymodel.Principal) *pb.GetPrincipalRespo
 	}
 	return &pb.GetPrincipalResponse{
 		Code:          errs.OK,
-		Msg:           "success",
+		Msg:           "common.success",
 		UserId:        principal.UserID,
 		Username:      principal.Username,
 		AccountType:   principal.AccountType,
@@ -301,38 +301,38 @@ func (s *Server) GetTenant(ctx context.Context, req *pb.GetTenantRequest) (*pb.T
 	tenant, err := s.tenant.Get(ctx, req.TenantId)
 	if err != nil {
 		if errors.Is(err, appservice.ErrTenantInvalid) {
-			return &pb.TenantResponse{Code: errs.ErrBadRequest, Msg: "企业不存在或参数无效"}, nil
+			return &pb.TenantResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		if errors.Is(err, appservice.ErrInvalidCredentials) {
-			return &pb.TenantResponse{Code: errs.ErrForbidden, Msg: "无平台查看权限"}, nil
+			return &pb.TenantResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 		}
 		return nil, err
 	}
-	return &pb.TenantResponse{Code: errs.OK, Msg: "success", Tenant: tenantResponse(tenant)}, nil
+	return &pb.TenantResponse{Code: errs.OK, Msg: "common.success", Tenant: tenantResponse(tenant)}, nil
 }
 
 func (s *Server) CreateTenant(ctx context.Context, req *pb.CreateTenantRequest) (*pb.TenantResponse, error) {
 	tenant, err := s.tenant.Create(ctx, req.Slug, req.Name, req.Timezone, req.Locale)
 	if err != nil {
 		if errors.Is(err, appservice.ErrTenantInvalid) {
-			return &pb.TenantResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+			return &pb.TenantResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		if errors.Is(err, appservice.ErrInvalidCredentials) {
-			return &pb.TenantResponse{Code: errs.ErrForbidden, Msg: "无平台管理权限"}, nil
+			return &pb.TenantResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 		}
 		return nil, err
 	}
-	return &pb.TenantResponse{Code: errs.OK, Msg: "企业创建成功", Tenant: tenantResponse(tenant)}, nil
+	return &pb.TenantResponse{Code: errs.OK, Msg: "common.success", Tenant: tenantResponse(tenant)}, nil
 }
 
 func (s *Server) ListTenants(ctx context.Context, req *pb.ListTenantsRequest) (*pb.ListTenantsResponse, error) {
 	rows, total, err := s.tenant.List(ctx, req.Page, req.PageSize, req.Keyword, req.Status)
 	if err != nil {
 		if errors.Is(err, appservice.ErrTenantInvalid) {
-			return &pb.ListTenantsResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+			return &pb.ListTenantsResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		if errors.Is(err, appservice.ErrInvalidCredentials) {
-			return &pb.ListTenantsResponse{Code: errs.ErrForbidden, Msg: "无平台管理权限"}, nil
+			return &pb.ListTenantsResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 		}
 		return nil, err
 	}
@@ -340,35 +340,35 @@ func (s *Server) ListTenants(ctx context.Context, req *pb.ListTenantsRequest) (*
 	for i := range rows {
 		list[i] = tenantResponse(&rows[i])
 	}
-	return &pb.ListTenantsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+	return &pb.ListTenantsResponse{Code: errs.OK, Msg: "common.success", Total: total, List: list}, nil
 }
 
 func (s *Server) UpdateTenantStatus(ctx context.Context, req *pb.UpdateTenantStatusRequest) (*pb.TenantResponse, error) {
 	tenant, err := s.tenant.UpdateStatus(ctx, req.TenantId, req.Status, req.Reason)
 	if err != nil {
 		if errors.Is(err, appservice.ErrTenantInvalid) {
-			return &pb.TenantResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+			return &pb.TenantResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		if errors.Is(err, appservice.ErrInvalidCredentials) {
-			return &pb.TenantResponse{Code: errs.ErrForbidden, Msg: "无平台管理权限"}, nil
+			return &pb.TenantResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 		}
 		return nil, err
 	}
-	return &pb.TenantResponse{Code: errs.OK, Msg: "企业状态已更新", Tenant: tenantResponse(tenant)}, nil
+	return &pb.TenantResponse{Code: errs.OK, Msg: "common.success", Tenant: tenantResponse(tenant)}, nil
 }
 
 func (s *Server) ListTenantMemberships(ctx context.Context, req *pb.ListTenantMembershipsRequest) (*pb.ListTenantMembershipsResponse, error) {
 	rows, total, err := s.tenant.ListMemberships(ctx, req.TenantId, req.Page, req.PageSize)
 	if err != nil {
 		if errors.Is(err, appservice.ErrTenantInvalid) {
-			return &pb.ListTenantMembershipsResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+			return &pb.ListTenantMembershipsResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		if errors.Is(err, appservice.ErrInvalidCredentials) {
-			return &pb.ListTenantMembershipsResponse{Code: errs.ErrForbidden, Msg: "无平台管理权限"}, nil
+			return &pb.ListTenantMembershipsResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 		}
 		return nil, err
 	}
-	return &pb.ListTenantMembershipsResponse{Code: errs.OK, Msg: "success", Total: total, List: membershipsResponse(rows)}, nil
+	return &pb.ListTenantMembershipsResponse{Code: errs.OK, Msg: "common.success", Total: total, List: membershipsResponse(rows)}, nil
 }
 
 func (s *Server) UpdateTenantMembershipStatus(ctx context.Context, req *pb.UpdateTenantMembershipStatusRequest) (*pb.TenantMembershipResponse, error) {
@@ -376,24 +376,24 @@ func (s *Server) UpdateTenantMembershipStatus(ctx context.Context, req *pb.Updat
 	if err != nil {
 		switch {
 		case errors.Is(err, appservice.ErrTenantInvalid):
-			return &pb.TenantMembershipResponse{Code: errs.ErrBadRequest, Msg: "成员不存在或参数无效"}, nil
+			return &pb.TenantMembershipResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		case errors.Is(err, appservice.ErrLastTenantAdmin):
-			return &pb.TenantMembershipResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+			return &pb.TenantMembershipResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		case errors.Is(err, appservice.ErrInvalidCredentials):
-			return &pb.TenantMembershipResponse{Code: errs.ErrForbidden, Msg: "无平台成员管理权限"}, nil
+			return &pb.TenantMembershipResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 		default:
 			return nil, err
 		}
 	}
 	items := membershipsResponse([]securitymodel.TenantMembership{*membership})
-	return &pb.TenantMembershipResponse{Code: errs.OK, Msg: "成员状态已更新", Membership: items[0]}, nil
+	return &pb.TenantMembershipResponse{Code: errs.OK, Msg: "common.success", Membership: items[0]}, nil
 }
 
 func (s *Server) GetPlatformDashboard(ctx context.Context, _ *pb.GetPlatformDashboardRequest) (*pb.GetPlatformDashboardResponse, error) {
 	dashboard, err := s.tenant.Dashboard(ctx)
 	if err != nil {
 		if errors.Is(err, appservice.ErrInvalidCredentials) {
-			return &pb.GetPlatformDashboardResponse{Code: errs.ErrForbidden, Msg: "无平台总览权限"}, nil
+			return &pb.GetPlatformDashboardResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 		}
 		return nil, err
 	}
@@ -403,7 +403,7 @@ func (s *Server) GetPlatformDashboard(ctx context.Context, _ *pb.GetPlatformDash
 		{Status: "disabled", Count: dashboard.DisabledTenants},
 	}
 	return &pb.GetPlatformDashboardResponse{
-		Code: errs.OK, Msg: "success", TotalTenants: dashboard.TotalTenants,
+		Code: errs.OK, Msg: "common.success", TotalTenants: dashboard.TotalTenants,
 		ActiveTenants: dashboard.ActiveTenants, SuspendedTenants: dashboard.SuspendedTenants,
 		DisabledTenants: dashboard.DisabledTenants, NewTenants_30D: dashboard.NewTenants30D,
 		TotalMemberships: dashboard.TotalMemberships, ActiveMemberships: dashboard.ActiveMemberships,
@@ -414,11 +414,11 @@ func (s *Server) GetPlatformDashboard(ctx context.Context, _ *pb.GetPlatformDash
 func (s *Server) QueryPlatformAuditLogs(ctx context.Context, req *pb.QueryPlatformAuditLogsRequest) (*pb.QueryPlatformAuditLogsResponse, error) {
 	startTime, err := parseOptionalTime(req.StartTime)
 	if err != nil {
-		return &pb.QueryPlatformAuditLogsResponse{Code: errs.ErrBadRequest, Msg: "开始时间格式无效"}, nil
+		return &pb.QueryPlatformAuditLogsResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	endTime, err := parseOptionalTime(req.EndTime)
 	if err != nil {
-		return &pb.QueryPlatformAuditLogsResponse{Code: errs.ErrBadRequest, Msg: "结束时间格式无效"}, nil
+		return &pb.QueryPlatformAuditLogsResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	rows, total, err := s.tenant.QueryAuditLogs(ctx, securitymodel.PlatformAuditFilter{
 		TenantID: req.TenantId, ActorUserID: req.ActorUserId, Action: strings.TrimSpace(req.Action),
@@ -426,10 +426,10 @@ func (s *Server) QueryPlatformAuditLogs(ctx context.Context, req *pb.QueryPlatfo
 	}, req.Page, req.PageSize)
 	if err != nil {
 		if errors.Is(err, appservice.ErrTenantInvalid) {
-			return &pb.QueryPlatformAuditLogsResponse{Code: errs.ErrBadRequest, Msg: "审计查询参数无效"}, nil
+			return &pb.QueryPlatformAuditLogsResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		if errors.Is(err, appservice.ErrInvalidCredentials) {
-			return &pb.QueryPlatformAuditLogsResponse{Code: errs.ErrForbidden, Msg: "无平台审计查看权限"}, nil
+			return &pb.QueryPlatformAuditLogsResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 		}
 		return nil, err
 	}
@@ -443,107 +443,107 @@ func (s *Server) QueryPlatformAuditLogs(ctx context.Context, req *pb.QueryPlatfo
 			ClientIp: row.ClientIP, CreatedAt: businessclock.FormatRFC3339(row.CreatedAt),
 		}
 	}
-	return &pb.QueryPlatformAuditLogsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+	return &pb.QueryPlatformAuditLogsResponse{Code: errs.OK, Msg: "common.success", Total: total, List: list}, nil
 }
 
 func (s *Server) ListPlatformPlans(ctx context.Context, req *pb.ListPlatformPlansRequest) (*pb.ListPlatformPlansResponse, error) {
 	rows, err := s.tenant.ListPlans(ctx, req.Status)
 	if err != nil {
-		return &pb.ListPlatformPlansResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+		return &pb.ListPlatformPlansResponse{Code: platformErrorCode(err), Msg: "common.operation_failed"}, nil
 	}
 	list := make([]*pb.PlatformPlanInfo, len(rows))
 	for i := range rows {
 		list[i] = platformPlanResponse(rows[i])
 	}
-	return &pb.ListPlatformPlansResponse{Code: errs.OK, Msg: "success", List: list}, nil
+	return &pb.ListPlatformPlansResponse{Code: errs.OK, Msg: "common.success", List: list}, nil
 }
 
 func (s *Server) SavePlatformPlanVersion(ctx context.Context, req *pb.SavePlatformPlanVersionRequest) (*pb.PlatformPlanVersionResponse, error) {
 	version, err := s.tenant.SavePlanVersion(ctx, req.PlanId, req.VersionId, req.ChangeNote, entitlementModels(req.Entitlements))
 	if err != nil {
-		return &pb.PlatformPlanVersionResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+		return &pb.PlatformPlanVersionResponse{Code: platformErrorCode(err), Msg: "common.operation_failed"}, nil
 	}
-	return &pb.PlatformPlanVersionResponse{Code: errs.OK, Msg: "套餐草稿已保存", Version: platformPlanVersionResponse(*version)}, nil
+	return &pb.PlatformPlanVersionResponse{Code: errs.OK, Msg: "common.success", Version: platformPlanVersionResponse(*version)}, nil
 }
 
 func (s *Server) PublishPlatformPlanVersion(ctx context.Context, req *pb.PublishPlatformPlanVersionRequest) (*pb.PlatformPlanVersionResponse, error) {
 	effectiveAt, err := businessclock.Parse(req.EffectiveAt)
 	if err != nil {
-		return &pb.PlatformPlanVersionResponse{Code: errs.ErrBadRequest, Msg: "生效时间格式无效"}, nil
+		return &pb.PlatformPlanVersionResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	version, err := s.tenant.PublishPlanVersion(ctx, req.PlanId, req.VersionId, effectiveAt, req.Reason)
 	if err != nil {
-		return &pb.PlatformPlanVersionResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+		return &pb.PlatformPlanVersionResponse{Code: platformErrorCode(err), Msg: "common.operation_failed"}, nil
 	}
-	return &pb.PlatformPlanVersionResponse{Code: errs.OK, Msg: "套餐版本已发布", Version: platformPlanVersionResponse(*version)}, nil
+	return &pb.PlatformPlanVersionResponse{Code: errs.OK, Msg: "common.success", Version: platformPlanVersionResponse(*version)}, nil
 }
 
 func (s *Server) GetTenantSubscription(ctx context.Context, req *pb.GetTenantSubscriptionRequest) (*pb.TenantSubscriptionResponse, error) {
 	subscription, err := s.tenant.GetSubscription(ctx, req.TenantId)
 	if err != nil {
-		return &pb.TenantSubscriptionResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+		return &pb.TenantSubscriptionResponse{Code: platformErrorCode(err), Msg: "common.operation_failed"}, nil
 	}
-	return &pb.TenantSubscriptionResponse{Code: errs.OK, Msg: "success", Subscription: tenantSubscriptionResponse(subscription)}, nil
+	return &pb.TenantSubscriptionResponse{Code: errs.OK, Msg: "common.success", Subscription: tenantSubscriptionResponse(subscription)}, nil
 }
 
 func (s *Server) UpdateTenantSubscription(ctx context.Context, req *pb.UpdateTenantSubscriptionRequest) (*pb.TenantSubscriptionResponse, error) {
 	startsAt, err := businessclock.Parse(req.StartsAt)
 	if err != nil {
-		return &pb.TenantSubscriptionResponse{Code: errs.ErrBadRequest, Msg: "开始时间格式无效"}, nil
+		return &pb.TenantSubscriptionResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	endsAt, err := parseOptionalTime(req.EndsAt)
 	if err != nil {
-		return &pb.TenantSubscriptionResponse{Code: errs.ErrBadRequest, Msg: "结束时间格式无效"}, nil
+		return &pb.TenantSubscriptionResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	subscription, err := s.tenant.UpdateSubscription(ctx, req.TenantId, req.PlanVersionId, startsAt, endsAt, req.Reason)
 	if err != nil {
-		return &pb.TenantSubscriptionResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+		return &pb.TenantSubscriptionResponse{Code: platformErrorCode(err), Msg: "common.operation_failed"}, nil
 	}
-	return &pb.TenantSubscriptionResponse{Code: errs.OK, Msg: "租户订阅已更新", Subscription: tenantSubscriptionResponse(subscription)}, nil
+	return &pb.TenantSubscriptionResponse{Code: errs.OK, Msg: "common.success", Subscription: tenantSubscriptionResponse(subscription)}, nil
 }
 
 func (s *Server) UpdateTenantEntitlementOverride(ctx context.Context, req *pb.UpdateTenantEntitlementOverrideRequest) (*pb.TenantSubscriptionResponse, error) {
 	expiresAt, err := parseOptionalTime(req.ExpiresAt)
 	if err != nil {
-		return &pb.TenantSubscriptionResponse{Code: errs.ErrBadRequest, Msg: "过期时间格式无效"}, nil
+		return &pb.TenantSubscriptionResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	subscription, err := s.tenant.UpdateEntitlementOverride(ctx, req.TenantId, securitymodel.PlatformEntitlement{Key: req.EntitlementKey, ValueType: req.ValueType, ValueJSON: req.ValueJson, EnforcementMode: "hard", Source: "override"}, expiresAt, req.Reason)
 	if err != nil {
-		return &pb.TenantSubscriptionResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+		return &pb.TenantSubscriptionResponse{Code: platformErrorCode(err), Msg: "common.operation_failed"}, nil
 	}
-	return &pb.TenantSubscriptionResponse{Code: errs.OK, Msg: "租户权益覆盖已更新", Subscription: tenantSubscriptionResponse(subscription)}, nil
+	return &pb.TenantSubscriptionResponse{Code: errs.OK, Msg: "common.success", Subscription: tenantSubscriptionResponse(subscription)}, nil
 }
 
 func (s *Server) GetTenantUsage(ctx context.Context, req *pb.GetTenantUsageRequest) (*pb.GetTenantUsageResponse, error) {
 	metrics, err := s.tenant.GetUsage(ctx, req.TenantId)
 	if err != nil {
-		return &pb.GetTenantUsageResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+		return &pb.GetTenantUsageResponse{Code: platformErrorCode(err), Msg: "common.operation_failed"}, nil
 	}
 	items := make([]*pb.TenantUsageMetric, len(metrics))
 	for i, metric := range metrics {
 		items[i] = &pb.TenantUsageMetric{Key: metric.Key, UsageValue: metric.UsageValue, QuotaValue: metric.QuotaValue, UsagePercent: metric.UsagePercent, EnforcementMode: metric.EnforcementMode, MeasuredAt: formatTime(metric.MeasuredAt)}
 	}
-	return &pb.GetTenantUsageResponse{Code: errs.OK, Msg: "success", TenantId: req.TenantId, Metrics: items}, nil
+	return &pb.GetTenantUsageResponse{Code: errs.OK, Msg: "common.success", TenantId: req.TenantId, Metrics: items}, nil
 }
 
 func (s *Server) ListQuotaAlerts(ctx context.Context, req *pb.ListQuotaAlertsRequest) (*pb.ListQuotaAlertsResponse, error) {
 	rows, total, err := s.tenant.ListAlerts(ctx, securitymodel.QuotaAlertFilter{TenantID: req.TenantId, Status: req.Status, MetricKey: req.MetricKey}, req.Page, req.PageSize)
 	if err != nil {
-		return &pb.ListQuotaAlertsResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+		return &pb.ListQuotaAlertsResponse{Code: platformErrorCode(err), Msg: "common.operation_failed"}, nil
 	}
 	list := make([]*pb.QuotaAlertInfo, len(rows))
 	for i := range rows {
 		list[i] = quotaAlertResponse(&rows[i])
 	}
-	return &pb.ListQuotaAlertsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+	return &pb.ListQuotaAlertsResponse{Code: errs.OK, Msg: "common.success", Total: total, List: list}, nil
 }
 
 func (s *Server) UpdateQuotaAlert(ctx context.Context, req *pb.UpdateQuotaAlertRequest) (*pb.QuotaAlertResponse, error) {
 	alert, err := s.tenant.UpdateAlert(ctx, req.AlertId, req.Status, req.AssigneeUserId, req.ResolutionNote)
 	if err != nil {
-		return &pb.QuotaAlertResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+		return &pb.QuotaAlertResponse{Code: platformErrorCode(err), Msg: "common.operation_failed"}, nil
 	}
-	return &pb.QuotaAlertResponse{Code: errs.OK, Msg: "告警状态已更新", Alert: quotaAlertResponse(alert)}, nil
+	return &pb.QuotaAlertResponse{Code: errs.OK, Msg: "common.success", Alert: quotaAlertResponse(alert)}, nil
 }
 
 func platformErrorCode(err error) int32 {
@@ -660,18 +660,18 @@ func (s *Server) UpdateEmail(ctx context.Context, req *pb.UpdateEmailRequest) (*
 	if err != nil {
 		switch {
 		case errors.Is(err, policy.ErrEmailTooLong), errors.Is(err, policy.ErrEmailInvalid), errors.Is(err, appservice.ErrUserNotFound):
-			return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+			return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		default:
 			return nil, err
 		}
 	}
-	return &pb.CommonResponse{Code: errs.OK, Msg: "邮箱更新成功"}, nil
+	return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 }
 
 func (s *Server) ListRoles(ctx context.Context, req *pb.ListRolesRequest) (*pb.ListRolesResponse, error) {
 	roles, err := s.admin.ListRoles(ctx)
 	if err != nil {
-		return &pb.ListRolesResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+		return &pb.ListRolesResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	list := make([]*pb.RoleInfo, len(roles))
 	for i, role := range roles {
@@ -685,13 +685,13 @@ func (s *Server) ListRoles(ctx context.Context, req *pb.ListRolesRequest) (*pb.L
 			UpdatedAt:   businessclock.FormatRFC3339(role.UpdatedAt),
 		}
 	}
-	return &pb.ListRolesResponse{Code: errs.OK, Msg: "success", List: list}, nil
+	return &pb.ListRolesResponse{Code: errs.OK, Msg: "common.success", List: list}, nil
 }
 
 func (s *Server) ListPermissions(ctx context.Context, req *pb.ListPermissionsRequest) (*pb.ListPermissionsResponse, error) {
 	permissions, err := s.admin.ListPermissions(ctx)
 	if err != nil {
-		return &pb.ListPermissionsResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+		return &pb.ListPermissionsResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	list := make([]*pb.PermissionInfo, len(permissions))
 	for i, permission := range permissions {
@@ -703,13 +703,13 @@ func (s *Server) ListPermissions(ctx context.Context, req *pb.ListPermissionsReq
 			Description:   permission.Description,
 		}
 	}
-	return &pb.ListPermissionsResponse{Code: errs.OK, Msg: "success", List: list}, nil
+	return &pb.ListPermissionsResponse{Code: errs.OK, Msg: "common.success", List: list}, nil
 }
 
 func (s *Server) GetUserRoles(ctx context.Context, req *pb.GetUserRolesRequest) (*pb.GetUserRolesResponse, error) {
 	result, err := s.admin.GetUserRoles(ctx, query.GetUserRoles{UserID: req.UserId})
 	if err != nil {
-		return &pb.GetUserRolesResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+		return &pb.GetUserRolesResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	scopes := make([]*pb.DataScopeInfo, 0, len(result.DataScopes))
 	for _, scope := range result.DataScopes {
@@ -721,21 +721,21 @@ func (s *Server) GetUserRoles(ctx context.Context, req *pb.GetUserRolesRequest) 
 			AssignedAt:   businessclock.FormatRFC3339(scope.AssignedAt),
 		})
 	}
-	return &pb.GetUserRolesResponse{Code: errs.OK, Msg: "success", RoleKeys: result.RoleKeys, PermissionKeys: result.PermissionKeys, DataScopes: scopes}, nil
+	return &pb.GetUserRolesResponse{Code: errs.OK, Msg: "common.success", RoleKeys: result.RoleKeys, PermissionKeys: result.PermissionKeys, DataScopes: scopes}, nil
 }
 
 func (s *Server) AssignUserRole(ctx context.Context, req *pb.AssignUserRoleRequest) (*pb.CommonResponse, error) {
 	err := s.admin.AssignUserRole(ctx, command.AssignUserRole{UserID: req.UserId, AdminID: req.AdminId, RoleKey: req.RoleKey})
 	if err != nil {
 		if errors.Is(err, appservice.ErrRoleNotFound) {
-			return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "角色不存在"}, nil
+			return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
 		if errors.Is(err, appservice.ErrPermissionTokenSyncFailed) {
-			return &pb.CommonResponse{Code: errs.ErrInternal, Msg: "权限变更成功但令牌同步失败，请重试"}, nil
+			return &pb.CommonResponse{Code: errs.ErrInternal, Msg: "common.success"}, nil
 		}
 		return nil, err
 	}
-	return &pb.CommonResponse{Code: errs.OK, Msg: "success"}, nil
+	return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 }
 
 func (s *Server) RevokeUserRole(ctx context.Context, req *pb.RevokeUserRoleRequest) (*pb.CommonResponse, error) {
@@ -743,20 +743,20 @@ func (s *Server) RevokeUserRole(ctx context.Context, req *pb.RevokeUserRoleReque
 	if err != nil {
 		switch {
 		case errors.Is(err, appservice.ErrRoleNotFound):
-			return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "角色不存在"}, nil
+			return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		case errors.Is(err, appservice.ErrRoleNotHeld):
-			return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "该用户未持有此角色"}, nil
+			return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		case errors.Is(err, policy.ErrSelfSystemAdminRevoke):
-			return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: policy.ErrSelfSystemAdminRevoke.Error()}, nil
+			return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 		case errors.Is(err, policy.ErrLastSystemAdmin):
-			return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: policy.ErrLastSystemAdmin.Error()}, nil
+			return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 		case errors.Is(err, appservice.ErrPermissionChangeFailed):
-			return &pb.CommonResponse{Code: errs.ErrInternal, Msg: "权限变更失败，请稍后重试"}, nil
+			return &pb.CommonResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 		default:
 			return nil, err
 		}
 	}
-	return &pb.CommonResponse{Code: errs.OK, Msg: "success"}, nil
+	return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 }
 
 func (s *Server) AssignDataScope(ctx context.Context, req *pb.AssignDataScopeRequest) (*pb.CommonResponse, error) {
@@ -769,28 +769,28 @@ func (s *Server) AssignDataScope(ctx context.Context, req *pb.AssignDataScopeReq
 	})
 	if err != nil {
 		if errors.Is(err, appservice.ErrPermissionTokenSyncFailed) {
-			return &pb.CommonResponse{Code: errs.ErrInternal, Msg: "权限变更成功但令牌同步失败，请重试"}, nil
+			return &pb.CommonResponse{Code: errs.ErrInternal, Msg: "common.success"}, nil
 		}
 		return nil, err
 	}
-	return &pb.CommonResponse{Code: errs.OK, Msg: "success"}, nil
+	return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 }
 
 func (s *Server) RevokeDataScope(ctx context.Context, req *pb.RevokeDataScopeRequest) (*pb.CommonResponse, error) {
 	err := s.admin.RevokeDataScope(ctx, command.RevokeDataScope{ScopeID: req.ScopeId, AdminID: req.AdminId})
 	if err != nil {
 		if errors.Is(err, appservice.ErrPermissionTokenSyncFailed) {
-			return &pb.CommonResponse{Code: errs.ErrInternal, Msg: "权限变更成功但令牌同步失败，请重试"}, nil
+			return &pb.CommonResponse{Code: errs.ErrInternal, Msg: "common.success"}, nil
 		}
 		return nil, err
 	}
-	return &pb.CommonResponse{Code: errs.OK, Msg: "success"}, nil
+	return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 }
 
 func (s *Server) ListStaffUsers(ctx context.Context, req *pb.ListStaffUsersRequest) (*pb.ListStaffUsersResponse, error) {
 	result, err := s.admin.ListStaffUsers(ctx, query.ListStaffUsers{Page: req.Page, PageSize: req.PageSize, Status: req.Status})
 	if err != nil {
-		return &pb.ListStaffUsersResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+		return &pb.ListStaffUsersResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	list := make([]*pb.StaffUserInfo, len(result.List))
 	for i, user := range result.List {
@@ -805,7 +805,7 @@ func (s *Server) ListStaffUsers(ctx context.Context, req *pb.ListStaffUsersReque
 			CreatedAt:    user.CreatedAt,
 		}
 	}
-	return &pb.ListStaffUsersResponse{Code: errs.OK, Msg: "success", Total: result.Total, List: list}, nil
+	return &pb.ListStaffUsersResponse{Code: errs.OK, Msg: "common.success", Total: result.Total, List: list}, nil
 }
 
 func (s *Server) CreateStaffUser(ctx context.Context, req *pb.CreateStaffUserRequest) (*pb.CreateStaffUserResponse, error) {
@@ -824,26 +824,26 @@ func (s *Server) CreateStaffUser(ctx context.Context, req *pb.CreateStaffUserReq
 			errors.Is(err, policy.ErrUsernameInvalid),
 			errors.Is(err, policy.ErrUsernameBlank),
 			errors.Is(err, appservice.ErrUsernameExists):
-			return &pb.CreateStaffUserResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+			return &pb.CreateStaffUserResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		case errors.Is(err, appservice.ErrAccountCreateFailed):
-			return &pb.CreateStaffUserResponse{Code: errs.ErrInternal, Msg: "账号创建失败，请稍后重试"}, nil
+			return &pb.CreateStaffUserResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 		default:
 			return nil, err
 		}
 	}
-	return &pb.CreateStaffUserResponse{Code: errs.OK, Msg: "success", UserId: userID}, nil
+	return &pb.CreateStaffUserResponse{Code: errs.OK, Msg: "common.success", UserId: userID}, nil
 }
 
 func (s *Server) ListPlatformUsers(ctx context.Context, req *pb.ListPlatformUsersRequest) (*pb.ListPlatformUsersResponse, error) {
 	rows, total, err := s.admin.ListPlatformAccounts(ctx, req.Page, req.PageSize, req.Status)
 	if err != nil {
-		return &pb.ListPlatformUsersResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+		return &pb.ListPlatformUsersResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	list := make([]*pb.PlatformUserInfo, len(rows))
 	for i := range rows {
 		list[i] = platformUserResponse(&rows[i])
 	}
-	return &pb.ListPlatformUsersResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+	return &pb.ListPlatformUsersResponse{Code: errs.OK, Msg: "common.success", Total: total, List: list}, nil
 }
 
 func (s *Server) CreatePlatformUser(ctx context.Context, req *pb.CreatePlatformUserRequest) (*pb.CreatePlatformUserResponse, error) {
@@ -853,20 +853,20 @@ func (s *Server) CreatePlatformUser(ctx context.Context, req *pb.CreatePlatformU
 		if !errors.Is(err, appservice.ErrUsernameExists) && !errors.Is(err, appservice.ErrAccountCreateFailed) && !errors.Is(err, appservice.ErrRoleNotFound) {
 			code = errs.ErrForbidden
 		}
-		return &pb.CreatePlatformUserResponse{Code: code, Msg: err.Error()}, nil
+		return &pb.CreatePlatformUserResponse{Code: code, Msg: "common.operation_failed"}, nil
 	}
-	return &pb.CreatePlatformUserResponse{Code: errs.OK, Msg: "平台账号已创建", UserId: userID}, nil
+	return &pb.CreatePlatformUserResponse{Code: errs.OK, Msg: "common.success", UserId: userID}, nil
 }
 
 func (s *Server) UpdatePlatformUser(ctx context.Context, req *pb.UpdatePlatformUserRequest) (*pb.PlatformUserResponse, error) {
 	user, err := s.admin.UpdatePlatformAccount(ctx, req.AdminId, req.UserId, req.RoleKey, req.Status, req.Reason)
 	if err != nil {
 		if errors.Is(err, repository.ErrLastAdmin) {
-			return &pb.PlatformUserResponse{Code: errs.ErrBadRequest, Msg: "平台必须至少保留一名有效平台管理员"}, nil
+			return &pb.PlatformUserResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 		}
-		return &pb.PlatformUserResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+		return &pb.PlatformUserResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
-	return &pb.PlatformUserResponse{Code: errs.OK, Msg: "平台账号已更新", User: platformUserResponse(user)}, nil
+	return &pb.PlatformUserResponse{Code: errs.OK, Msg: "common.success", User: platformUserResponse(user)}, nil
 }
 
 func platformUserResponse(user *securitymodel.PlatformAccount) *pb.PlatformUserInfo {
@@ -891,9 +891,9 @@ func (s *Server) QueryAuthAuditLogs(ctx context.Context, req *pb.QueryAuthAuditL
 	})
 	if err != nil {
 		if errors.Is(err, appservice.ErrAuditQueryFailed) {
-			return &pb.QueryAuthAuditLogsResponse{Code: errs.ErrInternal, Msg: "查询安全审计日志失败"}, nil
+			return &pb.QueryAuthAuditLogsResponse{Code: errs.ErrInternal, Msg: "common.operation_failed"}, nil
 		}
-		return &pb.QueryAuthAuditLogsResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+		return &pb.QueryAuthAuditLogsResponse{Code: errs.ErrForbidden, Msg: "common.forbidden"}, nil
 	}
 	list := make([]*pb.AuthAuditLogItem, len(result.List))
 	for i, log := range result.List {
@@ -911,7 +911,7 @@ func (s *Server) QueryAuthAuditLogs(ctx context.Context, req *pb.QueryAuthAuditL
 			CreatedAt:     businessclock.FormatRFC3339(log.CreatedAt),
 		}
 	}
-	return &pb.QueryAuthAuditLogsResponse{Code: errs.OK, Msg: "success", Total: result.Total, List: list}, nil
+	return &pb.QueryAuthAuditLogsResponse{Code: errs.OK, Msg: "common.success", Total: result.Total, List: list}, nil
 }
 
 var (

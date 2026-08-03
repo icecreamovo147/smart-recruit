@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, reactive, ref } from 'vue'
 import { Lock, Moon, Sunny, User } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
@@ -38,7 +39,7 @@ const submit = async () => {
     await auth.signIn(form.username.trim(), form.password)
     if (!auth.isLoggedIn) {
       await auth.signOut()
-      ElMessage.error('当前账号没有平台控制台准入权限')
+      ElMessage.error(t('frontend.operation_failed'))
       return
     }
     const requestedPath = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')

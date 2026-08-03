@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { onMounted, reactive, ref } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -22,13 +23,13 @@ const roles = ['platform_admin', 'platform_operator', 'platform_auditor']
 const load = async () => { loading.value = true; try { const response = await listPlatformUsers(query); rows.value = response.list || []; total.value = Number(response.total) || 0 } finally { loading.value = false } }
 const openCreate = () => { Object.assign(createForm, { username: '', email: '', password: '', role_key: 'platform_operator' }); createVisible.value = true }
 const submitCreate = async () => {
-  if (!createForm.username.trim() || createForm.password.length < 8) { ElMessage.warning('请填写账号并设置至少 8 位密码'); return }
-  await createPlatformUser(createForm); createVisible.value = false; ElMessage.success('平台账号已创建'); await load()
+  if (!createForm.username.trim() || createForm.password.length < 8) { ElMessage.warning(t('common.invalid_request')); return }
+  await createPlatformUser(createForm); createVisible.value = false; ElMessage.success(t('common.success')); await load()
 }
 const openEdit = (row: PlatformAccount) => { selected.value = row; editForm.role_key = row.roles[0] || 'platform_operator'; editForm.status = row.status; editForm.reason = ''; editVisible.value = true }
 const submitEdit = async () => {
-  if (!selected.value || !editForm.reason.trim()) { ElMessage.warning('请填写变更原因'); return }
-  await updatePlatformUser(selected.value.user_id, { ...editForm, reason: editForm.reason.trim() }); editVisible.value = false; ElMessage.success('平台账号已更新'); await load()
+  if (!selected.value || !editForm.reason.trim()) { ElMessage.warning(t('common.invalid_request')); return }
+  await updatePlatformUser(selected.value.user_id, { ...editForm, reason: editForm.reason.trim() }); editVisible.value = false; ElMessage.success(t('common.success')); await load()
 }
 const formatTime = (value?: string) => formatShanghaiDateTime(value)
 onMounted(load)

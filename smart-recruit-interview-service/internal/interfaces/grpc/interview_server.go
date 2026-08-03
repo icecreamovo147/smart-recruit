@@ -14,6 +14,7 @@ import (
 	"smart-recruit-interview-service/internal/domain/repository"
 	"smart-recruit-interview-service/internal/interfaces/mapper"
 	"smart-recruit-platform-go/errs"
+	"smart-recruit-platform-go/i18n"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -46,7 +47,7 @@ func NewServer(interviews interviewUsecase) (*Server, error) {
 func (s *Server) ScheduleInterview(ctx context.Context, req *pb.ScheduleInterviewRequest) (*pb.ScheduleInterviewResponse, error) {
 	scheduledAt, err := mapper.ParseOptionalRFC3339(req.GetScheduledAt())
 	if err != nil {
-		return &pb.ScheduleInterviewResponse{Code: errs.ErrBadRequest, Msg: "面试时间格式错误，请使用 RFC 3339 格式"}, nil
+		return &pb.ScheduleInterviewResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	interviewID, err := s.interviews.ScheduleInterview(ctx, command.ScheduleInterview{
 		HRID:            req.GetHrId(),
@@ -63,19 +64,19 @@ func (s *Server) ScheduleInterview(ctx context.Context, req *pb.ScheduleIntervie
 		ScheduledAt:     scheduledAt,
 	})
 	if err != nil {
-		code, msg, grpcErr := classifyError(err, "面试安排失败", errorMessages{applicationNotFound: "投递记录不存在"})
+		code, _, grpcErr := classifyError(err, "面试安排失败", errorMessages{applicationNotFound: "投递记录不存在"})
 		if grpcErr != nil {
 			return nil, grpcErr
 		}
-		return &pb.ScheduleInterviewResponse{Code: code, Msg: msg}, nil
+		return &pb.ScheduleInterviewResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 	}
-	return &pb.ScheduleInterviewResponse{Code: errs.OK, Msg: "面试安排成功", InterviewId: interviewID}, nil
+	return &pb.ScheduleInterviewResponse{Code: errs.OK, Msg: "common.success", InterviewId: interviewID}, nil
 }
 
 func (s *Server) UpdateInterview(ctx context.Context, req *pb.UpdateInterviewRequest) (*pb.CommonResponse, error) {
 	scheduledAt, err := mapper.ParseOptionalRFC3339(req.GetScheduledAt())
 	if err != nil {
-		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "面试时间格式错误，请使用 RFC 3339 格式"}, nil
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "common.invalid_request"}, nil
 	}
 	return commonResponse(s.interviews.UpdateInterview(ctx, command.UpdateInterview{
 		HRID:            req.GetHrId(),
@@ -106,79 +107,79 @@ func (s *Server) BatchCancelInterviews(ctx context.Context, req *pb.BatchCancelI
 		CancelReason:  req.GetCancelReason(),
 	})
 	if err != nil {
-		code, msg, grpcErr := classifyError(err, "批量取消面试失败", errorMessages{applicationNotFound: "投递记录不存在"})
+		code, _, grpcErr := classifyError(err, "批量取消面试失败", errorMessages{applicationNotFound: "投递记录不存在"})
 		if grpcErr != nil {
 			return nil, grpcErr
 		}
-		return &pb.BatchCancelInterviewsResponse{Code: code, Msg: msg}, nil
+		return &pb.BatchCancelInterviewsResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 	}
 	if affected == 0 {
-		return &pb.BatchCancelInterviewsResponse{Code: errs.OK, Msg: "没有需要取消的面试", Affected: 0}, nil
+		return &pb.BatchCancelInterviewsResponse{Code: errs.OK, Msg: "common.success", Affected: 0}, nil
 	}
-	return &pb.BatchCancelInterviewsResponse{Code: errs.OK, Msg: fmt.Sprintf("已取消 %d 个面试", affected), Affected: affected}, nil
+	return &pb.BatchCancelInterviewsResponse{Code: errs.OK, Msg: "common.success", Affected: affected}, nil
 }
 
 func (s *Server) GetInterview(ctx context.Context, req *pb.GetInterviewRequest) (*pb.GetInterviewResponse, error) {
 	details, err := s.interviews.GetInterview(ctx, query.GetInterview{UserID: req.GetUserId(), InterviewID: req.GetInterviewId()})
 	if err != nil {
-		code, msg, grpcErr := classifyError(err, "查询面试失败", errorMessages{
+		code, _, grpcErr := classifyError(err, "查询面试失败", errorMessages{
 			interviewNotFound: "面试记录不存在",
 			forbidden:         "无权限查看该面试",
 		})
 		if grpcErr != nil {
 			return nil, grpcErr
 		}
-		return &pb.GetInterviewResponse{Code: code, Msg: msg}, nil
+		return &pb.GetInterviewResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 	}
-	return &pb.GetInterviewResponse{Code: errs.OK, Msg: "success", Interview: mapper.ToPBInterview(*details)}, nil
+	return &pb.GetInterviewResponse{Code: errs.OK, Msg: "common.success", Interview: mapper.ToPBInterview(*details)}, nil
 }
 
 func (s *Server) ListInterviewers(ctx context.Context, req *pb.ListInterviewersRequest) (*pb.ListInterviewersResponse, error) {
 	page, err := s.interviews.ListInterviewers(ctx, query.ListInterviewers{HRID: req.GetHrId(), Page: req.GetPage(), PageSize: req.GetPageSize(), Keyword: req.GetKeyword()})
 	if err != nil {
-		code, msg, grpcErr := classifyError(err, "查询面试官失败", errorMessages{})
+		code, _, grpcErr := classifyError(err, "查询面试官失败", errorMessages{})
 		if grpcErr != nil {
 			return nil, grpcErr
 		}
-		return &pb.ListInterviewersResponse{Code: code, Msg: msg}, nil
+		return &pb.ListInterviewersResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 	}
-	return &pb.ListInterviewersResponse{Code: errs.OK, Msg: "success", Total: page.Total, List: mapper.ToPBStaffUsers(page)}, nil
+	return &pb.ListInterviewersResponse{Code: errs.OK, Msg: "common.success", Total: page.Total, List: mapper.ToPBStaffUsers(page)}, nil
 }
 
 func (s *Server) ListApplicationInterviews(ctx context.Context, req *pb.ListApplicationInterviewsRequest) (*pb.ListApplicationInterviewsResponse, error) {
 	rows, err := s.interviews.ListApplicationInterviews(ctx, query.ListApplicationInterviews{HRID: req.GetHrId(), ApplicationID: req.GetApplicationId()})
 	if err != nil {
-		code, msg, grpcErr := classifyError(err, "查询面试失败", errorMessages{})
+		code, _, grpcErr := classifyError(err, "查询面试失败", errorMessages{})
 		if grpcErr != nil {
 			return nil, grpcErr
 		}
-		return &pb.ListApplicationInterviewsResponse{Code: code, Msg: msg}, nil
+		return &pb.ListApplicationInterviewsResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 	}
-	return &pb.ListApplicationInterviewsResponse{Code: errs.OK, Msg: "success", List: mapper.ToPBInterviews(rows)}, nil
+	return &pb.ListApplicationInterviewsResponse{Code: errs.OK, Msg: "common.success", List: mapper.ToPBInterviews(rows)}, nil
 }
 
 func (s *Server) ListMyInterviews(ctx context.Context, req *pb.ListMyInterviewsRequest) (*pb.ListMyInterviewsResponse, error) {
 	rows, err := s.interviews.ListMyInterviews(ctx, query.ListMyInterviews{InterviewerID: req.GetInterviewerId(), Status: model.InterviewStatus(req.GetStatus())})
 	if err != nil {
-		code, msg, grpcErr := classifyError(err, "查询面试列表失败", errorMessages{forbidden: "无权限查看面试列表"})
+		code, _, grpcErr := classifyError(err, "查询面试列表失败", errorMessages{forbidden: "无权限查看面试列表"})
 		if grpcErr != nil {
 			return nil, grpcErr
 		}
-		return &pb.ListMyInterviewsResponse{Code: code, Msg: msg}, nil
+		return &pb.ListMyInterviewsResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 	}
-	return &pb.ListMyInterviewsResponse{Code: errs.OK, Msg: "success", List: mapper.ToPBInterviews(rows)}, nil
+	return &pb.ListMyInterviewsResponse{Code: errs.OK, Msg: "common.success", List: mapper.ToPBInterviews(rows)}, nil
 }
 
 func (s *Server) ListCandidateInterviews(ctx context.Context, req *pb.ListCandidateInterviewsRequest) (*pb.ListCandidateInterviewsResponse, error) {
 	rows, err := s.interviews.ListCandidateInterviews(ctx, query.ListCandidateInterviews{UserID: req.GetUserId()})
 	if err != nil {
-		code, msg, grpcErr := classifyError(err, "查询候选人面试失败", errorMessages{})
+		code, _, grpcErr := classifyError(err, "查询候选人面试失败", errorMessages{})
 		if grpcErr != nil {
 			return nil, grpcErr
 		}
-		return &pb.ListCandidateInterviewsResponse{Code: code, Msg: msg}, nil
+		return &pb.ListCandidateInterviewsResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 	}
-	return &pb.ListCandidateInterviewsResponse{Code: errs.OK, Msg: "success", List: mapper.ToPBInterviews(rows)}, nil
+	return &pb.ListCandidateInterviewsResponse{Code: errs.OK, Msg: "common.success", List: mapper.ToPBInterviews(rows)}, nil
 }
 
 func (s *Server) SubmitFeedback(ctx context.Context, req *pb.SubmitFeedbackRequest) (*pb.CommonResponse, error) {
@@ -196,24 +197,24 @@ func (s *Server) SubmitFeedback(ctx context.Context, req *pb.SubmitFeedbackReque
 func (s *Server) GetFeedback(ctx context.Context, req *pb.GetFeedbackRequest) (*pb.GetFeedbackResponse, error) {
 	feedback, err := s.interviews.GetFeedback(ctx, query.GetFeedback{InterviewerID: req.GetInterviewerId(), InterviewID: req.GetInterviewId()})
 	if err != nil {
-		code, msg, grpcErr := classifyError(err, "查询面试反馈失败", errorMessages{})
+		code, _, grpcErr := classifyError(err, "查询面试反馈失败", errorMessages{})
 		if grpcErr != nil {
 			return nil, grpcErr
 		}
-		return &pb.GetFeedbackResponse{Code: code, Msg: msg}, nil
+		return &pb.GetFeedbackResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 	}
-	return &pb.GetFeedbackResponse{Code: errs.OK, Msg: "success", Feedback: mapper.ToPBFeedback(feedback)}, nil
+	return &pb.GetFeedbackResponse{Code: errs.OK, Msg: "common.success", Feedback: mapper.ToPBFeedback(feedback)}, nil
 }
 
 func commonResponse(err error, successMsg string, fallback string, messages errorMessages) (*pb.CommonResponse, error) {
 	if err == nil {
-		return &pb.CommonResponse{Code: errs.OK, Msg: successMsg}, nil
+		return &pb.CommonResponse{Code: errs.OK, Msg: "common.success"}, nil
 	}
-	code, msg, grpcErr := classifyError(err, fallback, messages)
+	code, _, grpcErr := classifyError(err, fallback, messages)
 	if grpcErr != nil {
 		return nil, grpcErr
 	}
-	return &pb.CommonResponse{Code: code, Msg: msg}, nil
+	return &pb.CommonResponse{Code: code, Msg: i18n.KeyForCode(code)}, nil
 }
 
 type errorMessages struct {

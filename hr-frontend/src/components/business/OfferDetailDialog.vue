@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getOffer, sendOffer, withdrawOffer, listOfferEvents } from '@/api/offer'
@@ -83,7 +84,7 @@ const handleSend = async () => {
     })
     actionLoading.value = true
     await sendOffer(props.offerId)
-    ElMessage.success('Offer已发送')
+    ElMessage.success(t('common.success'))
     emit('success')
     await loadOffer()
   } catch (error: unknown) {
@@ -107,7 +108,7 @@ const handleWithdraw = async () => {
     })
     actionLoading.value = true
     await withdrawOffer(props.offerId, reason)
-    ElMessage.success('Offer已撤回')
+    ElMessage.success(t('common.success'))
     emit('success')
     await loadOffer()
   } catch (error: unknown) {

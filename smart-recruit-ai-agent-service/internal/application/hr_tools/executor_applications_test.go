@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	gogrpc "google.golang.org/grpc"
-
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -21,7 +19,7 @@ type fakeAppListClient struct {
 	errorByJob map[int64]error
 }
 
-func (f *fakeAppListClient) ListJobApplications(_ context.Context, req *pb.ListJobApplicationsRequest, _ ...gogrpc.CallOption) (*pb.ListJobApplicationsResponse, error) {
+func (f *fakeAppListClient) ListJobApplications(_ context.Context, req *pb.ListJobApplicationsRequest) (*pb.ListJobApplicationsResponse, error) {
 	if err := f.errorByJob[req.GetJobId()]; err != nil {
 		return nil, err
 	}
@@ -44,7 +42,7 @@ type boundedAppListClient struct {
 	block       bool
 }
 
-func (f *boundedAppListClient) ListJobApplications(ctx context.Context, req *pb.ListJobApplicationsRequest, _ ...gogrpc.CallOption) (*pb.ListJobApplicationsResponse, error) {
+func (f *boundedAppListClient) ListJobApplications(ctx context.Context, req *pb.ListJobApplicationsRequest) (*pb.ListJobApplicationsResponse, error) {
 	f.mu.Lock()
 	if f.callsByJob == nil {
 		f.callsByJob = map[int64]int{}
@@ -97,7 +95,7 @@ func (f *boundedAppListClient) snapshot() (int, map[int64]int) {
 	return f.maxActive, calls
 }
 
-func (f *fakeSnapshotClient) GetApplicationSnapshot(context.Context, *pb.GetApplicationSnapshotRequest, ...gogrpc.CallOption) (*pb.GetApplicationSnapshotResponse, error) {
+func (f *fakeSnapshotClient) GetApplicationSnapshot(context.Context, *pb.GetApplicationSnapshotRequest) (*pb.GetApplicationSnapshotResponse, error) {
 	if f.resp != nil {
 		return f.resp, nil
 	}

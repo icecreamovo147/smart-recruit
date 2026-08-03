@@ -642,7 +642,7 @@ func (e *CandidateRequirementEvaluator) Evaluate(ctx context.Context, profile Jo
 			results[resultIndex] = matched
 			continue
 		}
-		if !e.policy.FallbacksEnabled() {
+		if IsStrictOutputError(err) || !e.policy.FallbacksEnabled() {
 			observeRuntimeOutcome(e.runtime, ctx, "candidate_requirement_evaluation", AgentTypeCandidateMatchEvaluator, "error", "disabled", started)
 			return results, err
 		}
@@ -675,6 +675,9 @@ func (e *CandidateRequirementEvaluator) evaluateUnresolved(ctx context.Context, 
 	}
 	result, err := decodeMatcherOutput(completion.Content, requirement.ID, index)
 	if err != nil {
+		if completion.StrictContractApplied {
+			return RequirementMatchResult{}, strictDomainError(err)
+		}
 		return RequirementMatchResult{}, err
 	}
 	result.ModelName = completion.ModelName

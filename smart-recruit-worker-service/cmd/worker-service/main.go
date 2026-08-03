@@ -24,6 +24,7 @@ import (
 	"smart-recruit-commons/oss"
 	"smart-recruit-platform-go/businessclock"
 	platformconfig "smart-recruit-platform-go/config"
+	"smart-recruit-platform-go/i18n"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/mysqltime"
 	"smart-recruit-platform-go/nacos"
@@ -39,6 +40,10 @@ import (
 const nacosServiceName = "worker"
 
 func main() {
+	if err := i18n.ConfigureFromEnv(); err != nil {
+		logger.L().Error("log.service.config_failed", zap.String("cause", err.Error()))
+		os.Exit(2)
+	}
 	businessclock.Configure()
 	check := flag.Bool("check", false, "validate Worker service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start Worker runtime")
@@ -47,20 +52,20 @@ func main() {
 
 	if *check {
 		if err := checkRuntime(); err != nil {
-			fmt.Fprintf(os.Stderr, "worker-service check failed: %v\n", err)
+			logger.L().Error("log.service.check_failed", zap.String("service", "worker-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
-		fmt.Fprintln(os.Stdout, "worker-service runtime check passed")
+		logger.L().Info("log.service.check_passed", zap.String("service", "worker-service"))
 		return
 	}
 	if *serve {
 		if err := serveWorker(*healthAddr); err != nil {
-			fmt.Fprintf(os.Stderr, "worker-service failed: %v\n", err)
+			logger.L().Error("log.service.serve_failed", zap.String("service", "worker-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
 		return
 	}
-	fmt.Fprintln(os.Stderr, "worker-service requires --check or --serve")
+	logger.L().Error("log.service.arguments_required", zap.String("service", "worker-service"))
 	os.Exit(2)
 }
 
@@ -209,12 +214,12 @@ func serveWorker(healthAddr string) error {
 	healthServer := &http.Server{Handler: healthMux(runtime)}
 	go func() {
 		if err := healthServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error("worker health server stopped unexpectedly", zap.Error(err))
+			log.Error("log.worker.health_failed", zap.String("cause", err.Error()))
 			cancel()
 		}
 	}()
 
-	log.Info("worker service runtime started",
+	log.Info("log.service.started",
 		zap.String("health_addr", listener.Addr().String()),
 		zap.String("nacos_service", instance.ServiceName),
 		zap.Strings("workloads", runtime.StartedWorkloads()),

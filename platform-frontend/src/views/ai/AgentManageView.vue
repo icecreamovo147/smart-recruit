@@ -14,6 +14,7 @@ export const isCompatibleAgentPrompt = (
 </script>
 
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { onMounted, reactive, ref, computed } from 'vue'
 import { formatShanghaiDateTime } from '@shared/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -333,15 +334,15 @@ const openEdit = async (row: AgentConfigInfo) => {
 
 const save = async () => {
   if (!dialogForm.name) {
-    ElMessage.warning('请输入 Agent 名称')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (!dialogForm.display_name) {
-    ElMessage.warning('请输入显示名称')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (!dialogForm.agent_type) {
-    ElMessage.warning('请选择 Agent 类型')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   saving.value = true
@@ -372,7 +373,7 @@ const save = async () => {
         .filter(Boolean)
       payload.tool_names_set = true
       await updateAgentConfig(editingId.value, payload)
-      ElMessage.success('Agent 配置已更新')
+      ElMessage.success(t('common.success'))
     } else {
       const payload: CreateAgentPayload = {
         name: dialogForm.name,
@@ -394,7 +395,7 @@ const save = async () => {
           .filter(Boolean)
       }
       await createAgentConfig(payload)
-      ElMessage.success('Agent 配置已创建')
+      ElMessage.success(t('common.success'))
     }
     dialogVisible.value = false
     await loadList()
@@ -419,7 +420,7 @@ const handleDelete = async (row: AgentConfigInfo) => {
   }
   try {
     await deleteAgentConfig(row.id)
-    ElMessage.success('Agent 配置已删除')
+    ElMessage.success(t('common.success'))
     await loadList()
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string }).message || '删除失败')

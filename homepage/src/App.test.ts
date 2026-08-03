@@ -36,9 +36,16 @@ describe('homepage', () => {
     const wrapper = mount(App)
 
     expect(wrapper.find('h1').text()).toContain('连接人才与机会')
+    expect(wrapper.find('.brand span').text()).toBe('智联招聘')
+    expect(wrapper.find('.hero-product-name').text()).toBe('智联招聘')
+    expect(wrapper.find('.footer-brand').exists()).toBe(false)
+    expect(document.title).toBe('智联招聘 · 智能招聘平台')
     await wrapper.get('[data-testid="language-toggle"]').trigger('click')
 
     expect(wrapper.find('h1').text()).toContain('Connect talent with opportunity')
+    expect(wrapper.find('.brand span').text()).toBe('Smart Recruit')
+    expect(wrapper.find('.hero-product-name').text()).toBe('Smart Recruit')
+    expect(document.title).toBe('Smart Recruit · Intelligent Recruiting Platform')
     expect(window.localStorage.getItem('smart-recruit-homepage-locale')).toBe('en-US')
     expect(document.documentElement.lang).toBe('en-US')
   })

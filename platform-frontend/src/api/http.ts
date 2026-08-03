@@ -2,6 +2,7 @@ import axios, { type AxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '@/router'
 import { clearPlatformUser } from '@/stores/auth'
+import { localizedBackendMessage } from '@shared/i18n'
 
 const http = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || '', timeout: 30000, withCredentials: true })
 
@@ -24,11 +25,12 @@ http.interceptors.request.use((config) => {
 
 http.interceptors.response.use(
   (response) => {
-    const { code, msg, data } = response.data || {}
+    const { code, msg, data, message_key: messageKey } = response.data || {}
     if (code !== 0) {
       const requestConfig = response.config as typeof response.config & PlatformRequestConfig
-      if (!requestConfig.silentError) ElMessage.error(msg || '操作失败')
-      return Promise.reject(new Error(msg || 'operation failed'))
+      const displayMessage = localizedBackendMessage({ message_key: messageKey, msg })
+      if (!requestConfig.silentError) ElMessage.error(displayMessage)
+      return Promise.reject(new Error(displayMessage))
     }
     return data
   },
@@ -44,7 +46,7 @@ http.interceptors.response.use(
       clearPlatformUser()
       await router.push('/login')
     }
-    const msg = error.response?.data?.msg || '请求失败，请稍后重试'
+    const msg = localizedBackendMessage(error.response?.data, 'common.operation_failed')
     if (!request?.silentError) ElMessage.error(msg)
     return Promise.reject(error)
   },

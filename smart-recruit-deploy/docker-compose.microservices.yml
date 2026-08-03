@@ -9,6 +9,7 @@ x-runtime-env-file: &runtime-env-file
 
 x-service-env: &service-env
   TZ: ${TZ:-Asia/Shanghai}
+  APP_LOCALE: ${APP_LOCALE:-zh-CN}
   CONFIG_PATH: /app/config/config.example.yaml
   MYSQL_DSN: root:${MYSQL_ROOT_PASSWORD:-smart_recruit_local_root}@tcp(mysql:3306)/${MYSQL_DATABASE:-recruitment}?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai&time_zone=%27%2B08%3A00%27
   REDIS_ADDR: redis:6379
@@ -152,6 +153,7 @@ services:
       - "8080:8080"
     environment:
       TZ: ${TZ:-Asia/Shanghai}
+      APP_LOCALE: ${APP_LOCALE:-zh-CN}
       HTTP_PORT: "8080"
       GRPC_ADDR: smart-recruit-identity-service:50061
       REDIS_ADDR: redis:6379

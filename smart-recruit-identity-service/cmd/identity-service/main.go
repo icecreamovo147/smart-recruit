@@ -33,6 +33,7 @@ import (
 	identityruntime "smart-recruit-identity-service/internal/runtime"
 	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/errs"
+	"smart-recruit-platform-go/i18n"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/mysqltime"
 	logicobservability "smart-recruit-platform-go/observability"
@@ -44,6 +45,10 @@ import (
 const nacosServiceName = "identity"
 
 func main() {
+	if err := i18n.ConfigureFromEnv(); err != nil {
+		logger.L().Error("log.service.config_failed", zap.String("cause", err.Error()))
+		os.Exit(2)
+	}
 	businessclock.Configure()
 	check := flag.Bool("check", false, "validate the Identity service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start the Identity gRPC API runtime")
@@ -52,21 +57,21 @@ func main() {
 
 	if *check {
 		if err := checkRuntime(); err != nil {
-			fmt.Fprintf(os.Stderr, "identity-service check failed: %v\n", err)
+			logger.L().Error("log.service.check_failed", zap.String("service", "identity-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
-		fmt.Fprintln(os.Stdout, "identity-service runtime check passed")
+		logger.L().Info("log.service.check_passed", zap.String("service", "identity-service"))
 		return
 	}
 	if *serve {
 		if err := serveIdentity(*addr); err != nil {
-			fmt.Fprintf(os.Stderr, "identity-service failed: %v\n", err)
+			logger.L().Error("log.service.serve_failed", zap.String("service", "identity-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
 		return
 	}
 
-	fmt.Fprintln(os.Stderr, "identity-service requires --check or --serve")
+	logger.L().Error("log.service.arguments_required", zap.String("service", "identity-service"))
 	os.Exit(2)
 }
 
@@ -258,7 +263,7 @@ func serveIdentity(addr string) error {
 		}
 	}()
 
-	log.Info("identity grpc server listening",
+	log.Info("log.service.listening",
 		zap.String("addr", listener.Addr().String()),
 		zap.String("nacos_service", instance.ServiceName),
 		zap.String("env", bootstrap.ServiceEnv),
@@ -279,7 +284,10 @@ func refreshQuotaUsage(ctx context.Context, refresher quotaUsageRefresher, inter
 	}
 	refresh := func() {
 		if err := refresher.RefreshQuotaUsage(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			logger.L().Warn("refresh platform quota usage failed", zap.Error(err))
+			logger.L().Warn("log.service.maintenance_failed",
+				zap.String("operation", "refresh_platform_quota_usage"),
+				zap.String("cause", err.Error()),
+			)
 		}
 	}
 	refresh()

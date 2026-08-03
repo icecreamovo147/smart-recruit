@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { onMounted, reactive, ref, computed } from 'vue'
 import { formatShanghaiDateTime } from '@shared/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -187,11 +188,11 @@ const hasOtherActivePrompt = (row: Pick<PromptTemplate, 'id' | 'agent_type' | 'p
 
 const save = async () => {
   if (!dialogForm.name) {
-    ElMessage.warning('请输入模板名称')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (!dialogForm.content) {
-    ElMessage.warning('请输入 Prompt 内容')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (
@@ -206,7 +207,7 @@ const save = async () => {
     // If the row is already inactive, allow saving other fields without re-checking.
     const current = templateList.value.find((item) => item.id === editingId.value)
     if (current?.is_active) {
-      ElMessage.warning('当前绑定类型下没有其他启用中的提示词，不能禁用最后一条')
+      ElMessage.warning(t('common.invalid_request'))
       return
     }
   }
@@ -224,7 +225,7 @@ const save = async () => {
         change_note: dialogForm.change_note || undefined,
       }
       await updatePromptTemplate(editingId.value, payload)
-      ElMessage.success('Prompt 模板已更新')
+      ElMessage.success(t('common.success'))
     } else {
       const payload: CreatePromptPayload = {
         name: dialogForm.name,
@@ -235,7 +236,7 @@ const save = async () => {
         created_by: currentUserId.value,
       }
       await createPromptTemplate(payload)
-      ElMessage.success('Prompt 模板已创建')
+      ElMessage.success(t('common.success'))
     }
     dialogVisible.value = false
     await loadList()
@@ -260,7 +261,7 @@ const handleDelete = async (row: PromptTemplate) => {
   }
   try {
     await deletePromptTemplate(row.id)
-    ElMessage.success('Prompt 模板已删除')
+    ElMessage.success(t('common.success'))
     await loadList()
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string }).message || '删除失败')
@@ -271,7 +272,7 @@ const handleDelete = async (row: PromptTemplate) => {
 
 const handleToggleActive = async (row: PromptTemplate) => {
   if (row.is_active && !hasOtherActivePrompt(row)) {
-    ElMessage.warning('当前绑定类型下没有其他启用中的提示词，不能禁用最后一条')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   try {
@@ -359,7 +360,7 @@ const handleRollback = async (v: PromptVersion) => {
       updated_by: currentUserId.value,
       change_note: `回滚到版本 ${v.version}`,
     })
-    ElMessage.success('已回滚到历史版本，版本号已自动递增')
+    ElMessage.success(t('common.success'))
     versionDialogVisible.value = false
     await loadList()
   } catch (e: unknown) {

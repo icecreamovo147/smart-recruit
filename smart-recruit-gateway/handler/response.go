@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"smart-recruit-gateway/pkg/logger"
+	"smart-recruit-platform-go/i18n"
 )
 
 type ErrorInfo struct {
@@ -24,14 +25,14 @@ type ErrorInfo struct {
 
 func OK(c *gin.Context, msg string, data any) {
 	if msg == "" {
-		msg = "success"
+		msg = "common.success"
 	}
 	c.JSON(200, envelope(c, 0, msg, data))
 }
 
 func From(c *gin.Context, code int32, msg string, data any) {
 	if msg == "" {
-		msg = "success"
+		msg = "common.success"
 	}
 	c.JSON(200, envelope(c, code, msg, data))
 }
@@ -44,7 +45,7 @@ func ProtoResponse(c *gin.Context, msg proto.Message) {
 	var raw map[string]any
 	_ = json.Unmarshal(jsonBytes, &raw)
 	code := int32(0)
-	respMsg := "success"
+	respMsg := "common.success"
 	if v, ok := raw["code"].(float64); ok {
 		code = int32(v)
 	}
@@ -63,40 +64,40 @@ func BadRequest(c *gin.Context, msg string) {
 
 func Internal(c *gin.Context, err error) {
 	info := PublicError(err)
-	logger.L().Error("internal error",
+	logger.L().Error("log.gateway.internal_error",
 		zap.String("request_id", RequestID(c)),
 		zap.Int32("public_code", info.Code),
-		zap.String("public_msg", info.Msg),
-		zap.Error(err),
+		zap.String("message_key", resolveMessageKey(info.Code, info.Msg)),
+		zap.String("cause", errorText(err)),
 	)
 	c.JSON(200, envelope(c, info.Code, info.Msg, nil))
 }
 
 func PublicError(err error) ErrorInfo {
 	if err == nil {
-		return ErrorInfo{Code: 500, Msg: "服务暂时不可用，请稍后重试"}
+		return ErrorInfo{Code: 500, Msg: "common.unknown_error"}
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
-		return ErrorInfo{Code: 504, Msg: "请求处理超时，请稍后重试"}
+		return ErrorInfo{Code: 504, Msg: "common.timeout"}
 	}
 	if errors.Is(err, context.Canceled) {
-		return ErrorInfo{Code: 499, Msg: "请求已取消，请重新操作"}
+		return ErrorInfo{Code: 499, Msg: "common.canceled"}
 	}
 	// gRPC status codes — preferred classification method.
 	if st, ok := status.FromError(err); ok {
 		switch st.Code() {
 		case codes.DeadlineExceeded:
-			return ErrorInfo{Code: 504, Msg: "服务响应超时，请稍后重试"}
+			return ErrorInfo{Code: 504, Msg: "common.timeout"}
 		case codes.Unavailable:
-			return ErrorInfo{Code: 503, Msg: "后端服务暂不可用，请稍后重试"}
+			return ErrorInfo{Code: 503, Msg: "common.backend_unavailable"}
 		case codes.PermissionDenied:
-			return ErrorInfo{Code: 403, Msg: "当前账号没有权限执行这个操作"}
+			return ErrorInfo{Code: 403, Msg: "common.forbidden"}
 		case codes.Unauthenticated:
-			return ErrorInfo{Code: 401, Msg: "登录状态已失效，请重新登录"}
+			return ErrorInfo{Code: 401, Msg: "common.unauthenticated"}
 		case codes.InvalidArgument:
-			return ErrorInfo{Code: 400, Msg: "请求参数不合法，请检查后重试"}
+			return ErrorInfo{Code: 400, Msg: "common.invalid_request"}
 		case codes.NotFound:
-			return ErrorInfo{Code: 404, Msg: "请求的资源不存在或已失效"}
+			return ErrorInfo{Code: 404, Msg: "common.not_found"}
 		case codes.AlreadyExists:
 			return ErrorInfo{Code: 409, Msg: st.Message()}
 		case codes.FailedPrecondition:
@@ -107,24 +108,24 @@ func PublicError(err error) ErrorInfo {
 				return info
 			}
 			if strings.HasPrefix(msg, "oss:") {
-				return ErrorInfo{Code: 404, Msg: "文件不存在或已失效，请重新上传"}
+				return ErrorInfo{Code: 404, Msg: "common.not_found"}
 			}
-			return ErrorInfo{Code: 500, Msg: "服务暂时不可用，请稍后重试"}
+			return ErrorInfo{Code: 500, Msg: "common.unknown_error"}
 		case codes.ResourceExhausted:
 			msg := st.Message()
 			switch {
 			case strings.Contains(msg, "insufficient_credits"):
-				return ErrorInfo{Code: 40201, Msg: "AI 套餐额度不足，请购买套餐或加量包后重试"}
+				return ErrorInfo{Code: 40201, Msg: "ai.insufficient_credits"}
 			case strings.HasPrefix(msg, "quota:ai_daily:"):
-				return ErrorInfo{Code: 42901, Msg: "今日 AI 使用次数已达上限，请明天再试"}
+				return ErrorInfo{Code: 42901, Msg: "ai.daily_quota_exceeded"}
 			case strings.HasPrefix(msg, "quota:resume_presign:"):
-				return ErrorInfo{Code: 42911, Msg: "简历上传过于频繁，请稍后再试"}
+				return ErrorInfo{Code: 42911, Msg: "common.too_many_requests"}
 			case strings.HasPrefix(msg, "quota:resume_confirm:"):
-				return ErrorInfo{Code: 42912, Msg: "简历上传确认过于频繁，请稍后再试"}
+				return ErrorInfo{Code: 42912, Msg: "common.too_many_requests"}
 			case strings.HasPrefix(msg, "risk:block:"):
-				return ErrorInfo{Code: 42921, Msg: "当前操作过于频繁，请稍后再试"}
+				return ErrorInfo{Code: 42921, Msg: "common.too_many_requests"}
 			default:
-				return ErrorInfo{Code: 429, Msg: "请求过于频繁，请稍后重试"}
+				return ErrorInfo{Code: 429, Msg: "common.too_many_requests"}
 			}
 		}
 	}
@@ -135,15 +136,15 @@ func PublicError(err error) ErrorInfo {
 	}
 	switch {
 	case strings.Contains(text, "deadline exceeded"), strings.Contains(text, "timeout"), strings.Contains(text, "timed out"):
-		return ErrorInfo{Code: 504, Msg: "请求处理超时，请稍后重试"}
+		return ErrorInfo{Code: 504, Msg: "common.timeout"}
 	case strings.Contains(text, "connection refused"), strings.Contains(text, "unavailable"), strings.Contains(text, "connection error"):
-		return ErrorInfo{Code: 503, Msg: "后端服务暂不可用，请稍后重试"}
+		return ErrorInfo{Code: 503, Msg: "common.backend_unavailable"}
 	case strings.Contains(text, "dashscope"), strings.Contains(text, "chat completions"):
-		return ErrorInfo{Code: 502, Msg: "AI 服务暂时不可用，请稍后重试"}
+		return ErrorInfo{Code: 502, Msg: "ai.unavailable"}
 	case strings.Contains(text, "oss:"), strings.Contains(text, "not found"):
-		return ErrorInfo{Code: 404, Msg: "文件不存在或已失效，请重新上传"}
+		return ErrorInfo{Code: 404, Msg: "common.not_found"}
 	default:
-		return ErrorInfo{Code: 500, Msg: "服务暂时不可用，请稍后重试"}
+		return ErrorInfo{Code: 500, Msg: "common.unknown_error"}
 	}
 }
 
@@ -165,35 +166,28 @@ func classifyAIError(msg string) (ErrorInfo, bool) {
 	// Format: "<TYPE>: <user message>"
 	parts := strings.SplitN(rest, ":", 2)
 	aiType := strings.TrimSpace(parts[0])
-	userMsg := ""
-	if len(parts) == 2 {
-		userMsg = strings.TrimSpace(parts[1])
-	}
-	if userMsg == "" {
-		userMsg = "AI 服务暂时不可用，请稍后重试"
-	}
 	switch aiType {
 	case "AI_TIMEOUT":
-		return ErrorInfo{Code: 504, Msg: userMsg}, true
+		return ErrorInfo{Code: 504, Msg: "ai.stream_timeout"}, true
 	case "AI_RATE_LIMITED":
-		return ErrorInfo{Code: 429, Msg: userMsg}, true
+		return ErrorInfo{Code: 429, Msg: "ai.too_many_requests"}, true
 	case "AI_UNAVAILABLE":
-		return ErrorInfo{Code: 503, Msg: userMsg}, true
+		return ErrorInfo{Code: 503, Msg: "ai.unavailable"}, true
 	case "AI_CIRCUIT_OPEN":
-		return ErrorInfo{Code: 503, Msg: userMsg}, true
+		return ErrorInfo{Code: 503, Msg: "ai.unavailable"}, true
 	case "AI_EMPTY_REPLY":
-		return ErrorInfo{Code: 502, Msg: userMsg}, true
+		return ErrorInfo{Code: 502, Msg: "ai.invalid_response"}, true
 	case "AI_TOOL_FAILED":
-		return ErrorInfo{Code: 502, Msg: userMsg}, true
+		return ErrorInfo{Code: 502, Msg: "ai.stream_failed"}, true
 	case "AI_CONTEXT_CANCELED":
-		return ErrorInfo{Code: 499, Msg: userMsg}, true
+		return ErrorInfo{Code: 499, Msg: "common.canceled"}, true
 	case "AI_PARTIAL_REPLY":
-		return ErrorInfo{Code: 502, Msg: userMsg}, true
+		return ErrorInfo{Code: 502, Msg: "ai.stream_failed"}, true
 	case "AI_UNKNOWN":
-		return ErrorInfo{Code: 502, Msg: userMsg}, true
+		return ErrorInfo{Code: 502, Msg: "ai.unavailable"}, true
 	default:
 		// Legacy "ai: <raw>" form: keep generic prompt.
-		return ErrorInfo{Code: 502, Msg: "AI 服务暂时不可用，请稍后重试"}, true
+		return ErrorInfo{Code: 502, Msg: "ai.unavailable"}, true
 	}
 }
 
@@ -207,7 +201,85 @@ func RequestID(c *gin.Context) string {
 }
 
 func envelope(c *gin.Context, code int32, msg string, data any) gin.H {
-	return gin.H{"code": code, "msg": msg, "data": data, "request_id": RequestID(c)}
+	messageKey, message := LocalizedMessage(code, msg)
+	return gin.H{
+		"code":        code,
+		"message_key": messageKey,
+		"msg":         message,
+		"data":        data,
+		"request_id":  RequestID(c),
+	}
+}
+
+// LocalizedMessage resolves an internal key or legacy response text into the
+// stable public message contract. Raw upstream text is never returned.
+func LocalizedMessage(code int32, message string) (string, string) {
+	messageKey := resolveMessageKey(code, message)
+	return messageKey, i18n.T(messageKey)
+}
+
+// LocalizedSystemMessage localizes an optional SSE/Agent system message. An
+// unknown upstream value is replaced with a safe current-language fallback.
+func LocalizedSystemMessage(message string) (string, string) {
+	message = strings.TrimSpace(message)
+	if message == "" {
+		return "", ""
+	}
+	if i18n.Has(message) {
+		return message, i18n.T(message)
+	}
+	if key, ok := i18n.KeyForText(message); ok {
+		return key, i18n.T(key)
+	}
+	return "common.operation_failed", i18n.T("common.operation_failed")
+}
+
+func resolveMessageKey(code int32, message string) string {
+	message = strings.TrimSpace(message)
+	if i18n.Has(message) {
+		return message
+	}
+	if key, ok := i18n.KeyForText(message); ok {
+		return key
+	}
+	if code == 0 || message == "success" || message == "ok" {
+		return "common.success"
+	}
+	switch code {
+	case 400:
+		return "common.invalid_request"
+	case 401:
+		return "common.unauthenticated"
+	case 40201:
+		return "ai.insufficient_credits"
+	case 403, 4030:
+		return "common.forbidden"
+	case 404:
+		return "common.not_found"
+	case 42901:
+		return "ai.daily_quota_exceeded"
+	case 42902:
+		return "ai.too_many_requests"
+	case 429, 42911, 42912, 42921:
+		return "common.too_many_requests"
+	case 499:
+		return "common.canceled"
+	case 502:
+		return "ai.unavailable"
+	case 503:
+		return "common.backend_unavailable"
+	case 504:
+		return "common.timeout"
+	default:
+		return "common.operation_failed"
+	}
+}
+
+func errorText(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 // FlushSSE flushes the response writer for SSE streams and returns false if

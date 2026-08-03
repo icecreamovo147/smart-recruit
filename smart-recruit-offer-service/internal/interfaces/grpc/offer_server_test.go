@@ -54,7 +54,7 @@ func TestGetOfferMapsNotFoundToBadRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetOffer returned grpc error: %v", err)
 	}
-	if resp.Code != errs.ErrBadRequest || resp.Msg != "Offer 不存在" {
+	if resp.Code != errs.ErrBadRequest || resp.Msg != "common.invalid_request" {
 		t.Fatalf("response=%+v, want legacy not found response", resp)
 	}
 }
@@ -65,7 +65,7 @@ func TestGetOfferHidesReadScopeFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetOffer returned grpc error: %v", err)
 	}
-	if resp.Code != errs.ErrForbidden || resp.Msg != "无权限查看该 Offer" {
+	if resp.Code != errs.ErrForbidden || resp.Msg != "common.forbidden" {
 		t.Fatalf("response=%+v, want legacy forbidden response", resp)
 	}
 }
@@ -76,7 +76,7 @@ func TestAcceptOfferMapsCandidateMismatchToForbidden(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AcceptOffer returned grpc error: %v", err)
 	}
-	if resp.Code != errs.ErrForbidden || resp.Msg != "您不是该 Offer 的候选人，无法接受" {
+	if resp.Code != errs.ErrForbidden || resp.Msg != "common.forbidden" {
 		t.Fatalf("response=%+v, want legacy accept mismatch response", resp)
 	}
 }
@@ -87,7 +87,7 @@ func TestRejectOfferMapsCandidateMismatchToForbidden(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RejectOffer returned grpc error: %v", err)
 	}
-	if resp.Code != errs.ErrForbidden || resp.Msg != "您不是该 Offer 的候选人，无法拒绝" {
+	if resp.Code != errs.ErrForbidden || resp.Msg != "common.forbidden" {
 		t.Fatalf("response=%+v, want legacy reject mismatch response", resp)
 	}
 }
@@ -98,7 +98,7 @@ func TestAcceptRejectUseEndpointSpecificNotSentMessages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AcceptOffer returned grpc error: %v", err)
 	}
-	if acceptResp.Code != errs.ErrBadRequest || acceptResp.Msg != "仅可接受已发送状态的 Offer" {
+	if acceptResp.Code != errs.ErrBadRequest || acceptResp.Msg != "common.invalid_request" {
 		t.Fatalf("accept response=%+v, want legacy not-sent response", acceptResp)
 	}
 
@@ -107,7 +107,7 @@ func TestAcceptRejectUseEndpointSpecificNotSentMessages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RejectOffer returned grpc error: %v", err)
 	}
-	if rejectResp.Code != errs.ErrBadRequest || rejectResp.Msg != "仅可拒绝已发送状态的 Offer" {
+	if rejectResp.Code != errs.ErrBadRequest || rejectResp.Msg != "common.invalid_request" {
 		t.Fatalf("reject response=%+v, want legacy not-sent response", rejectResp)
 	}
 }
@@ -118,7 +118,7 @@ func TestSendOfferMapsSendPermissionMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SendOffer returned grpc error: %v", err)
 	}
-	if resp.Code != errs.ErrForbidden || resp.Msg != "无权限发送 Offer" {
+	if resp.Code != errs.ErrForbidden || resp.Msg != "common.forbidden" {
 		t.Fatalf("response=%+v, want legacy send permission response", resp)
 	}
 }
@@ -150,7 +150,7 @@ func TestListOfferEventsHidesReadScopeFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListOfferEvents returned grpc error: %v", err)
 	}
-	if resp.Code != errs.ErrForbidden || resp.Msg != "无权限查看该 Offer 事件" {
+	if resp.Code != errs.ErrForbidden || resp.Msg != "common.forbidden" {
 		t.Fatalf("response=%+v, want legacy event forbidden response", resp)
 	}
 }

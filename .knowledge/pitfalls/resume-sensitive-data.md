@@ -31,7 +31,7 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
   - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/candidate_match_test.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/recruiting_observability_test.go
-  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_persistence_test.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_persistence_test.go
   - smart-recruit-ai-agent-service/internal/infrastructure/provider/doc.go
 last_verified: 2026-07-15
 review_after: 2026-10-14

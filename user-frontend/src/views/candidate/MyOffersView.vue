@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox, ElTag } from 'element-plus'
 import { listMyOffers, acceptOffer, rejectOffer } from '@/api/offer'
@@ -69,7 +70,7 @@ const handleAccept = async (offer: Offer) => {
     )
     actionLoading.value = offer.id
     await acceptOffer(offer.id)
-    ElMessage.success('Offer已接受，等待后续入职流程')
+    ElMessage.success(t('common.success'))
     await loadOffers(true)
   } catch (error: unknown) {
     if (error !== 'cancel') {
@@ -95,7 +96,7 @@ const handleReject = async (offer: Offer) => {
     )
     actionLoading.value = offer.id
     await rejectOffer(offer.id, reason)
-    ElMessage.success('已拒绝Offer')
+    ElMessage.success(t('common.success'))
     await loadOffers(true)
   } catch (error: unknown) {
     if (error !== 'cancel') {

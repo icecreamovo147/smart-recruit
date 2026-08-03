@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Document, Download, UploadFilled, View } from '@element-plus/icons-vue'
@@ -45,7 +46,7 @@ const loadResume = async () => {
 
 const showResumePreview = async () => {
   if (!currentResume.value?.resume_url || !isPDF.value) {
-    ElMessage.warning('简历预览暂不可用')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   previewRefreshing.value = true
@@ -53,7 +54,7 @@ const showResumePreview = async () => {
     // Refresh the signed URL before mounting the preview (presign expiry ~15m).
     await fetchResume()
     if (!currentResume.value?.resume_url) {
-      ElMessage.warning('简历预览暂不可用')
+      ElMessage.warning(t('common.invalid_request'))
       previewRequested.value = false
       return
     }
@@ -72,7 +73,7 @@ const refreshResumePreview = async () => {
   try {
     await fetchResume()
     if (!currentResume.value?.resume_url) {
-      ElMessage.warning('简历预览暂不可用')
+      ElMessage.warning(t('common.invalid_request'))
       previewRequested.value = false
     }
   } finally {
@@ -88,13 +89,13 @@ const pick = (uploadFile: { raw: File; name: string; size: number }) => {
   const raw = uploadFile.raw
   const ext = raw.name.split('.').pop()!.toLowerCase()
   if (!allowed.includes(ext)) {
-    ElMessage.error('仅支持 PDF、DOCX 格式')
+    ElMessage.error(t('frontend.operation_failed'))
     uploadRef.value?.clearFiles()
     file.value = null
     return false
   }
   if (raw.size > 20 * 1024 * 1024) {
-    ElMessage.error('文件大小不能超过 20MB')
+    ElMessage.error(t('frontend.operation_failed'))
     uploadRef.value?.clearFiles()
     file.value = null
     return false
@@ -105,7 +106,7 @@ const pick = (uploadFile: { raw: File; name: string; size: number }) => {
 
 const upload = async () => {
   if (!file.value) {
-    ElMessage.warning('请选择简历文件')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   loading.value = true
@@ -114,7 +115,7 @@ const upload = async () => {
     const presign = await presignResume({ file_name: file.value.name, file_type: ext })
     await putResumeFile(presign.upload_url, file.value)
     const confirm = await confirmResume({ oss_key: presign.oss_key, file_name: file.value.name, file_type: ext, file_size: file.value.size, upload_id: presign.upload_id })
-    ElMessage.success('简历上传成功')
+    ElMessage.success(t('common.success'))
     file.value = null
     uploadRef.value?.clearFiles()
     await loadResume()
@@ -139,7 +140,7 @@ const upload = async () => {
       return
     }
     if (typeof err.code === 'string' && err.code === 'ERR_NETWORK') {
-      ElMessage.error('上传到 OSS 失败，请检查 COS 跨域 CORS 配置')
+      ElMessage.error(t('frontend.operation_failed'))
       return
     }
     // Avoid duplicate error toast — the request interceptor already shows it for BusinessErrors.

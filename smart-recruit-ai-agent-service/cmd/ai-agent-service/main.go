@@ -25,6 +25,7 @@ import (
 
 	appmemory "smart-recruit-ai-agent-service/internal/application/memory"
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
+	embeddingqueue "smart-recruit-ai-agent-service/internal/infrastructure/embeddingqueue"
 	aiagentpersistence "smart-recruit-ai-agent-service/internal/infrastructure/persistence"
 	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
@@ -33,6 +34,7 @@ import (
 	"smart-recruit-commons/pkg/crypto"
 	"smart-recruit-platform-go/businessclock"
 	platformconfig "smart-recruit-platform-go/config"
+	"smart-recruit-platform-go/i18n"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/mysqltime"
 	"smart-recruit-platform-go/nacos"
@@ -52,6 +54,10 @@ var (
 )
 
 func main() {
+	if err := i18n.ConfigureFromEnv(); err != nil {
+		logger.L().Error("log.service.config_failed", zap.String("cause", err.Error()))
+		os.Exit(2)
+	}
 	businessclock.Configure()
 	check := flag.Bool("check", false, "validate AI Agent service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start AI Agent gRPC runtime")
@@ -60,20 +66,20 @@ func main() {
 
 	if *check {
 		if err := checkRuntime(); err != nil {
-			fmt.Fprintf(os.Stderr, "ai-agent-service check failed: %v\n", err)
+			logger.L().Error("log.service.check_failed", zap.String("service", "ai-agent-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
-		fmt.Fprintln(os.Stdout, "ai-agent-service runtime check passed")
+		logger.L().Info("log.service.check_passed", zap.String("service", "ai-agent-service"))
 		return
 	}
 	if *serve {
 		if err := serveAIAgent(*addr); err != nil {
-			fmt.Fprintf(os.Stderr, "ai-agent-service failed: %v\n", err)
+			logger.L().Error("log.service.serve_failed", zap.String("service", "ai-agent-service"), zap.String("cause", err.Error()))
 			os.Exit(1)
 		}
 		return
 	}
-	fmt.Fprintln(os.Stderr, "ai-agent-service requires --check or --serve")
+	logger.L().Error("log.service.arguments_required", zap.String("service", "ai-agent-service"))
 	os.Exit(2)
 }
 
@@ -87,7 +93,7 @@ func checkRuntime() error {
 		AgentSkill:             noopAgentSkillService{},
 		RecruitingIntelligence: noopRecruitingIntelligenceService{},
 		EmbeddingConfig:        noopEmbeddingConfigService{},
-		PlatformAIControlPlane: noopPlatformAIControlPlaneService{},
+		PlatformAIControlPlane: aiagentpersistence.NewPlatformAIControlPlaneServer(nil),
 	})
 	if err != nil {
 		return err
@@ -199,7 +205,7 @@ func serveAIAgent(addr string) error {
 	}
 	cancelCatalogSync()
 	if encKey, encKeyErr := crypto.LoadEncryptionKey(); encKeyErr != nil {
-		log.Warn("ENCRYPTION_KEY not set, provider api key encryption will be unavailable", zap.Error(encKeyErr))
+		log.Warn("log.ai.encryption_unavailable", zap.String("cause", encKeyErr.Error()))
 	} else {
 		nativeStore.SetEncryptionKey(encKey)
 	}
@@ -235,6 +241,8 @@ func serveAIAgent(addr string) error {
 		Billing:          billingClient,
 		BillingRequired:  strings.EqualFold(envOrDefault("AI_BILLING_MODE", "shadow"), "enforce"),
 		AgentRunTimeout:  cfg.AI.TotalTimeout.Duration,
+		SkillPackageV2:   boolSetting(cfg.Agent.Features.SkillPackageV2, false),
+		AgentSkillJudge:  boolSetting(cfg.Agent.Features.AgentSkillJudge, false),
 		Applications:     pb.NewApplicationOwnerServiceClient(recruitmentConn),
 		AppList:          pb.NewApplicationServiceClient(recruitmentConn),
 		Jobs:             pb.NewJobServiceClient(recruitmentConn),
@@ -242,6 +250,7 @@ func serveAIAgent(addr string) error {
 	if err != nil {
 		return err
 	}
+	defer closeAIRuntime(runtime)
 
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -279,12 +288,23 @@ func serveAIAgent(addr string) error {
 	}
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, redisClient, mqConn))
 	outboxCtx, stopOutbox := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	defer stopOutbox()
+	embeddingConsumer := embeddingqueue.NewConsumer(
+		mqConn,
+		embeddingqueue.NewStore(db),
+		embeddingService,
+		embeddingqueue.Options{Logger: log},
+	)
+	if err := embeddingConsumer.Start(outboxCtx); err != nil {
+		_ = listener.Close()
+		return fmt.Errorf("start embedding consumer: %w", err)
+	}
+	mqKeepAliveDone := startMQKeepAlive(outboxCtx, mqConn, cfg.RabbitMQ.ReconnectInterval.Duration)
+	defer stopMQKeepAlive(stopOutbox, mqKeepAliveDone)
 	go nativeStore.RunBillingSettlementOutbox(outboxCtx, billingClient)
 	go runMemoryCleanupLoop(outboxCtx, log, memoryService, memoryCfg)
 	go stopOnSignal(grpcServer)
 
-	log.Info("ai-agent grpc server listening",
+	log.Info("log.service.listening",
 		zap.String("addr", listener.Addr().String()),
 		zap.String("nacos_service", instance.ServiceName),
 		zap.String("env", bootstrap.ServiceEnv),
@@ -293,6 +313,33 @@ func serveAIAgent(addr string) error {
 		return fmt.Errorf("grpc serve: %w", err)
 	}
 	return nil
+}
+
+type mqKeepAliveConnection interface {
+	KeepAlive(context.Context, time.Duration)
+}
+
+func startMQKeepAlive(ctx context.Context, conn mqKeepAliveConnection, reconnectInterval time.Duration) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		conn.KeepAlive(ctx, reconnectInterval)
+	}()
+	return done
+}
+
+func stopMQKeepAlive(stop context.CancelFunc, done <-chan struct{}) {
+	stop()
+	<-done
+}
+
+func closeAIRuntime(runtime *aiagentruntime.Runtime) {
+	if runtime == nil || runtime.AI == nil {
+		return
+	}
+	if closer, ok := runtime.AI.(interface{ Close() error }); ok {
+		_ = closer.Close()
+	}
 }
 
 func recruitingRuntimePolicy(cfg logicconfig.Config) recruitingruntime.RuntimePolicy {
@@ -474,18 +521,18 @@ func runMemoryCleanupLoop(ctx context.Context, log *zap.Logger, memoryService *a
 	runCleanup := func() {
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				log.Warn("memory cleanup panic recovered", zap.Any("panic", recovered))
+				log.Warn("log.ai.memory_cleanup_panic", zap.Any("cause", recovered))
 			}
 		}()
 		cleanupCtx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 		result, err := memoryService.ExpireAndCleanup(cleanupCtx, retention)
 		if err != nil {
-			log.Warn("memory cleanup failed", zap.Error(err))
+			log.Warn("log.ai.memory_cleanup_failed", zap.String("cause", err.Error()))
 			return
 		}
 		if result.ExpiredArchived > 0 || result.RevokedPurged > 0 || result.EmbeddingsInvalidated > 0 {
-			log.Info("memory cleanup completed",
+			log.Info("log.ai.memory_cleanup_completed",
 				zap.Int64("expired_archived", result.ExpiredArchived),
 				zap.Int64("revoked_purged", result.RevokedPurged),
 				zap.Int64("embeddings_invalidated", result.EmbeddingsInvalidated),
@@ -532,7 +579,4 @@ type noopRecruitingIntelligenceService struct {
 }
 type noopEmbeddingConfigService struct {
 	pb.UnimplementedEmbeddingConfigServiceServer
-}
-type noopPlatformAIControlPlaneService struct {
-	pb.UnimplementedPlatformAIControlPlaneServiceServer
 }

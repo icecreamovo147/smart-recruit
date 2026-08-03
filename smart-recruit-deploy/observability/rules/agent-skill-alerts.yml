@@ -1,0 +1,17 @@
+groups:
+  - name: smart-recruit-agent-skill
+    rules:
+      - alert: AgentSkillAutomaticRecallBelowGate
+        expr: increase(smart_recruit_agent_skill_selection_total{selection_mode="auto",result="dropped",reason="below_relevance_gate"}[10m]) > 20
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Agent Skill 自动召回连续低于相关性门槛"
+          description: "检查当前能力发布的 Skill allowlist、Embedding ready 状态、模型切换后的回填以及中文召回词配置。"
+      - alert: AgentSkillAutomaticRecallNoMatch
+        expr: increase(smart_recruit_agent_skill_selection_total{selection_mode="none",result="dropped",reason="below_relevance_gate"}[10m]) > 20
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Agent Skill 自动筛选持续无匹配结果"
+          description: "使用语义召回诊断复现请求，并核查发布版本、相关性分数和 below_relevance_gate 证据。"

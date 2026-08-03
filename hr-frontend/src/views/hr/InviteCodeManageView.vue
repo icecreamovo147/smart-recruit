@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, MoreFilled, Plus, Refresh, Search } from '@element-plus/icons-vue'
@@ -44,7 +45,7 @@ const saveCreate = async () => {
   saving.value = true
   try {
     await createInviteCode(form.expires_at || undefined)
-    ElMessage.success('邀请码已生成')
+    ElMessage.success(t('common.success'))
     dialogVisible.value = false
     await load()
   } finally {
@@ -60,13 +61,13 @@ const openExtend = (row: InviteCodeInfo) => {
 
 const saveExtend = async () => {
   if (!extendForm.new_expires_at) {
-    ElMessage.warning('请选择新的过期时间')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   saving.value = true
   try {
     await extendInviteCode(extendingId.value, toShanghaiRFC3339(extendForm.new_expires_at))
-    ElMessage.success('有效期已延长')
+    ElMessage.success(t('common.success'))
     extendingVisible.value = false
     await load()
   } finally {
@@ -87,7 +88,7 @@ const handleToggleActive = async (row: InviteCodeInfo) => {
     }
     try {
       await revokeInviteCode(row.id)
-      ElMessage.success('邀请码已撤销')
+      ElMessage.success(t('common.success'))
       await load()
     } catch (e: unknown) {
       ElMessage.error((e as { message?: string }).message || '撤销失败')
@@ -95,7 +96,7 @@ const handleToggleActive = async (row: InviteCodeInfo) => {
   } else {
     try {
       await reactivateInviteCode(row.id)
-      ElMessage.success('邀请码已重启')
+      ElMessage.success(t('common.success'))
       await load()
     } catch (e: unknown) {
       ElMessage.error((e as { message?: string }).message || '重启失败')
@@ -118,9 +119,9 @@ const copyLink = async (row: InviteCodeInfo) => {
   const url = `${window.location.origin}/register?invite_code=${row.code}`
   try {
     await navigator.clipboard.writeText(url)
-    ElMessage.success('注册链接已复制到剪贴板')
+    ElMessage.success(t('common.success'))
   } catch {
-    ElMessage.warning('复制失败，请手动复制：' + url)
+    ElMessage.warning(t('common.invalid_request'))
   }
 }
 

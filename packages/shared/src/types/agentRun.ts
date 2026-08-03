@@ -2,6 +2,11 @@
  * Durable HR Agent run types aligned with web-gin gateway JSON
  * (snake_case field names after interceptor unwrap of `data`).
  */
+import type {
+  AgentSkillActivationPolicy,
+  AgentSkillCompositionRole,
+  AgentSkillRiskLevel,
+} from './agentSkill'
 
 export type AgentRunStatus =
   | 'queued'
@@ -102,18 +107,25 @@ export interface AgentRunResultMetadata {
   error_type?: string
   error_message?: string
   raw_json?: string
+  agent_skill_runtime_evidence?: AgentSkillRuntimeEvidence[]
 }
 
 export interface AgentRunSkillCandidate {
-  id?: number
-  name?: string
-  display_name?: string
+  skill_id: number
+  version_id: number
+  version: string
+  compiled_hash: string
+  name: string
+  display_name: string
   reason?: string
   score?: number
   priority?: number
   category?: string
   scenario?: string
-  risk_level?: string
+  composition_role: AgentSkillCompositionRole
+  risk: AgentSkillRiskLevel
+  activation_policy: AgentSkillActivationPolicy
+  core_estimated_tokens: number
   recommended?: boolean
   vector_score?: number
   lexical_score?: number
@@ -126,12 +138,50 @@ export interface AgentRunSkillCandidate {
   ranking_confidence?: string
 }
 
+export interface AgentSkillSectionRuntimeEvidence {
+  section_id: number
+  section_key: string
+  content_hash: string
+  estimated_tokens: number
+  final_rank_score: number
+  included: boolean
+  decision_reason: string
+}
+
+export interface AgentSkillRuntimeEvidence {
+  skill_id: number
+  version_id: number
+  version: string
+  compiled_hash: string
+  skill_name: string
+  display_name: string
+  composition_role: AgentSkillCompositionRole
+  risk: AgentSkillRiskLevel
+  activation_policy: AgentSkillActivationPolicy
+  selection_mode: string
+  relevance_mode: string
+  core_estimated_tokens: number
+  loaded_tokens: number
+  sections: AgentSkillSectionRuntimeEvidence[]
+  included: boolean
+  decision_reason: string
+  vector_score?: number
+  lexical_score?: number
+  metadata_score?: number
+  relevance_score?: number
+  business_boost?: number
+  final_rank_score?: number
+}
+
 export interface AgentRunConfirmation {
   required?: boolean
   reason?: string
   candidates?: AgentRunSkillCandidate[]
-  recommended_agent_skill_ids?: number[]
-  user_message_id?: number
+  agent_skill_confirmation_id?: string
+  recommended_agent_skill_version_ids?: number[]
+  agent_skill_user_message_id?: number
+  agent_skill_confirmation_expires_at?: string
+  /** Opaque MCP confirmation only; it never approves an Agent Skill. */
   raw_json?: string
 }
 
@@ -199,10 +249,8 @@ export interface CreateAgentRunRequest {
   action_payload_json?: string
   application_id?: number
   model_id?: number
-  skill_capability_keys?: string[]
-  agent_skill_ids?: number[]
-  agent_skill_selection_confirmed?: boolean
-  agent_skill_selection_message_id?: number
+  capability_keys?: string[]
+  agent_skill_version_ids?: number[]
 }
 
 export interface CreateAgentRunResponse {
@@ -229,9 +277,10 @@ export interface CancelAgentRunResponse {
 
 export interface ConfirmAgentRunRequest {
   client_request_id?: string
-  agent_skill_ids?: number[]
-  agent_skill_selection_confirmed?: boolean
-  agent_skill_selection_message_id?: number
+  agent_skill_confirmation_id?: string
+  agent_skill_confirmation_decision?: 'approve' | 'reject'
+  selected_agent_skill_version_ids?: number[]
+  /** Opaque MCP confirmation only; independent from Agent Skill confirmation. */
   confirmation_payload_json?: string
 }
 

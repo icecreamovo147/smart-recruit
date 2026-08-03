@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@shared/i18n'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -153,7 +154,7 @@ const loadWorkspace = async () => {
     const data = await getCandidateWorkspace(candidateUserId)
     workspace.value = data.workspace
   } catch (err: any) {
-    ElMessage.error('加载候选人信息失败：' + (err?.message || ''))
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     loading.value = false
   }
@@ -206,10 +207,10 @@ const addNote = async () => {
       content: newNoteContent.value.trim(),
     })
     newNoteContent.value = ''
-    ElMessage.success('备注已添加')
+    ElMessage.success(t('common.success'))
     await loadNotes()
   } catch (err: any) {
-    ElMessage.error('添加备注失败：' + (err?.message || ''))
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     noteLoading.value = false
   }
@@ -218,11 +219,11 @@ const addNote = async () => {
 const addTagByName = async () => {
   const name = tagInput.value.trim()
   if (!name) {
-    ElMessage.warning('请输入或选择标签')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (candidateTags.value.some((tag) => tag.name === name)) {
-    ElMessage.warning('该标签已添加')
+    ElMessage.warning(t('common.invalid_request'))
     tagInput.value = ''
     return
   }
@@ -236,7 +237,7 @@ const addTagByName = async () => {
       await loadAllTags()
     }
     if (!tagId) {
-      ElMessage.error('标签创建失败，请稍后重试')
+      ElMessage.error(t('frontend.operation_failed'))
       return
     }
     await assignTag({ tag_id: tagId, candidate_user_id: candidateUserId })
@@ -244,7 +245,7 @@ const addTagByName = async () => {
     ElMessage.success(existing ? '标签已添加' : '标签已创建并添加')
     await loadWorkspace()
   } catch (err: any) {
-    ElMessage.error('添加标签失败：' + (err?.message || ''))
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     tagLoading.value = false
   }
@@ -253,10 +254,10 @@ const addTagByName = async () => {
 const removeTagFromCandidate = async (tagId: number) => {
   try {
     await unassignTag({ tag_id: tagId, candidate_user_id: candidateUserId })
-    ElMessage.success('标签已移除')
+    ElMessage.success(t('common.success'))
     await loadWorkspace()
   } catch (err: any) {
-    ElMessage.error('移除标签失败：' + (err?.message || ''))
+    ElMessage.error(t('frontend.operation_failed'))
   }
 }
 
@@ -274,7 +275,7 @@ const handleAssigneeSelect = (user: StaffUserInfo) => {
 const openResume = () => {
   const url = workspace.value?.resume_url?.trim()
   if (!url) {
-    ElMessage.warning('简历链接暂不可用')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   window.open(url, '_blank', 'noopener')
@@ -282,7 +283,7 @@ const openResume = () => {
 
 const openApplicationIntelligence = (app = currentApplication.value) => {
   if (!app?.application_id) {
-    ElMessage.warning('暂无可评估的投递记录')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   router.push({
@@ -297,11 +298,11 @@ const openApplicationIntelligence = (app = currentApplication.value) => {
 
 const submitTask = async () => {
   if (!newTask.value.title.trim()) {
-    ElMessage.warning('请输入任务标题')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   if (!newTask.value.assignee_user_id) {
-    ElMessage.warning('请选择负责人')
+    ElMessage.warning(t('common.invalid_request'))
     return
   }
   taskLoading.value = true
@@ -313,11 +314,11 @@ const submitTask = async () => {
       assignee_user_id: newTask.value.assignee_user_id,
       due_at: newTask.value.due_at || undefined,
     })
-    ElMessage.success('任务已创建')
+    ElMessage.success(t('common.success'))
     taskDialogVisible.value = false
     await loadTasks()
   } catch (err: any) {
-    ElMessage.error('创建任务失败：' + (err?.message || ''))
+    ElMessage.error(t('frontend.operation_failed'))
   } finally {
     taskLoading.value = false
   }
@@ -326,10 +327,10 @@ const submitTask = async () => {
 const completeTask = async (taskId: number) => {
   try {
     await completeFollowUpTask(taskId)
-    ElMessage.success('任务已完成')
+    ElMessage.success(t('common.success'))
     await loadTasks()
   } catch (err: any) {
-    ElMessage.error('完成任务失败：' + (err?.message || ''))
+    ElMessage.error(t('frontend.operation_failed'))
   }
 }
 

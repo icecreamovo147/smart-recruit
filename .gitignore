@@ -28,11 +28,15 @@ bin/
 .ai-guides/*
 !.ai-guides/README.md
 .codex/
+.cursor/
+.pi/
+.pi-subagents/
 .codegraph/
 .code-review-sdd/
 .security-review/
 .knowledge-review/
 .reasonix/
+.qoder/settings.local.json
 
 # OS/editor noise.
 .DS_Store
@@ -52,3 +56,12 @@ docs/agent-harness/*
 !docs/agent-harness/00-HARNESS.md
 docs/superpowers/
 tools/
+
+# Homepage design exploration artifacts; keep only the durable design contract.
+homepage/.impeccable/questions/
+homepage/.impeccable/sketches/
+homepage/.impeccable/quality-bar/
+homepage/.impeccable/mocks/
+homepage/.impeccable/direction-options.json
+homepage/.impeccable/direction-payload.json
+homepage/.impeccable/codex-handoff.md
