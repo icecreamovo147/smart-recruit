@@ -44,6 +44,23 @@ const prefersReducedMotion = ref(false)
 let copiedTimer: number | undefined
 let revealObserver: IntersectionObserver | undefined
 
+const revealElement = (element: Element) => {
+	element.classList.remove('is-reveal-pending')
+	element.classList.add('is-visible')
+	revealObserver?.unobserve(element)
+}
+
+const isElementInRevealViewport = (element: Element) => {
+	const rect = element.getBoundingClientRect()
+	return rect.bottom > 0 && rect.top < window.innerHeight * 0.94
+}
+
+const revealVisibleElements = () => {
+	for (const element of document.querySelectorAll('.reveal.is-reveal-pending')) {
+		if (isElementInRevealViewport(element)) revealElement(element)
+	}
+}
+
 const t = computed(() => content[locale.value])
 const isDark = computed(() => theme.value === 'dark')
 const brandLogo = computed(() => (isDark.value ? logoDark : logoLight))
@@ -99,21 +116,27 @@ const handleEscape = (event: KeyboardEvent) => {
 const observeReveals = () => {
 	const targets = document.querySelectorAll('.reveal')
 	if (prefersReducedMotion.value || !('IntersectionObserver' in window)) {
-		for (const element of targets) element.classList.add('is-visible')
+		for (const element of targets) revealElement(element)
 		return
 	}
 	revealObserver = new IntersectionObserver(
 		(entries) => {
 			for (const entry of entries) {
-				if (entry.isIntersecting) {
-					entry.target.classList.add('is-visible')
-					revealObserver?.unobserve(entry.target)
-				}
+				if (entry.isIntersecting) revealElement(entry.target)
 			}
 		},
 		{ threshold: 0.12, rootMargin: '0px 0px -6% 0px' },
 	)
-	for (const element of targets) revealObserver.observe(element)
+	for (const element of targets) {
+		if (isElementInRevealViewport(element)) {
+			revealElement(element)
+			continue
+		}
+		element.classList.add('is-reveal-pending')
+		revealObserver.observe(element)
+	}
+	window.addEventListener('scroll', revealVisibleElements, { passive: true })
+	window.addEventListener('resize', revealVisibleElements)
 }
 
 onMounted(async () => {
@@ -127,6 +150,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
 	window.removeEventListener('keydown', handleEscape)
+	window.removeEventListener('scroll', revealVisibleElements)
+	window.removeEventListener('resize', revealVisibleElements)
 	revealObserver?.disconnect()
 	if (copiedTimer) window.clearTimeout(copiedTimer)
 })

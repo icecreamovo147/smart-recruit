@@ -30,6 +30,7 @@ describe('homepage', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
   it('defaults to Chinese and persists an English selection', async () => {
@@ -74,5 +75,38 @@ describe('homepage', () => {
 
     await wrapper.get('[data-testid="copy-command"]').trigger('click')
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('./start-dev.sh'))
+  })
+
+  it('reveals pending panels when a viewport change makes them visible', async () => {
+    class IntersectionObserverMock {
+      observe = vi.fn()
+      unobserve = vi.fn()
+      disconnect = vi.fn()
+    }
+    vi.stubGlobal('IntersectionObserver', IntersectionObserverMock)
+
+    const wrapper = mount(App, { attachTo: document.body })
+    const evidenceFold = wrapper.get('.evidence-fold')
+
+    await vi.waitFor(() => {
+      expect(evidenceFold.classes()).toContain('is-reveal-pending')
+    })
+
+    vi.spyOn(evidenceFold.element, 'getBoundingClientRect').mockReturnValue({
+      bottom: 600,
+      height: 480,
+      left: 0,
+      right: 700,
+      top: 120,
+      width: 700,
+      x: 0,
+      y: 120,
+      toJSON: () => ({}),
+    })
+    window.dispatchEvent(new Event('resize'))
+
+    expect(evidenceFold.classes()).toContain('is-visible')
+    expect(evidenceFold.classes()).not.toContain('is-reveal-pending')
+    wrapper.unmount()
   })
 })
