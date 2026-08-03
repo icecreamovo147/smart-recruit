@@ -114,7 +114,7 @@ export const content: Record<Locale, LocalizedContent> = {
       eyebrow: 'AI AGENT',
       title: '与招聘场景深度融合的 AI Agent',
       body:
-        'Smart Recruit 将检索、评估与上下文记忆嵌入真实招聘流程，让 AI 从通用问答走向可追踪、可解释、可治理的招聘协作。',
+        '智联招聘将检索、评估与上下文记忆嵌入真实招聘流程，让 AI 从通用问答走向可追踪、可解释、可治理的招聘协作。',
       bullets: [
         '多 Agent 协同，覆盖候选人研究、职位理解与面试辅助',
         '结合组织知识和招聘数据，提供有依据的智能建议',

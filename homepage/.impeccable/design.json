@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-03T15:58:00+08:00",
+  "title": "Design System: Smart Recruit Homepage",
+  "extensions": {
+    "colorMeta": {
+      "paper": { "role": "neutral", "displayName": "Matte Paper", "canonical": "#f5f4ef", "tonalRamp": ["#242521", "#44453f", "#666760", "#898a82", "#adaea7", "#d0d0ca", "#e7e6e1", "#f5f4ef"] },
+      "ink": { "role": "neutral", "displayName": "Botanical Ink", "canonical": "#17231d", "tonalRamp": ["#111a16", "#17231d", "#334239", "#526059", "#78847e", "#a9b2ad", "#d3d9d5", "#edf1ee"] },
+      "institutional-green": { "role": "primary", "displayName": "Institutional Green", "canonical": "#175b42", "tonalRamp": ["#082318", "#0f4934", "#175b42", "#28795a", "#4b9977", "#76b99a", "#b0dbc6", "#e6f4ec"] },
+      "deployment-gold": { "role": "secondary", "displayName": "Deployment Gold", "canonical": "#c8a24d", "tonalRamp": ["#2e2109", "#604716", "#8a6822", "#aa812d", "#c8a24d", "#d9bd7a", "#ead9ae", "#f8f0dc"] },
+      "crease-blue": { "role": "tertiary", "displayName": "Crease Blue", "canonical": "#bdd0d7", "tonalRamp": ["#15282f", "#2c4852", "#496975", "#688b97", "#8cabb5", "#bdd0d7", "#dce6e9", "#f1f6f7"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Engineered Display", "purpose": "Product name and singular system statements." },
+      "headline": { "displayName": "System Headline", "purpose": "Section framing and major transitions." },
+      "body": { "displayName": "Bilingual Body", "purpose": "Readable English and Chinese product explanations." },
+      "label": { "displayName": "Technical Label", "purpose": "Indices, fold labels, code, and architecture annotations." }
+    },
+    "shadows": [
+      { "name": "paper-lift", "value": "0 22px 55px rgba(35, 45, 39, 0.14)", "purpose": "Ambient lift beneath physical sheet assemblies and the code panel." },
+      { "name": "foil-lift", "value": "0 12px 28px rgba(145, 105, 29, 0.2)", "purpose": "Warm tactile lift beneath gold deployment actions." }
+    ],
+    "motion": [
+      { "name": "state", "value": "160ms ease", "purpose": "Color, focus, and compact interaction feedback." },
+      { "name": "deploy-sheet", "value": "900ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "One-time hero sheet deployment." },
+      { "name": "fold-reveal", "value": "700ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Horizontal clip reveal reserved for structural fold assemblies." }
+    ],
+    "breakpoints": [
+      { "name": "wide", "value": "1080px" },
+      { "name": "navigation-collapse", "value": "860px" },
+      { "name": "mobile", "value": "560px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Gold Fold Action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary deployment action with restrained foil material and a directional cut.",
+      "html": "<button class=\"ds-button-primary\">VIEW ON GITHUB <span aria-hidden=\"true\">→</span></button>",
+      "css": ".ds-button-primary{min-height:50px;padding:0 24px;border:1px solid #aa812d;background:#c8a24d;color:#151a16;font:700 13px Helvetica,Arial,sans-serif;clip-path:polygon(0 0,calc(100% - 18px) 0,100% 50%,calc(100% - 18px) 100%,0 100%);transition:transform 160ms ease,background 160ms ease}.ds-button-primary:hover{background:#aa812d;transform:translateY(-2px)}.ds-button-primary:focus-visible{outline:2px solid #c8a24d;outline-offset:4px}.ds-button-primary:active{transform:scale(.98)}"
+    },
+    {
+      "name": "Outline Fold Action",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary system-navigation action with the same directional geometry.",
+      "html": "<button class=\"ds-button-secondary\">EXPLORE ARCHITECTURE <span aria-hidden=\"true\">→</span></button>",
+      "css": ".ds-button-secondary{min-height:50px;padding:0 24px;border:1px solid #175b42;background:transparent;color:#175b42;font:700 13px Helvetica,Arial,sans-serif;clip-path:polygon(0 0,calc(100% - 18px) 0,100% 50%,calc(100% - 18px) 100%,0 100%);transition:background 160ms ease}.ds-button-secondary:hover{background:#dfe9e2}.ds-button-secondary:focus-visible{outline:2px solid #c8a24d;outline-offset:4px}"
+    },
+    {
+      "name": "Capability Row",
+      "kind": "card",
+      "description": "A flat ruled role statement that assembles into the product system.",
+      "html": "<article class=\"ds-capability\"><span class=\"ds-index\">01</span><div><strong>Talent teams</strong><p>Run the hiring journey with connected operational context.</p></div><span aria-hidden=\"true\">→</span></article>",
+      "css": ".ds-capability{display:grid;grid-template-columns:82px 1fr auto;align-items:center;gap:24px;min-height:150px;padding:24px 12px 24px 20px;border-top:1px solid #cfd2cc;border-bottom:1px solid #cfd2cc;background:#f5f4ef;color:#17231d}.ds-index{font:400 38px/1 'Chakra Petch',sans-serif}.ds-capability strong{font:600 22px Helvetica,Arial,sans-serif}.ds-capability p{margin:10px 0 0;color:#526059;font:400 14px/1.7 Helvetica,Arial,sans-serif}.ds-capability:hover{background:#fbfaf6}"
+    },
+    {
+      "name": "Architecture Fold Cell",
+      "kind": "custom",
+      "description": "Modular stack evidence expressed as an overlapping paper facet.",
+      "html": "<div class=\"ds-stack-cell\"><span>03 / CONTRACT</span><strong>gRPC</strong><small>Typed service boundaries</small></div>",
+      "css": ".ds-stack-cell{display:grid;min-height:178px;align-content:space-between;padding:24px;border:1px solid #cfd2cc;background:#fbfaf6;color:#17231d;clip-path:polygon(7% 0,100% 0,93% 100%,0 100%);transition:background 180ms ease,color 180ms ease,transform 180ms ease}.ds-stack-cell span{color:#aa812d;font:400 9px/1.4 'JetBrains Mono',monospace;letter-spacing:.08em}.ds-stack-cell strong{font:600 29px 'Chakra Petch',sans-serif}.ds-stack-cell small{color:#526059;font:400 12px/1.5 Helvetica,Arial,sans-serif}.ds-stack-cell:hover{background:#0f4934;color:#f2f5f3;transform:translateY(-6px)}"
+    },
+    {
+      "name": "Quick Start Panel",
+      "kind": "custom",
+      "refersTo": "code-panel",
+      "description": "A clipped carbon deployment panel for factual repository commands.",
+      "html": "<div class=\"ds-code\"><div class=\"ds-code-bar\">QUICK START <button>COPY</button></div><pre>git clone smart-recruit.git\n./start-dev.sh</pre></div>",
+      "css": ".ds-code{overflow:hidden;background:#111713;color:#e7ece8;clip-path:polygon(0 0,calc(100% - 28px) 0,100% 28px,100% 100%,28px 100%,0 calc(100% - 28px));box-shadow:0 22px 55px rgba(35,45,39,.14)}.ds-code-bar{display:flex;min-height:48px;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #2a3830;color:#94a69c;font:400 10px 'JetBrains Mono',monospace}.ds-code button{border:0;background:transparent;color:#d8bd70;font:inherit}.ds-code button:focus-visible{outline:2px solid #c8a24d;outline-offset:4px}.ds-code pre{margin:0;padding:26px 28px 32px;font:400 12px/1.95 'JetBrains Mono',monospace}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Deployable Hiring System",
+    "overview": "Smart Recruit feels like a precisely engineered system unfolding from a compact deployment packet. Miura-fold geometry makes recruiting workflow, governed AI, and open architecture read as connected layers rather than isolated feature cards. Matte paper keeps the world calm and credible; institutional green carries trust, crease blue explains construction, and gold marks the moment of deployment.",
+    "keyCharacteristics": [
+      "Engineered fold geometry instead of rounded SaaS containers.",
+      "One dominant physical system object, supported by semantic diagrams and real copy.",
+      "Quiet matte surfaces with rare, tactile gold actions.",
+      "Angular display type paired with neutral bilingual body text and precise mono labels.",
+      "Light and dark themes retain the same material hierarchy."
+    ],
+    "rules": [
+      { "name": "The Scarce Foil Rule", "body": "Gold is an action material, not a page wash; keep it rare enough that a gold control always signals consequence.", "section": "colors" },
+      { "name": "The Three-Voice Rule", "body": "Chakra Petch names the system, the neutral sans explains it, and JetBrains Mono annotates it; do not swap their roles casually.", "section": "typography" },
+      { "name": "The Connected-Preview Rule", "body": "A major surface should visibly lead into the next system layer; avoid terminating a viewport with an isolated decorative band.", "section": "layout" },
+      { "name": "The Physical-Cause Rule", "body": "A shadow must correspond to a sheet, packet, or interactive surface that could physically lift; flat content rows stay flat.", "section": "elevation" },
+      { "name": "The Fold-Not-Decoration Rule", "body": "A diagonal edge must explain direction, layering, or deployment; never scatter unrelated polygons as ornament.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do show talent workflow, governed AI, and open architecture as one connected system.",
+      "Do use gold foil for high-intent deployment actions and visible focus treatment.",
+      "Do keep bilingual body copy in the neutral sans and technical labels in JetBrains Mono.",
+      "Do preserve sharp, legible fold imagery and all three system labels on mobile.",
+      "Do honor reduced motion by removing deployment and clip transitions."
+    ],
+    "donts": [
+      "Don't replace fold assemblies with generic rounded cards, pills, or dashboard chrome.",
+      "Don't invent metrics, customers, UI screenshots, or AI claims that the product cannot substantiate.",
+      "Don't apply repeated fade-and-rise reveals across ordinary sections.",
+      "Don't use gold, crease blue, or polygon cuts as free-floating decoration.",
+      "Don't hide developer evidence or talent-team workflows to simplify the page for one audience."
+    ]
+  }
+}
